@@ -12,7 +12,8 @@ use crate::client_setup_state::{
     load_setup_state,
 };
 use crate::managed_files::{
-    parse_json_object, remove_shell_block, upsert_managed_block, write_file_if_changed,
+    find_managed_block_range, parse_json_object, remove_shell_block, upsert_managed_block,
+    write_file_if_changed,
 };
 
 pub(crate) fn configure_shell_block(
@@ -47,10 +48,7 @@ pub(crate) fn shell_block_contains_in_files(
         }
         let content = std::fs::read_to_string(&file)
             .with_context(|| format!("reading {}", file.display()))?;
-        let start = format!("# >>> headroom:{block_id} >>>");
-        let end = format!("# <<< headroom:{block_id} <<<");
-
-        if let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) {
+        if let Some((start_idx, end_idx)) = find_managed_block_range(&content, block_id) {
             let block = &content[start_idx..end_idx];
             let expected_line = format!("export {var_name}={expected_value}");
             if block.contains(&expected_line) {
@@ -74,10 +72,7 @@ pub(crate) fn shell_block_contains_text_in_files(
 
         let content = std::fs::read_to_string(&file)
             .with_context(|| format!("reading {}", file.display()))?;
-        let start = format!("# >>> headroom:{block_id} >>>");
-        let end = format!("# <<< headroom:{block_id} <<<");
-
-        if let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) {
+        if let Some((start_idx, end_idx)) = find_managed_block_range(&content, block_id) {
             if content[start_idx..end_idx].contains(expected_text) {
                 return Ok(true);
             }
@@ -152,9 +147,7 @@ pub(crate) fn managed_block_contains_text(
     }
     let content = std::fs::read_to_string(file_path)
         .with_context(|| format!("reading {}", file_path.display()))?;
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
-    let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) else {
+    let Some((start_idx, end_idx)) = find_managed_block_range(&content, block_id) else {
         return Ok(false);
     };
     Ok(content[start_idx..end_idx].contains(expected_text))

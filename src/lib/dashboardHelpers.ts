@@ -1,4 +1,8 @@
 import {
+  switchboardDryRunBackupPath,
+  switchboardManagedMarkerId,
+} from "./switchboardIdentity";
+import {
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorSafetyDossier,
@@ -851,9 +855,9 @@ export function formatConnectorConfigDryRunPreview(
     report?.configSurface ??
     connector.configLocations?.find((location) => location.trim().length > 0) ??
     "not detected yet";
-  const markerId = `mac-ai-switchboard:${connector.clientId}`;
+  const markerId = switchboardManagedMarkerId(connector.clientId);
   const backupPath =
-    target === "not detected yet" ? "blocked until target is detected" : `${target}.mac-ai-switchboard.bak`;
+    target === "not detected yet" ? "blocked until target is detected" : switchboardDryRunBackupPath(target);
   const gates = report?.configCreationGates.length
     ? report.configCreationGates.map((gate) => gate.label).join(" -> ")
     : "Detect config surface -> Show dry-run diff -> Create backup -> Apply with consent -> Verify in Doctor -> Rollback safely -> Clean up in Off mode";

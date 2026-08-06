@@ -777,8 +777,8 @@ describe("dashboard helpers", () => {
       [
         "## Dry-run diff preview",
         "- Target: /Users/test/.gemini",
-        "- Marker: mac-ai-switchboard:gemini_cli",
-        "- Backup: /Users/test/.gemini.mac-ai-switchboard.bak",
+        "- Marker: ai-switchboard:gemini_cli",
+        "- Backup: /Users/test/.gemini.ai-switchboard.bak",
         "- Current managed block: none detected",
         "- Proposed managed block: AI Switchboard provider routing for Gemini CLI",
         "- Apply blocked: detection, dry-run diff, backup, verify, rollback, and Off cleanup evidence are incomplete",
@@ -801,8 +801,8 @@ describe("dashboard helpers", () => {
         ],
         configDryRunPreview: {
           target: "/Users/test/.gemini",
-          marker: "mac-ai-switchboard:gemini_cli",
-          backupPath: "/Users/test/.gemini.mac-ai-switchboard.bak",
+          marker: "ai-switchboard:gemini_cli",
+          backupPath: "/Users/test/.gemini.ai-switchboard.bak",
           currentState: "No Switchboard-managed Gemini provider routing detected.",
           proposedState:
             "Add AI Switchboard local provider routing for Gemini CLI after explicit consent.",
@@ -821,8 +821,8 @@ describe("dashboard helpers", () => {
       [
         "## Dry-run diff preview",
         "- Target: /Users/test/.gemini",
-        "- Marker: mac-ai-switchboard:gemini_cli",
-        "- Backup: /Users/test/.gemini.mac-ai-switchboard.bak",
+        "- Marker: ai-switchboard:gemini_cli",
+        "- Backup: /Users/test/.gemini.ai-switchboard.bak",
         "- Current managed block: No Switchboard-managed Gemini provider routing detected.",
         "- Proposed managed block: Add AI Switchboard local provider routing for Gemini CLI after explicit consent.",
         "- Apply blocked: Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass.",

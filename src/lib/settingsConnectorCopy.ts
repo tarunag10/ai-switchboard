@@ -27,7 +27,7 @@ export const connectorSetupDetails: Record<string, string> = {
   aider:
     "Aider is detected when installed. RTK-only mode can already reduce noisy shell output while provider setup remains manual.",
   continue:
-    "Continue is detected when installed. Provider setup stays manual until Switchboard can preserve and restore Continue config safely.",
+    "Continue can use managed config.yaml model routing plus the Switchboard sidecar. Provider credentials and apiKey values stay manual.",
   goose:
     "Goose can use the managed Repo Memory MCP bridge for read-only context handoff; Switchboard manages only allowlisted OpenAI/Anthropic endpoint fields while credentials, account state, and model selection stay manual.",
   qwen_code:
@@ -56,7 +56,7 @@ export const connectorUnavailableReasons: Record<string, string> = {
   aider:
     "Aider automatic setup is off for now. Use RTK-only mode or copied Repo Intelligence packs.",
   continue:
-    "Continue automatic setup is off for now. Review provider config manually.",
+    "Continue native model routing is managed when ~/.continue/config.yaml is available; keep provider credentials and apiKey values manual.",
   goose:
     "Goose credentials, account state, and model selection stay manual. Switchboard manages only documented endpoint fields and the Repo Memory MCP bridge.",
   qwen_code:
@@ -83,7 +83,8 @@ export function supportsNativeConfigApply(record: ManagedChangeRecord) {
   return (
     record.id === "opencode-routing" ||
     record.id === "grok-routing" ||
-    record.id === "goose-provider-routing"
+    record.id === "goose-provider-routing" ||
+    record.id === "continue-provider-routing"
   );
 }
 

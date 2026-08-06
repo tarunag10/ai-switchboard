@@ -17,7 +17,7 @@ use crate::client_paths::home_dir;
 use crate::client_provider_configs::{HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL};
 use crate::managed_files::backup_if_exists;
 
-pub(crate) const GOOSE_NATIVE_MARKER: &str = "headroom:goose-provider";
+pub(crate) const GOOSE_NATIVE_MARKER: &str = "ai-switchboard:goose-provider";
 pub(crate) const GOOSE_NATIVE_APPLY_RECORD_ID: &str = "goose-provider-routing";
 pub(crate) const GOOSE_NATIVE_OWNER: &str = "Goose provider routing";
 pub(crate) const GOOSE_CONFIG_FILE: &str = "config.yaml";

@@ -7,14 +7,33 @@ use crate::client_paths::{
     GROK_CONFIG_FILE, OPENCODE_CONFIG_FILE, WINDSURF_CONFIG_FILE, ZED_CONFIG_FILE,
 };
 use crate::managed_files::{backup_if_exists, parse_json_object};
+use crate::switchboard_identity::{
+    json_comment_marker_end, json_comment_marker_start, managed_marker_id, marker_id_variants,
+};
 
 pub(super) const HEADROOM_ANTHROPIC_BASE_URL: &str = "http://127.0.0.1:6767";
 pub(super) const HEADROOM_OPENAI_BASE_URL: &str = "http://127.0.0.1:6767/v1";
 pub(super) const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
-pub(super) const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
-pub(super) const ZED_MARKER_PREFIX: &str = "headroom:zed";
-pub(super) const GROK_MARKER_PREFIX: &str = "headroom:grok";
 pub(super) const GROK_HEADROOM_BASE_URL: &str = "http://127.0.0.1:6767/v1";
+pub(super) const WINDSURF_MARKER_PREFIX: &str = "ai-switchboard:windsurf";
+pub(super) const ZED_MARKER_PREFIX: &str = "ai-switchboard:zed";
+pub(super) const GROK_MARKER_PREFIX: &str = "ai-switchboard:grok";
+
+fn json_settings_has_managed_markers(root: &serde_json::Map<String, Value>, suffix: &str) -> bool {
+    marker_id_variants(suffix).iter().any(|marker_id| {
+        root.get(&json_comment_marker_start(marker_id)).is_some()
+            && root.get(&json_comment_marker_end(marker_id)).is_some()
+    })
+}
+
+fn remove_json_managed_markers(root: &mut serde_json::Map<String, Value>, suffix: &str) -> bool {
+    let mut changed = false;
+    for marker_id in marker_id_variants(suffix) {
+        changed |= root.remove(&json_comment_marker_start(&marker_id)).is_some();
+        changed |= root.remove(&json_comment_marker_end(&marker_id)).is_some();
+    }
+    changed
+}
 
 fn opencode_headroom_provider_value() -> Value {
     serde_json::json!({
@@ -192,16 +211,17 @@ pub(super) fn windsurf_next_provider_config() -> Result<(Value, bool)> {
         serde_json::Map::new()
     };
 
+    let marker = managed_marker_id("windsurf");
     let mut changed = false;
     changed |= set_json_string(
         &mut root,
-        &format!("// >>> {WINDSURF_MARKER_PREFIX} >>>"),
+        &json_comment_marker_start(&marker),
         "Managed by AI Switchboard for Windsurf.",
     );
     changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
     changed |= set_json_string(
         &mut root,
-        &format!("// <<< {WINDSURF_MARKER_PREFIX} <<<"),
+        &json_comment_marker_end(&marker),
         "End of managed block.",
     );
 
@@ -243,10 +263,7 @@ pub(super) fn windsurf_provider_config_matches() -> Result<bool> {
     let raw =
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let root = parse_json_object(&raw, &path)?;
-    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
-    Ok(root.get(&start_marker).is_some()
-        && root.get(&end_marker).is_some()
+    Ok(json_settings_has_managed_markers(&root, "windsurf")
         && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
             == Some(HEADROOM_ANTHROPIC_BASE_URL))
 }
@@ -260,13 +277,10 @@ pub(super) fn remove_windsurf_provider_config() -> Result<Vec<String>> {
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let mut root = parse_json_object(&raw, &path)?;
 
-    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
     let mut changed = false;
-    changed |= root.remove(&start_marker).is_some();
+    changed |= remove_json_managed_markers(&mut root, "windsurf");
     changed |=
         remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
-    changed |= root.remove(&end_marker).is_some();
 
     if !changed {
         return Ok(Vec::new());
@@ -310,16 +324,17 @@ pub(super) fn zed_next_provider_config() -> Result<(Value, bool)> {
         serde_json::Map::new()
     };
 
+    let marker = managed_marker_id("zed");
     let mut changed = false;
     changed |= set_json_string(
         &mut root,
-        &format!("// >>> {ZED_MARKER_PREFIX} >>>"),
+        &json_comment_marker_start(&marker),
         "Managed by AI Switchboard for Zed.",
     );
     changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
     changed |= set_json_string(
         &mut root,
-        &format!("// <<< {ZED_MARKER_PREFIX} <<<"),
+        &json_comment_marker_end(&marker),
         "End of managed block.",
     );
 
@@ -361,10 +376,7 @@ pub(super) fn zed_provider_config_matches() -> Result<bool> {
     let raw =
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let root = parse_json_object(&raw, &path)?;
-    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
-    Ok(root.get(&start_marker).is_some()
-        && root.get(&end_marker).is_some()
+    Ok(json_settings_has_managed_markers(&root, "zed")
         && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
             == Some(HEADROOM_ANTHROPIC_BASE_URL))
 }
@@ -378,13 +390,10 @@ pub(super) fn remove_zed_provider_config() -> Result<Vec<String>> {
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let mut root = parse_json_object(&raw, &path)?;
 
-    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
     let mut changed = false;
-    changed |= root.remove(&start_marker).is_some();
+    changed |= remove_json_managed_markers(&mut root, "zed");
     changed |=
         remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
-    changed |= root.remove(&end_marker).is_some();
 
     if !changed {
         return Ok(Vec::new());
@@ -410,12 +419,20 @@ fn grok_endpoint_line() -> String {
     format!("models_base_url = \"{GROK_HEADROOM_BASE_URL}\"")
 }
 
+fn grok_marker_start_for(marker_id: &str) -> String {
+    format!("# >>> {marker_id} >>>")
+}
+
+fn grok_marker_end_for(marker_id: &str) -> String {
+    format!("# <<< {marker_id} <<<")
+}
+
 fn grok_marker_start() -> String {
-    format!("# >>> {GROK_MARKER_PREFIX} >>>")
+    grok_marker_start_for(&managed_marker_id("grok"))
 }
 
 fn grok_marker_end() -> String {
-    format!("# <<< {GROK_MARKER_PREFIX} <<<")
+    grok_marker_end_for(&managed_marker_id("grok"))
 }
 
 pub(super) fn grok_config_backup_pattern() -> String {
@@ -465,19 +482,24 @@ fn grok_endpoint_line_in_section(lines: &[&str], start: usize, end: usize) -> Op
 }
 
 fn grok_managed_block_present(raw: &str) -> bool {
-    raw.contains(&grok_marker_start()) && raw.contains(&grok_marker_end())
+    marker_id_variants("grok").iter().any(|marker_id| {
+        raw.contains(&grok_marker_start_for(marker_id))
+            && raw.contains(&grok_marker_end_for(marker_id))
+    })
 }
 
 fn grok_managed_block_contains_endpoint(raw: &str) -> bool {
-    let start_marker = grok_marker_start();
-    let end_marker = grok_marker_end();
-    let Some(start) = raw.find(&start_marker) else {
-        return false;
-    };
-    let Some(end_relative) = raw[start..].find(&end_marker) else {
-        return false;
-    };
-    raw[start..start + end_relative].contains(&grok_endpoint_line())
+    marker_id_variants("grok").iter().any(|marker_id| {
+        let start_marker = grok_marker_start_for(marker_id);
+        let end_marker = grok_marker_end_for(marker_id);
+        let Some(start) = raw.find(&start_marker) else {
+            return false;
+        };
+        let Some(end_relative) = raw[start..].find(&end_marker) else {
+            return false;
+        };
+        raw[start..start + end_relative].contains(&grok_endpoint_line())
+    })
 }
 
 /// Insert or update the single allowlisted endpoint field while leaving all

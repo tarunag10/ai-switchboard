@@ -5,9 +5,21 @@ use chrono::Utc;
 use serde_json::Value;
 use uuid::Uuid;
 
-const LEGACY_MARKER_PREFIX: &str = "headroom";
-const MARKER_PREFIX: &str = "headroom";
-const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
+
+use crate::switchboard_identity::{primary_marker_prefix, SwitchboardIdentitySlug};
+
+pub(crate) fn find_managed_block_range(content: &str, block_id: &str) -> Option<(usize, usize)> {
+    for slug in SwitchboardIdentitySlug::marker_prefixes() {
+        let start = managed_marker_start(slug.as_str(), block_id);
+        let end = managed_marker_end(slug.as_str(), block_id);
+        if let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) {
+            if start_idx < end_idx {
+                return Some((start_idx, end_idx));
+            }
+        }
+    }
+    None
+}
 
 pub(crate) fn upsert_managed_block(
     file_path: &Path,
@@ -45,18 +57,19 @@ pub(crate) fn managed_block_updated_content(
     block_id: &str,
     block_body: &str,
 ) -> String {
-    let start = managed_marker_start(MARKER_PREFIX, block_id);
-    let end = managed_marker_end(MARKER_PREFIX, block_id);
-    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
-    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
+    let start = managed_marker_start(primary_marker_prefix(), block_id);
+    let end = managed_marker_end(primary_marker_prefix(), block_id);
     let block = format!("{start}\n{block_body}\n{end}\n");
-    if let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) {
-        replace_marker_block(existing, start_idx, end_idx + end.len(), &block)
-    } else if let (Some(start_idx), Some(end_idx)) =
-        (existing.find(&legacy_start), existing.find(&legacy_end))
-    {
-        replace_marker_block(existing, start_idx, end_idx + legacy_end.len(), &block)
-    } else if existing.trim().is_empty() {
+    for slug in SwitchboardIdentitySlug::marker_prefixes() {
+        let legacy_start = managed_marker_start(slug.as_str(), block_id);
+        let legacy_end = managed_marker_end(slug.as_str(), block_id);
+        if let (Some(start_idx), Some(end_idx)) =
+            (existing.find(&legacy_start), existing.find(&legacy_end))
+        {
+            return replace_marker_block(existing, start_idx, end_idx + legacy_end.len(), &block);
+        }
+    }
+    if existing.trim().is_empty() {
         block
     } else {
         format!("{}\n{}", existing.trim_end(), block)
@@ -152,23 +165,25 @@ pub(crate) fn remove_managed_block_with_backup(
 
     let existing = std::fs::read_to_string(file_path)
         .with_context(|| format!("reading {}", file_path.display()))?;
-    let new_start = managed_marker_start(SWITCHBOARD_MARKER_PREFIX, block_id);
-    let new_end = managed_marker_end(SWITCHBOARD_MARKER_PREFIX, block_id);
-    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
-    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
 
-    let (_start, end, start_idx, end_idx) = if let (Some(start_idx), Some(end_idx)) =
-        (existing.find(&new_start), existing.find(&new_end))
-    {
-        (new_start, new_end, start_idx, end_idx)
-    } else if let (Some(start_idx), Some(end_idx)) =
-        (existing.find(&legacy_start), existing.find(&legacy_end))
-    {
-        (legacy_start, legacy_end, start_idx, end_idx)
-    } else {
-        return Ok((false, None));
-    };
+    for slug in SwitchboardIdentitySlug::marker_prefixes() {
+        let start = managed_marker_start(slug.as_str(), block_id);
+        let end = managed_marker_end(slug.as_str(), block_id);
+        if let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) {
+            return remove_marker_range(file_path, &existing, start, end, start_idx, end_idx);
+        }
+    }
+    Ok((false, None))
+}
 
+fn remove_marker_range(
+    file_path: &Path,
+    existing: &str,
+    _start: String,
+    end: String,
+    start_idx: usize,
+    end_idx: usize,
+) -> Result<(bool, Option<PathBuf>)> {
     if start_idx >= end_idx {
         return Ok((false, None));
     }
@@ -249,11 +264,11 @@ pub(crate) fn managed_marker_end(prefix: &str, block_id: &str) -> String {
 }
 
 pub(crate) fn strip_marker_block(content: &str, block_id: &str) -> String {
-    strip_marker_block_with_prefix(
-        &strip_marker_block_with_prefix(content, block_id, SWITCHBOARD_MARKER_PREFIX),
-        block_id,
-        LEGACY_MARKER_PREFIX,
-    )
+    let mut stripped = content.to_string();
+    for prefix in SwitchboardIdentitySlug::marker_prefixes() {
+        stripped = strip_marker_block_with_prefix(stripped.as_str(), block_id, prefix.as_str());
+    }
+    stripped
 }
 
 pub(crate) fn strip_marker_block_with_prefix(
@@ -278,7 +293,9 @@ pub(crate) fn strip_marker_block_with_prefix(
 }
 
 pub(crate) fn marker_block_contains(content: &str, block_id: &str, needle: &str) -> bool {
-    marker_block_contains_with_prefix(content, block_id, needle, MARKER_PREFIX)
+    SwitchboardIdentitySlug::marker_prefixes()
+        .iter()
+        .any(|slug| marker_block_contains_with_prefix(content, block_id, needle, slug.as_str()))
 }
 
 pub(crate) fn marker_block_contains_with_prefix(

@@ -5,14 +5,14 @@ use chrono::Utc;
 use sha2::{Digest, Sha256};
 
 use crate::client_connectors::{planned_sidecar_spec, PlannedSidecarSpec};
-use crate::client_paths::planned_sidecar_routing_path;
-use crate::client_paths::SWITCHBOARD_ROUTING_FILE;
+use crate::client_paths::{planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE};
 use crate::client_provider_configs::HEADROOM_OPENAI_BASE_URL;
 use crate::client_setup_state::{load_setup_state, normalized_setup_id, write_setup_state};
 use crate::managed_files::{managed_block_updated_content, upsert_managed_block};
+use crate::switchboard_identity::{managed_marker_id, retire_legacy_planned_sidecar, sidecar_marker_present};
 use crate::models::{ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedRollbackExecutionStatus};
 
-pub(crate) const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
+pub(crate) const CURSOR_MARKER_PREFIX: &str = "ai-switchboard:cursor";
 pub(crate) const CURSOR_SIDECAR_APPLY_RECORD_ID: &str = "cursor-sidecar-routing";
 pub(crate) const CURSOR_SIDECAR_OWNER: &str = "Cursor routing sidecar";
 pub(crate) const GOOSE_SIDECAR_APPLY_RECORD_ID: &str = "goose-sidecar-routing";
@@ -44,6 +44,7 @@ fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
 pub(crate) fn configure_planned_switchboard_sidecar(client_id: &str) -> Result<(bool, Option<PathBuf>)> {
     let spec = planned_sidecar_spec(client_id)
         .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+    retire_legacy_planned_sidecar(client_id)?;
     let path = planned_sidecar_routing_path(client_id)?;
     upsert_managed_block(
         &path,
@@ -111,7 +112,8 @@ fn sidecar_apply_confirmation_phrase(client_id: &str, current_state: &str) -> Re
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
     Ok(format!(
-        "Apply headroom:{client_id} sidecar to {} after reviewing {hash}",
+        "Apply {} sidecar to {} after reviewing {hash}",
+        managed_marker_id(client_id),
         planned_sidecar_routing_path(client_id)?.display()
     ))
 }
@@ -138,7 +140,7 @@ pub(crate) fn preview_provider_sidecar_apply(
         record_id: record_id.to_string(),
         owner: owner.to_string(),
         target_path: path.display().to_string(),
-        marker: format!("headroom:{client_id}"),
+        marker: managed_marker_id(client_id),
         backup_path: format!("{}.headroom-backup-*", SWITCHBOARD_ROUTING_FILE),
         status: ManagedRollbackExecutionStatus::Ready,
         confirmation_phrase: sidecar_apply_confirmation_phrase(client_id, &current_state)?,
@@ -179,7 +181,7 @@ pub(crate) fn execute_provider_sidecar_apply(
     write_setup_state(&state)?;
     Ok(ManagedConfigApplyResult {
         record_id: record_id.to_string(), owner: owner.to_string(), target_path: path.display().to_string(),
-        changed, backup_path: backup.map(|path| path.display().to_string()), marker: format!("headroom:{client_id}"),
+        changed, backup_path: backup.map(|path| path.display().to_string()), marker: managed_marker_id(client_id),
         verification: vec![
             "Exact state-bound confirmation phrase matched the dry-run preview.".to_string(),
             format!("Only the Switchboard-owned {owner} sidecar was written; provider, model, credentials, and account state were not read or changed."),
@@ -204,8 +206,7 @@ pub(crate) fn planned_switchboard_sidecar_matches(client_id: &str) -> Result<boo
         format!("reversible {} routing-intent sidecar", spec.name)
     };
 
-    Ok(content.contains(&format!("# >>> headroom:{} >>>", spec.id))
-        && content.contains(&format!("# <<< headroom:{} <<<", spec.id))
+    Ok(content.contains(&expected_purpose)
         && content.contains(HEADROOM_OPENAI_BASE_URL)
-        && content.contains(&expected_purpose))
+        && sidecar_marker_present(&content, spec.id))
 }

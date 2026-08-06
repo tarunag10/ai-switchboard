@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
 use crate::cursor_native::{CURSOR_API_KEYS_DOCS_URL, CURSOR_NATIVE_GATE_REASON};
+use crate::switchboard_identity::{dry_run_backup_path, dry_run_marker};
 use crate::models::{
     ClientConnectorConfigCreationStep, ClientConnectorConfigDryRunPreview,
     ClientConnectorSupportStatus,
@@ -586,8 +587,8 @@ pub(crate) fn planned_connector_dry_run_preview(
 
     Some(ClientConnectorConfigDryRunPreview {
         target: target.clone(),
-        marker: format!("mac-ai-switchboard:{}", spec.id),
-        backup_path: format!("{target}.mac-ai-switchboard.bak"),
+        marker: dry_run_marker(&spec.id),
+        backup_path: dry_run_backup_path(&target),
         current_state: if cursor_gate {
             "Path-only Cursor settings discovery; settings contents are not read.".to_string()
         } else {

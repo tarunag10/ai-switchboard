@@ -629,22 +629,23 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Continue",
     category: "editor",
     supportStatus: "managed",
-    statusLabel: "Managed sidecar",
+    statusLabel: "Managed",
     setupPhase: "Managed",
     integrationTarget:
-      "Switchboard-owned routing-intent sidecar plus Repo Intelligence context packs.",
+      "Allowlisted Continue config.yaml model routing plus the Switchboard routing-intent sidecar.",
     notes:
-      "Managed reversible sidecar automation never reads provider secrets or rewrites saved Continue provider config.",
+      "Switchboard manages one reversible OpenAI-compatible Headroom model entry in config.yaml and its routing-intent sidecar; apiKey values and unrelated models stay user-owned.",
     capabilityBadges: [
+      "Native model routing",
       "Managed sidecar",
       "Doctor repair",
       "Rollback",
     ],
     supportedModes: ["Full optimization", "Repo packs", "Off"],
     safeToday:
-      "Create the Switchboard-owned sidecar and keep saved provider config manual.",
+      "Apply the managed Headroom model in config.yaml and keep provider credentials manual.",
     firstAutomation:
-      "Sidecar apply, verify, rollback, Doctor repair, and Off cleanup are covered by fixture-home tests.",
+      "Native model apply, sidecar apply, verify, rollback, Doctor repair, and Off cleanup are covered by fixture-home tests.",
     capabilityRows: [
       {
         label: "Config detection",
@@ -659,25 +660,27 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Provider config",
-        state: "Manual today",
+        state: "Available now",
         detail:
-          "Saved Continue provider config remains untouched until a documented provider adapter is proven.",
+          "Switchboard adds one allowlisted Headroom model entry in config.yaml without reading apiKey values or unrelated models.",
       },
     ],
     configSurfaces: [
       "Continue config folder",
+      "~/.continue/config.yaml models[]",
       "provider list",
       "editor integration",
     ],
     automationGates: [
       "Detect active Continue config without reading secrets.",
-      "Write only the Switchboard-owned Continue routing-intent sidecar.",
-      "Verify Doctor repair, rollback, and Off cleanup leave provider config untouched.",
+      "Back up config.yaml before managed model edits.",
+      "Write only the allowlisted Headroom model entry and Switchboard-owned sidecar.",
+      "Verify Doctor repair, rollback, and Off cleanup leave provider credentials untouched.",
     ],
     manualWorkflow: [
       "Confirm Continue config storage is available.",
-      "Toggle the connector on from Settings to create the managed sidecar.",
-      "Keep saved provider config manual until a documented provider file adapter is proven.",
+      "Toggle the connector on from Settings to apply managed model routing and the sidecar.",
+      "Select the AI Switchboard model inside Continue and keep provider credentials manual.",
     ],
   },
   {
@@ -880,6 +883,7 @@ export const promotedNativeConfigConnectorIds = new Set([
   "grok_cli",
   "windsurf",
   "zed_ai",
+  "continue",
 ]);
 
 export const managedMcpBridgeConnectorIds = new Set(["goose"]);
@@ -973,13 +977,13 @@ const plannedConnectorSafetyDossiers: Record<
   continue: {
     connectorId: "continue",
     configPathStrategy:
-      "Detect the Continue config folder, then manage only the Switchboard-owned sidecar marker.",
+      "Detect ~/.continue/config.yaml, then manage only the allowlisted Headroom model entry and Switchboard-owned sidecar marker.",
     providerSemantics:
-      "Provider routing stays manual; the managed path records reversible routing intent without changing Continue provider entries.",
+      "Add one OpenAI-compatible Headroom model entry with apiBase pointing at the local proxy; unrelated models and apiKey values stay manual.",
     accountCaveat:
-      "Provider credentials and account selections remain user-owned and are never read or copied into Switchboard storage.",
+      "Provider credentials, apiKey values, and account selections remain user-owned and are never read or copied into Switchboard storage.",
     rollbackStrategy:
-      "Remove only the Switchboard-owned Continue sidecar marker while preserving user-authored sidecar notes and provider config.",
+      "Restore config.yaml from backup or remove only the managed Headroom model entry while preserving unrelated models and the sidecar notes users authored.",
   },
   goose: {
     connectorId: "goose",

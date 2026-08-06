@@ -12,6 +12,7 @@ use crate::models::{
     ManagedFootprintItem, ManagedFootprintReport, UninstallDryRunReport, UninstallTarget,
 };
 use crate::storage::{app_data_dir, LEGACY_STORAGE_DIR_NAME};
+use crate::switchboard_identity::footprint_marker_recognition_note;
 
 pub(crate) const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
 
@@ -174,7 +175,7 @@ fn uninstall_targets() -> Vec<UninstallTarget> {
         true,
         "Remove managed RTK/Caveman instruction blocks only.",
         false,
-        vec!["Both headroom: and mac-ai-switchboard: marker blocks are recognized.".to_string()],
+        vec![footprint_marker_recognition_note().to_string()],
     );
     for shell_path in all_shell_paths() {
         push_uninstall_target(

@@ -75,9 +75,9 @@
     "category": "editor",
     "support_status": "managed",
     "detection": { "binaries": [], "paths": ["~/.continue"] },
-    "config": { "locations": ["~/.continue"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect active Continue config without reading secrets.", "Back up the Switchboard-owned sidecar before managed edits.", "Write only the Switchboard-owned Continue routing-intent sidecar.", "Verify Continue sidecar routing in Doctor without reading provider secrets.", "Rollback removes only the Switchboard-owned Continue sidecar marker.", "Off mode removes managed routing without touching provider config."],
-    "manual_workflow": ["Confirm Continue config storage is available.", "Toggle the connector on from Settings to create the managed sidecar.", "Keep provider setup manual until a documented provider file adapter is proven."]
+    "config": { "locations": ["~/.continue", "~/.continue/config.yaml"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "apiKey"] },
+    "automation_gates": ["Detect active Continue config without reading secrets.", "Back up ~/.continue/config.yaml before managed model edits.", "Write only the allowlisted Headroom model entry and Switchboard-owned sidecar.", "Verify Continue model routing and sidecar routing in Doctor without reading provider secrets.", "Rollback restores config.yaml from backup or removes only the managed model entry.", "Off mode removes managed routing without touching provider credentials."],
+    "manual_workflow": ["Confirm Continue config storage is available.", "Toggle the connector on from Settings to apply managed model routing and the sidecar.", "Select the AI Switchboard model inside Continue and keep provider credentials manual."]
   },
   {
     "id": "goose",

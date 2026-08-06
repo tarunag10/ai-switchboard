@@ -85,6 +85,12 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
         "zed_ai" => {
             remove_zed_provider_config()?;
         }
+        "continue" => {
+            let _ = crate::continue_provider_configs::remove_continue_provider_config()?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
         other if planned_sidecar_spec(other).is_some() => {
             let sidecar = planned_sidecar_spec(other)
                 .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {other}."))?;

@@ -698,8 +698,8 @@ mod doctor_tests {
             config_creation_step_details: Vec::new(),
             config_dry_run_preview: Some(crate::models::ClientConnectorConfigDryRunPreview {
                 target: "/Users/test/.gemini".to_string(),
-                marker: "mac-ai-switchboard:gemini_cli".to_string(),
-                backup_path: "/Users/test/.gemini.mac-ai-switchboard.bak".to_string(),
+                marker: "ai-switchboard:gemini_cli".to_string(),
+                backup_path: "/Users/test/.gemini.ai-switchboard.bak".to_string(),
                 current_state: "No Switchboard-managed Gemini provider routing detected."
                     .to_string(),
                 proposed_state:

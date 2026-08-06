@@ -1,4 +1,9 @@
 import type { ManagedFootprintReport, ManagedRollbackPreview } from "./types";
+import {
+  switchboardManagedMarkerId,
+  switchboardRoutingPath,
+  switchboardMarkerIdVariants,
+} from "./switchboardIdentity";
 
 export type ManagedChangeKind =
   | "client_config"
@@ -114,7 +119,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "~/.claude/settings.json",
       "~/.claude/settings.local.json",
     ],
-    markerId: "headroom:claude_code",
+    markerId: switchboardManagedMarkerId("claude_code"),
     backupPath: "next to edited client config as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -126,7 +131,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Codex routing",
     text: "Managed OPENAI_BASE_URL shell block and Codex provider config.",
     paths: ["~/.codex/config.toml", "~/.zshrc", "~/.zprofile"],
-    markerId: "headroom:codex_cli",
+    markerId: switchboardManagedMarkerId("codex_cli"),
     backupPath: "next to edited client config as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -140,9 +145,9 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     paths: [
       "~/.zshrc",
       "~/.zprofile",
-      "~/.gemini/mac-ai-switchboard-routing.md",
+      switchboardRoutingPath("~/.gemini"),
     ],
-    markerId: "headroom:gemini_cli",
+    markerId: switchboardManagedMarkerId("gemini_cli"),
     backupPath: "next to edited shell profile or sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -155,9 +160,9 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     text: "Managed OpenCode provider config and rollback dossier.",
     paths: [
       "~/.config/opencode/opencode.json",
-      "~/.config/opencode/mac-ai-switchboard-routing.md",
+      switchboardRoutingPath("~/.config/opencode"),
     ],
-    markerId: "headroom:opencode",
+    markerId: switchboardManagedMarkerId("opencode"),
     backupPath: "next to edited OpenCode config or sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -169,9 +174,9 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Cursor routing",
     text: "Managed Cursor Switchboard sidecar dossier.",
     paths: [
-      "~/Library/Application Support/Cursor/mac-ai-switchboard-routing.md",
+      switchboardRoutingPath("~/Library/Application Support/Cursor"),
     ],
-    markerId: "headroom:cursor",
+    markerId: switchboardManagedMarkerId("cursor"),
     backupPath: "next to edited Cursor sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback: "Remove only the managed Cursor Switchboard sidecar dossier.",
@@ -182,7 +187,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Grok / xAI CLI routing",
     text: "Managed Grok / xAI CLI native endpoint routing in ~/.grok/config.toml.",
     paths: ["~/.grok/config.toml"],
-    markerId: "headroom:grok",
+    markerId: switchboardManagedMarkerId("grok"),
     backupPath: "next to ~/.grok/config.toml as config.toml.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -193,8 +198,8 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     kind: "client_config",
     owner: "Grok / xAI CLI routing sidecar",
     text: "Managed Grok / xAI CLI Switchboard sidecar dossier.",
-    paths: ["~/.config/xai/mac-ai-switchboard-routing.md"],
-    markerId: "headroom:grok_cli",
+    paths: [switchboardRoutingPath("~/.config/xai")],
+    markerId: switchboardManagedMarkerId("grok_cli"),
     backupPath: "next to edited Grok / xAI sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -205,8 +210,8 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     kind: "client_config",
     owner: "Aider routing",
     text: "Managed Aider Switchboard sidecar dossier.",
-    paths: ["~/.config/aider/mac-ai-switchboard-routing.md"],
-    markerId: "headroom:aider",
+    paths: [switchboardRoutingPath("~/.config/aider")],
+    markerId: switchboardManagedMarkerId("aider"),
     backupPath: "next to edited Aider sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback: "Remove only the managed Aider Switchboard sidecar dossier.",
@@ -216,19 +221,31 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     kind: "client_config",
     owner: "Continue routing",
     text: "Managed Continue Switchboard sidecar dossier.",
-    paths: ["~/.continue/mac-ai-switchboard-routing.md"],
-    markerId: "headroom:continue",
+    paths: [switchboardRoutingPath("~/.continue")],
+    markerId: switchboardManagedMarkerId("continue"),
     backupPath: "next to edited Continue sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback: "Remove only the managed Continue Switchboard sidecar dossier.",
+  },
+  {
+    id: "continue-provider-routing",
+    kind: "client_config",
+    owner: "Continue provider routing",
+    text: "Managed Continue Headroom model entry in ~/.continue/config.yaml.",
+    paths: ["~/.continue/config.yaml"],
+    markerId: switchboardManagedMarkerId("continue-provider"),
+    backupPath: "next to Continue config.yaml as config.yaml.headroom-backup-*",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Restore only the selected Continue config backup; apiKey values, credentials, and unrelated models remain untouched.",
   },
   {
     id: "goose-routing",
     kind: "client_config",
     owner: "Goose routing",
     text: "Managed Goose Repo Memory MCP bridge dossier.",
-    paths: ["~/.config/goose/mac-ai-switchboard-routing.md"],
-    markerId: "headroom:goose",
+    paths: [switchboardRoutingPath("~/.config/goose")],
+    markerId: switchboardManagedMarkerId("goose"),
     backupPath: "next to edited Goose MCP bridge dossier as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback: "Remove only the managed Goose Repo Memory MCP bridge dossier.",
@@ -242,7 +259,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "~/Library/Application Support/Block/goose/config.yaml",
       "~/.config/goose/config.yaml",
     ],
-    markerId: "headroom:goose-provider",
+    markerId: switchboardManagedMarkerId("goose-provider"),
     backupPath: "next to Goose config.yaml as config.yaml.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -253,8 +270,8 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     kind: "client_config",
     owner: "Qwen Code routing",
     text: "Managed Qwen Code Switchboard sidecar dossier.",
-    paths: ["~/.qwen/mac-ai-switchboard-routing.md"],
-    markerId: "headroom:qwen_code",
+    paths: [switchboardRoutingPath("~/.qwen")],
+    markerId: switchboardManagedMarkerId("qwen_code"),
     backupPath: "next to edited Qwen Code sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback: "Remove only the managed Qwen Code Switchboard sidecar dossier.",
@@ -264,8 +281,8 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     kind: "client_config",
     owner: "Amazon Q Developer CLI routing",
     text: "Managed Amazon Q Developer CLI Switchboard sidecar dossier.",
-    paths: ["~/.aws/amazonq/mac-ai-switchboard-routing.md"],
-    markerId: "headroom:amazon_q",
+    paths: [switchboardRoutingPath("~/.aws/amazonq")],
+    markerId: switchboardManagedMarkerId("amazon_q"),
     backupPath: "next to edited Amazon Q sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -279,7 +296,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     paths: [
       "~/Library/Application Support/Windsurf/User/settings.json",
     ],
-    markerId: "headroom:windsurf",
+    markerId: switchboardManagedMarkerId("windsurf"),
     backupPath: "next to edited Windsurf settings as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -291,7 +308,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Zed AI routing",
     text: "Managed Zed AI editor settings routing.",
     paths: ["~/.config/zed/settings.json"],
-    markerId: "headroom:zed",
+    markerId: switchboardManagedMarkerId("zed"),
     backupPath: "next to edited Zed settings as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
@@ -307,7 +324,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "~/.zshrc",
       "~/.zprofile",
     ],
-    markerId: "headroom:rtk",
+    markerId: switchboardManagedMarkerId("rtk"),
     backupPath: "next to edited shell profile as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by RTK path and hook checks",
     rollback:
@@ -440,6 +457,20 @@ function markerBounds(markerId: string) {
   };
 }
 
+function findManagedMarkerBounds(existingText: string, markerId: string) {
+  const blockId = markerId.includes(":")
+    ? markerId.split(":").slice(1).join(":")
+    : markerId;
+  for (const candidate of switchboardMarkerIdVariants(blockId)) {
+    const bounds = markerBounds(candidate);
+    const startIndex = existingText.indexOf(bounds.start);
+    if (startIndex !== -1) {
+      return { ...bounds, startIndex, markerId: candidate };
+    }
+  }
+  return null;
+}
+
 export function applyManagedConfigBlock(
   existingText: string,
   markerId: string,
@@ -450,10 +481,9 @@ export function applyManagedConfigBlock(
     throw new Error("proposedManagedBlock is required.");
   }
 
-  const { start, end } = markerBounds(markerId);
   const normalizedBlock = `${trimmedBlock}\n`;
-  const startIndex = existingText.indexOf(start);
-  if (startIndex === -1) {
+  const located = findManagedMarkerBounds(existingText, markerId);
+  if (!located) {
     const separator =
       existingText.length > 0 && !existingText.endsWith("\n") ? "\n" : "";
     return {
@@ -462,6 +492,7 @@ export function applyManagedConfigBlock(
     };
   }
 
+  const { start, end, startIndex } = located;
   const endIndex = existingText.indexOf(end, startIndex);
   if (endIndex === -1) {
     throw new Error(`managed marker ${markerId} is missing an end marker.`);
@@ -524,12 +555,12 @@ export function removeManagedConfigBlock(
   existingText: string,
   markerId: string,
 ): ManagedConfigTextResult {
-  const { start, end } = markerBounds(markerId);
-  const startIndex = existingText.indexOf(start);
-  if (startIndex === -1) {
+  const located = findManagedMarkerBounds(existingText, markerId);
+  if (!located) {
     return { text: existingText, changed: false };
   }
 
+  const { end, startIndex } = located;
   const endIndex = existingText.indexOf(end, startIndex);
   if (endIndex === -1) {
     throw new Error(`managed marker ${markerId} is missing an end marker.`);
@@ -753,6 +784,7 @@ export const nativeRollbackRecordIds = new Set([
   "grok-routing",
   "aider-routing",
   "continue-routing",
+  "continue-provider-routing",
   "goose-routing",
   "goose-provider-routing",
   "qwen-code-routing",

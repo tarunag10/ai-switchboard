@@ -9,8 +9,9 @@ use uuid::Uuid;
 use super::discovery::{discover, AgentMemoryTarget};
 use super::secret_scan::{scan, SecretScanStatus};
 
-const MANAGED_START: &str = "<!-- mac-ai-switchboard:agent-memory:start -->";
-const MANAGED_END: &str = "<!-- mac-ai-switchboard:agent-memory:end -->";
+use crate::switchboard_identity::{
+    AGENT_MEMORY_END, AGENT_MEMORY_START, LEGACY_AGENT_MEMORY_END, LEGACY_AGENT_MEMORY_START,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -301,22 +302,44 @@ pub(crate) fn is_eligible_managed_memory(content: &str) -> bool {
     compact_managed_blocks(content).is_some()
 }
 
+fn find_agent_memory_block_start(
+    content: &str,
+    from: usize,
+) -> Option<(usize, &'static str, &'static str)> {
+    let mut best: Option<(usize, &'static str, &'static str)> = None;
+    for (start, end) in [
+        (AGENT_MEMORY_START, AGENT_MEMORY_END),
+        (LEGACY_AGENT_MEMORY_START, LEGACY_AGENT_MEMORY_END),
+    ] {
+        if let Some(offset) = content[from..].find(start) {
+            let absolute = from + offset;
+            if best.is_none_or(|(best_start, _, _)| absolute < best_start) {
+                best = Some((absolute, start, end));
+            }
+        }
+    }
+    best
+}
+
 fn compact_managed_blocks(content: &str) -> Option<String> {
     let mut cursor = 0;
     let mut output = String::new();
     let mut found = false;
-    while let Some(relative_start) = content[cursor..].find(MANAGED_START) {
-        let start = cursor + relative_start;
-        let body_start = start + MANAGED_START.len();
-        let relative_end = content[body_start..].find(MANAGED_END)?;
+    while let Some((start, start_marker, end_marker)) = find_agent_memory_block_start(content, cursor)
+    {
+        let body_start = start + start_marker.len();
+        let relative_end = content[body_start..].find(end_marker)?;
         let end = body_start + relative_end;
         output.push_str(&content[cursor..body_start]);
         output.push_str(&compact_block(&content[body_start..end]));
-        output.push_str(MANAGED_END);
-        cursor = end + MANAGED_END.len();
+        output.push_str(AGENT_MEMORY_END);
+        cursor = end + end_marker.len();
         found = true;
     }
-    if !found || content[cursor..].contains(MANAGED_END) {
+    if !found
+        || content[cursor..].contains(AGENT_MEMORY_END)
+        || content[cursor..].contains(LEGACY_AGENT_MEMORY_END)
+    {
         return None;
     }
     output.push_str(&content[cursor..]);
@@ -343,9 +366,10 @@ fn compact_block(content: &str) -> String {
 fn managed_block_ids(content: &str) -> Vec<String> {
     let mut ids = Vec::new();
     let mut cursor = 0;
-    while let Some(offset) = content[cursor..].find(MANAGED_START) {
+    while find_agent_memory_block_start(content, cursor).is_some() {
+        let (offset, start_marker, _) = find_agent_memory_block_start(content, cursor).expect("checked");
         ids.push(format!("agent-memory-{}", ids.len() + 1));
-        cursor += offset + MANAGED_START.len();
+        cursor = offset + start_marker.len();
     }
     ids
 }
@@ -398,7 +422,7 @@ mod tests {
     use tempfile::tempdir;
 
     fn managed(content: &str) -> String {
-        format!("user-owned\n{MANAGED_START}\n{content}\n{MANAGED_END}\nkeep-user-owned\n")
+        format!("user-owned\n{AGENT_MEMORY_START}\n{content}\n{AGENT_MEMORY_END}\nkeep-user-owned\n")
     }
 
     #[test]

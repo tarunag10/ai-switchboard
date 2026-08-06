@@ -16,12 +16,12 @@ describe("app support helpers", () => {
         owner: "Codex",
         text: "Codex provider",
         paths: ["~/.codex/config.toml"],
-        markerId: "headroom:codex_cli",
+        markerId: "ai-switchboard:codex_cli",
         backupPath: null,
         lastVerifiedLabel: "Verified",
         rollback: "Remove managed block.",
       }),
-    ).toContain("# >>> headroom:codex_cli >>>");
+    ).toContain("# >>> ai-switchboard:codex_cli >>>");
   });
 
   it("combines doctor and managed-change timeline events with stable time", () => {

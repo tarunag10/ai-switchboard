@@ -313,6 +313,40 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                 ));
             }
         }
+        "continue" => {
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
+            let sidecar_path = planned_sidecar_routing_path(client_id)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
+            let provider_ok = crate::continue_provider_configs::continue_provider_config_matches()?;
+
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            }
+            if provider_ok {
+                checks.push(format!(
+                    "Found Continue model {} pointing to Headroom in {}.",
+                    crate::continue_provider_configs::CONTINUE_HEADROOM_MODEL_NAME,
+                    crate::client_paths::continue_config_path().display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Continue model {} was not found in {}.",
+                    crate::continue_provider_configs::CONTINUE_HEADROOM_MODEL_NAME,
+                    crate::client_paths::continue_config_path().display()
+                ));
+            }
+        }
         other if planned_sidecar_spec(other).is_some() => {
             let sidecar = planned_sidecar_spec(other)
                 .ok_or_else(|| anyhow!("Unknown planned sidecar {other}"))?;

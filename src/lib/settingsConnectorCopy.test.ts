@@ -83,7 +83,7 @@ describe("settings connector copy", () => {
           ],
           configDryRunPreview: {
             target: "~/Library/Application Support/Cursor",
-            marker: "mac-ai-switchboard:cursor",
+            marker: "ai-switchboard:cursor",
             backupPath: "~/backup",
             currentState: "manual",
             proposedState: "managed",

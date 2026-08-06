@@ -479,9 +479,9 @@
                 .expect("gated connector dry-run preview");
             assert_eq!(
                 preview.marker,
-                format!("mac-ai-switchboard:{}", connector.client_id)
+                format!("ai-switchboard:{}", connector.client_id)
             );
-            assert!(preview.backup_path.ends_with(".mac-ai-switchboard.bak"));
+            assert!(preview.backup_path.ends_with(".ai-switchboard.bak"));
             assert!(preview.current_state.contains(&connector.name));
             assert!(preview.proposed_state.contains("Preview only"));
             assert!(preview.proposed_state.contains("no files are written"));
@@ -1128,7 +1128,7 @@
         .expect("replace managed block");
 
         let content = fs::read_to_string(&path).expect("read updated shell file");
-        assert_eq!(content.matches("# >>> headroom:claude_code >>>").count(), 1);
+        assert_eq!(content.matches("# >>> ai-switchboard:claude_code >>>").count(), 1);
         assert!(content.contains("export PATH=/usr/bin"));
         assert!(content.contains("export HEADROOM=1"));
 
@@ -1142,7 +1142,7 @@
         let path = root.join(".zprofile");
         fs::write(
             &path,
-            "export PATH=/usr/bin\n# >>> headroom:claude_code >>>\nexport ANTHROPIC_BASE_URL=http://127.0.0.1:6767\n# <<< headroom:claude_code <<<\nexport EDITOR=vim\n",
+            "export PATH=/usr/bin\n# >>> ai-switchboard:claude_code >>>\nexport ANTHROPIC_BASE_URL=http://127.0.0.1:6767\n# <<< ai-switchboard:claude_code <<<\nexport EDITOR=vim\n",
         )
         .expect("write shell file");
 
@@ -1164,7 +1164,7 @@
         let path = root.join(".bashrc");
         fs::write(
             &path,
-            "export ANTHROPIC_BASE_URL=https://example.com\n# >>> headroom:claude_code >>>\nexport ANTHROPIC_BASE_URL=http://127.0.0.1:6767\nexport PATH=/tmp/headroom:$PATH\n# <<< headroom:claude_code <<<\n",
+            "export ANTHROPIC_BASE_URL=https://example.com\n# >>> ai-switchboard:claude_code >>>\nexport ANTHROPIC_BASE_URL=http://127.0.0.1:6767\nexport PATH=/tmp/headroom:$PATH\n# <<< ai-switchboard:claude_code <<<\n",
         )
         .expect("write shell file");
 
@@ -1254,13 +1254,13 @@ export PATH="$BUN_INSTALL/bin:$PATH"
         let path = root.join(".zprofile");
         let original = r#"eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# >>> headroom:managed_rtk >>>
+# >>> ai-switchboard:managed_rtk >>>
 export PATH="/old/headroom/bin:$PATH"
-# <<< headroom:managed_rtk <<<
+# <<< ai-switchboard:managed_rtk <<<
 
-# >>> headroom:claude_code >>>
+# >>> ai-switchboard:claude_code >>>
 export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
-# <<< headroom:claude_code <<<
+# <<< ai-switchboard:claude_code <<<
 
 eval "$(/opt/homebrew/bin/rbenv init - zsh)"
 "#;
@@ -1278,8 +1278,8 @@ eval "$(/opt/homebrew/bin/rbenv init - zsh)"
         assert!(updated.contains("eval \"$(/opt/homebrew/bin/rbenv init - zsh)\""));
         assert!(updated.contains("export PATH=\"/new/headroom/bin:$PATH\""));
         assert!(updated.contains("export ANTHROPIC_BASE_URL=http://127.0.0.1:6767"));
-        assert_eq!(updated.matches("# >>> headroom:managed_rtk >>>").count(), 1);
-        assert_eq!(updated.matches("# >>> headroom:claude_code >>>").count(), 1);
+        assert_eq!(updated.matches("# >>> ai-switchboard:managed_rtk >>>").count(), 1);
+        assert_eq!(updated.matches("# >>> ai-switchboard:claude_code >>>").count(), 1);
 
         let _ = fs::remove_dir_all(root);
     }
@@ -1294,13 +1294,13 @@ eval "$(/opt/homebrew/bin/rbenv init - zsh)"
             r#"export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-# >>> headroom:managed_rtk >>>
+# >>> ai-switchboard:managed_rtk >>>
 export PATH="/tmp/headroom/bin:$PATH"
-# <<< headroom:managed_rtk <<<
+# <<< ai-switchboard:managed_rtk <<<
 
-# >>> headroom:claude_code >>>
+# >>> ai-switchboard:claude_code >>>
 export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
-# <<< headroom:claude_code <<<
+# <<< ai-switchboard:claude_code <<<
 "#,
         )
         .expect("write zshrc");
@@ -1310,9 +1310,9 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let updated = fs::read_to_string(&path).expect("read cleaned zshrc");
         assert!(updated.contains("export NVM_DIR=\"$HOME/.nvm\""));
         assert!(updated.contains("[ -s \"$NVM_DIR/nvm.sh\" ] && \\. \"$NVM_DIR/nvm.sh\""));
-        assert!(updated.contains("# >>> headroom:managed_rtk >>>"));
+        assert!(updated.contains("# >>> ai-switchboard:managed_rtk >>>"));
         assert!(updated.contains("export PATH=\"/tmp/headroom/bin:$PATH\""));
-        assert!(!updated.contains("# >>> headroom:claude_code >>>"));
+        assert!(!updated.contains("# >>> ai-switchboard:claude_code >>>"));
 
         let _ = fs::remove_dir_all(root);
     }
@@ -1745,6 +1745,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         _tmp: tempfile::TempDir,
         home: PathBuf,
         prev_home: Option<std::ffi::OsString>,
+        prev_continue: Option<std::ffi::OsString>,
         prev_xdg: Option<std::ffi::OsString>,
         prev_shell: Option<std::ffi::OsString>,
         prev_codex: Option<std::ffi::OsString>,
@@ -1760,6 +1761,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             let tmp = tempfile::tempdir().expect("create temp home");
             let home = tmp.path().to_path_buf();
             let prev_home = std::env::var_os("HOME");
+            let prev_continue = std::env::var_os("CONTINUE_PATH_ROOT");
             let prev_xdg = std::env::var_os("XDG_DATA_HOME");
             let prev_shell = std::env::var_os("SHELL");
             let prev_codex = std::env::var_os("CODEX_HOME");
@@ -1775,6 +1777,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
                 .map(|key| (*key, std::env::var_os(key)))
                 .collect::<Vec<_>>();
             std::env::set_var("HOME", &home);
+            std::env::set_var("CONTINUE_PATH_ROOT", home.join(".continue"));
             std::env::set_var("XDG_DATA_HOME", home.join(".local").join("share"));
             // Force a deterministic shell family so tests don't depend on the
             // dev's login shell.
@@ -1798,6 +1801,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
                 _tmp: tmp,
                 home,
                 prev_home,
+                prev_continue,
                 prev_xdg,
                 prev_shell,
                 prev_codex,
@@ -1815,6 +1819,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             match self.prev_home.take() {
                 Some(v) => std::env::set_var("HOME", v),
                 None => std::env::remove_var("HOME"),
+            }
+            match self.prev_continue.take() {
+                Some(v) => std::env::set_var("CONTINUE_PATH_ROOT", v),
+                None => std::env::remove_var("CONTINUE_PATH_ROOT"),
             }
             match self.prev_xdg.take() {
                 Some(v) => std::env::set_var("XDG_DATA_HOME", v),
@@ -1869,7 +1877,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let content = fs::read_to_string(&sidecar).expect("read sidecar");
         assert!(content.contains("# user note\nkeep this"));
-        assert!(content.contains("# >>> headroom:gemini_cli >>>"));
+        assert!(content.contains("# >>> ai-switchboard:gemini_cli >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
         let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
         assert!(shell_content.contains("GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:6767"));
@@ -1930,13 +1938,13 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(preview.marker_present);
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:gemini_cli for Gemini CLI routing"
+            "Restore ai-switchboard:gemini_cli for Gemini CLI routing"
         );
 
         let result = super::execute_managed_rollback(
             "gemini-routing",
             "",
-            "Restore headroom:gemini_cli for Gemini CLI routing",
+            "Restore ai-switchboard:gemini_cli for Gemini CLI routing",
         )
         .expect("execute gemini rollback");
         assert_eq!(
@@ -1973,7 +1981,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(preview.marker_present);
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:cursor for Cursor routing"
+            "Restore ai-switchboard:cursor for Cursor routing"
         );
         assert!(preview.proposed_action.contains("Cursor sidecar block"));
         assert!(preview
@@ -1984,7 +1992,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let result = super::execute_managed_rollback(
             "cursor-routing",
             "",
-            "Restore headroom:cursor for Cursor routing",
+            "Restore ai-switchboard:cursor for Cursor routing",
         )
         .expect("execute cursor rollback");
         assert_eq!(
@@ -2037,7 +2045,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let content = fs::read_to_string(&sidecar).expect("read amazon q sidecar");
         assert!(content.contains("# amazon q user note\nkeep this"));
-        assert!(content.contains("# >>> headroom:amazon_q >>>"));
+        assert!(content.contains("# >>> ai-switchboard:amazon_q >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
         assert!(content.contains("Amazon Q Developer CLI routing-intent sidecar"));
 
@@ -2088,13 +2096,13 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(preview.marker_present);
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:amazon_q for Amazon Q Developer CLI routing"
+            "Restore ai-switchboard:amazon_q for Amazon Q Developer CLI routing"
         );
 
         let rollback = super::execute_managed_rollback(
             "amazon-q-routing",
             "",
-            "Restore headroom:amazon_q for Amazon Q Developer CLI routing",
+            "Restore ai-switchboard:amazon_q for Amazon Q Developer CLI routing",
         )
         .expect("execute amazon q rollback");
         assert_eq!(
@@ -2139,7 +2147,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let content = fs::read_to_string(&sidecar).expect("read aider sidecar");
         assert!(content.contains("# aider user note\nkeep this"));
-        assert!(content.contains("# >>> headroom:aider >>>"));
+        assert!(content.contains("# >>> ai-switchboard:aider >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
         assert!(content.contains("Aider routing-intent sidecar"));
 
@@ -2186,13 +2194,13 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(preview.marker_present);
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:aider for Aider routing"
+            "Restore ai-switchboard:aider for Aider routing"
         );
 
         let rollback = super::execute_managed_rollback(
             "aider-routing",
             "",
-            "Restore headroom:aider for Aider routing",
+            "Restore ai-switchboard:aider for Aider routing",
         )
         .expect("execute aider rollback");
         assert_eq!(
@@ -2219,21 +2227,42 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     #[serial_test::serial]
     fn continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
         let home = TestHome::new();
-        let sidecar = home.path().join(".continue").join(SWITCHBOARD_ROUTING_FILE);
-        fs::create_dir_all(sidecar.parent().unwrap()).expect("create continue dir");
+        let continue_dir = home.path().join(".continue");
+        let sidecar = continue_dir.join(SWITCHBOARD_ROUTING_FILE);
+        let config = continue_dir.join("config.yaml");
+        fs::create_dir_all(&continue_dir).expect("create continue dir");
+        fs::write(
+            &config,
+            "name: User Config\nversion: 1.0.0\nschema: v1\nmodels: []\n",
+        )
+        .expect("seed continue config");
         fs::write(&sidecar, "# continue user note\nkeep this\n").expect("seed sidecar");
 
         let result = super::apply_client_setup("continue").expect("apply continue setup");
         assert!(result.applied);
         assert!(!result.already_configured);
-        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
-        assert_eq!(result.backup_files.len(), 1);
+        assert_eq!(result.changed_files.len(), 2);
+        assert!(result
+            .changed_files
+            .iter()
+            .any(|path| path == &config.display().to_string()));
+        assert!(result
+            .changed_files
+            .iter()
+            .any(|path| path == &sidecar.display().to_string()));
+        assert_eq!(result.backup_files.len(), 2);
         assert!(result.verification.verified);
         assert!(result.summary.contains("Continue"));
 
+        let config_content = fs::read_to_string(&config).expect("read continue config");
+        assert!(config_content.contains("AI Switchboard"));
+        assert!(config_content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        assert!(crate::continue_provider_configs::continue_provider_config_matches()
+            .expect("verify continue provider"));
+
         let content = fs::read_to_string(&sidecar).expect("read continue sidecar");
         assert!(content.contains("# continue user note\nkeep this"));
-        assert!(content.contains("# >>> headroom:continue >>>"));
+        assert!(content.contains("# >>> ai-switchboard:continue >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
         assert!(content.contains("Continue routing-intent sidecar"));
 
@@ -2284,13 +2313,13 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(preview.marker_present);
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:continue for Continue routing"
+            "Restore ai-switchboard:continue for Continue routing"
         );
 
         let rollback = super::execute_managed_rollback(
             "continue-routing",
             "",
-            "Restore headroom:continue for Continue routing",
+            "Restore ai-switchboard:continue for Continue routing",
         )
         .expect("execute continue rollback");
         assert_eq!(
@@ -2303,11 +2332,30 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         );
 
         super::apply_client_setup("continue").expect("reapply continue setup");
+
+        let provider_preview = super::preview_managed_config_apply("continue-provider-routing")
+            .expect("preview continue provider apply");
+        assert_eq!(provider_preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(provider_preview
+            .confirmation_phrase
+            .starts_with("Apply ai-switchboard:continue-provider to"));
+
+        let provider_rollback =
+            super::preview_managed_rollback("continue-provider-routing")
+                .expect("preview continue provider rollback");
+        assert_eq!(provider_rollback.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            provider_rollback.confirmation_phrase,
+            "Restore ai-switchboard:continue-provider for Continue provider routing"
+        );
+
         super::disable_client_setup("continue").expect("disable continue setup");
         assert_eq!(
             fs::read_to_string(&sidecar).expect("read disabled continue sidecar"),
             "# continue user note\nkeep this\n"
         );
+        assert!(!crate::continue_provider_configs::continue_provider_config_matches()
+            .expect("continue provider removed"));
         let verification =
             super::verify_client_setup("continue").expect("verify disabled continue setup");
         assert!(!verification.verified);
@@ -2355,7 +2403,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let content = fs::read_to_string(&sidecar).expect("read goose sidecar");
         assert!(content.contains("# goose user note\nkeep this"));
-        assert!(content.contains("# >>> headroom:goose >>>"));
+        assert!(content.contains("# >>> ai-switchboard:goose >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
         assert!(content.contains("Repo Memory MCP bridge marker"));
         assert!(content.contains("allowlisted native endpoint routing"));
@@ -2376,13 +2424,13 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(preview.marker_present);
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:goose for Goose MCP bridge"
+            "Restore ai-switchboard:goose for Goose MCP bridge"
         );
 
         let rollback = super::execute_managed_rollback(
             "goose-routing",
             "",
-            "Restore headroom:goose for Goose MCP bridge",
+            "Restore ai-switchboard:goose for Goose MCP bridge",
         )
         .expect("execute goose rollback");
         assert_eq!(
@@ -2487,7 +2535,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let windsurf =
             super::preview_managed_rollback("windsurf-routing").expect("preview windsurf rollback");
         assert_eq!(windsurf.record_id, "windsurf-routing");
-        assert_eq!(windsurf.marker, "headroom:windsurf");
+        assert_eq!(windsurf.marker, "ai-switchboard:windsurf");
         assert!(windsurf
             .target_path
             .ends_with("Library/Application Support/Windsurf/User/settings.json"));
@@ -2497,7 +2545,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let zed = super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
         assert_eq!(zed.record_id, "zed-ai-routing");
-        assert_eq!(zed.marker, "headroom:zed");
+        assert_eq!(zed.marker, "ai-switchboard:zed");
         assert!(zed.target_path.ends_with(".config/zed/settings.json"));
         assert!(zed.proposed_action.contains("Restore the Zed settings"));
     }
@@ -2598,7 +2646,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let content = fs::read_to_string(&sidecar).expect("read sidecar");
         assert!(content.contains("# opencode user note\nkeep this"));
-        assert!(content.contains("# >>> headroom:opencode >>>"));
+        assert!(content.contains("# >>> ai-switchboard:opencode >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
         let config_value: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&config).expect("read config"))
@@ -2848,9 +2896,9 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             fs::read_to_string(home.path().join(".claude").join("CLAUDE.md")).expect("read claude");
         let codex =
             fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
-        assert!(claude.contains("headroom:caveman"));
+        assert!(claude.contains("ai-switchboard:caveman"));
         assert!(claude.contains("Switchboard Caveman, scoped"));
-        assert!(codex.contains("headroom:caveman"));
+        assert!(codex.contains("ai-switchboard:caveman"));
         assert!(codex.contains("Switchboard Caveman, scoped"));
     }
 
@@ -2918,14 +2966,14 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let claude_path = home.path().join(".claude").join("CLAUDE.md");
         assert!(!fs::read_to_string(&claude_path)
             .expect("read claude")
-            .contains("headroom:caveman"));
+            .contains("ai-switchboard:caveman"));
 
         super::enable_caveman_integration("scoped").expect("enable again");
         super::perform_full_cleanup();
         let codex_path = home.path().join(".codex").join("AGENTS.md");
         assert!(!fs::read_to_string(codex_path)
             .expect("read codex")
-            .contains("headroom:caveman"));
+            .contains("ai-switchboard:caveman"));
     }
 
     #[test]
@@ -3192,11 +3240,11 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         // Sanity: each managed block still appears exactly once.
         let combined = format!("{zshrc_after_second}\n{zshenv_after_second}");
         assert_eq!(
-            combined.matches("# >>> headroom:claude_code >>>").count(),
+            combined.matches("# >>> ai-switchboard:claude_code >>>").count(),
             1
         );
         assert_eq!(
-            combined.matches("# >>> headroom:managed_rtk >>>").count(),
+            combined.matches("# >>> ai-switchboard:managed_rtk >>>").count(),
             1
         );
     }
@@ -3271,7 +3319,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let config_toml = home.path().join(".codex").join("config.toml");
         let toml = fs::read_to_string(&config_toml).expect("codex config.toml written");
         assert!(
-            toml.contains("# >>> headroom:codex_cli >>>"),
+            toml.contains("# >>> ai-switchboard:codex_cli >>>"),
             "managed marker present, got:\n{toml}"
         );
         assert!(
@@ -3320,7 +3368,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         super::disable_client_setup("codex").expect("disable_client_setup succeeds");
         let toml_after = fs::read_to_string(&config_toml).unwrap_or_default();
         assert!(
-            !toml_after.contains("# >>> headroom:codex_cli >>>"),
+            !toml_after.contains("# >>> ai-switchboard:codex_cli >>>"),
             "managed block removed on disable, got:\n{toml_after}"
         );
         let combined_after = format!(
@@ -3388,7 +3436,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(toml_first, toml_second, "config.toml byte-stable");
         assert_eq!(zshenv_first, zshenv_second, "zshenv byte-stable");
         assert_eq!(
-            toml_second.matches("# >>> headroom:codex_cli >>>").count(),
+            toml_second.matches("# >>> ai-switchboard:codex_cli >>>").count(),
             1,
             "managed block appears exactly once"
         );
@@ -3414,14 +3462,14 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(preview.backup_exists);
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:codex_cli for Codex routing"
+            "Restore ai-switchboard:codex_cli for Codex routing"
         );
         let backup_path = preview.backup_path.expect("backup path");
 
         let result = super::execute_managed_rollback(
             "codex-routing",
             &backup_path,
-            "Restore headroom:codex_cli for Codex routing",
+            "Restore ai-switchboard:codex_cli for Codex routing",
         )
         .expect("execute rollback");
 
@@ -3450,7 +3498,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let err = super::execute_managed_rollback(
             "codex-routing",
             wrong_backup.to_str().unwrap(),
-            "Restore headroom:codex_cli for Codex routing",
+            "Restore ai-switchboard:codex_cli for Codex routing",
         )
         .expect_err("wrong backup must be rejected");
 
@@ -3478,7 +3526,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let err = super::execute_managed_rollback(
             "codex-routing",
             &backup_path,
-            "Restore headroom:codex_cli for Codex routing",
+            "Restore ai-switchboard:codex_cli for Codex routing",
         )
         .expect_err("missing marker must be rejected");
 
@@ -3526,14 +3574,14 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             .contains("Relaunch-survival evidence"));
         assert_eq!(
             preview.confirmation_phrase,
-            "Restore headroom:opencode for OpenCode routing"
+            "Restore ai-switchboard:opencode for OpenCode routing"
         );
         let backup_path = preview.backup_path.expect("backup path");
 
         let result = super::execute_managed_rollback(
             "opencode-routing",
             &backup_path,
-            "Restore headroom:opencode for OpenCode routing",
+            "Restore ai-switchboard:opencode for OpenCode routing",
         )
         .expect("execute rollback");
 
@@ -3580,7 +3628,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             super::preview_managed_config_apply("opencode-routing").expect("preview apply");
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
         assert!(preview.confirmation_phrase.starts_with(&format!(
-            "Apply headroom:opencode to {} after reviewing ",
+            "Apply ai-switchboard:opencode to {} after reviewing ",
             config_json.display()
         )));
         assert!(preview.current_state.contains("OpenAI"));
@@ -3614,7 +3662,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let rollback = super::execute_managed_rollback(
             "opencode-routing",
             result.backup_path.as_deref().expect("backup"),
-            "Restore headroom:opencode for OpenCode routing",
+            "Restore ai-switchboard:opencode for OpenCode routing",
         )
         .expect("rollback applied config");
         assert_eq!(rollback.record_id, "opencode-routing");
@@ -3659,7 +3707,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(preview.record_id, super::CURSOR_SIDECAR_APPLY_RECORD_ID);
         assert_eq!(preview.target_path, sidecar.display().to_string());
         assert!(preview.current_state.contains("user-owned cursor note"));
-        assert!(preview.proposed_state.contains("headroom:cursor"));
+        assert!(preview.proposed_state.contains("ai-switchboard:cursor"));
         assert!(!preview.proposed_state.contains("user-selected"));
         assert!(preview.confirmation_phrase.contains("after reviewing"));
         assert_eq!(
@@ -3683,7 +3731,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let rollback = super::execute_managed_rollback(
             "cursor-routing",
             "",
-            "Restore headroom:cursor for Cursor routing",
+            "Restore ai-switchboard:cursor for Cursor routing",
         )
         .expect("remove only Cursor sidecar block");
         assert!(rollback.safety_backup_path.is_some());
@@ -3769,7 +3817,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let rollback_preview =
             super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
         assert_eq!(rollback_preview.record_id, "zed-ai-routing");
-        assert_eq!(rollback_preview.marker, "headroom:zed");
+        assert_eq!(rollback_preview.marker, "ai-switchboard:zed");
         assert!(rollback_preview.backup_path.is_some());
         assert!(rollback_preview
             .proposed_action
@@ -3778,7 +3826,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let rollback = super::execute_managed_rollback(
             "zed-ai-routing",
             result.backup_path.as_deref().expect("backup"),
-            "Restore headroom:zed for Zed routing",
+            "Restore ai-switchboard:zed for Zed routing",
         )
         .expect("rollback applied zed config");
         assert_eq!(rollback.record_id, "zed-ai-routing");
@@ -3838,7 +3886,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let rollback_preview =
             super::preview_managed_rollback("windsurf-routing").expect("preview windsurf rollback");
         assert_eq!(rollback_preview.record_id, "windsurf-routing");
-        assert_eq!(rollback_preview.marker, "headroom:windsurf");
+        assert_eq!(rollback_preview.marker, "ai-switchboard:windsurf");
         assert!(rollback_preview.backup_path.is_some());
         assert!(rollback_preview
             .proposed_action
@@ -3847,7 +3895,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let rollback = super::execute_managed_rollback(
             "windsurf-routing",
             result.backup_path.as_deref().expect("backup"),
-            "Restore headroom:windsurf for Windsurf routing",
+            "Restore ai-switchboard:windsurf for Windsurf routing",
         )
         .expect("rollback applied windsurf config");
         assert_eq!(rollback.record_id, "windsurf-routing");
@@ -3909,7 +3957,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let err = super::execute_managed_rollback(
             "opencode-routing",
             wrong_backup.to_str().unwrap(),
-            "Restore headroom:opencode for OpenCode routing",
+            "Restore ai-switchboard:opencode for OpenCode routing",
         )
         .expect_err("wrong backup must be rejected");
 
@@ -3939,7 +3987,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let windsurf_err = super::execute_managed_rollback(
             "windsurf-routing",
             wrong_windsurf_backup.to_str().unwrap(),
-            "Restore headroom:windsurf for Windsurf routing",
+            "Restore ai-switchboard:windsurf for Windsurf routing",
         )
         .expect_err("wrong Windsurf backup must be rejected");
 
@@ -3964,7 +4012,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let zed_err = super::execute_managed_rollback(
             "zed-ai-routing",
             wrong_zed_backup.to_str().unwrap(),
-            "Restore headroom:zed for Zed routing",
+            "Restore ai-switchboard:zed for Zed routing",
         )
         .expect_err("wrong Zed backup must be rejected");
 
@@ -3990,7 +4038,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let err = super::execute_managed_rollback(
             "opencode-routing",
             &backup_path,
-            "Restore headroom:opencode for OpenCode routing",
+            "Restore ai-switchboard:opencode for OpenCode routing",
         )
         .expect_err("missing provider must be rejected");
 
@@ -4169,14 +4217,14 @@ js_repl = false\n",
         fs::write(
             &config_toml,
             "[features]\njs_repl = false\n\
-             # >>> headroom:codex_cli >>>\n\
+             # >>> ai-switchboard:codex_cli >>>\n\
              model_provider = \"headroom\"\n\
              openai_base_url = \"http://127.0.0.1:6767/v1\"\n\n\
              [model_providers.headroom]\n\
              name = \"Headroom persistent proxy\"\n\
              base_url = \"http://127.0.0.1:6767/v1\"\n\
              supports_websockets = true\n\
-             # <<< headroom:codex_cli <<<\n",
+             # <<< ai-switchboard:codex_cli <<<\n",
         )
         .unwrap();
 
@@ -4806,7 +4854,7 @@ js_repl = false\n",
     }
 
     #[test]
-    fn continue_connector_exposes_managed_sidecar_without_native_writes() {
+    fn continue_connector_exposes_managed_native_and_sidecar_paths() {
         let detected_clients = Vec::new();
         let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
         let continue_connector = connectors
@@ -4866,11 +4914,11 @@ js_repl = false\n",
         assert!(result
             .changed_files
             .iter()
-            .any(|path| path.contains("mac-ai-switchboard-routing.md")));
+            .any(|path| path.contains("ai-switchboard-routing.md")));
 
         let routing_path = planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
         let body = std::fs::read_to_string(&routing_path).expect("read qwen sidecar");
-        assert!(body.contains("headroom:qwen_code"));
+        assert!(body.contains("ai-switchboard:qwen_code"));
         assert!(body.contains("reversible Qwen Code routing-intent sidecar"));
         assert!(
             super::verify_client_setup("qwen_code")
@@ -4886,5 +4934,5 @@ js_repl = false\n",
         );
         assert!(routing_path.exists());
         let cleaned = std::fs::read_to_string(&routing_path).expect("read cleaned qwen sidecar");
-        assert!(!cleaned.contains("headroom:qwen_code"));
+        assert!(!cleaned.contains("ai-switchboard:qwen_code"));
     }

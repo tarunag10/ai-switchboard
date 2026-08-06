@@ -34,6 +34,7 @@ describe("managedChangeRecords", () => {
       "grok-sidecar-routing",
       "aider-routing",
       "continue-routing",
+      "continue-provider-routing",
       "goose-routing",
       "goose-provider-routing",
       "qwen-code-routing",
@@ -97,9 +98,9 @@ describe("managedChangeRecords", () => {
     expect(allCopy).toContain("Aider");
     expect(allCopy).toContain("Amazon Q");
     expect(allCopy).toContain("AWS credentials, SSO cache, and profiles are not modified");
-    expect(allCopy).toContain("headroom:claude_code");
-    expect(allCopy).toContain("headroom:codex_cli");
-    expect(allCopy).toContain("headroom:zed");
+    expect(allCopy).toContain("ai-switchboard:claude_code");
+    expect(allCopy).toContain("ai-switchboard:codex_cli");
+    expect(allCopy).toContain("ai-switchboard:zed");
     expect(allCopy).toContain(
       "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks.",
     );
@@ -130,20 +131,20 @@ describe("managedChangeRecords", () => {
     const preview = buildManagedConfigDiffPreview({
       record: record!,
       targetPath: " ~/.codex/config.toml ",
-      currentManagedBlock: " # >>> headroom:codex_cli >>>\nold\n# <<< headroom:codex_cli <<< ",
+      currentManagedBlock: " # >>> ai-switchboard:codex_cli >>>\nold\n# <<< ai-switchboard:codex_cli <<< ",
       proposedManagedBlock:
-        "# >>> headroom:codex_cli >>>\nnew\n# <<< headroom:codex_cli <<<",
+        "# >>> ai-switchboard:codex_cli >>>\nnew\n# <<< ai-switchboard:codex_cli <<<",
     });
 
     expect(preview).toMatchObject({
       recordId: "codex-routing",
       owner: "Codex routing",
       targetPath: "~/.codex/config.toml",
-      markerId: "headroom:codex_cli",
+      markerId: "ai-switchboard:codex_cli",
       backupPath: "next to edited client config as *.headroom-backup-*",
       dryRunOnly: true,
       requiresExplicitConfirmation: true,
-      confirmationPhrase: "Apply headroom:codex_cli to ~/.codex/config.toml",
+      confirmationPhrase: "Apply ai-switchboard:codex_cli to ~/.codex/config.toml",
       applyBlockedReason:
         "Apply is blocked until the user confirms this exact target, backup path, marker, rollback plan, and Off-mode cleanup boundary.",
       writePathStatus: "blocked",
@@ -170,7 +171,7 @@ describe("managedChangeRecords", () => {
         targetPath: "~/.zshrc",
         currentManagedBlock: null,
         proposedManagedBlock:
-          "# >>> headroom:rtk >>>\nsource ~/.headroom/rtk.sh\n# <<< headroom:rtk <<<",
+          "# >>> ai-switchboard:rtk >>>\nsource ~/.headroom/rtk.sh\n# <<< ai-switchboard:rtk <<<",
       }),
     );
 
@@ -178,7 +179,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Target: ~/.zshrc");
     expect(text).toContain("Dry run only: yes");
     expect(text).toContain("Requires explicit confirmation: yes");
-    expect(text).toContain("Confirmation phrase: Apply headroom:rtk to ~/.zshrc");
+    expect(text).toContain("Confirmation phrase: Apply ai-switchboard:rtk to ~/.zshrc");
     expect(text).toContain("Write path status: blocked");
     expect(text).toContain(
       "Apply blocked: Apply is blocked until the user confirms this exact target, backup path, marker, rollback plan, and Off-mode cleanup boundary.",
@@ -212,6 +213,7 @@ describe("managedChangeRecords", () => {
       "grok-sidecar-routing",
       "aider-routing",
       "continue-routing",
+      "continue-provider-routing",
       "goose-routing",
       "goose-provider-routing",
       "qwen-code-routing",
@@ -259,7 +261,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Mode: backup_restore");
     expect(text).toContain("Status: ready_for_review");
     expect(text).toContain("Targets: ~/.zshrc, ~/.zprofile");
-    expect(text).toContain("Marker: headroom:codex_cli");
+    expect(text).toContain("Marker: ai-switchboard:codex_cli");
     expect(text).toContain("Backup: next to edited shell profile as *.headroom-backup-*");
     expect(text).toContain("Verified by: Verified by Doctor connector checks");
     expect(text).toContain("Rollback: Remove managed Codex shell routing");
@@ -318,7 +320,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Mode: backup_restore");
     expect(text).toContain("Status: ready_for_review");
     expect(text).toContain("Targets: ~/.codex/config.toml, ~/.zshrc, ~/.zprofile");
-    expect(text).toContain("Marker: headroom:codex_cli");
+    expect(text).toContain("Marker: ai-switchboard:codex_cli");
     expect(text).toContain("Backup: next to edited client config as *.headroom-backup-*");
     expect(text).toContain("Evidence required:");
     expect(text).toContain("Confirm the target file still contains");
@@ -338,7 +340,7 @@ describe("managedChangeRecords", () => {
 
     expect(preview).toMatchObject({
       executionStatus: "blocked_until_confirmed",
-      confirmationPhrase: "Restore headroom:opencode for OpenCode routing",
+      confirmationPhrase: "Restore ai-switchboard:opencode for OpenCode routing",
       undoAllOrder: 4,
       backendAction: "restore_backup_or_remove_marker",
       nativeWriteStatus: "not_executed",
@@ -384,7 +386,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Undo-all order: 2");
     expect(text).toContain("Backend action: restore_backup_or_remove_marker");
     expect(text).toContain(
-      "Confirmation phrase: Restore headroom:codex_cli for Codex routing",
+      "Confirmation phrase: Restore ai-switchboard:codex_cli for Codex routing",
     );
     expect(text).toContain("AI Switchboard rollback plan: Codex routing");
     expect(text).toContain("Ordered restore steps:");
@@ -397,7 +399,7 @@ describe("managedChangeRecords", () => {
     expect(previews).toHaveLength(managedChangeRecords.length);
     expect(previews[0]).toMatchObject({
       undoAllOrder: 1,
-      confirmationPhrase: "Restore headroom:claude_code for Claude Code routing",
+      confirmationPhrase: "Restore ai-switchboard:claude_code for Claude Code routing",
     });
     expect(previews[previews.length - 1]).toMatchObject({
       undoAllOrder: managedChangeRecords.length,
@@ -416,6 +418,7 @@ describe("managedChangeRecords", () => {
       "grok-routing",
       "aider-routing",
       "continue-routing",
+      "continue-provider-routing",
       "goose-routing",
       "goose-provider-routing",
       "qwen-code-routing",
@@ -447,7 +450,7 @@ describe("managedChangeRecords", () => {
 
     expect(text).toContain("AI Switchboard undo-all rollback preview");
     expect(text).toContain("Native write status: not_executed");
-    expect(text).toContain("Executable native rows: 13");
+    expect(text).toContain("Executable native rows: 14");
     expect(text).toContain("Codex routing (codex-routing)");
     expect(text).toContain("Gemini CLI routing (gemini-routing)");
     expect(text).toContain("OpenCode routing (opencode-routing)");
@@ -503,14 +506,14 @@ describe("managedChangeRecords", () => {
       "",
     ].join("\n");
     const proposed = [
-      "# >>> headroom:claude_code >>>",
+      "# >>> ai-switchboard:claude_code >>>",
       "export ANTHROPIC_BASE_URL=http://127.0.0.1:6767",
-      "# <<< headroom:claude_code <<<",
+      "# <<< ai-switchboard:claude_code <<<",
     ].join("\n");
 
     const result = applyManagedConfigBlock(
       existing,
-      "headroom:claude_code",
+      "ai-switchboard:claude_code",
       proposed,
     );
 
@@ -518,7 +521,7 @@ describe("managedChangeRecords", () => {
     expect(result.text).toContain("export PATH=/usr/local/bin:$PATH");
     expect(result.text).toContain("alias ll='ls -la'");
     expect(result.text).toContain("export ANTHROPIC_BASE_URL");
-    expect(result.text.match(/# >>> headroom:claude_code >>>/g)).toHaveLength(1);
+    expect(result.text.match(/# >>> ai-switchboard:claude_code >>>/g)).toHaveLength(1);
   });
 
   it("builds a confirmed apply plan from the reviewed dry-run preview", () => {
@@ -530,10 +533,10 @@ describe("managedChangeRecords", () => {
       targetPath: "~/.codex/config.toml",
       currentManagedBlock: null,
       proposedManagedBlock: [
-        "# >>> headroom:codex_cli >>>",
+        "# >>> ai-switchboard:codex_cli >>>",
         '[model_providers.headroom]',
         'base_url = "http://127.0.0.1:6767/v1"',
-        "# <<< headroom:codex_cli <<<",
+        "# <<< ai-switchboard:codex_cli <<<",
       ].join("\n"),
     });
     const existing = [
@@ -546,14 +549,14 @@ describe("managedChangeRecords", () => {
     const plan = buildManagedConfigApplyPlan({
       preview,
       existingText: existing,
-      confirmationPhrase: "Apply headroom:codex_cli to ~/.codex/config.toml",
+      confirmationPhrase: "Apply ai-switchboard:codex_cli to ~/.codex/config.toml",
     });
 
     expect(plan).toMatchObject({
       recordId: "codex-routing",
       owner: "Codex routing",
       targetPath: "~/.codex/config.toml",
-      markerId: "headroom:codex_cli",
+      markerId: "ai-switchboard:codex_cli",
       confirmed: true,
       writePathStatus: "ready",
       changed: true,
@@ -561,7 +564,7 @@ describe("managedChangeRecords", () => {
     expect(plan.nextText).toContain('model = "gpt-5"');
     expect(plan.nextText).toContain("[profiles.default]");
     expect(plan.nextText).toContain("[model_providers.headroom]");
-    expect(plan.nextText.match(/# >>> headroom:codex_cli >>>/g)).toHaveLength(1);
+    expect(plan.nextText.match(/# >>> ai-switchboard:codex_cli >>>/g)).toHaveLength(1);
     expect(plan.safetyNotes.join(" ")).toContain("Create the backup");
     expect(plan.safetyNotes.join(" ")).toContain("Off mode");
   });
@@ -575,7 +578,7 @@ describe("managedChangeRecords", () => {
       targetPath: "~/.zshrc",
       currentManagedBlock: null,
       proposedManagedBlock:
-        "# >>> headroom:rtk >>>\nsource ~/.headroom/rtk.sh\n# <<< headroom:rtk <<<",
+        "# >>> ai-switchboard:rtk >>>\nsource ~/.headroom/rtk.sh\n# <<< ai-switchboard:rtk <<<",
     });
 
     expect(() =>
@@ -596,16 +599,16 @@ describe("managedChangeRecords", () => {
       targetPath: "~/.zshrc",
       currentManagedBlock: null,
       proposedManagedBlock: [
-        "# >>> headroom:claude_code >>>",
+        "# >>> ai-switchboard:claude_code >>>",
         "export ANTHROPIC_BASE_URL=http://127.0.0.1:6767",
-        "# <<< headroom:claude_code <<<",
+        "# <<< ai-switchboard:claude_code <<<",
       ].join("\n"),
     });
     const text = formatManagedConfigApplyPlan(
       buildManagedConfigApplyPlan({
         preview,
         existingText: "alias ll='ls -la'\n",
-        confirmationPhrase: "Apply headroom:claude_code to ~/.zshrc",
+        confirmationPhrase: "Apply ai-switchboard:claude_code to ~/.zshrc",
       }),
     );
 
@@ -624,63 +627,63 @@ describe("managedChangeRecords", () => {
   it("replaces only the managed block during repair", () => {
     const existing = [
       "export EDITOR=vim",
-      "# >>> headroom:codex_cli >>>",
+      "# >>> ai-switchboard:codex_cli >>>",
       "old = true",
-      "# <<< headroom:codex_cli <<<",
+      "# <<< ai-switchboard:codex_cli <<<",
       "export VISUAL=code",
       "",
     ].join("\n");
     const proposed = [
-      "# >>> headroom:codex_cli >>>",
+      "# >>> ai-switchboard:codex_cli >>>",
       "new = true",
-      "# <<< headroom:codex_cli <<<",
+      "# <<< ai-switchboard:codex_cli <<<",
     ].join("\n");
 
-    const result = applyManagedConfigBlock(existing, "headroom:codex_cli", proposed);
+    const result = applyManagedConfigBlock(existing, "ai-switchboard:codex_cli", proposed);
 
     expect(result.changed).toBe(true);
     expect(result.text).toContain("export EDITOR=vim");
     expect(result.text).toContain("export VISUAL=code");
     expect(result.text).toContain("new = true");
     expect(result.text).not.toContain("old = true");
-    expect(result.text.match(/# >>> headroom:codex_cli >>>/g)).toHaveLength(1);
+    expect(result.text.match(/# >>> ai-switchboard:codex_cli >>>/g)).toHaveLength(1);
   });
 
   it("removes only the managed block for Off cleanup", () => {
     const existing = [
       "export PATH=/usr/bin:$PATH",
-      "# >>> headroom:rtk >>>",
+      "# >>> ai-switchboard:rtk >>>",
       "source ~/.headroom/rtk.sh",
-      "# <<< headroom:rtk <<<",
+      "# <<< ai-switchboard:rtk <<<",
       "export EDITOR=vim",
       "",
     ].join("\n");
 
-    const result = removeManagedConfigBlock(existing, "headroom:rtk");
+    const result = removeManagedConfigBlock(existing, "ai-switchboard:rtk");
 
     expect(result.changed).toBe(true);
     expect(result.text).toContain("export PATH=/usr/bin:$PATH");
     expect(result.text).toContain("export EDITOR=vim");
     expect(result.text).not.toContain("source ~/.headroom/rtk.sh");
-    expect(result.text).not.toContain("# >>> headroom:rtk >>>");
+    expect(result.text).not.toContain("# >>> ai-switchboard:rtk >>>");
   });
 
   it("rejects broken marker blocks before apply or cleanup", () => {
     const broken = [
       "export PATH=/usr/bin:$PATH",
-      "# >>> headroom:codex_cli >>>",
+      "# >>> ai-switchboard:codex_cli >>>",
       "managed = true",
     ].join("\n");
 
     expect(() =>
       applyManagedConfigBlock(
         broken,
-        "headroom:codex_cli",
-        "# >>> headroom:codex_cli >>>\nnew = true\n# <<< headroom:codex_cli <<<",
+        "ai-switchboard:codex_cli",
+        "# >>> ai-switchboard:codex_cli >>>\nnew = true\n# <<< ai-switchboard:codex_cli <<<",
       ),
     ).toThrow("missing an end marker");
     expect(() =>
-      removeManagedConfigBlock(broken, "headroom:codex_cli"),
+      removeManagedConfigBlock(broken, "ai-switchboard:codex_cli"),
     ).toThrow("missing an end marker");
   });
 
@@ -690,19 +693,19 @@ describe("managedChangeRecords", () => {
         preview: {
           recordId: "gemini-routing",
           owner: "Gemini CLI routing",
-          targetPath: "~/.gemini/mac-ai-switchboard-routing.md",
-          marker: "headroom:gemini_cli",
+          targetPath: "~/.gemini/ai-switchboard-routing.md",
+          marker: "ai-switchboard:gemini_cli",
           backupPath: null,
           markerPresent: true,
           backupExists: true,
           status: "ready",
-          confirmationPhrase: "Restore headroom:gemini_cli for Gemini CLI routing",
+          confirmationPhrase: "Restore ai-switchboard:gemini_cli for Gemini CLI routing",
           proposedAction:
             "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks.",
           blockedReason: null,
           evidence: [],
         },
-        confirmation: "Restore headroom:gemini_cli for Gemini CLI routing",
+        confirmation: "Restore ai-switchboard:gemini_cli for Gemini CLI routing",
         busy: false,
       }),
     ).toBe(true);
@@ -713,19 +716,19 @@ describe("managedChangeRecords", () => {
           recordId: "cursor-routing",
           owner: "Cursor routing",
           targetPath:
-            "~/Library/Application Support/Cursor/mac-ai-switchboard-routing.md",
-          marker: "headroom:cursor",
+            "~/Library/Application Support/Cursor/ai-switchboard-routing.md",
+          marker: "ai-switchboard:cursor",
           backupPath: null,
           markerPresent: true,
           backupExists: true,
           status: "ready",
-          confirmationPhrase: "Restore headroom:cursor for Cursor routing",
+          confirmationPhrase: "Restore ai-switchboard:cursor for Cursor routing",
           proposedAction:
             "Remove only the Switchboard-owned Cursor sidecar block.",
           blockedReason: null,
           evidence: [],
         },
-        confirmation: "Restore headroom:cursor for Cursor routing",
+        confirmation: "Restore ai-switchboard:cursor for Cursor routing",
         busy: false,
       }),
     ).toBe(true);
@@ -738,17 +741,17 @@ describe("managedChangeRecords", () => {
           recordId: "codex-routing",
           owner: "Codex routing",
           targetPath: "~/.codex/config.toml",
-          marker: "headroom:codex_cli",
+          marker: "ai-switchboard:codex_cli",
           backupPath: null,
           markerPresent: true,
           backupExists: false,
           status: "ready",
-          confirmationPhrase: "Restore headroom:codex_cli for Codex routing",
+          confirmationPhrase: "Restore ai-switchboard:codex_cli for Codex routing",
           proposedAction: "Restore the Codex config from backup.",
           blockedReason: null,
           evidence: [],
         },
-        confirmation: "Restore headroom:codex_cli for Codex routing",
+        confirmation: "Restore ai-switchboard:codex_cli for Codex routing",
         busy: false,
       }),
     ).toBe(false);

@@ -73,7 +73,6 @@ pub(crate) const GEMINI_BASE_URL_ENV_KEY: &str = "GOOGLE_GEMINI_BASE_URL";
 const GEMINI_COMPAT_BASE_URL_ENV_KEY: &str = "GEMINI_BASE_URL";
 const GEMINI_API_KEY_ENV_KEY: &str = "GEMINI_API_KEY";
 const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
-const MARKER_PREFIX: &str = "headroom";
 
 pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
     let mut changed_files = Vec::new();
@@ -211,6 +210,22 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             changed_files.extend(updates.0);
             backup_files.extend(updates.1);
         }
+        "continue" => {
+            let mut updates = crate::continue_provider_configs::configure_continue_provider_config()?;
+            let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
+            if changed {
+                updates.0.push(
+                    planned_sidecar_routing_path(client_id)?
+                        .display()
+                        .to_string(),
+                );
+            }
+            if let Some(backup) = backup {
+                updates.1.push(backup.display().to_string());
+            }
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+        }
         other if planned_sidecar_spec(other).is_some() => {
             if !planned_connector_has_implemented_setup(other) {
                 return Err(anyhow!(
@@ -283,6 +298,13 @@ fn client_setup_next_steps(client_id: &str) -> Vec<String> {
         return vec![
             "Keep XAI_API_KEY or Grok login authentication configured manually; Switchboard never stores credentials.".into(),
             "Run one Grok prompt and verify activity appears in Headroom.".into(),
+        ];
+    }
+
+    if normalized_setup_id(client_id) == "continue" {
+        return vec![
+            "Select the AI Switchboard model inside Continue after apply; provider credentials remain manual.".into(),
+            "Run one Continue prompt and verify activity appears in Headroom.".into(),
         ];
     }
 

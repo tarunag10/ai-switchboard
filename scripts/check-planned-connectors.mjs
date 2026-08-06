@@ -295,7 +295,7 @@ function validateCursorDryRunContract({
     ["repo intelligence", repoIntelligenceSource],
     ["doctor copy", doctorCopySource],
   ]) {
-    for (const snippet of ["Dry-run target", "mac-ai-switchboard:${"]) {
+    for (const snippet of ["Dry-run target", "ai-switchboard:${"]) {
       if (!source.includes(snippet)) {
         errors.push(`cursor ${label} evidence missing "${snippet}"`);
       }
@@ -369,9 +369,11 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
       "ClientConnectorSupportStatus::Managed",
     ],
     continue: [
-      '"continue"',
+      '"continue" => {',
+      "configure_continue_provider_config",
       "configure_planned_switchboard_sidecar",
       "continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+      'preview_managed_config_apply("continue-provider-routing")',
       'connector.client_id == "continue"',
       "ClientConnectorSupportStatus::Managed",
     ],

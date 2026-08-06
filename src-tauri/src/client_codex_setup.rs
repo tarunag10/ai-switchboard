@@ -11,7 +11,7 @@ use crate::managed_files::{
     remove_shell_block, strip_marker_block,
 };
 
-const MARKER_PREFIX: &str = "headroom";
+use crate::switchboard_identity::primary_marker_prefix;
 
 pub(crate) fn disable_codex_cli() -> Result<()> {
     remove_codex_provider_block()?;
@@ -101,8 +101,8 @@ fn codex_provider_table_body(requires_openai_auth: bool) -> String {
 fn codex_marker_block(block_id: &str, body: &str) -> String {
     format!(
         "{}\n{body}\n{}\n",
-        managed_marker_start(MARKER_PREFIX, block_id),
-        managed_marker_end(MARKER_PREFIX, block_id)
+        managed_marker_start(primary_marker_prefix(), block_id),
+        managed_marker_end(primary_marker_prefix(), block_id)
     )
 }
 

@@ -1,3 +1,4 @@
+import { switchboardManagedMarkerId } from "./switchboardIdentity";
 import type { SwitchboardMode } from "./types";
 import {
   compressRepoPack,
@@ -744,7 +745,7 @@ function buildRepoAgentConfigReadiness(
     },
     dryRunPreview: {
       target: dryRunTarget,
-      marker: `mac-ai-switchboard:${plannedConnectorId}`,
+      marker: switchboardManagedMarkerId(plannedConnectorId),
       applyBlockedReason: plan.safetyNote,
       rollbackPreview: dossier.rollbackStrategy,
     },

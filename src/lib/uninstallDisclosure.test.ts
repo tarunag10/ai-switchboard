@@ -58,6 +58,7 @@ describe("uninstallDisclosure", () => {
       "grok-sidecar-routing",
       "aider-routing",
       "continue-routing",
+      "continue-provider-routing",
       "goose-routing",
       "goose-provider-routing",
       "qwen-code-routing",

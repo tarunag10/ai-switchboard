@@ -2,13 +2,16 @@ use anyhow::{anyhow, Context, Result};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use crate::client_connectors::planned_sidecar_spec;
-
-pub(crate) const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
+pub(crate) use crate::switchboard_identity::{
+    legacy_planned_sidecar_routing_path, planned_sidecar_routing_path,
+    resolve_planned_sidecar_routing_path, retire_legacy_planned_sidecar, sidecar_marker_present,
+    LEGACY_ROUTING_FILE, ROUTING_FILE as SWITCHBOARD_ROUTING_FILE,
+};
 pub(crate) const OPENCODE_CONFIG_FILE: &str = "opencode.json";
 pub(crate) const GROK_CONFIG_FILE: &str = "config.toml";
 pub(crate) const WINDSURF_CONFIG_FILE: &str = "settings.json";
 pub(crate) const ZED_CONFIG_FILE: &str = "settings.json";
+pub(crate) const CONTINUE_CONFIG_FILE: &str = "config.yaml";
 pub(crate) const ZSH_PROFILE_FILE: &str = ".zprofile";
 pub(crate) const ZSH_RC_FILE: &str = ".zshrc";
 pub(crate) const BASH_PROFILE_FILE: &str = ".bash_profile";
@@ -28,16 +31,6 @@ pub(crate) fn home_dir() -> PathBuf {
     dirs::home_dir()
         .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
         .unwrap_or_else(std::env::temp_dir)
-}
-
-pub(crate) fn planned_sidecar_routing_path(client_id: &str) -> Result<PathBuf> {
-    let spec = planned_sidecar_spec(client_id)
-        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
-    let mut path = home_dir();
-    for part in spec.config_dir {
-        path = path.join(part);
-    }
-    Ok(path.join(SWITCHBOARD_ROUTING_FILE))
 }
 
 pub(crate) fn shell_path(name: &str) -> PathBuf {
@@ -108,6 +101,17 @@ pub(crate) fn windsurf_config_path() -> PathBuf {
 
 pub(crate) fn zed_config_path() -> PathBuf {
     home_dir().join(".config").join("zed").join(ZED_CONFIG_FILE)
+}
+
+pub(crate) fn continue_config_path() -> PathBuf {
+    let continue_dir = std::env::var_os("CONTINUE_PATH_ROOT")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|home| PathBuf::from(home).join(".continue"))
+        })
+        .unwrap_or_else(|| home_dir().join(".continue"));
+    continue_dir.join(CONTINUE_CONFIG_FILE)
 }
 
 pub(crate) enum ShellFamily {
@@ -249,7 +253,5 @@ pub(crate) fn file_has_managed_block(file_path: &Path, block_id: &str) -> Result
 
     let content = std::fs::read_to_string(file_path)
         .with_context(|| format!("reading {}", file_path.display()))?;
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
-    Ok(content.contains(&start) && content.contains(&end))
+    Ok(sidecar_marker_present(&content, block_id))
 }

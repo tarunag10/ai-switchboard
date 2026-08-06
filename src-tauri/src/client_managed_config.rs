@@ -13,8 +13,14 @@ use crate::client_adapters::{
     GROK_SIDECAR_APPLY_RECORD_ID, GROK_SIDECAR_OWNER,
 };
 use crate::client_paths::{
-    codex_config_toml_path, grok_config_path, home_dir, opencode_config_path,
+    codex_config_toml_path, continue_config_path, grok_config_path, home_dir, opencode_config_path,
     planned_sidecar_routing_path, windsurf_config_path, zed_config_path, SWITCHBOARD_ROUTING_FILE,
+};
+use crate::continue_provider_configs::{
+    configure_continue_provider_config, continue_apply_confirmation_phrase,
+    continue_config_backup_pattern, continue_next_provider_config,
+    continue_provider_config_matches, CONTINUE_NATIVE_APPLY_RECORD_ID, CONTINUE_NATIVE_MARKER,
+    CONTINUE_NATIVE_OWNER,
 };
 use crate::client_provider_configs::{
     configure_grok_provider_config, configure_opencode_provider_config,
@@ -44,20 +50,20 @@ use crate::models::{
 
 pub(crate) const GROK_ROLLBACK_RECORD_ID: &str = "grok-routing";
 const GROK_ROLLBACK_OWNER: &str = "Grok / xAI CLI routing";
-const GROK_ROLLBACK_MARKER: &str = "headroom:grok";
+const GROK_ROLLBACK_MARKER: &str = "ai-switchboard:grok";
 
 const CODEX_ROLLBACK_RECORD_ID: &str = "codex-routing";
 const CODEX_ROLLBACK_OWNER: &str = "Codex routing";
-const CODEX_ROLLBACK_MARKER: &str = "headroom:codex_cli";
+const CODEX_ROLLBACK_MARKER: &str = "ai-switchboard:codex_cli";
 const OPENCODE_ROLLBACK_RECORD_ID: &str = "opencode-routing";
 const OPENCODE_ROLLBACK_OWNER: &str = "OpenCode routing";
-const OPENCODE_ROLLBACK_MARKER: &str = "headroom:opencode";
+const OPENCODE_ROLLBACK_MARKER: &str = "ai-switchboard:opencode";
 const GEMINI_ROLLBACK_RECORD_ID: &str = "gemini-routing";
 const GEMINI_ROLLBACK_OWNER: &str = "Gemini CLI routing";
-const GEMINI_ROLLBACK_MARKER: &str = "headroom:gemini_cli";
+const GEMINI_ROLLBACK_MARKER: &str = "ai-switchboard:gemini_cli";
 const ZED_ROLLBACK_RECORD_ID: &str = "zed-ai-routing";
 const ZED_ROLLBACK_OWNER: &str = "Zed routing";
-const ZED_ROLLBACK_MARKER: &str = "headroom:zed";
+const ZED_ROLLBACK_MARKER: &str = "ai-switchboard:zed";
 const ZED_ROLLBACK_EVIDENCE: &[&str] = &[
     "Allowlisted rollback execution row: zed-ai-routing.",
     "Backup must live next to ~/.config/zed/settings.json and use *.headroom-backup-*.",
@@ -66,12 +72,19 @@ const ZED_ROLLBACK_EVIDENCE: &[&str] = &[
 ];
 const WINDSURF_ROLLBACK_RECORD_ID: &str = "windsurf-routing";
 const WINDSURF_ROLLBACK_OWNER: &str = "Windsurf routing";
-const WINDSURF_ROLLBACK_MARKER: &str = "headroom:windsurf";
+const WINDSURF_ROLLBACK_MARKER: &str = "ai-switchboard:windsurf";
 const WINDSURF_ROLLBACK_EVIDENCE: &[&str] = &[
     "Allowlisted rollback execution row: windsurf-routing.",
     "Backup must live next to ~/Library/Application Support/Windsurf/User/settings.json and use *.headroom-backup-*.",
     "Current config must still contain the managed Windsurf markers before restore.",
     "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+];
+const CONTINUE_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: continue-provider-routing.",
+    "Backup must live next to ~/.continue/config.yaml and use *.headroom-backup-*.",
+    "Current config must still contain the managed Continue Headroom model before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+    "Provider credentials, apiKey values, account state, and unrelated model entries remain untouched.",
 ];
 const MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION: &str =
     "Undo all ready Switchboard native rollback rows";
@@ -84,6 +97,7 @@ const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
     "cursor-routing",
     "grok-routing",
     "aider-routing",
+    CONTINUE_NATIVE_APPLY_RECORD_ID,
     "continue-routing",
     "goose-routing",
     "qwen-code-routing",
@@ -230,8 +244,19 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
                 "Restore the Goose config from the selected sibling backup after creating a fresh safety backup.",
             evidence: GOOSE_NATIVE_ROLLBACK_EVIDENCE,
         }),
+        CONTINUE_NATIVE_APPLY_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: CONTINUE_NATIVE_APPLY_RECORD_ID,
+            owner: CONTINUE_NATIVE_OWNER,
+            marker: CONTINUE_NATIVE_MARKER,
+            target_path: continue_config_path,
+            marker_matches: continue_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Continue config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: CONTINUE_ROLLBACK_EVIDENCE,
+        }),
         _ => Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {CONTINUE_NATIVE_APPLY_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -462,8 +487,42 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 ],
             })
         }
+        CONTINUE_NATIVE_APPLY_RECORD_ID => {
+            let path = continue_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                String::new()
+            };
+            let (proposed_state, changed) = continue_next_provider_config()?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: CONTINUE_NATIVE_APPLY_RECORD_ID.to_string(),
+                owner: CONTINUE_NATIVE_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: CONTINUE_NATIVE_MARKER.to_string(),
+                backup_path: continue_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: continue_apply_confirmation_phrase(
+                    CONTINUE_NATIVE_MARKER,
+                    &current_state,
+                ),
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "Continue config.yaml models[] is allowlisted for native safe apply.".to_string(),
+                    "Preview preserves unrelated models and never reads or writes apiKey values.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed YAML, verifies the Headroom model, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {CONTINUE_NATIVE_APPLY_RECORD_ID}."
         )),
     }
 }
@@ -642,8 +701,35 @@ pub fn execute_managed_config_apply(
                 ],
             })
         }
+        CONTINUE_NATIVE_APPLY_RECORD_ID => {
+            let path = continue_config_path();
+            let (changed_files, backup_files) = configure_continue_provider_config()?;
+            if !continue_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Continue provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: CONTINUE_NATIVE_APPLY_RECORD_ID.to_string(),
+                owner: CONTINUE_NATIVE_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: CONTINUE_NATIVE_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "Continue models[] contains the Switchboard-managed Headroom model.".to_string(),
+                    "Provider credentials, apiKey values, and unrelated model entries were not read or changed.".to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {CONTINUE_NATIVE_APPLY_RECORD_ID}."
         )),
     }
 }
@@ -729,6 +815,7 @@ pub fn execute_managed_rollback(
             | OPENCODE_ROLLBACK_RECORD_ID
             | GROK_ROLLBACK_RECORD_ID
             | GOOSE_NATIVE_APPLY_RECORD_ID
+            | CONTINUE_NATIVE_APPLY_RECORD_ID
             | GEMINI_ROLLBACK_RECORD_ID
             | WINDSURF_ROLLBACK_RECORD_ID
             | ZED_ROLLBACK_RECORD_ID

@@ -694,13 +694,14 @@ it("keeps Continue sidecar managed with forbidden-read boundaries", () => {
 
   expect(continueManifest.support_status).toBe("managed");
   expect(continueManifest.config?.locations).toEqual(
-    expect.arrayContaining(["~/.continue"]),
+    expect.arrayContaining(["~/.continue", "~/.continue/config.yaml"]),
   );
   expect(continueManifest.config?.forbidden_reads).toEqual(
     expect.arrayContaining(["*token*", "*secret*", "auth.json"]),
   );
   expect(contract.setupPhase).toBe("Managed");
   expect(contract.automationEnabled).toBe(true);
+  expect(contract.nativeAutomationEnabled).toBe(true);
   expect(contract.nextBlockedStage).toBeNull();
   expect(contract.stages.every((stage) => stage.state === "ready")).toBe(true);
   expect(promotedSidecarConnectorIds.has("continue")).toBe(true);

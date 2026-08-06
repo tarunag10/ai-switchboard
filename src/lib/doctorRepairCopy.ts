@@ -1,3 +1,4 @@
+import { switchboardManagedMarkerId } from "./switchboardIdentity";
 import { codexDoctorHint } from "./codexErrorGuidance";
 import type { ManagedChangeRecord } from "./managedChanges";
 import {
@@ -407,7 +408,7 @@ export function formatPlannedConnectorDoctorDossiers(): string {
           ) ??
           dossier?.configPathStrategy ??
           connector.configSurfaces.join(", ")
-        }; marker mac-ai-switchboard:${connector.id}`,
+        }; marker ${switchboardManagedMarkerId(connector.id)}`,
         `Next blocked gate: ${nextBlockedStage}`,
         `Automation enabled: ${plan.automationEnabled ? "yes" : "no"}`,
         `Safety: ${plan.safetyNote}`,
@@ -452,7 +453,7 @@ export function plannedConnectorDoctorPreviewRows(): PlannedConnectorDoctorPrevi
         ) ??
         dossier?.configPathStrategy ??
         connector.configSurfaces.join(", ")
-      }; marker: mac-ai-switchboard:${connector.id}`,
+      }; marker: ${switchboardManagedMarkerId(connector.id)}`,
     };
   });
 }
