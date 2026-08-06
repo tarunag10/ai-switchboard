@@ -9,6 +9,11 @@ import "./styles/tokens.css";
 import "./styles/repo-map.css";
 import "./styles/app-shell.css";
 import "./styles/tray-shell.css";
+import "./styles/home-panels.css";
+import "./styles/savings.css";
+import "./styles/optimize.css";
+import "./styles/components-a.css";
+import "./styles/components-b.css";
 import "./styles.css";
 import "./switchboard-theme.css";
 

@@ -49,6 +49,12 @@ export function trackedOversizeRegistryPaths(): string[] {
   return [...godFileRegistryPaths(), ...watchlistRegistryPaths()];
 }
 
+export function findWatchlistRegistryEntry(
+  path: string,
+): GodFileRegistryEntry | null {
+  return godFileRegistry.watchlist?.find((entry) => entry.path === path) ?? null;
+}
+
 export function findGodFileRegistryEntry(path: string): GodFileRegistryEntry | null {
   return godFileRegistry.godFiles.find((entry) => entry.path === path) ?? null;
 }
@@ -66,7 +72,8 @@ export function describeGodFileRegistry(): string {
     return `${filePath} (${entry.baselineLines.toLocaleString()} lines baseline, +${entry.maxGrowthLines} growth cap, split ${entry.splitSlice})`;
   });
   return [
-    "Tracked god and watchlist files are exempt from the default file-size budget until split work lands.",
+    "Watchlist files exceed the default file-size budget but are growth-capped after P3.3 god-file splits.",
+    `Split modules: ${(godFileRegistry.splitModules ?? []).length} tracked.`,
     ...lines,
   ].join(" ");
 }

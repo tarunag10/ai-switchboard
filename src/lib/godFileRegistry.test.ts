@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   describeGodFileRegistry,
-  findGodFileRegistryEntry,
-  godFileLineCeiling,
+  findWatchlistRegistryEntry,
   godFileRegistry,
   godFileRegistryPaths,
+  godFileLineCeiling,
   trackedOversizeRegistryPaths,
   splitModuleRegistryPaths,
   validateGodFileRegistry,
@@ -13,12 +13,8 @@ import {
 } from "./godFileRegistry";
 
 describe("godFileRegistry", () => {
-  it("tracks the three known god files", () => {
-    expect(godFileRegistryPaths()).toEqual([
-      "src-tauri/src/client_adapters.rs",
-      "src/App.tsx",
-      "src/styles.css",
-    ]);
+  it("has no remaining god files after P3.3 splits", () => {
+    expect(godFileRegistryPaths()).toEqual([]);
   });
 
   it("validates registry shape", () => {
@@ -26,32 +22,36 @@ describe("godFileRegistry", () => {
   });
 
   it("tracks watchlist frontier files", () => {
+    expect(watchlistRegistryPaths()).toContain("src/app/TrayApp.tsx");
     expect(watchlistRegistryPaths()).toContain(
       "src/components/OptimizationDashboard.tsx",
     );
-    expect(trackedOversizeRegistryPaths()).toHaveLength(4);
+    expect(trackedOversizeRegistryPaths()).toHaveLength(3);
   });
 
-  it("tracks wave-1 split modules", () => {
+  it("tracks split modules from the god-file program", () => {
     expect(splitModuleRegistryPaths()).toEqual(
       expect.arrayContaining([
-        "src-tauri/src/client_adapters_tests.rs",
-        "src-tauri/src/client_detection.rs",
-        "src/components/LauncherClientSetupStep.tsx",
+        "src-tauri/src/client_adapters.rs",
+        "src/app/TrayApp.tsx",
+        "src/components/TrayAppShell.tsx",
+        "src/components/SettingsView.tsx",
         "src/styles/tokens.css",
-        "src/styles/tray-shell.css",
+        "src/styles.css",
       ]),
     );
   });
 
-  it("computes growth ceilings per entry", () => {
-    const entry = findGodFileRegistryEntry("src/App.tsx");
+  it("computes growth ceilings for watchlist entries", () => {
+    const entry = findWatchlistRegistryEntry("src/app/TrayApp.tsx");
     expect(entry).not.toBeNull();
-    expect(godFileLineCeiling(entry!)).toBe(entry!.baselineLines + entry!.maxGrowthLines);
+    expect(godFileLineCeiling(entry!)).toBe(
+      entry!.baselineLines + entry!.maxGrowthLines,
+    );
   });
 
   it("describes the registry for maintainability copy", () => {
-    expect(describeGodFileRegistry()).toMatch(/client_adapters\.rs/);
-    expect(describeGodFileRegistry()).toMatch(/P3\.3/);
+    expect(describeGodFileRegistry()).toMatch(/TrayApp\.tsx/);
+    expect(describeGodFileRegistry()).toMatch(/split/);
   });
 });

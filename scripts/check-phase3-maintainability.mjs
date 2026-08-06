@@ -12,7 +12,7 @@ const requiredSignals = [
   {
     label: "god file registry fixture",
     file: "fixtures/god-file-registry.json",
-    needles: ["client-adapters", "app-shell", "global-styles", "watchlist", "maxGrowthLines"],
+    needles: ["splitModules", "watchlist", "maxGrowthLines", "P3.3 complete"],
   },
   {
     label: "god file registry loader",

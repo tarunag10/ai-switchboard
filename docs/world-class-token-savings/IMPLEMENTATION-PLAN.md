@@ -292,7 +292,7 @@
 
 | Slice | Action | Status |
 | --- | --- | --- |
-| God-file split | Extract `client_adapters.rs` domains; split `App.tsx` views; modularize `styles.css` | `in_progress` |
+| God-file split | Extract `client_adapters.rs` domains; split `App.tsx` views; modularize `styles.css` | `done` |
 | God-file registry | `fixtures/god-file-registry.json`, growth caps, `check:god-file-registry`, `godFileRegistry.ts` | `done` |
 | File-size budget | Extend `check-file-size-budget.mjs` god-file exemptions + `check:phase3-maintainability.mjs` | `done` |
 | Cross-platform | CLI parity on Windows/Linux before tray apps | `done` |

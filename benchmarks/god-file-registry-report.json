@@ -1,45 +1,33 @@
 {
-  "generatedAt": "2026-08-05T17:58:54.063Z",
+  "generatedAt": "2026-08-06T04:13:27.529Z",
   "defaultBudget": {
     "maxLines": 450,
     "maxBytes": 40960
   },
   "entries": [
     {
-      "id": "client-adapters",
-      "path": "src-tauri/src/client_adapters.rs",
-      "domain": "managed-client-routing",
-      "splitSlice": "P3.3",
-      "baselineLines": 9414,
-      "measuredLines": 9414,
-      "growthLines": 0,
-      "lineCeiling": 9614,
-      "withinGrowth": true,
-      "measuredBytes": 380748
-    },
-    {
-      "id": "app-shell",
-      "path": "src/App.tsx",
+      "id": "tray-app-controller",
+      "path": "src/app/TrayApp.tsx",
       "domain": "desktop-shell",
       "splitSlice": "P3.3",
-      "baselineLines": 5990,
-      "measuredLines": 5990,
+      "baselineLines": 5042,
+      "measuredLines": 5042,
       "growthLines": 0,
-      "lineCeiling": 6140,
+      "lineCeiling": 5192,
       "withinGrowth": true,
-      "measuredBytes": 209091
+      "measuredBytes": 172009
     },
     {
-      "id": "global-styles",
-      "path": "src/styles.css",
-      "domain": "design-system",
+      "id": "client-setup-apply",
+      "path": "src-tauri/src/client_setup_apply.rs",
+      "domain": "managed-client-routing",
       "splitSlice": "P3.3",
-      "baselineLines": 11994,
-      "measuredLines": 11994,
+      "baselineLines": 1882,
+      "measuredLines": 1882,
       "growthLines": 0,
-      "lineCeiling": 12194,
+      "lineCeiling": 1982,
       "withinGrowth": true,
-      "measuredBytes": 241836
+      "measuredBytes": 72412
     },
     {
       "id": "optimization-dashboard",

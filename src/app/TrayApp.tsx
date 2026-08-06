@@ -1,0 +1,5043 @@
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+} from "react";
+import {
+  ArrowClockwise,
+  CaretLeft,
+  Cpu,
+  CurrencyDollar,
+  SignOut,
+} from "@phosphor-icons/react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  refreshDoctorReport as refreshDoctorReportController,
+  runDoctorRepairAction,
+} from "../lib/doctorRepairController";
+import {
+  runLocalReleaseEvidenceSequence as runLocalReleaseEvidenceSequenceController,
+  runReleaseEvidenceCommand as runReleaseEvidenceCommandController,
+  type ReleaseEvidenceCommandResult,
+  type ReleaseReadinessReportPayload,
+} from "../lib/releaseEvidenceController";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  formatAppUpdateProgressCopy,
+  getAppUpdateInstallStatusCopy,
+  getBlockedAppUpdateCheckPatch,
+  loadAppUpdateConfiguration,
+  runAppUpdateCheck,
+  runAppUpdateInstall,
+  sendAppUpdateNotification,
+  shouldNotifyAboutAvailableAppUpdate,
+  maybeFireStaleAppUpdateNotification,
+  type AppUpdateStatePatch,
+} from "../lib/appUpdate";
+import { useHeadroomLearnController } from "../lib/headroomLearnController";
+import { maybeFireTrialNotifications } from "../lib/trialNotifications";
+import {
+  maybeFireUrgentPricingNotifications,
+  maybeFireUrgentRuntimeNotification,
+} from "../lib/urgentNotifications";
+import {
+  estimateRepoIntelligenceSavings,
+  type RepoIntelligenceSummary,
+  type RepoSavingsEstimate,
+} from "../lib/repoIntelligence";
+import {
+  RepoIntelligencePreview,
+  repoIntelligencePreview,
+} from "../components/RepoIntelligencePreview";
+import {
+  repoMemoryMcpInspectorRow,
+  repoMemoryMcpLifecycle,
+} from "../lib/repoMemoryMcp";
+import {
+  formatPlannedConnectorConfigCreationPlansMarkdown,
+  getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
+  getPlannedConnectorReadinessBadges,
+  getPlannedConnectorReadinessContract,
+  getPlannedConnectorSetupChecklistScript,
+  getPlannedConnectorSetupGuide,
+  type PlannedConnector,
+} from "../lib/plannedConnectors";
+import {
+  formatLocalReleaseEvidenceSequenceCopy,
+  releaseReadinessCommand,
+  formatReleaseReadinessCommandCopy,
+  formatReleaseReadinessReportSnapshot,
+  localReleaseEvidenceCommandIds,
+  releaseLocalEvidenceRowsFromReport,
+  releaseReadinessEvidenceSummary,
+  releaseReadinessNextAction,
+  releaseReadinessRowsFromReport,
+  releaseReadinessStatusCounts,
+  type ReleaseReadinessReportSnapshot,
+} from "../lib/releaseReadiness";
+import {
+  describeInvokeError,
+  getNextLowerUpgradePlanId,
+  getPlanRenewalPriceLabel,
+  getUpgradePlans,
+  isTierDowngrade,
+  shouldOfferRuntimeRestartAction,
+  tierRecommendationSourceLabel,
+  upgradePlanIntentLabel,
+  type BillingPeriod,
+  type PricingAudience,
+  type UpgradePlanId,
+} from "../lib/appHelpers";
+import {
+  bootstrapFailureSignature,
+  buildBootstrapFailureReport,
+  buildBootstrapInvokeFailureReport,
+  reportBootstrapFailure,
+} from "../lib/bootstrapSentry";
+import {
+  compactNumber,
+  connectorControlState,
+  connectorCompatibilityReport,
+  connectorCompatibilityRoutingEvidenceLabel,
+  connectorSupportsAutomaticSetup,
+  currency,
+  currencyExact,
+  formatDateTime,
+  formatDayKey,
+  formatPlannedConnectorConfigGateSummary,
+  getEnabledSupportedConnectors,
+  hasEnabledConnector,
+  percent1,
+  sortClientConnectors,
+  summarizePlannedConnectorReadiness,
+  aggregateClientConnectors,
+} from "../lib/dashboardHelpers";
+import {
+  buildInitialProxyVerificationRows,
+  getContactRequestValidationError,
+  getClaudeConnector,
+  getInitialLauncherStage,
+  getLauncherAutoConfigureDecision,
+  hasPendingOneClickProxyVerification,
+  isValidEmailAddress,
+  needsTermsAcceptance,
+  nextAutoConfigureStep,
+  nextAutoConfigureStepAfterApply,
+  type LauncherStage,
+} from "../lib/launcherHelpers";
+import { mockDashboard } from "../lib/mockData";
+import {
+  cachePricingStatus,
+  type CachedPricing,
+  formatPercentValue,
+  formatRemainingDays,
+  readCachedPricing,
+  subscriptionTierLabel,
+  writeCachedPricing,
+} from "../lib/pricing";
+import {
+  activityFeedSignature,
+  notificationActionTargetId,
+  safeNotificationActionView,
+  safeTrayViewForMode,
+  serializeState,
+  type TrayView,
+} from "../lib/trayHelpers";
+import {
+  trackAnalyticsEvent,
+  trackInstallMilestoneOnce,
+} from "../lib/analytics";
+import type { ProxyVerificationRow } from "../lib/proxyVerification";
+import { launcherConnectorFallback } from "../lib/launcherConnectorFallback";
+import { localOnlyModeEnabled } from "../lib/localMode";
+import {
+  buildManagedRollbackExecutionPreview,
+  buildManagedRollbackPlan,
+  buildManagedRollbackUndoAllPreview,
+  canExecuteNativeManagedRollbackPreview,
+  buildManagedConfigDiffPreview,
+  formatManagedFootprintReport,
+  formatManagedRollbackExecutionPreview,
+  formatManagedConfigDiffPreview,
+  formatManagedRollbackPlan,
+  formatManagedRollbackUndoAllPreview,
+  formatManagedRollbackInventory,
+  managedChangeRecords,
+  supportsDedicatedCleanupRollbackRecord,
+  type ManagedChangeRecord,
+} from "../lib/managedChanges";
+import {
+  buildDoctorTimelinePreview,
+  buildUpgradeIssueUrl,
+  sampleManagedBlock,
+} from "../lib/appSupport";
+import {
+  buildSettingsExportBundle,
+  formatSettingsExportBundle,
+  parseSettingsImport,
+  type SettingsImportPreview,
+} from "../lib/settingsTransfer";
+import {
+  CONTACT_FORM_URL,
+  SALES_CONTACT_URL,
+  SUPPORT_ISSUES_URL,
+} from "../lib/supportUrls";
+import {
+  connectorSetupDetails,
+  firstManagedConfigTarget,
+  formatBackendConnectorConfigPlan,
+  getConnectorDetectionWarning,
+  getConnectorUnavailableReason,
+  getPlannedConnectorNextStep,
+  supportsNativeConfigApply,
+  supportsNativeManagedRollback,
+} from "../lib/settingsConnectorCopy";
+import {
+  formatBackendUninstallDryRunReport,
+  formatUninstallDryRunReport,
+  uninstallDisclosureFooter,
+  uninstallDisclosureItems,
+  uninstallDisclosureTitle,
+} from "../lib/uninstallDisclosure";
+import {
+  deriveSwitchboardMode,
+  switchboardModeSummary,
+} from "../lib/switchboardDisplay";
+import {
+  buildAddonSavingsEstimate,
+  CAVEMAN_TEMPLATE_BASELINE_TOKENS,
+  CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+  PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+  PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+  MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
+  MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
+  type SavingsCalculatorScope,
+} from "../lib/savingsCalculator";
+import { ActivityFeed } from "../components/ActivityFeed";
+import { AddonsView } from "../components/AddonsView";
+import { DoctorView } from "../components/DoctorView";
+import { HomeView } from "../components/HomeView";
+import { LauncherClientSetupStep } from "../components/LauncherClientSetupStep";
+import { LauncherInstallStep } from "../components/LauncherInstallStep";
+import { LauncherPostInstallStep } from "../components/LauncherPostInstallStep";
+import { LauncherProxyVerifyStep } from "../components/LauncherProxyVerifyStep";
+import { LauncherRuntimeUpgradeStep } from "../components/LauncherRuntimeUpgradeStep";
+import { OptimizationView } from "../components/OptimizationView";
+import { PricingAuthCard } from "../components/PricingAuthCard";
+import { RepoMapView } from "../components/RepoMapView";
+import { TraySidebar } from "../components/TraySidebar";
+import type { SavingsChartMode } from "../components/SavingsChartTooltip";
+import { SettingsView } from "../components/SettingsView";
+import { TrayAppShell } from "../components/TrayAppShell";
+import { TermsGate } from "../components/TermsGate";
+import { UpgradeView } from "../components/UpgradeView";
+import { UsageSavingsView } from "../components/UsageSavingsView";
+import { TokenXrayView } from "../components/TokenXrayView";
+import { DailyUsageBriefingView } from "../components/DailyUsageBriefingView";
+import { AgentMemoryInspector } from "../components/AgentMemoryInspector";
+import {
+  MasterActivationCard,
+  type MasterFeatureId,
+  type MasterFeatureState,
+  type MasterFeatureStatus,
+} from "../components/MasterActivationCard";
+import {
+  createMasterActivationPlan,
+  executeMasterActivation,
+  createMasterDeactivationPlan,
+  executeMasterDeactivation,
+  type MasterActivationLocalFeatureId,
+  type MasterActivationReceipt,
+  type MasterDeactivationCallbacks,
+} from "../lib/masterActivation";
+import { resolveMasterActivationLocalOptimizations } from "../lib/leanctxPromotionGate";
+import {
+  createMaxCompressionActivationPlan,
+  createMaxCompressionLifecycleReceipts,
+} from "../lib/maxCompressionActivation";
+import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
+import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
+import { describeProxySessionAuthStatus } from "../lib/proxySessionAuth";
+import { getAgentMemorySnapshot } from "../lib/agentMemory";
+import {
+  loadDailyUsageBriefing,
+  loadTokenXraySnapshot,
+} from "../lib/usageAnalytics";
+import type {
+  AppUpdateConfiguration,
+  AvailableAppUpdate,
+  BootstrapProgress,
+  ClaudePlanTier,
+  HeadroomAuthCodeRequest,
+  HeadroomPricingStatus,
+  ClaudeCodeProject,
+  ClientConnectorStatus,
+  ClientSetupResult,
+  DailySavingsPoint,
+  DashboardState,
+  DoctorReport,
+  HeadroomSubscriptionTier,
+  ManagedConfigApplyPreview,
+  ManagedConfigApplyResult,
+  ManagedFootprintReport,
+  ManagedRollbackExecutionResult,
+  ManagedRollbackPreview,
+  ManagedRollbackUndoAllExecutionResult,
+  ManagedRollbackUndoAllPreview,
+  ActivityFeedResponse,
+  HourlySavingsPoint,
+  OutputReduction,
+  RuntimeStatus,
+  RuntimeUpgradeProgress,
+  SavingsAttributionEvent,
+  SavingsMode,
+  SwitchboardMode,
+  SwitchboardState,
+  UninstallDryRunReport,
+} from "../lib/types";
+import { hasTauriEventRuntime, hasTauriRuntime } from "../lib/tauriRuntime";
+
+const localFirstReadinessSourceSignals = [
+  "detectionEvidence",
+  "Settings import/export",
+  "Settings migration actions",
+  "Copy settings export",
+  "Apply safe preferences",
+] as const;
+
+interface AddonCopy {
+  whatItDoes: string;
+  installing?: string;
+  uninstalling?: string;
+  installed?: string;
+  uninstalled?: string;
+  enabling?: string;
+  disabling?: string;
+  disabled?: string;
+}
+
+const addonCopy: Record<string, AddonCopy> = {
+  rtk: {
+    whatItDoes:
+      "RTK installs into the managed runtime, adds itself to the shell PATH, and enables the bash auto-rewrite hook. Agent shell commands route through RTK so noisy output is compacted before it spends tokens.",
+    installing: "Downloading RTK and registering the bash hook...",
+    uninstalling: "Removing RTK, its PATH entry, and the bash hook...",
+    uninstalled:
+      "RTK removed. Shell commands run normally, without output rewriting.",
+    enabling: "Enabling RTK and registering the bash hook...",
+    disabling: "Disabling RTK and removing the bash hook...",
+    disabled:
+      "RTK is off but still installed. Re-enable it later without re-downloading.",
+  },
+  markitdown: {
+    whatItDoes:
+      "MarkItDown installs into the managed Python runtime and registers a document Read hook. Documents can be converted to Markdown before an agent reads them, without installing anything system-wide.",
+    installing: "Installing MarkItDown and registering the Read hook...",
+    uninstalling: "Removing MarkItDown and its Read hook...",
+    uninstalled:
+      "MarkItDown removed. Your agent reads documents in their original format again.",
+    enabling: "Enabling MarkItDown...",
+    disabling: "Disabling MarkItDown...",
+    disabled:
+      "MarkItDown is off. It stays installed but no longer converts documents.",
+  },
+  caveman: {
+    whatItDoes:
+      "Caveman writes Switchboard-managed instruction blocks into Claude Code and Codex. It nudges agents toward terse output without hiding legal, safety, or debugging detail.",
+    installing: "Writing Caveman guidance blocks...",
+    uninstalling: "Removing Caveman guidance blocks...",
+    installed:
+      "Caveman installed. Pick scoped, aggressive, or Compact Chinese experimental mode any time.",
+    uninstalled: "Caveman removed. Managed terse-output blocks were deleted.",
+    enabling: "Enabling Caveman guidance...",
+    disabling: "Disabling Caveman guidance...",
+    disabled: "Caveman is off. Re-enable it later without recreating settings.",
+  },
+  ponytail: {
+    whatItDoes:
+      "Ponytail registers its marketplace plugin in Claude Code and/or Codex when those CLIs are on PATH. It nudges agents toward smaller, simpler edits and can run an over-engineering audit.",
+    installing: "Registering Ponytail in available coding clients...",
+    uninstalling: "Removing Ponytail from registered coding clients...",
+    uninstalled:
+      "Ponytail removed. Your agent writes code without the Ponytail nudge.",
+    installed:
+      "Ponytail installed. Run /ponytail-audit in an agent to scan this codebase for over-engineering.",
+    enabling: "Enabling Ponytail...",
+    disabling: "Disabling Ponytail...",
+    disabled:
+      "Ponytail is off. It stays installed but no longer nudges agents.",
+  },
+};
+
+const connectorSupportWarnings: Record<string, string> = {};
+
+const idleBootstrapProgress: BootstrapProgress = {
+  running: false,
+  complete: false,
+  failed: false,
+  currentStep: "Idle",
+  message: "Installer has not started.",
+  currentStepEtaSeconds: 0,
+  overallPercent: 0,
+};
+
+const idleRuntimeUpgradeProgress: RuntimeUpgradeProgress = {
+  running: false,
+  complete: false,
+  failed: false,
+  currentStep: "Idle",
+  message: "",
+  overallPercent: 0,
+  fromVersion: null,
+  toVersion: null,
+};
+
+const MAX_UPGRADE_AUTO_RETRIES = 2;
+
+type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
+
+const authCodeExpiryFallbackSeconds = 900;
+const APP_UPDATE_BACKGROUND_INITIAL_DELAY_MS = 12_000;
+const APP_UPDATE_BACKGROUND_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
+async function loadDashboard(): Promise<DashboardState> {
+  try {
+    return await invoke<DashboardState>("get_dashboard_state");
+  } catch {
+    return mockDashboard;
+  }
+}
+
+async function loadSavingsAttributionEvents(): Promise<SavingsAttributionEvent[]> {
+  try {
+    return await invoke<SavingsAttributionEvent[]>(
+      "get_savings_attribution_events",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+interface ConnectorSmokeTestResult {
+  clientId: string;
+  supported: boolean;
+  launched: boolean;
+  success: boolean;
+  summary: string;
+  stdoutTail: string;
+  stderrTail: string;
+}
+
+export default function TrayApp() {
+  const [dashboard, setDashboard] = useState<DashboardState>(mockDashboard);
+  const [savingsAttributionEvents, setSavingsAttributionEvents] = useState<
+    SavingsAttributionEvent[]
+  >([]);
+  const [addonBusyId, setAddonBusyId] = useState<string | null>(null);
+  const [addonBusyLabel, setAddonBusyLabel] = useState<string | null>(null);
+  const [addonInfoId, setAddonInfoId] = useState<string | null>(null);
+  const [addonResult, setAddonResult] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
+  const [addonError, setAddonError] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(false);
+  const [bootstrapProgress, setBootstrapProgress] = useState<BootstrapProgress>(
+    idleBootstrapProgress,
+  );
+  const [runtimeUpgradeProgress, setRuntimeUpgradeProgress] =
+    useState<RuntimeUpgradeProgress>(idleRuntimeUpgradeProgress);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [windowLabel, setWindowLabel] = useState<"main" | "launcher" | null>(
+    null,
+  );
+  const [startupPhase, setStartupPhase] = useState<StartupPhase>("window");
+  const [startupPercent, setStartupPercent] = useState(10);
+  const [startupCopy, setStartupCopy] = useState("Opening launch window…");
+  const [startupReady, setStartupReady] = useState(false);
+  const [activeView, setActiveView] = useState<TrayView>("home");
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState<string | null>(
+    null,
+  );
+  const [masterActivationState, setMasterActivationState] =
+    useState<MasterFeatureStatus>("ready");
+  const [masterFeatureStates, setMasterFeatureStates] = useState<
+    Partial<Record<MasterFeatureId, MasterFeatureState>>
+  >({});
+  const [masterActivationProgress, setMasterActivationProgress] = useState({
+    completed: 0,
+    total: 9,
+  });
+  const [masterActivationReceipt, setMasterActivationReceipt] = useState<{
+    activation: MasterActivationReceipt;
+    previousMode: SwitchboardMode;
+    mcpWasActive: boolean;
+  } | null>(null);
+  const [masterOperation, setMasterOperation] = useState<
+    "activate" | "deactivate"
+  >("activate");
+  const [maxCompressionBusy, setMaxCompressionBusy] = useState(false);
+  const [semanticCacheEnabled, setSemanticCacheEnabled] = useState(false);
+  const [pricingAudience, setPricingAudience] =
+    useState<PricingAudience>("individual");
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("annual");
+  // Launcher stage is a single source of truth for which onboarding screen
+  // is showing. Only one screen can be active at a time; transitions go
+  // through `setLauncherStage` so implicit renders from bootstrap/dashboard
+  // flags cannot bypass the install step's readiness gate.
+  const [launcherStage, setLauncherStage] = useState<LauncherStage>("install");
+  const [connectors, setConnectors] = useState<ClientConnectorStatus[]>([]);
+  const [openConnectorHelpId, setOpenConnectorHelpId] = useState<string | null>(
+    null,
+  );
+  const [openConnectorWarningId, setOpenConnectorWarningId] = useState<
+    string | null
+  >(null);
+  const [plannedConnectorCopyNotice, setPlannedConnectorCopyNotice] = useState<
+    string | null
+  >(null);
+  const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<
+    string | null
+  >(null);
+  const [releaseReadinessReport, setReleaseReadinessReport] =
+    useState<ReleaseReadinessReportPayload | null>(null);
+  const [releaseReadinessRefreshing, setReleaseReadinessRefreshing] =
+    useState(false);
+  const [releaseReadinessError, setReleaseReadinessError] = useState<
+    string | null
+  >(null);
+  const [releaseEvidenceBusyId, setReleaseEvidenceBusyId] = useState<
+    string | null
+  >(null);
+  const [releaseEvidenceResult, setReleaseEvidenceResult] =
+    useState<ReleaseEvidenceCommandResult | null>(null);
+  const [settingsTransferNotice, setSettingsTransferNotice] = useState<
+    string | null
+  >(null);
+  const [settingsImportText, setSettingsImportText] = useState("");
+  const [settingsImportPreview, setSettingsImportPreview] =
+    useState<SettingsImportPreview | null>(null);
+  const [settingsImportBusy, setSettingsImportBusy] = useState(false);
+  const releaseReadinessRows = releaseReadinessRowsFromReport(
+    releaseReadinessReport?.report,
+  );
+  const releaseReadinessCounts =
+    releaseReadinessStatusCounts(releaseReadinessRows);
+  const releaseReadinessEvidence = releaseReadinessEvidenceSummary(
+    releaseReadinessRows,
+    releaseReadinessReport?.report,
+  );
+  const releaseLocalEvidenceRows = releaseLocalEvidenceRowsFromReport(
+    releaseReadinessReport?.report,
+  );
+  const releaseReadinessAction = releaseReadinessNextAction(releaseReadinessRows);
+  const [connectorsBusy, setConnectorsBusy] = useState(false);
+  const [connectorPhase, setConnectorPhase] = useState<
+    "disabled" | "verifying" | "healthy"
+  >("healthy");
+  const [connectorsError, setConnectorsError] = useState<string | null>(null);
+  const [codexNudgeDismissed, setCodexNudgeDismissed] = useState(() => {
+    try {
+      return (
+        window.localStorage.getItem("headroom:codexNudgeDismissed") === "1"
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [proxyVerificationRows, setProxyVerificationRows] = useState<
+    ProxyVerificationRow[]
+  >([]);
+  const [proxyVerificationHint, setProxyVerificationHint] = useState<
+    string | null
+  >(null);
+  const [connectorSmokeBusyId, setConnectorSmokeBusyId] = useState<
+    string | null
+  >(null);
+  const proxyVerificationRequestAnchorRef = useRef<Record<
+    string,
+    number
+  > | null>(null);
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
+    null,
+  );
+  const [resuming, setResuming] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [appUpdateConfig, setAppUpdateConfig] =
+    useState<AppUpdateConfiguration | null>(null);
+  const [appUpdateAvailable, setAppUpdateAvailable] =
+    useState<AvailableAppUpdate | null>(null);
+  const [appUpdateBusy, setAppUpdateBusy] = useState(false);
+  const [appUpdateInstallBusy, setAppUpdateInstallBusy] = useState(false);
+  const [appUpdateReadyToRestart, setAppUpdateReadyToRestart] = useState(false);
+  const [showAppUpdateDialog, setShowAppUpdateDialog] = useState(false);
+  const [appUpdateStatusCopy, setAppUpdateStatusCopy] = useState<string | null>(
+    null,
+  );
+  const [showHeadroomDetails, setShowHeadroomDetails] = useState(false);
+  const [headroomLogLines, setHeadroomLogLines] = useState<string[]>([]);
+  const headroomLogRef = useRef<HTMLPreElement | null>(null);
+  const [claudeProjects, setClaudeProjects] = useState<ClaudeCodeProject[]>([]);
+  const [claudeProjectsBusy, setClaudeProjectsBusy] = useState(false);
+  const [claudeProjectsError, setClaudeProjectsError] = useState<string | null>(
+    null,
+  );
+  const [activityFeed, setActivityFeed] = useState<ActivityFeedResponse>({
+    tiles: {
+      transformation: null,
+      record: null,
+      rtkToday: null,
+      learningsMilestone: null,
+      weeklyRecap: null,
+      trainSuggestion: null,
+    },
+    proxyReachable: false,
+  });
+  // Flipped true after the first activity feed fetch attempt resolves (success
+  // OR failure). Before this the feed holds a placeholder value whose
+  // `proxyReachable: false` would falsely render the "proxy unreachable"
+  // empty state and make the tab feel like it's already in an error state.
+  const [activityFeedLoaded, setActivityFeedLoaded] = useState(false);
+  // Tray window focus proxies for visibility: the window auto-hides on blur
+  // via `triggerHide`, so "not focused" ⇒ "hidden" for polling purposes.
+  const [trayWindowFocused, setTrayWindowFocused] = useState(true);
+  // Sticky flag: the user has visited a heavy-data tab (Activity or Optimize)
+  // at least once this session. The tray-focus pre-warm is gated on this so
+  // users who stay on Home don't pay its IPC/subprocess cost on every focus.
+  const [heavyTabEverOpened, setHeavyTabEverOpened] = useState(false);
+  const [activityFeedError, setActivityFeedError] = useState<string | null>(
+    null,
+  );
+  const {
+    claudeLearnEnabled,
+    codexLearnEnabled,
+    copyLearnInstallCommand,
+    handleRunHeadroomLearn,
+    headroomLearnBusy,
+    headroomLearnDisabledReason,
+    headroomLearnPrereq,
+    headroomLearnStatus,
+    headroomLearnSupported,
+    learnBlurb,
+    learnInstallCopyNotice,
+    openLearnInstallDocsLink,
+    optimizeAppliedByProject,
+    refreshHeadroomLearnPrereq,
+    setOptimizeAppliedRefreshTick,
+    setShowAllClaudeProjects,
+    showAllClaudeProjects,
+    sortedClaudeProjects,
+    visibleClaudeProjects,
+  } = useHeadroomLearnController({
+    activeView,
+    claudeProjects,
+    connectors,
+    openExternalLink,
+    refreshClaudeProjects,
+    runtimeStatus,
+    setClaudeProjects,
+    trayWindowFocused,
+  });
+  const [pricingStatus, setPricingStatus] =
+    useState<HeadroomPricingStatus | null>(null);
+  const [cachedPricing] = useState<CachedPricing>(() => readCachedPricing());
+  const [pricingBusy, setPricingBusy] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const pricingRefreshInFlightRef = useRef(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const [authCodeRequestedFor, setAuthCodeRequestedFor] = useState<
+    string | null
+  >(null);
+  const [authCodeExpirySeconds, setAuthCodeExpirySeconds] = useState(
+    authCodeExpiryFallbackSeconds,
+  );
+  const [authRequestBusy, setAuthRequestBusy] = useState(false);
+  const [authVerifyBusy, setAuthVerifyBusy] = useState(false);
+  const [authFlowError, setAuthFlowError] = useState<string | null>(null);
+  const [authFlowSuccess, setAuthFlowSuccess] = useState<string | null>(null);
+  const [pendingUpgradePlanId, setPendingUpgradePlanId] =
+    useState<UpgradePlanId | null>(null);
+  const [showAllUpgradePlans, setShowAllUpgradePlans] = useState(false);
+  const [checkoutPollingDeadline, setCheckoutPollingDeadline] = useState<
+    number | null
+  >(null);
+  const desktopActivationSentRef = useRef(false);
+  const autoDisabledByGateRef = useRef<Set<string>>(new Set());
+  const [stepSignature, setStepSignature] = useState("");
+  const [stepStartedAtMs, setStepStartedAtMs] = useState<number | null>(null);
+  const [stepEtaSeedSeconds, setStepEtaSeedSeconds] = useState(0);
+  const [stepBasePercent, setStepBasePercent] = useState(0);
+  const [chartResetSignal, setChartResetSignal] = useState(0);
+  const [chartMode, setChartMode] = useState<SavingsChartMode>("usd");
+  const [savingsCalculatorScope, setSavingsCalculatorScope] =
+    useState<SavingsCalculatorScope>("session");
+  const [latestRepoIntelligenceSummary, setLatestRepoIntelligenceSummary] =
+    useState<RepoIntelligenceSummary>(repoIntelligencePreview);
+  // Safety net: if native history never loads (backend unreachable), reveal the
+  // chart anyway after this delay rather than spinning forever.
+  const [historyLoadTimedOut, setHistoryLoadTimedOut] = useState(false);
+  const [showSavingsInfo, setShowSavingsInfo] = useState(false);
+  const savingsCalculatorRepoEstimate = estimateRepoIntelligenceSavings(
+    latestRepoIntelligenceSummary,
+  );
+  const cavemanTool =
+    dashboard.tools.find((tool) => tool.id === "caveman") ?? null;
+  const cavemanToolEnabled = cavemanTool?.enabled ?? false;
+  const cavemanSavingsEstimate = cavemanToolEnabled
+    ? buildAddonSavingsEstimate(
+        CAVEMAN_TEMPLATE_BASELINE_TOKENS,
+        CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+      )
+    : null;
+  const ponytailToolEnabled =
+    dashboard.tools.find((tool) => tool.id === "ponytail")?.enabled ?? false;
+  const ponytailSavingsEstimate = ponytailToolEnabled
+    ? buildAddonSavingsEstimate(
+        PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+        PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+      )
+    : null;
+  const markitdownToolEnabled =
+    dashboard.tools.find((tool) => tool.id === "markitdown")?.enabled ?? false;
+  const markitdownSavingsEstimate = markitdownToolEnabled
+    ? buildAddonSavingsEstimate(
+        MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
+        MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
+      )
+    : null;
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
+    null,
+  );
+  const [autostartBusy, setAutostartBusy] = useState(false);
+  const [rtkBusy, setRtkBusy] = useState(false);
+  const [showUninstallDialog, setShowUninstallDialog] = useState(false);
+  const [uninstallBusy, setUninstallBusy] = useState(false);
+  const [uninstallError, setUninstallError] = useState<string | null>(null);
+  const [uninstallCopyNotice, setUninstallCopyNotice] = useState<string | null>(
+    null,
+  );
+  const [upgradeActionBusy, setUpgradeActionBusy] =
+    useState<UpgradePlanId | null>(null);
+  const [upgradeActionError, setUpgradeActionError] = useState<string | null>(
+    null,
+  );
+  const [pendingPlanChange, setPendingPlanChange] = useState<{
+    fromTier: HeadroomSubscriptionTier;
+    toTier: HeadroomSubscriptionTier;
+    billingPeriod: BillingPeriod;
+  } | null>(null);
+  const [planChangeBusy, setPlanChangeBusy] = useState(false);
+  const [planChangeError, setPlanChangeError] = useState<string | null>(null);
+  const [reactivateBusy, setReactivateBusy] = useState(false);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactSubmitBusy, setContactSubmitBusy] = useState(false);
+  const [contactSubmitError, setContactSubmitError] = useState<string | null>(
+    null,
+  );
+  const [contactSubmitSuccess, setContactSubmitSuccess] = useState<
+    string | null
+  >(null);
+  const [switchboardState, setSwitchboardState] =
+    useState<SwitchboardState | null>(null);
+  const [switchboardModeBusy, setSwitchboardModeBusy] =
+    useState<SwitchboardMode | null>(null);
+  const [savingsModeBusy, setSavingsModeBusy] = useState<SavingsMode | null>(
+    null,
+  );
+  const [switchboardModeError, setSwitchboardModeError] = useState<
+    string | null
+  >(null);
+  const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+  const [managedFootprintReport, setManagedFootprintReport] =
+    useState<ManagedFootprintReport | null>(null);
+  const [onboardingFootprintCopyNotice, setOnboardingFootprintCopyNotice] =
+    useState<string | null>(null);
+  const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
+  const [doctorRepairError, setDoctorRepairError] = useState<string | null>(
+    null,
+  );
+  const [doctorRepairSuccess, setDoctorRepairSuccess] = useState<string | null>(
+    null,
+  );
+  const localOnlyMode = localOnlyModeEnabled();
+  const appSemver = "0.0.0";
+  const savingsDashboard = dashboard.savingsHistoryLoaded
+    ? dashboard
+    : {
+        ...dashboard,
+        lifetimeRequests: 0,
+        lifetimeEstimatedSavingsUsd: 0,
+        lifetimeEstimatedTokensSaved: 0,
+        dailySavings: [],
+        hourlySavings: [],
+      };
+  const bootstrapFailureSignatureRef = useRef("");
+  const mainWindowLastBlurAtRef = useRef<number | null>(null);
+  const mainWindowLastSeenDayRef = useRef(formatDayKey(new Date()));
+  const appUpdateKnownVersionRef = useRef<string | null>(null);
+  const appUpdateReadyToRestartRef = useRef(false);
+  const appUpdateBusyRef = useRef(false);
+  const appUpdateInstallBusyRef = useRef(false);
+  const launcherHideAnimationMs = 320;
+  const trayFocusPrewarmDelayMs = 250;
+  const dashboardSignatureRef = useRef(serializeState(mockDashboard));
+  const connectorsSignatureRef = useRef(
+    serializeState([] as ClientConnectorStatus[]),
+  );
+  const runtimeStatusSignatureRef = useRef(
+    serializeState(null as RuntimeStatus | null),
+  );
+  const switchboardSignatureRef = useRef(
+    serializeState(null as SwitchboardState | null),
+  );
+  const claudeProjectsSignatureRef = useRef(
+    serializeState([] as ClaudeCodeProject[]),
+  );
+  const upgradePlansState = getUpgradePlans(
+    pricingAudience,
+    pricingStatus?.claude.planTier ?? cachedPricing.planTier,
+    pricingStatus?.recommendedSubscriptionTier ??
+      cachedPricing.recommendedSubscriptionTier,
+    pricingStatus?.account?.subscriptionTier ?? cachedPricing.subscriptionTier,
+    pricingStatus?.account?.subscriptionActive ?? false,
+    pricingStatus?.launchDiscountActive ?? false,
+    billingPeriod,
+    pricingStatus?.account?.subscriptionAmountCents,
+    pricingStatus?.account?.subscriptionBillingPeriod,
+    pricingStatus?.account?.subscriptionRenewsAt,
+    pricingStatus?.account?.subscriptionStartedAt,
+    pricingStatus?.account?.subscriptionDiscountDuration,
+    pricingStatus?.account?.subscriptionDiscountDurationInMonths,
+    pricingStatus?.account?.subscriptionCancelAtPeriodEnd ?? false,
+    pricingStatus?.account?.subscriptionEndsAt,
+    pricingStatus?.activePercentOff ?? 0,
+  );
+  const contactEmailValid = isValidEmailAddress(contactEmail);
+  const authEmailValid = isValidEmailAddress(authEmail);
+  const showInstallProgress =
+    bootstrapping ||
+    bootstrapProgress.running ||
+    bootstrapProgress.complete ||
+    bootstrapProgress.failed ||
+    bootstrapProgress.overallPercent > 0;
+
+  const isLastScreen =
+    windowLabel === "launcher" && launcherStage === "post_install";
+  useEffect(() => {
+    if (!showHeadroomDetails || !headroomLogRef.current) {
+      return;
+    }
+    headroomLogRef.current.scrollTop = headroomLogRef.current.scrollHeight;
+  }, [showHeadroomDetails, headroomLogLines]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setHistoryLoadTimedOut(true), 20000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    void invoke<ReleaseReadinessReportPayload>("load_release_readiness_report")
+      .then(setReleaseReadinessReport)
+      .catch(() => setReleaseReadinessReport(null));
+  }, []);
+
+  useEffect(() => {
+    dashboardSignatureRef.current = serializeState(dashboard);
+  }, [dashboard]);
+
+  useEffect(() => {
+    connectorsSignatureRef.current = serializeState(connectors);
+  }, [connectors]);
+
+  useEffect(() => {
+    runtimeStatusSignatureRef.current = serializeState(runtimeStatus);
+  }, [runtimeStatus]);
+
+  useEffect(() => {
+    switchboardSignatureRef.current = serializeState(switchboardState);
+  }, [switchboardState]);
+
+  useEffect(() => {
+    claudeProjectsSignatureRef.current = serializeState(claudeProjects);
+  }, [claudeProjects]);
+
+  function applyDashboardIfChanged(next: DashboardState) {
+    const nextSignature = serializeState(next);
+    if (dashboardSignatureRef.current === nextSignature) {
+      return;
+    }
+    dashboardSignatureRef.current = nextSignature;
+    setDashboard(next);
+  }
+
+  async function refreshSavingsAttributionEvents() {
+    const events = await loadSavingsAttributionEvents();
+    setSavingsAttributionEvents((current) =>
+      serializeState(current) === serializeState(events) ? current : events,
+    );
+  }
+
+  function applyConnectorsIfChanged(next: ClientConnectorStatus[]) {
+    const nextSignature = serializeState(next);
+    if (connectorsSignatureRef.current === nextSignature) {
+      return;
+    }
+    connectorsSignatureRef.current = nextSignature;
+    setConnectors(next);
+  }
+
+  function applyRuntimeStatusIfChanged(next: RuntimeStatus | null) {
+    const nextSignature = serializeState(next);
+    if (runtimeStatusSignatureRef.current === nextSignature) {
+      return;
+    }
+    runtimeStatusSignatureRef.current = nextSignature;
+    setRuntimeStatus(next);
+  }
+
+  function applySwitchboardStateIfChanged(next: SwitchboardState | null) {
+    const nextSignature = serializeState(next);
+    if (switchboardSignatureRef.current === nextSignature) {
+      return;
+    }
+    switchboardSignatureRef.current = nextSignature;
+    setSwitchboardState(next);
+  }
+
+  function applyClaudeProjectsIfChanged(next: ClaudeCodeProject[]) {
+    const nextSignature = serializeState(next);
+    if (claudeProjectsSignatureRef.current === nextSignature) {
+      return;
+    }
+    claudeProjectsSignatureRef.current = nextSignature;
+    setClaudeProjects(next);
+  }
+
+  useEffect(() => {
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+
+    const unlistenPromise = listen<{ action: string | null }>(
+      "notification-clicked",
+      (event) => {
+        const action = event.payload?.action ?? null;
+        if (action === "update") {
+          setShowAppUpdateDialog(true);
+          return;
+        }
+        const view = safeNotificationActionView(action, localOnlyMode);
+        if (view) {
+          setActiveView(view);
+          const targetId = notificationActionTargetId(action);
+          if (targetId) {
+            window.setTimeout(() => {
+              document
+                .getElementById(targetId)
+                ?.scrollIntoView({ block: "start", behavior: "smooth" });
+            }, 0);
+          }
+        }
+      },
+    );
+    return () => {
+      void unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [localOnlyMode]);
+
+  useEffect(() => {
+    if (
+      localOnlyMode &&
+      (activeView === "upgrade" || activeView === "upgradeAuth")
+    ) {
+      setActiveView("home");
+    }
+  }, [activeView, localOnlyMode]);
+
+  useEffect(() => {
+    setShowAllUpgradePlans(false);
+    if (pricingAudience !== "individual") setBillingPeriod("annual");
+  }, [pricingAudience]);
+
+  useEffect(() => {
+    if (!pricingStatus?.authenticated) {
+      desktopActivationSentRef.current = false;
+    }
+  }, [pricingStatus?.authenticated]);
+
+  useEffect(() => {
+    if (!pricingStatus) return;
+    writeCachedPricing(cachePricingStatus(pricingStatus));
+  }, [pricingStatus]);
+
+  useEffect(() => {
+    const STORAGE_KEY = "headroom:lastNotifiedMismatchTier";
+    if (localOnlyMode) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    const mismatch = pricingStatus?.tierMismatch;
+    if (!mismatch) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    const rank: Record<string, number> = { pro: 1, max5x: 2, max20x: 3 };
+    const previous = window.localStorage.getItem(STORAGE_KEY);
+    // Notify on first detection and whenever the recommended tier climbs higher.
+    if (
+      previous !== null &&
+      (rank[mismatch.recommendedTier] ?? 0) <= (rank[previous] ?? 0)
+    ) {
+      return;
+    }
+    const paidLabel = upgradePlanIntentLabel(mismatch.paidTier);
+    const recommendedLabel = upgradePlanIntentLabel(mismatch.recommendedTier);
+    const sourceLabel = tierRecommendationSourceLabel(
+      mismatch.recommendedSource,
+    );
+    void invoke("show_notification", {
+      title: "Upgrade your Headroom plan",
+      body: `Your ${sourceLabel} usage needs the Switchboard ${recommendedLabel} plan, above your current ${paidLabel} plan. Upgrade to keep unlimited optimization.`,
+    }).catch(() => {});
+    window.localStorage.setItem(STORAGE_KEY, mismatch.recommendedTier);
+  }, [
+    localOnlyMode,
+    pricingStatus?.tierMismatch?.recommendedTier,
+    pricingStatus?.tierMismatch,
+  ]);
+
+  useEffect(() => {
+    const claudeConnector = getClaudeConnector(connectors);
+    if (!claudeConnector?.installed) {
+      return;
+    }
+    trackInstallMilestoneOnce("claude_code_detected", {
+      enabled: claudeConnector.enabled,
+      verified: claudeConnector.verified,
+    });
+  }, [connectors]);
+
+  useEffect(() => {
+    const claudeConnector = getClaudeConnector(connectors);
+    if (!claudeConnector?.enabled) {
+      return;
+    }
+    trackInstallMilestoneOnce("optimization_enabled", {
+      verified: claudeConnector.verified,
+    });
+  }, [connectors]);
+
+  useEffect(() => {
+    if (dashboard.lifetimeRequests <= 0) {
+      return;
+    }
+    trackInstallMilestoneOnce("first_optimized_request", {
+      lifetime_requests: dashboard.lifetimeRequests,
+      launch_experience: dashboard.launchExperience,
+    });
+  }, [dashboard.launchExperience, dashboard.lifetimeRequests]);
+
+  useEffect(() => {
+    if (
+      dashboard.lifetimeEstimatedTokensSaved <= 0 &&
+      dashboard.lifetimeEstimatedSavingsUsd <= 0
+    ) {
+      return;
+    }
+    trackInstallMilestoneOnce("first_savings_recorded", {
+      lifetime_tokens_saved: dashboard.lifetimeEstimatedTokensSaved,
+      lifetime_savings_usd: Number(
+        dashboard.lifetimeEstimatedSavingsUsd.toFixed(4),
+      ),
+    });
+  }, [
+    dashboard.lifetimeEstimatedSavingsUsd,
+    dashboard.lifetimeEstimatedTokensSaved,
+  ]);
+
+  useEffect(() => {
+    let active = true;
+
+    const runStartupChecks = async () => {
+      const updateStartup = (
+        phase: StartupPhase,
+        percent: number,
+        message: string,
+      ) => {
+        if (!active) {
+          return;
+        }
+        setStartupPhase(phase);
+        setStartupPercent((current) => Math.max(current, percent));
+        setStartupCopy(message);
+      };
+
+      updateStartup("window", 12, "Opening launch window…");
+      const label = hasTauriRuntime() ? getCurrentWindow().label : "main";
+      if (active) {
+        if (label === "main" || label === "launcher") {
+          setWindowLabel(label);
+        } else {
+          setWindowLabel("main");
+        }
+      }
+
+      updateStartup("dashboard", 35, "Loading local dashboard state…");
+      const dashboardResult = await loadDashboard();
+      if (!active) {
+        return;
+      }
+      applyDashboardIfChanged(dashboardResult);
+      void refreshSavingsAttributionEvents();
+
+      updateStartup("bootstrap", 58, "Checking runtime install state…");
+      const bootstrapResult = await invoke<BootstrapProgress>(
+        "get_bootstrap_progress",
+      ).catch(() => idleBootstrapProgress);
+      if (!active) {
+        return;
+      }
+      setBootstrapProgress(bootstrapResult);
+      if (bootstrapResult.running) {
+        setBootstrapping(true);
+      }
+      const initialStage = getInitialLauncherStage(
+        label,
+        bootstrapResult.complete,
+        dashboardResult.bootstrapComplete,
+        dashboardResult.launchExperience,
+      );
+      if (initialStage) {
+        setLauncherStage(initialStage);
+      }
+
+      updateStartup("runtime", 80, "Preparing local engine…");
+      const [
+        runtimeResult,
+        switchboardResult,
+        doctorResult,
+        footprintResult,
+        pricingResult,
+      ] =
+        await Promise.all([
+          invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
+          invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
+          invoke<DoctorReport>("get_doctor_report").catch(() => null),
+          invoke<ManagedFootprintReport>("get_managed_footprint").catch(
+            () => null,
+          ),
+          localOnlyMode
+            ? Promise.resolve(null)
+            : invoke<HeadroomPricingStatus>(
+                "get_headroom_pricing_status",
+              ).catch(() => null),
+          refreshConnectors(),
+        ]);
+      if (!active) {
+        return;
+      }
+      if (runtimeResult) {
+        applyRuntimeStatusIfChanged(runtimeResult);
+      }
+      if (switchboardResult) {
+        applySwitchboardStateIfChanged(switchboardResult);
+      }
+      if (doctorResult) {
+        setDoctorReport(doctorResult);
+      }
+      if (footprintResult) {
+        setManagedFootprintReport(footprintResult);
+      }
+      if (pricingResult) {
+        setPricingStatus(pricingResult);
+      }
+
+      updateStartup(
+        "ready",
+        95,
+        label === "launcher"
+          ? "Preparing launch checklist…"
+          : "Preparing tray dashboard…",
+      );
+      window.setTimeout(() => {
+        if (!active) {
+          return;
+        }
+        setStartupPercent(100);
+        setStartupCopy("AI Switchboard is ready.");
+        setStartupReady(true);
+      }, 120);
+    };
+
+    void runStartupChecks();
+
+    return () => {
+      active = false;
+    };
+  }, [localOnlyMode]);
+
+  useEffect(() => {
+    if (startupReady) {
+      return;
+    }
+
+    const phaseCaps: Record<StartupPhase, number> = {
+      window: 28,
+      dashboard: 54,
+      bootstrap: 76,
+      runtime: 92,
+      ready: 99,
+    };
+    const cap = phaseCaps[startupPhase];
+
+    const interval = window.setInterval(() => {
+      setStartupPercent((current) => {
+        if (current >= cap) {
+          return current;
+        }
+        return Math.min(cap, current + (current < 20 ? 2 : 1));
+      });
+    }, 260);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [startupPhase, startupReady]);
+
+  useEffect(() => {
+    if (!bootstrapping) {
+      return;
+    }
+
+    let active = true;
+    let completionHandled = false;
+    let unlisten: (() => void) | undefined;
+    const detach = () => {
+      const fn = unlisten;
+      unlisten = undefined;
+      fn?.();
+    };
+
+    const handleProgress = async (progress: BootstrapProgress) => {
+      if (!active) {
+        return;
+      }
+
+      setBootstrapProgress(progress);
+
+      if (progress.failed) {
+        const failureReport = buildBootstrapFailureReport(progress);
+        const failureSignature = bootstrapFailureSignature(failureReport);
+        if (bootstrapFailureSignatureRef.current !== failureSignature) {
+          bootstrapFailureSignatureRef.current = failureSignature;
+          reportBootstrapFailure(failureReport);
+        }
+        setBootstrapError(progress.message);
+        setBootstrapping(false);
+        completionHandled = true;
+        detach();
+        return;
+      }
+
+      if (progress.complete && !completionHandled) {
+        completionHandled = true;
+        detach();
+        setBootstrapping(false);
+        const latestDashboard = await loadDashboard();
+        if (!active) {
+          return;
+        }
+        applyDashboardIfChanged(latestDashboard);
+        void refreshSavingsAttributionEvents();
+        // Always land on the install step after a bootstrap completes during
+        // this session, regardless of launchExperience. The install step's
+        // Continue button is gated on runtime.running, so it handles both the
+        // readiness wait and the "Local switchboard runtime is ready" confirmation
+        // for Resume users whose launch_count > 1 (e.g., they reinstalled the
+        // app without clearing ~/Library/Application Support/Headroom).
+        if (windowLabel === "launcher") {
+          setLauncherStage("install");
+        }
+      }
+    };
+
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+    void listen<BootstrapProgress>("bootstrap_progress", (event) => {
+      void handleProgress(event.payload);
+    }).then((fn) => {
+      if (!active || completionHandled) {
+        fn();
+        return;
+      }
+      unlisten = fn;
+    });
+
+    // Prime with the current state in case we subscribed mid-flight or the
+    // bootstrap already completed before the listener attached.
+    void invoke<BootstrapProgress>("get_bootstrap_progress")
+      .then((progress) => handleProgress(progress))
+      .catch(() => {});
+
+    return () => {
+      active = false;
+      detach();
+    };
+  }, [bootstrapping]);
+
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | undefined;
+
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+    void listen<RuntimeUpgradeProgress>("runtime_upgrade_progress", (event) => {
+      if (!active) return;
+      setRuntimeUpgradeProgress(event.payload);
+    }).then((fn) => {
+      if (!active) {
+        fn();
+        return;
+      }
+      unlisten = fn;
+    });
+
+    void invoke<RuntimeUpgradeProgress>("get_runtime_upgrade_progress")
+      .then((progress) => {
+        if (active) setRuntimeUpgradeProgress(progress);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
+
+  // Hand off cleanly once the runtime upgrade finishes: show the success
+  // state briefly, then drop the progress object back to idle so the
+  // launcher stops rendering the upgrade UI and falls through to whichever
+  // window content the user should see next. We also nudge the launcher
+  // stage to post_install since bootstrapComplete only gets checked at
+  // startup otherwise.
+  useEffect(() => {
+    if (!runtimeUpgradeProgress.complete || runtimeUpgradeProgress.failed) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      setRuntimeUpgradeProgress(idleRuntimeUpgradeProgress);
+      if (windowLabel === "launcher") {
+        setLauncherStage("post_install");
+      }
+      // Refresh runtime status so the rest of the app picks up the
+      // freshly-installed version immediately.
+      void invoke<RuntimeStatus>("get_runtime_status")
+        .then((status) => applyRuntimeStatusIfChanged(status))
+        .catch(() => {});
+    }, 2500);
+    return () => window.clearTimeout(timeout);
+  }, [
+    runtimeUpgradeProgress.complete,
+    runtimeUpgradeProgress.failed,
+    windowLabel,
+  ]);
+
+  useEffect(() => {
+    if (windowLabel !== "launcher" || launcherStage !== "client_setup") {
+      return;
+    }
+    void refreshConnectors();
+  }, [windowLabel, launcherStage]);
+
+  useEffect(() => {
+    if (windowLabel !== "launcher" || launcherStage !== "proxy_verify") {
+      return;
+    }
+
+    let active = true;
+    const interval = window.setInterval(() => {
+      void (async () => {
+        try {
+          const [runtime, counts] = await Promise.all([
+            invoke<RuntimeStatus>("get_runtime_status"),
+            invoke<Record<string, number> | null>(
+              "get_headroom_request_counts_by_agent",
+            ).catch(() => null),
+          ]);
+
+          if (!active) {
+            return;
+          }
+
+          if (!runtime.proxyReachable || counts === null) {
+            setProxyVerificationHint(
+              "Headroom proxy is not reachable yet. Start Headroom runtime, then send a test message.",
+            );
+            return;
+          }
+
+          setProxyVerificationHint(null);
+
+          // Capture the baseline on the first reachable poll. Anchoring on a
+          // null/unreachable reading would let a later "proxy came up" jump
+          // (0 → N) look like new traffic.
+          if (proxyVerificationRequestAnchorRef.current === null) {
+            proxyVerificationRequestAnchorRef.current = counts;
+            return;
+          }
+
+          // Attribute traffic per client: a prompt sent to Claude Code must not
+          // flip the Codex row (and vice versa). The proxy keys agents as
+          // `claude-code` / `codex`; our rows use `claude_code` / `codex`.
+          const anchor = proxyVerificationRequestAnchorRef.current;
+          setProxyVerificationRows((current) =>
+            current.map((row) => {
+              if (row.state === "verified") {
+                return row;
+              }
+              const agentKey = row.clientId.replace(/_/g, "-");
+              const now = counts[agentKey] ?? 0;
+              const base = anchor[agentKey] ?? 0;
+              return now > base
+                ? { ...row, state: "verified", message: "Request received" }
+                : row;
+            }),
+          );
+        } catch {
+          if (active) {
+            setProxyVerificationHint("Waiting for Headroom proxy activity...");
+          }
+        }
+      })();
+    }, 1000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [windowLabel, launcherStage]);
+
+  useEffect(() => {
+    if (!showInstallProgress) {
+      return;
+    }
+
+    const signature = `${bootstrapProgress.currentStep}|${bootstrapProgress.running}|${bootstrapProgress.complete}|${bootstrapProgress.failed}`;
+    if (signature === stepSignature) {
+      return;
+    }
+
+    setStepSignature(signature);
+    setStepStartedAtMs(Date.now());
+    setStepEtaSeedSeconds(bootstrapProgress.currentStepEtaSeconds);
+    setStepBasePercent(bootstrapProgress.overallPercent);
+  }, [bootstrapProgress, showInstallProgress, stepSignature]);
+
+  useEffect(() => {
+    if (!isLastScreen || !hasTauriRuntime()) return;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (!focused) triggerHide();
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
+    return () => unlisten?.();
+  }, [isLastScreen]);
+
+  useEffect(() => {
+    if (windowLabel !== "main" || !trayWindowFocused) {
+      return;
+    }
+
+    void refreshRuntimeStatus();
+    const interval = window.setInterval(() => {
+      void refreshRuntimeStatus();
+    }, 3000);
+
+    return () => window.clearInterval(interval);
+  }, [windowLabel, trayWindowFocused]);
+
+  // Poll runtime status while the install step is visible so the Continue
+  // button unlocks as soon as headroom is fully running (same signal the
+  // tray uses for its solid icon: installed && !paused && proxy_reachable).
+  // On a cold first install the Gatekeeper scan can finish after
+  // mark_bootstrap_complete fires, and the main-window poller doesn't run
+  // on the launcher.
+  useEffect(() => {
+    if (windowLabel !== "launcher" || launcherStage !== "install") {
+      return;
+    }
+    if (runtimeStatus?.running === true) {
+      return;
+    }
+
+    void refreshRuntimeStatus();
+    const interval = window.setInterval(() => {
+      void refreshRuntimeStatus();
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [windowLabel, launcherStage, runtimeStatus?.running]);
+
+  useEffect(() => {
+    if (windowLabel !== "main" || !hasTauriRuntime()) {
+      return;
+    }
+
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        setTrayWindowFocused(focused);
+        const now = new Date();
+        const nowDayKey = formatDayKey(now);
+
+        if (!focused) {
+          mainWindowLastBlurAtRef.current = now.getTime();
+          mainWindowLastSeenDayRef.current = nowDayKey;
+          return;
+        }
+
+        const inactiveForMs = mainWindowLastBlurAtRef.current
+          ? now.getTime() - mainWindowLastBlurAtRef.current
+          : null;
+        // Skip `refreshConnectors` for quick alt-tabs: connectors only change
+        // via user action (app enable/disable) or manual edits to
+        // ~/.claude/settings.json — neither happens in the 30s window of a
+        // fast context switch. On initial focus (`inactiveForMs === null`)
+        // or after a real "came back from another app" gap, refresh to pick
+        // up outside changes.
+        if (inactiveForMs === null || inactiveForMs >= 30_000) {
+          void refreshConnectors();
+        }
+
+        const dayRolledOver = nowDayKey !== mainWindowLastSeenDayRef.current;
+        if ((inactiveForMs ?? 0) >= 3_600_000 || dayRolledOver) {
+          setChartResetSignal((current) => current + 1);
+        }
+
+        mainWindowLastBlurAtRef.current = null;
+        mainWindowLastSeenDayRef.current = nowDayKey;
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
+
+    return () => unlisten?.();
+  }, [windowLabel]);
+
+  useEffect(() => {
+    if (!startupReady) {
+      return;
+    }
+    void refreshAppUpdateConfiguration();
+  }, [startupReady]);
+
+  useEffect(() => {
+    if (!startupReady || windowLabel !== "main" || !appUpdateConfig) {
+      return;
+    }
+    if (!appUpdateConfig.enabled || appUpdateConfig.configurationError) {
+      return;
+    }
+
+    const runBackgroundCheck = () => {
+      if (
+        appUpdateReadyToRestartRef.current ||
+        appUpdateBusyRef.current ||
+        appUpdateInstallBusyRef.current
+      ) {
+        return;
+      }
+      void checkForAppUpdate({
+        background: true,
+        knownUpdateVersion: appUpdateKnownVersionRef.current,
+      });
+    };
+
+    const timer = window.setTimeout(
+      runBackgroundCheck,
+      APP_UPDATE_BACKGROUND_INITIAL_DELAY_MS,
+    );
+    const interval = window.setInterval(
+      runBackgroundCheck,
+      APP_UPDATE_BACKGROUND_CHECK_INTERVAL_MS,
+    );
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+    };
+  }, [appUpdateConfig, startupReady, windowLabel]);
+
+  useEffect(() => {
+    if (windowLabel !== "main" || !trayWindowFocused) {
+      return;
+    }
+    void refreshSwitchboardState();
+    void refreshDoctorReport();
+    const interval = window.setInterval(() => {
+      void refreshSwitchboardState();
+      void refreshDoctorReport();
+    }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [trayWindowFocused, windowLabel]);
+
+  useEffect(() => {
+    appUpdateKnownVersionRef.current = appUpdateAvailable?.version ?? null;
+  }, [appUpdateAvailable?.version]);
+
+  useEffect(() => {
+    appUpdateReadyToRestartRef.current = appUpdateReadyToRestart;
+  }, [appUpdateReadyToRestart]);
+
+  useEffect(() => {
+    appUpdateBusyRef.current = appUpdateBusy;
+  }, [appUpdateBusy]);
+
+  useEffect(() => {
+    appUpdateInstallBusyRef.current = appUpdateInstallBusy;
+  }, [appUpdateInstallBusy]);
+
+  useEffect(() => {
+    if (activeView !== "settings") {
+      return;
+    }
+    void Promise.all([
+      refreshConnectors(),
+      refreshRuntimeStatus(),
+      appUpdateConfig ? Promise.resolve() : refreshAppUpdateConfiguration(),
+    ]);
+    void invoke<boolean>("get_autostart_enabled")
+      .then((enabled) => setAutostartEnabled(enabled))
+      .catch(() => setAutostartEnabled(false));
+  }, [activeView]);
+
+  async function handleAutostartToggle(nextEnabled: boolean) {
+    setAutostartBusy(true);
+    try {
+      const enabled = await invoke<boolean>("set_autostart_enabled", {
+        enabled: nextEnabled,
+      });
+      setAutostartEnabled(enabled);
+    } catch (error) {
+      console.error("Failed to update autostart", error);
+    } finally {
+      setAutostartBusy(false);
+    }
+  }
+
+  async function handleRtkToggle(nextEnabled: boolean) {
+    const copy = addonCopy.rtk;
+    setRtkBusy(true);
+    setAddonBusyId("rtk");
+    setAddonBusyLabel((nextEnabled ? copy?.enabling : copy?.disabling) ?? null);
+    setAddonResult(null);
+    try {
+      await invoke<boolean>("set_rtk_enabled", { enabled: nextEnabled });
+      await refreshSwitchboardState();
+      const message = nextEnabled ? undefined : copy?.disabled;
+      if (message) {
+        setAddonResult({ id: "rtk", message });
+      }
+    } catch (error) {
+      console.error("Failed to update RTK", error);
+      setAddonError("RTK could not be updated.");
+    } finally {
+      setRtkBusy(false);
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
+  async function handleUninstall() {
+    setUninstallBusy(true);
+    setUninstallError(null);
+    try {
+      await invoke<string[]>("uninstall_and_quit");
+    } catch (error) {
+      setUninstallError(
+        typeof error === "string"
+          ? error
+          : "Uninstall failed. Please try again.",
+      );
+      setUninstallBusy(false);
+    }
+  }
+
+  async function copyUninstallDryRunReport() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      let report = formatUninstallDryRunReport();
+      try {
+        const backendReport = await invoke<UninstallDryRunReport>(
+          "get_uninstall_dry_run_report",
+        );
+        report = formatBackendUninstallDryRunReport(backendReport);
+      } catch (error) {
+        console.warn("Falling back to static uninstall dry-run report", error);
+      }
+      await navigator.clipboard.writeText(report);
+      setUninstallCopyNotice("Uninstall dry-run copied.");
+      window.setTimeout(() => setUninstallCopyNotice(null), 2500);
+    } catch {
+      setUninstallCopyNotice("Copy failed. Uninstall list remains visible.");
+      window.setTimeout(() => setUninstallCopyNotice(null), 3000);
+    }
+  }
+
+  useEffect(() => {
+    if (
+      (activeView !== "home" && activeView !== "usage") ||
+      !trayWindowFocused
+    ) {
+      return;
+    }
+
+    let active = true;
+    const refreshDashboard = () => {
+      void loadDashboard()
+        .then((next) => {
+          if (!active) return;
+          applyDashboardIfChanged(next);
+          void refreshSavingsAttributionEvents();
+        })
+        .catch(() => {
+          // keep last known state
+        });
+    };
+
+    refreshDashboard();
+    const interval = window.setInterval(refreshDashboard, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [activeView, trayWindowFocused]);
+
+  // Track whether the user has ever visited a heavy-data tab this session.
+  // Once true, stays true until app restart — the pre-warm below is gated
+  // on it so Home-only users don't pay its cost on every tray focus.
+  useEffect(() => {
+    if (activeView === "notifications" || activeView === "optimization") {
+      setHeavyTabEverOpened(true);
+    }
+  }, [activeView]);
+
+  // Pre-warm Optimize + Activity data the moment the tray gains focus, so
+  // switching tabs reveals already-populated content instead of triggering
+  // a fresh ~500ms Python subprocess spawn and layout flash. The tab-scoped
+  // effects below still run and keep data fresh — they just hit the Rust
+  // cache now instead of spawning a cold Python process. Gated on
+  // `heavyTabEverOpened` so users who only use Home never trigger it.
+  useEffect(() => {
+    if (
+      windowLabel !== "main" ||
+      !trayWindowFocused ||
+      !heavyTabEverOpened ||
+      activeView === "notifications" ||
+      activeView === "optimization"
+    ) {
+      return;
+    }
+
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      if (!active) {
+        return;
+      }
+      void refreshClaudeProjects();
+      void refreshHeadroomLearnPrereq();
+      invoke<ActivityFeedResponse>("get_activity_feed")
+        .then((next) => {
+          if (!active) return;
+          setActivityFeed((prev) =>
+            activityFeedSignature(prev) === activityFeedSignature(next)
+              ? prev
+              : next,
+          );
+          setActivityFeedError(null);
+        })
+        .catch(() => {
+          // Swallow: the tab-active poll will surface any real error once the
+          // user opens Activity. Pre-warm failures shouldn't flash a banner.
+        })
+        .finally(() => {
+          if (!active) return;
+          setActivityFeedLoaded(true);
+        });
+    }, trayFocusPrewarmDelayMs);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [windowLabel, trayWindowFocused, heavyTabEverOpened, activeView]);
+
+  useEffect(() => {
+    if (activeView !== "notifications" || !trayWindowFocused) {
+      return;
+    }
+    let active = true;
+    const refreshFeed = () => {
+      invoke<ActivityFeedResponse>("get_activity_feed")
+        .then((next) => {
+          if (!active) return;
+          setActivityFeed((prev) =>
+            activityFeedSignature(prev) === activityFeedSignature(next)
+              ? prev
+              : next,
+          );
+          setActivityFeedError(null);
+        })
+        .catch((err) => {
+          if (!active) return;
+          setActivityFeedError(
+            err instanceof Error
+              ? err.message
+              : "Could not load activity feed.",
+          );
+        })
+        .finally(() => {
+          if (!active) return;
+          setActivityFeedLoaded(true);
+        });
+    };
+    refreshFeed();
+    const interval = window.setInterval(refreshFeed, 4000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [activeView, trayWindowFocused]);
+
+  useEffect(() => {
+    if (activeView !== "home" || !startupReady) {
+      return;
+    }
+    void Promise.all([refreshConnectors(), refreshRuntimeStatus()]);
+  }, [activeView, startupReady]);
+
+  useEffect(() => {
+    if (activeView !== "upgrade") {
+      setUpgradeActionError(null);
+    }
+  }, [activeView]);
+
+  // Keep connectorPhase in sync with the connector enabled state from the backend.
+  // Any supported connector (Claude Code, Codex, ...) being enabled counts as
+  // "connected" — the request-count poller below is connector-agnostic.
+  const anyConnectorEnabled = hasEnabledConnector(connectors);
+  const plannedConnectorReadiness =
+    summarizePlannedConnectorReadiness(connectors);
+
+  useEffect(() => {
+    setConnectorPhase((prev) => {
+      if (!anyConnectorEnabled) return "disabled";
+      // Any transition from "disabled" → enabled (re-enable click, externally
+      // toggled, or fresh app launch) drops into verifying, so the polling
+      // effect below confirms via /stats that traffic is actually flowing
+      // before the badge flips green.
+      if (prev === "disabled") return "verifying";
+      return prev; // keep "verifying" or "healthy"
+    });
+  }, [anyConnectorEnabled]);
+
+  useEffect(() => {
+    if (localOnlyMode || !hasTauriEventRuntime()) {
+      return;
+    }
+    // Pricing status hits the remote Headroom API. When the tray is focused,
+    // poll at 60s so fresh subscription/trial state is visible on demand.
+    // When hidden, slow to 10 min — still fast enough for trial-expiry and
+    // urgent notifications to fire, while cutting hourly API traffic by
+    // ~90%. The launcher window never sets `trayWindowFocused` to false
+    // (its focus listener isn't wired up), so it keeps the 60s cadence.
+    const intervalMs = trayWindowFocused ? 60_000 : 600_000;
+    void refreshPricingStatus();
+    const interval = window.setInterval(() => {
+      void refreshPricingStatus();
+    }, intervalMs);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [localOnlyMode, trayWindowFocused]);
+
+  // headroom:// deep links from the backend trigger an immediate pricing
+  // refresh — the typical case is Polar's checkout success page redirecting
+  // to headroom://upgraded. Backend has already reconciled the runtime; this
+  // just pulls the new status into UI state without waiting for the next
+  // poll tick.
+  useEffect(() => {
+    if (localOnlyMode || !hasTauriEventRuntime()) {
+      return;
+    }
+    let unlisten: (() => void) | undefined;
+    void listen("pricing-refreshed", () => {
+      void refreshPricingStatus();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [localOnlyMode]);
+
+  // After the user opens a Polar checkout URL, poll pricing status every 5s
+  // for up to 5 minutes so we can flip the UI back to "active" within seconds
+  // of payment confirmation, instead of waiting out the 60s baseline cadence.
+  // Auto-stops once subscription_active is observed or the window expires.
+  useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
+    if (checkoutPollingDeadline === null) return;
+    if (Date.now() > checkoutPollingDeadline) {
+      setCheckoutPollingDeadline(null);
+      return;
+    }
+    const interval = window.setInterval(() => {
+      if (Date.now() > checkoutPollingDeadline) {
+        setCheckoutPollingDeadline(null);
+        return;
+      }
+      void refreshPricingStatus();
+    }, 5_000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [checkoutPollingDeadline, localOnlyMode]);
+
+  // Stop the aggressive checkout poll the moment we observe a live
+  // subscription. Saves traffic and stops competing with the 60s cadence.
+  useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
+    if (
+      checkoutPollingDeadline !== null &&
+      pricingStatus?.account?.subscriptionActive
+    ) {
+      setCheckoutPollingDeadline(null);
+    }
+  }, [
+    checkoutPollingDeadline,
+    localOnlyMode,
+    pricingStatus?.account?.subscriptionActive,
+  ]);
+
+  // When the pricing gate closes, pause optimization on every enabled
+  // connector (not just Claude Code) one at a time. Each disable refreshes
+  // `connectors`, re-running this effect until none remain enabled.
+  useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
+    if (!pricingStatus || pricingStatus.optimizationAllowed || connectorsBusy) {
+      return;
+    }
+    const target = getEnabledSupportedConnectors(connectors)[0];
+    if (!target) {
+      return;
+    }
+    autoDisabledByGateRef.current.add(target.clientId);
+    void toggleConnector(target, false);
+  }, [connectors, connectorsBusy, localOnlyMode, pricingStatus]);
+
+  // Companion to the auto-disable effect above: when the pricing gate
+  // releases (e.g., user just signed up post-grace, or weekly usage
+  // rolled over), bring back every connector we auto-disabled without forcing
+  // a manual re-enable click. Scoped to our own prior auto-disables so a
+  // user's manual disable during an ungated period is preserved.
+  useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
+    if (
+      !pricingStatus?.optimizationAllowed ||
+      autoDisabledByGateRef.current.size === 0
+    ) {
+      return;
+    }
+    if (connectorsBusy) {
+      return;
+    }
+    const target = aggregateClientConnectors(connectors).find(
+      (connector) =>
+        autoDisabledByGateRef.current.has(connector.clientId) &&
+        !connector.enabled,
+    );
+    if (!target) {
+      autoDisabledByGateRef.current.clear();
+      return;
+    }
+    void toggleConnector(target, true);
+  }, [connectors, connectorsBusy, localOnlyMode, pricingStatus]);
+
+  useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
+    const runtimeHealthyNow =
+      runtimeStatus?.running === true &&
+      runtimeStatus?.proxyReachable === true &&
+      connectorPhase === "healthy";
+    if (
+      !pricingStatus?.authenticated ||
+      !runtimeHealthyNow ||
+      desktopActivationSentRef.current
+    ) {
+      return;
+    }
+    desktopActivationSentRef.current = true;
+    void invoke<HeadroomPricingStatus>("activate_headroom_account")
+      .then((status) => setPricingStatus(status))
+      .catch(() => {
+        desktopActivationSentRef.current = false;
+      });
+  }, [
+    connectorPhase,
+    localOnlyMode,
+    pricingStatus?.authenticated,
+    runtimeStatus?.proxyReachable,
+    runtimeStatus?.running,
+  ]);
+
+  // While verifying, poll the proxy's /stats request counter and flip to
+  // healthy when it ticks past the anchor we captured on the first reachable
+  // poll. The previous implementation scanned the python proxy log for
+  // /v1/messages lines, but Claude Code traffic actually flows through the
+  // Rust front proxy on 6767 — the python log only sees background activity,
+  // so the regex match could hang forever even while requests were being
+  // optimized normally.
+  useEffect(() => {
+    if (connectorPhase !== "verifying") return;
+    let active = true;
+    let anchor: number | null = null;
+    const interval = setInterval(() => {
+      void (async () => {
+        const count = await invoke<number | null>(
+          "get_headroom_request_count",
+        ).catch(() => null);
+        if (!active) return;
+        // null = proxy unreachable. Don't anchor on transient
+        // unreachable readings — a later reachable reading would otherwise
+        // jump from 0 → N and flip the badge healthy without observing
+        // any new traffic.
+        if (count === null) return;
+        if (anchor === null) {
+          anchor = count;
+          return;
+        }
+        if (count > anchor) {
+          setConnectorPhase("healthy");
+        }
+      })();
+    }, 1000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [connectorPhase]);
+
+  useEffect(() => {
+    if (!anyConnectorEnabled || connectorPhase !== "verifying") {
+      return;
+    }
+    let active = true;
+    void invoke<number | null>("get_headroom_request_count")
+      .then((count) => {
+        if (active && count !== null && count > 0) {
+          setConnectorPhase("healthy");
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [anyConnectorEnabled, connectorPhase]);
+
+  async function handleBootstrap() {
+    bootstrapFailureSignatureRef.current = "";
+    setBootstrapError(null);
+    setBootstrapProgress({
+      running: true,
+      complete: false,
+      failed: false,
+      currentStep: "Preparing install",
+      message: "Initializing installer workflow.",
+      currentStepEtaSeconds: 3,
+      overallPercent: 2,
+    });
+    setBootstrapping(true);
+    try {
+      await invoke("start_bootstrap");
+    } catch (error) {
+      const failureReport = buildBootstrapInvokeFailureReport(error);
+      const failureSignature = bootstrapFailureSignature(failureReport);
+      if (bootstrapFailureSignatureRef.current !== failureSignature) {
+        bootstrapFailureSignatureRef.current = failureSignature;
+        reportBootstrapFailure(failureReport, error);
+      }
+      setBootstrapError(failureReport.message);
+      setBootstrapProgress({
+        running: false,
+        complete: false,
+        failed: true,
+        currentStep: failureReport.currentStep,
+        message: failureReport.message,
+        currentStepEtaSeconds: failureReport.currentStepEtaSeconds,
+        overallPercent: failureReport.overallPercent,
+      });
+      setBootstrapping(false);
+    } finally {
+      // Most completion paths are still managed by progress polling.
+    }
+  }
+
+  async function copyFirstRunFootprint() {
+    if (!navigator.clipboard) {
+      setOnboardingFootprintCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    const fallbackFootprint = [
+      "# AI Switchboard for Mac first-run footprint",
+      "",
+      "Pre-install preview. Some paths are written only after you opt in to the relevant mode or connector.",
+      "",
+      "- App support storage: ~/Library/Application Support/Mac AI Switchboard",
+      "- Local engine/tool storage: ~/.headroom and app-owned helper runtimes",
+      "- Shell profile managed blocks: zsh/bash/profile files, with managed markers",
+      "- Claude Code: ~/.claude/settings.json, hooks, and managed instruction blocks",
+      "- Codex: ~/.codex/config.toml and AGENTS.md managed blocks",
+      "- Add-ons: RTK, Ponytail, MarkItDown, Caveman, and Repo Intelligence state when enabled",
+      "- Backups: timestamped sidecars before managed config edits",
+      "- Off mode: removes Switchboard-owned routing hooks and managed blocks",
+      "",
+      "Local-free builds do not require telemetry, sign-in, checkout, or hosted pricing services.",
+    ].join("\n");
+
+    await navigator.clipboard.writeText(
+      managedFootprintReport
+        ? formatManagedFootprintReport(managedFootprintReport)
+        : fallbackFootprint,
+    );
+    setOnboardingFootprintCopyNotice("Copied footprint.");
+    window.setTimeout(() => setOnboardingFootprintCopyNotice(null), 2500);
+  }
+
+  function canConfigureConnectorWithoutDetection(
+    connector: ClientConnectorStatus,
+  ) {
+    return !connectorControlState(connector).disabled;
+  }
+
+  function getConnectorSupportWarning(connector: ClientConnectorStatus) {
+    return connectorSupportWarnings[connector.clientId] ?? null;
+  }
+
+  function applyAppUpdatePatch(patch: AppUpdateStatePatch) {
+    if (Object.prototype.hasOwnProperty.call(patch, "config")) {
+      setAppUpdateConfig(patch.config ?? null);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "availableUpdate")) {
+      setAppUpdateAvailable(patch.availableUpdate ?? null);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "readyToRestart")) {
+      setAppUpdateReadyToRestart(patch.readyToRestart ?? false);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "showDialog")) {
+      setShowAppUpdateDialog(patch.showDialog ?? false);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "statusCopy")) {
+      setAppUpdateStatusCopy(patch.statusCopy ?? null);
+    }
+  }
+
+  async function refreshAppUpdateConfiguration() {
+    applyAppUpdatePatch(await loadAppUpdateConfiguration());
+  }
+
+  async function checkForAppUpdate({
+    background = false,
+    knownUpdateVersion = null,
+  }: {
+    background?: boolean;
+    knownUpdateVersion?: string | null;
+  } = {}) {
+    let config = appUpdateConfig;
+
+    if (!config) {
+      const configPatch = await loadAppUpdateConfiguration();
+      applyAppUpdatePatch(configPatch);
+      config = configPatch.config ?? null;
+    }
+
+    if (!config) {
+      return;
+    }
+
+    const blockedPatch = getBlockedAppUpdateCheckPatch(config, background);
+    if (blockedPatch) {
+      applyAppUpdatePatch(blockedPatch);
+      return;
+    }
+
+    setAppUpdateBusy(true);
+    if (!background) {
+      setAppUpdateStatusCopy("Checking for a new Headroom release…");
+    }
+
+    try {
+      const patch = await runAppUpdateCheck({ background, knownUpdateVersion });
+      applyAppUpdatePatch(patch);
+
+      if (background && patch.availableUpdate) {
+        const windowVisible = hasTauriRuntime()
+          ? await getCurrentWindow()
+              .isVisible()
+              .catch(() => false)
+          : true;
+        if (
+          shouldNotifyAboutAvailableAppUpdate({
+            background,
+            availableUpdate: patch.availableUpdate,
+            knownUpdateVersion,
+            windowVisible,
+          })
+        ) {
+          await sendAppUpdateNotification(patch.availableUpdate.version);
+        }
+        if (!windowVisible) {
+          await maybeFireStaleAppUpdateNotification(patch.availableUpdate);
+        }
+      }
+    } finally {
+      setAppUpdateBusy(false);
+    }
+  }
+
+  async function installAvailableUpdate() {
+    if (!appUpdateAvailable) {
+      return;
+    }
+
+    setAppUpdateInstallBusy(true);
+    const installStatusCopy = getAppUpdateInstallStatusCopy(appUpdateAvailable);
+    if (installStatusCopy) {
+      setAppUpdateStatusCopy(installStatusCopy);
+    }
+
+    try {
+      const versionForCopy = appUpdateAvailable.version;
+      applyAppUpdatePatch(
+        await runAppUpdateInstall({
+          availableUpdate: appUpdateAvailable,
+          onProgress: (progress) => {
+            setAppUpdateStatusCopy(
+              formatAppUpdateProgressCopy(versionForCopy, progress),
+            );
+          },
+        }),
+      );
+    } finally {
+      setAppUpdateInstallBusy(false);
+    }
+  }
+
+  function restartIntoInstalledUpdate() {
+    void invoke("restart_app");
+  }
+
+  async function refreshConnectors() {
+    try {
+      setConnectorsError(null);
+      const items = await invoke<ClientConnectorStatus[]>(
+        "get_client_connectors",
+      );
+      applyConnectorsIfChanged(items);
+    } catch (error) {
+      setConnectorsError(
+        error instanceof Error
+          ? error.message
+          : "Could not load connector status.",
+      );
+    }
+  }
+
+  async function refreshSwitchboardState() {
+    try {
+      const state = await invoke<SwitchboardState>("get_switchboard_state");
+      applySwitchboardStateIfChanged(state);
+      applyRuntimeStatusIfChanged(state.runtime);
+      applyConnectorsIfChanged(state.clients);
+    } catch {
+      applySwitchboardStateIfChanged(null);
+    }
+  }
+
+  async function refreshDoctorReport() {
+    await refreshDoctorReportController({
+      invoke,
+      setDoctorReport,
+      setManagedFootprintReport,
+    });
+  }
+
+  async function handleSetSwitchboardMode(mode: SwitchboardMode) {
+    if (switchboardModeBusy !== null) {
+      return;
+    }
+    setSwitchboardModeBusy(mode);
+    setSwitchboardModeError(null);
+    setDoctorRepairSuccess(null);
+    try {
+      const state = await invoke<SwitchboardState>("set_switchboard_mode", {
+        mode,
+      });
+      applySwitchboardStateIfChanged(state);
+      applyRuntimeStatusIfChanged(state.runtime);
+      applyConnectorsIfChanged(state.clients);
+      await refreshDoctorReport();
+    } catch (error) {
+      setSwitchboardModeError(
+        `${error instanceof Error ? error.message : "Could not switch optimization mode."} Switchboard and Doctor have been refreshed.`,
+      );
+      await Promise.allSettled([
+        refreshSwitchboardState(),
+        refreshDoctorReport(),
+      ]);
+    } finally {
+      setSwitchboardModeBusy(null);
+    }
+  }
+
+  async function handleSetSavingsMode(mode: SavingsMode) {
+    if (savingsModeBusy !== null) {
+      return;
+    }
+    setSavingsModeBusy(mode);
+    setSwitchboardModeError(null);
+    setDoctorRepairSuccess(null);
+    try {
+      const state = await invoke<SwitchboardState>("set_savings_mode", {
+        mode,
+      });
+      applySwitchboardStateIfChanged(state);
+      applyRuntimeStatusIfChanged(state.runtime);
+      applyConnectorsIfChanged(state.clients);
+      await refreshDoctorReport();
+    } catch (error) {
+      setSwitchboardModeError(
+        `${error instanceof Error ? error.message : "Could not change savings profile."} Switchboard and Doctor have been refreshed.`,
+      );
+      await Promise.allSettled([
+        refreshSwitchboardState(),
+        refreshDoctorReport(),
+      ]);
+    } finally {
+      setSavingsModeBusy(null);
+    }
+  }
+
+  async function handleDoctorRepair(action: string) {
+    await runDoctorRepairAction(action, {
+      currentBusyAction: doctorRepairBusy,
+      invoke,
+      refreshSwitchboardState,
+      setDoctorRepairBusy,
+      setDoctorRepairError,
+      setDoctorRepairSuccess,
+      setDoctorReport,
+    });
+  }
+
+  async function refreshRuntimeStatus() {
+    try {
+      const runtime = await invoke<RuntimeStatus>("get_runtime_status");
+      applyRuntimeStatusIfChanged(runtime);
+      void maybeFireUrgentRuntimeNotification(runtime);
+      try {
+        const cache = await invoke<{ enabled: boolean }>(
+          "get_semantic_cache_status",
+        );
+        setSemanticCacheEnabled(cache.enabled);
+      } catch {
+        setSemanticCacheEnabled(false);
+      }
+    } catch (error) {
+      setConnectorsError(
+        error instanceof Error
+          ? error.message
+          : "Could not load runtime status.",
+      );
+    }
+  }
+
+  async function handleResumeRuntime() {
+    if (resuming) {
+      return;
+    }
+    setResuming(true);
+    setResumeError(null);
+    try {
+      await invoke("force_restart_headroom");
+      await refreshRuntimeStatus();
+      await refreshDoctorReport();
+    } catch (error) {
+      setResumeError(
+        error instanceof Error ? error.message : "Could not restart Headroom.",
+      );
+    } finally {
+      setResuming(false);
+    }
+  }
+
+  async function refreshPricingStatus() {
+    if (localOnlyMode) {
+      setPricingBusy(false);
+      setPricingError(null);
+      return;
+    }
+    if (pricingRefreshInFlightRef.current) {
+      return;
+    }
+    pricingRefreshInFlightRef.current = true;
+    setPricingBusy(true);
+    try {
+      const status = await invoke<HeadroomPricingStatus>(
+        "get_headroom_pricing_status",
+      );
+      setPricingStatus(status);
+      void maybeFireTrialNotifications(status);
+      void maybeFireUrgentPricingNotifications(status, { localOnlyMode });
+      setPricingError(null);
+    } catch (error) {
+      setPricingError(
+        error instanceof Error
+          ? error.message
+          : "Could not load pricing status.",
+      );
+    } finally {
+      pricingRefreshInFlightRef.current = false;
+      setPricingBusy(false);
+    }
+  }
+
+  async function refreshClaudeProjects() {
+    setClaudeProjectsBusy(true);
+    try {
+      setClaudeProjectsError(null);
+      const projects = await invoke<ClaudeCodeProject[]>(
+        "get_claude_code_projects",
+      );
+      applyClaudeProjectsIfChanged(projects);
+    } catch (error) {
+      setClaudeProjectsError(
+        error instanceof Error
+          ? error.message
+          : "Could not load Claude Code projects.",
+      );
+    } finally {
+      setClaudeProjectsBusy(false);
+    }
+  }
+
+  async function copyPlannedConnectorCommand(
+    command: string,
+    connectorName: string,
+  ) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(command);
+      setPlannedConnectorCopyNotice(`${connectorName} copied.`);
+      window.setTimeout(() => setPlannedConnectorCopyNotice(null), 2000);
+    } catch {
+      setPlannedConnectorCopyNotice(
+        "Copy failed. Command remains visible below.",
+      );
+      window.setTimeout(() => setPlannedConnectorCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyReleaseReadinessReport() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      if (releaseReadinessReport?.report) {
+        await navigator.clipboard.writeText(
+          formatReleaseReadinessReportSnapshot(
+            releaseReadinessReport.report,
+            releaseReadinessReport.reportPath,
+          ),
+        );
+        setReleaseReadinessCopyNotice("Release report snapshot copied.");
+      } else {
+        await navigator.clipboard.writeText(formatReleaseReadinessCommandCopy());
+        setReleaseReadinessCopyNotice("Release report command copied.");
+      }
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
+    } catch {
+      setReleaseReadinessCopyNotice("Copy failed. Release text remains visible below.");
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+    }
+  }
+
+  async function copySettingsExport() {
+    if (!navigator.clipboard) {
+      setSettingsTransferNotice("Clipboard unavailable.");
+      return;
+    }
+
+    const bundle = buildSettingsExportBundle({
+      dashboard,
+      connectors,
+      switchboardMode,
+      savingsMode,
+    });
+    await navigator.clipboard.writeText(formatSettingsExportBundle(bundle));
+    setSettingsTransferNotice("Settings export copied.");
+    window.setTimeout(() => setSettingsTransferNotice(null), 2500);
+  }
+
+  function previewSettingsImport() {
+    const preview = parseSettingsImport(settingsImportText);
+    setSettingsImportPreview(preview);
+    setSettingsTransferNotice(preview.valid ? "Import preview ready." : null);
+  }
+
+  async function applySettingsImport() {
+    const preview = settingsImportPreview ?? parseSettingsImport(settingsImportText);
+    setSettingsImportPreview(preview);
+    if (!preview.valid) {
+      setSettingsTransferNotice(null);
+      return;
+    }
+
+    setSettingsImportBusy(true);
+    setSettingsTransferNotice("Applying safe preferences...");
+    try {
+      if (
+        preview.safePreferences.switchboardMode &&
+        preview.safePreferences.switchboardMode !== switchboardMode
+      ) {
+        await handleSetSwitchboardMode(preview.safePreferences.switchboardMode);
+      }
+      if (
+        preview.safePreferences.savingsMode &&
+        preview.safePreferences.savingsMode !== savingsMode
+      ) {
+        await handleSetSavingsMode(preview.safePreferences.savingsMode);
+      }
+      setSettingsTransferNotice("Safe settings applied.");
+      window.setTimeout(() => setSettingsTransferNotice(null), 2500);
+    } finally {
+      setSettingsImportBusy(false);
+    }
+  }
+
+  async function refreshReleaseReadinessReport() {
+    setReleaseReadinessRefreshing(true);
+    setReleaseReadinessError(null);
+    setReleaseReadinessCopyNotice(null);
+    try {
+      const payload = await invoke<ReleaseReadinessReportPayload>(
+        "refresh_release_readiness_report",
+      );
+      setReleaseReadinessReport(payload);
+      setReleaseReadinessCopyNotice("Release report refreshed.");
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
+    } catch (error) {
+      setReleaseReadinessError(
+        describeInvokeError(error, "Could not refresh release report."),
+      );
+    } finally {
+      setReleaseReadinessRefreshing(false);
+    }
+  }
+
+  function releaseEvidenceControllerOptions() {
+    return {
+      invoke,
+      setBusyId: setReleaseEvidenceBusyId,
+      setCopyNotice: setReleaseReadinessCopyNotice,
+      setError: setReleaseReadinessError,
+      setReport: setReleaseReadinessReport,
+      setResult: setReleaseEvidenceResult,
+      setTimeout: window.setTimeout.bind(window),
+    };
+  }
+
+  async function runReleaseEvidenceCommand(commandId: string) {
+    await runReleaseEvidenceCommandController(
+      commandId,
+      releaseEvidenceControllerOptions(),
+    );
+  }
+
+  async function runLocalReleaseEvidenceSequence() {
+    await runLocalReleaseEvidenceSequenceController(
+      releaseEvidenceControllerOptions(),
+    );
+  }
+
+  async function autoConfigureConnectorsForLauncher() {
+    setConnectorsBusy(true);
+    setConnectorsError(null);
+
+    try {
+      let latestConnectors = await invoke<ClientConnectorStatus[]>(
+        "get_client_connectors",
+      );
+      applyConnectorsIfChanged(latestConnectors);
+
+      const step = nextAutoConfigureStep(
+        getLauncherAutoConfigureDecision(latestConnectors),
+        latestConnectors,
+      );
+
+      if (step.kind === "show_client_setup") {
+        setLauncherStage("client_setup");
+        return;
+      }
+
+      if (step.kind === "apply") {
+        for (const clientId of step.clientIds) {
+          await invoke<ClientSetupResult>("apply_client_setup", { clientId });
+        }
+        latestConnectors = await invoke<ClientConnectorStatus[]>(
+          "get_client_connectors",
+        );
+        applyConnectorsIfChanged(latestConnectors);
+
+        const postApplyStep = nextAutoConfigureStepAfterApply(
+          getLauncherAutoConfigureDecision(latestConnectors),
+        );
+        if (postApplyStep.kind !== "begin_proxy_verification") {
+          setLauncherStage("client_setup");
+          return;
+        }
+      }
+
+      await beginProxyVerificationStep();
+    } catch (error) {
+      setConnectorsError(
+        error instanceof Error
+          ? error.message
+          : "Could not configure your coding tools automatically.",
+      );
+      setLauncherStage("client_setup");
+    } finally {
+      setConnectorsBusy(false);
+    }
+  }
+
+  async function handleFirstLaunchContinue() {
+    await autoConfigureConnectorsForLauncher();
+  }
+
+  async function openExternalLink(url: string) {
+    await invoke("open_external_link", { url });
+  }
+
+  async function runAddonAction(
+    command: "install_addon" | "set_addon_enabled" | "uninstall_addon",
+    id: string,
+    enabled?: boolean,
+  ) {
+    const copy = addonCopy[id];
+    const busyLabel =
+      command === "install_addon"
+        ? copy?.installing
+        : command === "uninstall_addon"
+          ? copy?.uninstalling
+          : enabled
+            ? copy?.enabling
+            : copy?.disabling;
+    setAddonBusyId(id);
+    setAddonBusyLabel(busyLabel ?? null);
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      const next = await invoke<DashboardState>(command, { id, enabled });
+      setDashboard(next);
+      if (id === "rtk") {
+        await refreshRuntimeStatus();
+      }
+      const message =
+        command === "install_addon"
+          ? copy?.installed
+          : command === "uninstall_addon"
+            ? copy?.uninstalled
+            : enabled
+              ? undefined
+              : copy?.disabled;
+      if (message) {
+        setAddonResult({ id, message });
+      }
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : "The addon action could not be completed.",
+      );
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
+  async function prepareRepoMemoryMcp(): Promise<boolean> {
+    setAddonBusyId("repo-memory");
+    setAddonBusyLabel("Preparing Repo Memory MCP...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      await invoke<DashboardState>("install_repo_memory_mcp");
+      const next = await invoke<DashboardState>("start_repo_memory_mcp");
+      setDashboard(next);
+      await refreshRuntimeStatus();
+      setAddonResult({
+        id: "repo-memory",
+        message:
+          "Repo Memory MCP prepared. The app installed it, ran the read-only smoke check, and marked it active for supported agents.",
+      });
+      return true;
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : "Repo Memory MCP could not be prepared.",
+      );
+      return false;
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
+  function setMasterFeature(
+    id: MasterFeatureId,
+    state: MasterFeatureState,
+  ) {
+    setMasterFeatureStates((current) => ({ ...current, [id]: state }));
+  }
+
+  function removeMasterOwnedFeature(id: MasterFeatureId) {
+    setMasterActivationReceipt((current) => {
+      if (!current) return current;
+      const ownedId = id === "gateway-mcp" ? "repo-memory-mcp" : id;
+      const ownedActions = current.activation.ownedActions.filter(
+        (action) => action.id !== ownedId,
+      );
+      if (ownedActions.length === 0) return null;
+      return {
+        ...current,
+        activation: { ...current.activation, ownedActions },
+      };
+    });
+  }
+
+  function masterFeatureView(id: MasterFeatureId): TrayView {
+    switch (id) {
+      case "agent-memory":
+        return "agentMemory";
+      case "token-xray":
+        return "xray";
+      case "daily-briefing":
+        return "briefing";
+      case "agent-session":
+        return "optimization";
+      case "repo-intelligence":
+        return "repoIntelligence";
+      case "addons":
+      case "gateway-mcp":
+        return "addons";
+      case "doctor":
+        return "doctor";
+      case "rollback":
+        return "settings";
+    }
+  }
+
+  async function activateMasterFeature(id: MasterFeatureId) {
+    setMasterFeature(id, { status: "running", actionLabel: "Working…" });
+    try {
+      switch (id) {
+        case "agent-memory":
+          await getAgentMemorySnapshot();
+          break;
+        case "token-xray":
+          await loadTokenXraySnapshot();
+          break;
+        case "daily-briefing":
+          await loadDailyUsageBriefing();
+          break;
+        case "repo-intelligence":
+          await invoke("get_latest_repo_intelligence_summary");
+          break;
+        case "gateway-mcp":
+          if (!(await prepareRepoMemoryMcp())) {
+            throw new Error("Repo Memory MCP could not be prepared.");
+          }
+          break;
+        case "doctor":
+          await refreshDoctorReport();
+          break;
+        case "addons":
+          await Promise.all([refreshRuntimeStatus(), refreshConnectors()]);
+          break;
+        case "rollback":
+          await refreshDoctorReport();
+          openSettingsFocus("rollback-center");
+          setMasterFeature(id, {
+            status: "partial",
+            actionLabel: "Open Settings",
+            detail: "Rollback inventory is in Settings below.",
+          });
+          return;
+        case "agent-session":
+          setActiveView("optimization");
+          setMasterFeature(id, {
+            status: "partial",
+            actionLabel: "Open",
+            detail: "Prepare and copy the session payload before launch.",
+          });
+          return;
+      }
+      setMasterFeature(id, {
+        status: "complete",
+        actionLabel: "Run again",
+        detail: "Local evidence refreshed.",
+      });
+    } catch (error) {
+      setMasterFeature(id, {
+        status: "error",
+        actionLabel: "Retry",
+        detail: error instanceof Error ? error.message : "Action failed.",
+      });
+    }
+  }
+
+  async function activateEverything() {
+    if (masterActivationState === "running") return;
+    const previousMode = switchboardMode;
+    const mcpWasActive = runtimeStatus?.repoMemoryMcpActive === true;
+    setMasterOperation("activate");
+    setMasterActivationState("running");
+    setMasterFeatureStates({});
+    setMasterActivationProgress({ completed: 0, total: 9 });
+    try {
+      await handleSetSwitchboardMode("full");
+      const activatedRuntime = await invoke<RuntimeStatus>(
+        "get_runtime_status",
+      );
+      applyRuntimeStatusIfChanged(activatedRuntime);
+      if (!activatedRuntime.running || !activatedRuntime.proxyReachable) {
+        throw new Error(
+          "The full local mode did not bring the Headroom runtime online.",
+        );
+      }
+      let leanctxSidecar: {
+        configured: boolean;
+        promotion?: {
+          status: string;
+          capabilityVersionOk: boolean;
+          protectedContentOk: boolean;
+          failOpenOk: boolean;
+          shadowContractOk: boolean;
+          livePromotionAllowed: boolean;
+          reasons: string[];
+        };
+      } | null = null;
+      try {
+        leanctxSidecar = await invoke("get_leanctx_sidecar_status");
+      } catch {
+        leanctxSidecar = null;
+      }
+      const supportedLocalOptimizations = resolveMasterActivationLocalOptimizations(
+        leanctxSidecar?.promotion ?? null,
+      );
+      const callbacks = {
+        refreshAgentMemory: async () => {
+          await getAgentMemorySnapshot();
+          setMasterFeature("agent-memory", {
+            status: "complete",
+            detail: "Local memory metadata refreshed.",
+          });
+        },
+        refreshRepoIntelligence: async () => {
+          await invoke("get_latest_repo_intelligence_summary");
+          setMasterFeature("repo-intelligence", {
+            status: "complete",
+            detail: "Latest local repository evidence checked.",
+          });
+        },
+        refreshTokenXray: async () => {
+          await loadTokenXraySnapshot();
+          setMasterFeature("token-xray", {
+            status: "complete",
+            detail: "Local token evidence refreshed.",
+          });
+        },
+        refreshDailyBriefing: async () => {
+          await loadDailyUsageBriefing();
+          setMasterFeature("daily-briefing", {
+            status: "complete",
+            detail: "Local briefing evidence refreshed.",
+          });
+        },
+        enableLocalOptimization: async (optimizationId: string) => {
+          if (optimizationId === "semantic-cache") {
+            await invoke("set_semantic_cache_enabled", { enabled: true });
+          } else if (optimizationId === "leanctx-shadow") {
+            if (!leanctxSidecar?.configured) {
+              await invoke("install_addon", { id: "leanctx" });
+            }
+            await invoke("set_addon_enabled", { id: "leanctx", enabled: true });
+          }
+          setMasterFeature("addons", {
+            status: "partial",
+            detail: `Enabled ${optimizationId} from the evidence-gated allowlist.`,
+          });
+        },
+        ...(mcpWasActive
+          ? {}
+          : {
+              prepareRepoMemoryMcp: async () => {
+                if (!(await prepareRepoMemoryMcp())) {
+                  throw new Error("Repo Memory MCP could not be prepared.");
+                }
+                setMasterFeature("gateway-mcp", {
+                  status: "complete",
+                  detail: "Read-only Repo Memory MCP prepared.",
+                });
+              },
+            }),
+      };
+      const plan = createMasterActivationPlan({
+        runtimeState:
+          runtimeStatus?.running && runtimeStatus.proxyReachable
+            ? "running"
+            : "offline",
+        supportedLocalOptimizations,
+        callbacks,
+      });
+      const result = await executeMasterActivation(plan, { callbacks });
+      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
+      setMasterFeature("addons", { status: "complete", detail: "Runtime and connector health refreshed." });
+      setMasterFeature("doctor", { status: "complete", detail: "Doctor report refreshed." });
+      setMasterFeature("rollback", { status: "complete", actionLabel: "Open Settings", detail: "Rollback inventory is in Settings." });
+      setMasterFeature("agent-session", { status: "partial", actionLabel: "Open", detail: "Prepare and copy a payload before launch." });
+      const completed = new Set(result.completed.map((item) => item.id));
+      if (result.receipt.ownedActions.length > 0) {
+        setMasterActivationReceipt({
+          activation: result.receipt,
+          previousMode,
+          mcpWasActive,
+        });
+      }
+      setMasterActivationProgress({ completed: Math.min(9, completed.size + 3), total: 9 });
+      setMasterActivationState(result.failed.length ? "partial" : "complete");
+    } catch (error) {
+      setMasterActivationState("error");
+      setMasterFeature("doctor", {
+        status: "error",
+        actionLabel: "Retry",
+        detail: error instanceof Error ? error.message : "Master activation failed.",
+      });
+    }
+  }
+
+  function openSettingsFocus(targetId: string) {
+    setSettingsFocusTarget(targetId);
+    setActiveView("settings");
+  }
+
+  useEffect(() => {
+    if (activeView !== "settings" || !settingsFocusTarget) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      document.getElementById(settingsFocusTarget)?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+      setSettingsFocusTarget(null);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [activeView, settingsFocusTarget]);
+
+  function masterFeatureToOwnedActionId(
+    id: MasterFeatureId,
+  ): MasterActivationLocalFeatureId | null {
+    switch (id) {
+      case "agent-memory":
+        return "agent-memory";
+      case "token-xray":
+        return "token-xray";
+      case "daily-briefing":
+        return "daily-briefing";
+      case "repo-intelligence":
+        return "repo-intelligence";
+      case "addons":
+        return "local-optimizations";
+      case "gateway-mcp":
+        return "repo-memory-mcp";
+      case "agent-session":
+      case "doctor":
+      case "rollback":
+        return null;
+    }
+  }
+
+  async function activateMaxCompression() {
+    if (masterActivationState === "running" || maxCompressionBusy) return;
+    setMaxCompressionBusy(true);
+    try {
+      const plan = createMaxCompressionActivationPlan({
+        mode: "full",
+        proxyReachable: runtimeStatus?.proxyReachable ?? false,
+        semanticCacheEnabled,
+      });
+      void createMaxCompressionLifecycleReceipts(plan);
+      await handleSetSwitchboardMode("full");
+      const activatedRuntime = await invoke<RuntimeStatus>("get_runtime_status");
+      applyRuntimeStatusIfChanged(activatedRuntime);
+      if (!activatedRuntime.running || !activatedRuntime.proxyReachable) {
+        throw new Error(
+          "Max compression requires a reachable Headroom runtime in Full mode.",
+        );
+      }
+      if (plan.engines.includes("semantic-cache")) {
+        await invoke("set_semantic_cache_enabled", { enabled: true });
+        setSemanticCacheEnabled(true);
+      }
+      if (plan.engines.includes("rtk")) {
+        await invoke("set_rtk_enabled", { enabled: true });
+      }
+      setActiveView("repoIntelligence");
+      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
+      setMasterFeature("doctor", {
+        status: "complete",
+        detail: "Doctor refreshed after max compression activation.",
+      });
+      setMasterFeature("repo-intelligence", {
+        status: "partial",
+        actionLabel: "Open",
+        detail: "Index the active repository before starting an agent session.",
+      });
+    } catch (error) {
+      setMasterFeature("doctor", {
+        status: "error",
+        actionLabel: "Retry",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Max compression activation failed.",
+      });
+    } finally {
+      setMaxCompressionBusy(false);
+    }
+  }
+
+  function openCompressionPlaybook() {
+    setActiveView("home");
+    window.setTimeout(() => {
+      document
+        .getElementById("doctor-compression-playbook")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+
+  function createMasterDeactivationCallbacks(
+    receipt: NonNullable<typeof masterActivationReceipt>,
+  ): MasterDeactivationCallbacks {
+    return {
+      deactivateAgentMemory: async () => undefined,
+      deactivateRepoIntelligence: async () => undefined,
+      deactivateTokenXray: async () => undefined,
+      deactivateDailyBriefing: async () => undefined,
+      disableLocalOptimization: async (optimizationId: string) => {
+        if (optimizationId === "semantic-cache") {
+          await invoke("set_semantic_cache_enabled", { enabled: false });
+        } else if (optimizationId === "leanctx-shadow") {
+          await invoke("set_addon_enabled", { id: "leanctx", enabled: false });
+        }
+      },
+      ...(receipt.mcpWasActive
+        ? {}
+        : {
+            stopRepoMemoryMcp: async () => {
+              if (!(await setRepoMemoryMcpActive(false))) {
+                throw new Error("Repo Memory MCP could not be stopped.");
+              }
+            },
+          }),
+    };
+  }
+
+  async function deactivateMasterFeature(id: MasterFeatureId) {
+    const receipt = masterActivationReceipt;
+    if (!receipt) return;
+    setMasterFeature(id, { status: "running", actionLabel: "Working…" });
+    const ownedActionId = masterFeatureToOwnedActionId(id);
+
+    if (!ownedActionId) {
+      setMasterFeature(id, {
+        status: "ready",
+        actionLabel: "Activate",
+        detail: "No master-owned backend state remains active for this feature.",
+      });
+      return;
+    }
+
+    const owned = receipt.activation.ownedActions.find(
+      (action) => action.id === ownedActionId,
+    );
+    if (!owned) {
+      setMasterFeature(id, {
+        status: "ready",
+        actionLabel: "Activate",
+        detail:
+          "This feature was refreshed during activation but left no reversible master-owned state.",
+      });
+      return;
+    }
+
+    try {
+      const partialReceipt: MasterActivationReceipt = {
+        ...receipt.activation,
+        ownedActions: [owned],
+      };
+      const plan = createMasterDeactivationPlan({ receipt: partialReceipt });
+      const result = await executeMasterDeactivation(plan, {
+        receipt: partialReceipt,
+        callbacks: createMasterDeactivationCallbacks(receipt),
+      });
+      if (result.failed.length > 0) {
+        throw new Error(result.failed[0]?.detail ?? "Deactivation failed.");
+      }
+      await refreshRuntimeStatus();
+      setMasterFeature(id, {
+        status: "ready",
+        actionLabel: "Activate",
+        detail: "Master-owned state for this feature was reversed.",
+      });
+      removeMasterOwnedFeature(id);
+    } catch (error) {
+      setMasterFeature(id, {
+        status: "error",
+        actionLabel: "Retry deactivation",
+        detail: error instanceof Error ? error.message : "Deactivation failed.",
+      });
+    }
+  }
+
+  async function deactivateEverything() {
+    const receipt = masterActivationReceipt;
+    if (!receipt || masterActivationState === "running") return;
+    setMasterOperation("deactivate");
+    setMasterActivationState("running");
+    try {
+      const callbacks = createMasterDeactivationCallbacks(receipt);
+      const plan = createMasterDeactivationPlan({
+        receipt: receipt.activation,
+        callbacks,
+      });
+      const result = await executeMasterDeactivation(plan, {
+        receipt: receipt.activation,
+        callbacks,
+      });
+      if (receipt.previousMode !== "full") {
+        await handleSetSwitchboardMode(receipt.previousMode);
+      }
+      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
+      const failed = result.failed.length > 0;
+      if (!failed) {
+        setMasterActivationReceipt(null);
+        setMasterActivationProgress({ completed: 0, total: 9 });
+        setMasterFeatureStates({});
+        setMasterActivationState("ready");
+      } else {
+        setMasterActivationState("partial");
+        for (const item of result.failed) {
+          setMasterFeature(item.id === "repo-memory-mcp" ? "gateway-mcp" : "addons", {
+            status: "error",
+            actionLabel: "Retry deactivation",
+            detail: item.detail,
+          });
+        }
+      }
+    } catch (error) {
+      setMasterActivationState("partial");
+      setMasterFeature("doctor", {
+        status: "error",
+        actionLabel: "Retry deactivation",
+        detail: error instanceof Error ? error.message : "Master deactivation failed.",
+      });
+    }
+  }
+
+  async function setRepoMemoryMcpActive(active: boolean): Promise<boolean> {
+    setAddonBusyId("repo-memory");
+    setAddonBusyLabel(active ? "Starting Repo Memory MCP..." : "Stopping Repo Memory MCP...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      const next = await invoke<DashboardState>(
+        active ? "start_repo_memory_mcp" : "stop_repo_memory_mcp",
+      );
+      setDashboard(next);
+      await refreshRuntimeStatus();
+      setAddonResult({
+        id: "repo-memory",
+        message: active
+          ? "Repo Memory MCP marked active. Supported agents can request read-only repo context."
+          : "Repo Memory MCP stopped for this app session. Agent MCP configuration was left intact.",
+      });
+      return true;
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : active
+            ? "Repo Memory MCP could not be started."
+            : "Repo Memory MCP could not be stopped.",
+      );
+      return false;
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
+  async function setCavemanLevel(
+    level: "scoped" | "aggressive" | "compact_chinese",
+  ) {
+    setAddonBusyId("caveman");
+    setAddonBusyLabel("Updating Caveman level...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      const next = await invoke<DashboardState>("set_caveman_level", { level });
+      setDashboard(next);
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : "The Caveman level could not be updated.",
+      );
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
+  function openUpgradeAuthView(planId: UpgradePlanId | null = null) {
+    setActiveView(safeTrayViewForMode("upgradeAuth", localOnlyMode));
+    setPendingUpgradePlanId(planId);
+    setAuthFlowError(null);
+    setAuthFlowSuccess(null);
+  }
+
+  function resetUpgradeAuthStep() {
+    setAuthCode("");
+    setAuthCodeRequestedFor(null);
+    setAuthFlowError(null);
+    setAuthFlowSuccess(null);
+  }
+
+  async function handleRequestAuthCode() {
+    if (!authEmailValid) {
+      setAuthFlowError("Enter a valid email address.");
+      return;
+    }
+    setAuthRequestBusy(true);
+    setAuthFlowError(null);
+    setAuthFlowSuccess(null);
+    try {
+      const result = await invoke<HeadroomAuthCodeRequest>(
+        "request_headroom_auth_code",
+        {
+          email: authEmail.trim(),
+        },
+      );
+      setAuthCodeRequestedFor(result.email);
+      setAuthCodeExpirySeconds(result.expiresInSeconds);
+      setAuthFlowSuccess(`We sent a sign-in code to ${result.email}.`);
+    } catch (error) {
+      setAuthFlowError(
+        describeInvokeError(error, "Could not send sign-in code."),
+      );
+    } finally {
+      setAuthRequestBusy(false);
+    }
+  }
+
+  async function handleVerifyAuthCode() {
+    if (!authEmailValid) {
+      setAuthFlowError("Enter a valid email address.");
+      return;
+    }
+    if (!authCode.trim()) {
+      setAuthFlowError("Enter the authentication code from your email.");
+      return;
+    }
+    setAuthVerifyBusy(true);
+    setAuthFlowError(null);
+    setAuthFlowSuccess(null);
+    try {
+      const status = await invoke<HeadroomPricingStatus>(
+        "verify_headroom_auth_code",
+        {
+          email: authEmail.trim(),
+          code: authCode.trim(),
+          inviteCode: null,
+        },
+      );
+      setPricingStatus(status);
+      setAuthCode("");
+      setAuthCodeRequestedFor(null);
+      setAuthFlowSuccess("Switchboard account connected.");
+      setPendingUpgradePlanId(null);
+      setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
+      await refreshConnectors();
+    } catch (error) {
+      setAuthFlowError(
+        describeInvokeError(error, "Could not verify sign-in code."),
+      );
+    } finally {
+      setAuthVerifyBusy(false);
+    }
+  }
+
+  async function handleSignOutHeadroomAccount() {
+    setAuthFlowError(null);
+    setAuthFlowSuccess(null);
+    try {
+      await invoke("sign_out_headroom_account");
+      setPricingStatus(
+        await invoke<HeadroomPricingStatus>("get_headroom_pricing_status"),
+      );
+      setAuthCode("");
+      setAuthCodeRequestedFor(null);
+      setAuthFlowSuccess("Signed out of Headroom.");
+      setPendingUpgradePlanId(null);
+    } catch (error) {
+      setAuthFlowError(
+        error instanceof Error
+          ? error.message
+          : "Could not sign out of Headroom.",
+      );
+    }
+  }
+
+  async function handleUpgradeAction(planId: UpgradePlanId) {
+    const activeHeadroomPlanId = pricingStatus?.account?.subscriptionActive
+      ? (pricingStatus.account.subscriptionTier ?? null)
+      : null;
+    const action = (() => {
+      switch (planId) {
+        case "free":
+          return {
+            kind: activeHeadroomPlanId
+              ? ("billing_portal" as const)
+              : ("internal" as const),
+          };
+        case "pro":
+        case "max5x":
+        case "max20x": {
+          if (activeHeadroomPlanId === planId)
+            return { kind: "internal" as const };
+          // Polar prorates the product swap with the existing discount applied,
+          // so every plan change on an active subscription uses the PATCH path.
+          if (activeHeadroomPlanId) {
+            return { kind: "change_plan" as const };
+          }
+          return { kind: "checkout" as const };
+        }
+        case "team":
+          return {
+            kind: "external" as const,
+            url: SALES_CONTACT_URL,
+            missing:
+              "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Team sales inquiries.",
+          };
+        case "enterprise":
+          return {
+            kind: "external" as const,
+            url: SALES_CONTACT_URL,
+            missing:
+              "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Enterprise contact.",
+          };
+        default:
+          return null;
+      }
+    })();
+
+    if (!action) {
+      return;
+    }
+
+    trackAnalyticsEvent("upgrade_button_clicked", {
+      plan_id: planId,
+      action_kind: action.kind,
+      email:
+        pricingStatus?.account?.email ??
+        pricingStatus?.claude?.email ??
+        undefined,
+    });
+
+    if (action.kind === "internal") {
+      setUpgradeActionError(null);
+      setActiveView("home");
+      return;
+    }
+
+    if (!pricingStatus?.authenticated) {
+      openUpgradeAuthView(planId);
+      return;
+    }
+
+    if (action.kind === "change_plan") {
+      const fromTier = pricingStatus?.account?.subscriptionTier;
+      if (!fromTier) return;
+      setPlanChangeError(null);
+      setPendingPlanChange({
+        fromTier,
+        toTier: planId as HeadroomSubscriptionTier,
+        billingPeriod,
+      });
+      return;
+    }
+
+    if (action.kind === "checkout") {
+      setUpgradeActionBusy(planId);
+      setUpgradeActionError(null);
+
+      try {
+        const url = await invoke<string>("create_headroom_checkout_session", {
+          subscriptionTier: planId,
+          billingPeriod,
+        });
+        await openExternalLink(url);
+        // Aggressive poll for the next 5 minutes so the moment Polar marks
+        // the subscription active we surface "Headroom is back online" without
+        // making the user wait out the normal 60s pricing-refresh cadence.
+        setCheckoutPollingDeadline(Date.now() + 5 * 60_000);
+      } catch (error) {
+        setUpgradeActionError(
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Could not start checkout.",
+        );
+      } finally {
+        setUpgradeActionBusy(null);
+      }
+      return;
+    }
+
+    if (action.kind === "billing_portal") {
+      setUpgradeActionBusy(planId);
+      setUpgradeActionError(null);
+
+      try {
+        // Deep-link to the user's subscription page so they land one click
+        // away from "Change plan" instead of at the portal root.
+        const url = await invoke<string>("get_headroom_billing_portal_url", {
+          target: "subscription",
+        });
+        await openExternalLink(url);
+      } catch (error) {
+        setUpgradeActionError(
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Could not open billing portal.",
+        );
+      } finally {
+        setUpgradeActionBusy(null);
+      }
+      return;
+    }
+
+    if (!action.url) {
+      setUpgradeActionError(
+        action.missing ?? "Could not open the selected plan link.",
+      );
+      return;
+    }
+
+    setUpgradeActionBusy(planId);
+    setUpgradeActionError(null);
+
+    try {
+      await openExternalLink(action.url);
+    } catch (error) {
+      setUpgradeActionError(
+        error instanceof Error
+          ? error.message
+          : "Could not open the selected plan link.",
+      );
+    } finally {
+      setUpgradeActionBusy(null);
+    }
+  }
+
+  async function confirmPlanChange() {
+    if (!pendingPlanChange) return;
+    setPlanChangeBusy(true);
+    setPlanChangeError(null);
+    try {
+      await invoke("change_headroom_subscription_plan", {
+        subscriptionTier: pendingPlanChange.toTier,
+        billingPeriod: pendingPlanChange.billingPeriod,
+      });
+      await refreshPricingStatus();
+      setPendingPlanChange(null);
+      setActiveView("home");
+    } catch (error) {
+      setPlanChangeError(
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Could not change subscription plan.",
+      );
+    } finally {
+      setPlanChangeBusy(false);
+    }
+  }
+
+  function cancelPlanChange() {
+    if (planChangeBusy) return;
+    setPendingPlanChange(null);
+    setPlanChangeError(null);
+  }
+
+  async function handleReactivateSubscription() {
+    if (reactivateBusy) return;
+    setReactivateBusy(true);
+    setReactivateError(null);
+    try {
+      await invoke("reactivate_headroom_subscription");
+      await refreshPricingStatus();
+    } catch (error) {
+      setReactivateError(
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Could not reactivate subscription.",
+      );
+    } finally {
+      setReactivateBusy(false);
+    }
+  }
+
+  async function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const validationError = getContactRequestValidationError(
+      CONTACT_FORM_URL,
+      contactEmail,
+    );
+    if (validationError) {
+      setContactSubmitError(validationError);
+      setContactSubmitSuccess(null);
+      return;
+    }
+
+    const trimmed = contactEmail.trim();
+    const trimmedMessage = contactMessage.trim().slice(0, 2000);
+    setContactSubmitBusy(true);
+    setContactSubmitError(null);
+    setContactSubmitSuccess(null);
+
+    try {
+      await invoke("submit_contact_request", {
+        url: CONTACT_FORM_URL,
+        email: trimmed,
+        message: trimmedMessage || null,
+      });
+      setContactEmail("");
+      setContactMessage("");
+      setContactSubmitSuccess(
+        "Thanks. Check your inbox for a confirmation email.",
+      );
+    } catch (error) {
+      setContactSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Could not submit the contact request.",
+      );
+    } finally {
+      setContactSubmitBusy(false);
+    }
+  }
+
+  async function beginProxyVerificationStep() {
+    let fresh = connectors;
+    try {
+      fresh = await invoke<ClientConnectorStatus[]>("get_client_connectors");
+      applyConnectorsIfChanged(fresh);
+    } catch {
+      // fall back to cached state
+    }
+
+    setLauncherStage("proxy_verify");
+    setProxyVerificationHint(null);
+    setProxyVerificationRows(buildInitialProxyVerificationRows(fresh));
+    // Reset to null so the polling effect re-anchors on its first reachable
+    // /stats reading. Setting it here would risk anchoring on a stale value
+    // from a prior visit to this stage.
+    proxyVerificationRequestAnchorRef.current = null;
+  }
+
+  async function runConnectorSmokeTest(row: ProxyVerificationRow) {
+    if (connectorSmokeBusyId !== null || row.state === "verified") {
+      return;
+    }
+    setConnectorSmokeBusyId(row.clientId);
+    setProxyVerificationHint(null);
+    setProxyVerificationRows((current) =>
+      current.map((item) =>
+        item.clientId === row.clientId
+          ? { ...item, state: "testing", message: "Sending test prompt..." }
+          : item,
+      ),
+    );
+
+    try {
+      const result = await invoke<ConnectorSmokeTestResult>(
+        "run_connector_smoke_test",
+        { clientId: row.clientId },
+      );
+      setProxyVerificationRows((current) =>
+        current.map((item) =>
+          item.clientId === row.clientId
+            ? {
+                ...item,
+                state: result.success ? "processing" : "waiting",
+                message: result.summary,
+              }
+            : item,
+        ),
+      );
+      if (!result.supported || !result.success) {
+        const details = [result.stderrTail, result.stdoutTail]
+          .filter(Boolean)
+          .join("\n")
+          .trim();
+        setProxyVerificationHint(
+          details.length > 0
+            ? `${result.summary} ${details.slice(-300)}`
+            : result.summary,
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Could not send the test prompt.";
+      setProxyVerificationRows((current) =>
+        current.map((item) =>
+          item.clientId === row.clientId
+            ? { ...item, state: "waiting", message }
+            : item,
+        ),
+      );
+      setProxyVerificationHint(message);
+    } finally {
+      setConnectorSmokeBusyId(null);
+    }
+  }
+
+  async function runAllSupportedConnectorSmokeTests() {
+    if (connectorSmokeBusyId !== null) {
+      return;
+    }
+    const pendingRows = proxyVerificationRows.filter(
+      (row) => row.oneClickSupported && row.state !== "verified",
+    );
+    for (const row of pendingRows) {
+      await runConnectorSmokeTest(row);
+    }
+  }
+
+  async function toggleConnector(
+    connector: ClientConnectorStatus,
+    nextEnabled: boolean,
+  ) {
+    setConnectorsBusy(true);
+    setConnectorsError(null);
+    try {
+      if (nextEnabled) {
+        await invoke<ClientSetupResult>("apply_client_setup", {
+          clientId: connector.clientId,
+        });
+      } else {
+        await invoke("disable_client_setup", { clientId: connector.clientId });
+      }
+
+      const latestDashboard = await loadDashboard();
+      applyDashboardIfChanged(latestDashboard);
+      void refreshSavingsAttributionEvents();
+      await refreshConnectors();
+    } catch (error) {
+      setConnectorsError(
+        error instanceof Error ? error.message : "Failed to update connector.",
+      );
+    } finally {
+      setConnectorsBusy(false);
+    }
+  }
+
+  function dismissCodexNudge() {
+    setCodexNudgeDismissed(true);
+    try {
+      window.localStorage.setItem("headroom:codexNudgeDismissed", "1");
+    } catch {
+      // localStorage unavailable (private mode); the nudge stays dismissed for
+      // this session via state, which is good enough.
+    }
+  }
+
+  function handleLauncherSurfaceMouseDown(event: MouseEvent<HTMLElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        "button, input, textarea, select, a, [role='button'], [data-no-drag]",
+      )
+    ) {
+      return;
+    }
+
+    if (hasTauriRuntime()) {
+      void getCurrentWindow().startDragging();
+    }
+  }
+
+  const hidingRef = useRef(false);
+
+  function triggerHide() {
+    if (hidingRef.current) return;
+    hidingRef.current = true;
+    document.documentElement.classList.add("window-hiding");
+    window.setTimeout(() => {
+      void invoke("hide_launcher_animated");
+    }, launcherHideAnimationMs);
+    setTimeout(() => {
+      document.documentElement.classList.remove("window-hiding");
+      hidingRef.current = false;
+    }, 400);
+  }
+
+  const headroomTool = dashboard.tools.find((tool) => tool.id === "headroom");
+  const headroomVersion = headroomTool ? "0.0.0" : "Unknown";
+  const lifetimeTotalTokensSent = savingsDashboard.dailySavings.reduce(
+    (sum, point) => sum + point.totalTokensSent,
+    0,
+  );
+  const lifetimeTotalTokensBeforeOptimization =
+    lifetimeTotalTokensSent + savingsDashboard.lifetimeEstimatedTokensSaved;
+  const headroomLifetimeSavingsPct =
+    lifetimeTotalTokensBeforeOptimization > 0
+      ? (savingsDashboard.lifetimeEstimatedTokensSaved /
+          lifetimeTotalTokensBeforeOptimization) *
+        100
+      : null;
+  const rtkAvgSavingsPct =
+    runtimeStatus?.rtk.installed && (runtimeStatus.rtk.totalCommands ?? 0) > 0
+      ? (runtimeStatus.rtk.avgSavingsPct ?? 0)
+      : null;
+  const lifetimeDataDays = new Set(
+    savingsDashboard.dailySavings
+      .map((point) => point.date)
+      .filter((date) => Boolean(date)),
+  ).size;
+  const lifetimeDataDaysLabel =
+    lifetimeDataDays > 0
+      ? `Based on ${lifetimeDataDays} day${lifetimeDataDays === 1 ? "" : "s"} of data`
+      : "No historical savings data yet";
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("headroom:boot-progress", {
+        detail: {
+          percent: startupPercent,
+          status: startupCopy,
+        },
+      }),
+    );
+  }, [startupPercent, startupCopy]);
+
+  useEffect(() => {
+    if (!startupReady || windowLabel === null) {
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("headroom:boot-complete"));
+  }, [startupReady, windowLabel]);
+
+  if (!startupReady || windowLabel === null) {
+    return null;
+  }
+
+  // Block every window (launcher and main) until the user accepts the current
+  // Terms of Use. New installs hit this in the launcher; updating users —
+  // who may never see the launcher — hit it in the main window. Bumping the
+  // backend's REQUIRED_TERMS_VERSION re-triggers it on the next launch.
+  if (
+    needsTermsAcceptance(
+      dashboard.requiredTermsVersion,
+      dashboard.acceptedTermsVersion,
+    )
+  ) {
+    return (
+      <TermsGate
+        requiredVersion={dashboard.requiredTermsVersion}
+        onAccepted={() =>
+          setDashboard((prev) => ({
+            ...prev,
+            acceptedTermsVersion: prev.requiredTermsVersion,
+          }))
+        }
+      />
+    );
+  }
+
+  const upgradeFailure = runtimeStatus?.runtimeUpgradeFailure ?? null;
+  const showUpgradeModal =
+    runtimeUpgradeProgress.running &&
+    !runtimeUpgradeProgress.complete &&
+    !runtimeUpgradeProgress.failed;
+  const showUpgradeSuccess =
+    !runtimeUpgradeProgress.running &&
+    runtimeUpgradeProgress.complete &&
+    !runtimeUpgradeProgress.failed;
+  const showUpgradeBanner =
+    !runtimeUpgradeProgress.running && upgradeFailure !== null;
+  const upgradeExhausted =
+    upgradeFailure !== null &&
+    upgradeFailure.attempts >= MAX_UPGRADE_AUTO_RETRIES;
+  const canDismissUpgradeFailure =
+    upgradeFailure !== null &&
+    upgradeFailure.rollbackRestored &&
+    runtimeStatus?.proxyReachable === true;
+
+  const upgradeOverlay = (
+    <>
+      {showUpgradeModal && (
+        <div
+          className="modal-backdrop runtime-upgrade-backdrop"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-card runtime-upgrade-modal">
+            <h3>
+              {runtimeUpgradeProgress.toVersion
+                ? `Finishing Headroom engine update to ${runtimeUpgradeProgress.toVersion}…`
+                : "Finishing Headroom engine update…"}
+            </h3>
+            <p className="runtime-upgrade-modal__sub">
+              {runtimeUpgradeProgress.fromVersion
+                ? `From ${runtimeUpgradeProgress.fromVersion}`
+                : ""}
+            </p>
+            <div className="install-progress__bar-track">
+              <div
+                className="install-progress__bar-fill"
+                style={{ width: `${runtimeUpgradeProgress.overallPercent}%` }}
+              />
+            </div>
+            <p className="runtime-upgrade-modal__step">
+              {runtimeUpgradeProgress.currentStep}
+            </p>
+            <p className="runtime-upgrade-modal__message">
+              {runtimeUpgradeProgress.message}
+            </p>
+          </div>
+        </div>
+      )}
+      {showUpgradeBanner && upgradeFailure && (
+        <div
+          className={`runtime-upgrade-banner runtime-upgrade-banner--${upgradeFailure.failurePhase}`}
+          role="alert"
+        >
+          <div className="runtime-upgrade-banner__body">
+            <strong>
+              {upgradeFailure.failurePhase === "boot_validation"
+                ? `headroom-ai ${upgradeFailure.targetHeadroomVersion} installed but didn't start.`
+                : "Headroom engine update didn't finish."}
+            </strong>
+            <span>
+              {upgradeFailure.errorHint ??
+                (upgradeFailure.failurePhase === "boot_validation" &&
+                upgradeFailure.fallbackHeadroomVersion
+                  ? `Reverted to headroom-ai ${upgradeFailure.fallbackHeadroomVersion}.`
+                  : "Running the previous headroom-ai version.")}
+            </span>
+            {upgradeExhausted && (
+              <span className="runtime-upgrade-banner__note">
+                We won't auto-retry on launch. Click Retry to try again.
+              </span>
+            )}
+          </div>
+          <div className="runtime-upgrade-banner__actions">
+            <button
+              type="button"
+              className="primary-button primary-button--small"
+              onClick={() => void invoke("retry_runtime_upgrade")}
+              disabled={runtimeUpgradeProgress.running}
+            >
+              Retry now
+            </button>
+            {upgradeFailure.failurePhase === "boot_validation" && (
+              <button
+                type="button"
+                className="secondary-button secondary-button--small"
+                onClick={() =>
+                  void invoke("retry_runtime_upgrade_with_rebuild")
+                }
+                disabled={runtimeUpgradeProgress.running}
+              >
+                Retry with full rebuild
+              </button>
+            )}
+            {upgradeFailure.failurePhase === "boot_validation" && (
+              <button
+                type="button"
+                className="secondary-button secondary-button--small"
+                onClick={() =>
+                  void invoke("open_external_link", {
+                            url: buildUpgradeIssueUrl(
+                              SUPPORT_ISSUES_URL,
+                              upgradeFailure,
+                            ),
+                  }).catch(() => {})
+                }
+              >
+                Report issue
+              </button>
+            )}
+            {canDismissUpgradeFailure && (
+              <button
+                type="button"
+                className="secondary-button secondary-button--small"
+                onClick={() =>
+                  void invoke("dismiss_runtime_upgrade_failure").catch(() => {})
+                }
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  // While a runtime upgrade is in flight, the venv is in the middle of being
+  // swapped so `bootstrapComplete` may return false. Don't render the first-
+  // run install wizard in that case — render a dedicated update screen in the
+  // launcher instead.
+  if (
+    windowLabel === "launcher" &&
+    (showUpgradeModal ||
+      showUpgradeSuccess ||
+      (showUpgradeBanner && upgradeFailure))
+  ) {
+    return (
+      <LauncherRuntimeUpgradeStep
+        appSemver={appSemver}
+        onFirstLaunchContinue={handleFirstLaunchContinue}
+        onMouseDown={handleLauncherSurfaceMouseDown}
+        runtimeUpgradeProgress={runtimeUpgradeProgress}
+        showUpgradeModal={showUpgradeModal}
+        showUpgradeSuccess={showUpgradeSuccess}
+        supportIssuesUrl={SUPPORT_ISSUES_URL}
+        upgradeExhausted={upgradeExhausted}
+        upgradeFailure={upgradeFailure}
+      />
+    );
+  }
+  if (windowLabel === "launcher" && launcherStage === "install") {
+    return (
+      <LauncherInstallStep
+        appSemver={appSemver}
+        bootstrapping={bootstrapping}
+        bootstrapError={bootstrapError}
+        bootstrapProgress={bootstrapProgress}
+        bootstrapComplete={dashboard.bootstrapComplete}
+        copyFirstRunFootprint={copyFirstRunFootprint}
+        handleBootstrap={handleBootstrap}
+        handleFirstLaunchContinue={handleFirstLaunchContinue}
+        onMouseDown={handleLauncherSurfaceMouseDown}
+        onboardingFootprintCopyNotice={onboardingFootprintCopyNotice}
+        runtimeStatus={runtimeStatus}
+        showInstallProgress={showInstallProgress}
+        stepBasePercent={stepBasePercent}
+        stepEtaSeedSeconds={stepEtaSeedSeconds}
+        stepStartedAtMs={stepStartedAtMs}
+      />
+    );
+  }
+
+  if (windowLabel === "launcher" && launcherStage === "client_setup") {
+    const launcherConnectors =
+      connectors.length > 0 ? connectors : launcherConnectorFallback;
+
+    return (
+      <LauncherClientSetupStep
+        appSemver={appSemver}
+        connectors={launcherConnectors}
+        connectorsBusy={connectorsBusy}
+        connectorsError={connectorsError}
+        onContinue={beginProxyVerificationStep}
+        onMouseDown={handleLauncherSurfaceMouseDown}
+        openConnectorHelpId={openConnectorHelpId}
+        openConnectorWarningId={openConnectorWarningId}
+        setLauncherStage={setLauncherStage}
+        setOpenConnectorHelpId={setOpenConnectorHelpId}
+        setOpenConnectorWarningId={setOpenConnectorWarningId}
+        toggleConnector={toggleConnector}
+      />
+    );
+  }
+
+  if (windowLabel === "launcher" && launcherStage === "proxy_verify") {
+    return (
+      <LauncherProxyVerifyStep
+        appSemver={appSemver}
+        connectorSmokeBusyId={connectorSmokeBusyId}
+        onBack={() => setLauncherStage("client_setup")}
+        onContinue={() => {
+          void invoke("complete_setup_wizard");
+          setLauncherStage("post_install");
+        }}
+        onMouseDown={handleLauncherSurfaceMouseDown}
+        proxyVerificationHint={proxyVerificationHint}
+        proxyVerificationRows={proxyVerificationRows}
+        runAllSupportedConnectorSmokeTests={runAllSupportedConnectorSmokeTests}
+        runConnectorSmokeTest={runConnectorSmokeTest}
+      />
+    );
+  }
+
+  if (windowLabel === "launcher" && launcherStage === "post_install") {
+    return (
+      <LauncherPostInstallStep
+        appSemver={appSemver}
+        dashboard={dashboard}
+        lifetimeDataDays={lifetimeDataDays}
+        lifetimeDataDaysLabel={lifetimeDataDaysLabel}
+        onBack={beginProxyVerificationStep}
+        onGetStarted={triggerHide}
+        onMouseDown={handleLauncherSurfaceMouseDown}
+        savingsDashboard={savingsDashboard}
+      />
+    );
+  }
+
+  // Cold-cache warmup: proxy is up and the ML extras are installed, but the
+  // ~260MB Kompress model hasn't loaded yet (it downloads lazily on first use,
+  // and the desktop prefetches it in the background after a fresh install).
+  // This is normal setup, not a fault, so it must not surface as an issue.
+  const kompressWarming = Boolean(
+    runtimeStatus &&
+    runtimeStatus.running &&
+    runtimeStatus.proxyReachable &&
+    runtimeStatus.mlInstalled !== false &&
+    runtimeStatus.kompressEnabled === false,
+  );
+
+  const runtimeIssues: string[] = [];
+  if (runtimeStatus?.installed === false) {
+    runtimeIssues.push("runtime not installed");
+  }
+  if (runtimeStatus?.running === false) {
+    runtimeIssues.push(
+      runtimeStatus.startupErrorHint ??
+        runtimeStatus.startupError ??
+        "runtime offline",
+    );
+  }
+  if (runtimeStatus?.proxyReachable === false) {
+    runtimeIssues.push("proxy unreachable");
+  }
+  if (runtimeStatus?.mcpConfigured === false) {
+    runtimeIssues.push("MCP not configured");
+  }
+  if (runtimeStatus?.kompressEnabled === false && !kompressWarming) {
+    runtimeIssues.push("Kompress disabled");
+  }
+
+  const runtimeHealthy = Boolean(
+    runtimeStatus &&
+    runtimeStatus.running &&
+    runtimeStatus.proxyReachable &&
+    runtimeStatus.mcpConfigured !== false &&
+    (runtimeStatus.kompressEnabled !== false || kompressWarming),
+  );
+  const platformPreviewNotice =
+    runtimeStatus?.supportTier === "experimental"
+      ? runtimeStatus.platform === "linux"
+        ? "Linux is currently a preview build. Core proxy routing is supported, but Headroom Learn and secure API key storage are disabled while the platform is hardened."
+        : "This platform is currently in preview."
+      : null;
+  const calloutBanner = (() => {
+    if (!runtimeStatus) {
+      return {
+        tone: "disconnected",
+        title: "Headroom engine status is unavailable.",
+      } as const;
+    }
+
+    if (runtimeStatus.paused) {
+      if (runtimeStatus.autoPaused) {
+        return {
+          tone: "auto-paused",
+          title:
+            "The Headroom engine stopped unexpectedly. Traffic is passing through unoptimized.",
+        } as const;
+      }
+      return {
+        tone: "paused",
+        title: "The Headroom engine is paused.",
+      } as const;
+    }
+
+    if (runtimeStatus.starting) {
+      return {
+        tone: "starting",
+        title: "Headroom is starting up.",
+      } as const;
+    }
+
+    if (!localOnlyMode && pricingStatus?.needsAuthentication) {
+      return {
+        tone: "degraded",
+        title: pricingStatus.gateMessage,
+      } as const;
+    }
+
+    if (!localOnlyMode && pricingStatus && !pricingStatus.optimizationAllowed) {
+      return {
+        tone: "disabled",
+        title: pricingStatus.gateMessage,
+      } as const;
+    }
+
+    if (!localOnlyMode && pricingStatus?.shouldNudge) {
+      return {
+        tone: "starting",
+        title: pricingStatus.gateMessage,
+      } as const;
+    }
+
+    // Codex-only gate: surface in the top banner only when the Claude side isn't
+    // itself gating/nudging (handled above), so mixed users never get a double
+    // banner. Codex billing/pausing is scoped to Codex traffic.
+    const codexUsage = localOnlyMode ? null : pricingStatus?.codex;
+    if (codexUsage && codexUsage.optimizationAllowed === false) {
+      return {
+        tone: "disabled",
+        title: codexUsage.gateMessage,
+      } as const;
+    }
+    if (codexUsage?.shouldNudge) {
+      return {
+        tone: "starting",
+        title: codexUsage.gateMessage,
+      } as const;
+    }
+
+    if (runtimeHealthy) {
+      if (connectorPhase === "disabled") {
+        return {
+          tone: "disabled",
+          title:
+            "No coding tools connected — Switchboard isn't reducing token use.",
+        } as const;
+      }
+      if (connectorPhase === "verifying") {
+        return {
+          tone: "starting",
+          title:
+            "Click Test setup, then send a message in a connected tool to verify routing. Restart the tool first if it was already open.",
+        } as const;
+      }
+      if (kompressWarming) {
+        return {
+          tone: "healthy",
+          title: "AI Switchboard is running while finishing setup.",
+        } as const;
+      }
+      return {
+        tone: "healthy",
+        title: "AI Switchboard is running and trimming prompt bloat.",
+      } as const;
+    }
+
+    const disconnected =
+      !runtimeStatus.installed ||
+      !runtimeStatus.running ||
+      !runtimeStatus.proxyReachable;
+    return {
+      tone: disconnected ? "disconnected" : "degraded",
+      title: disconnected
+        ? runtimeIssues.length > 0
+          ? `AI Switchboard is not hooked up right now: ${runtimeIssues.join(", ")}.`
+          : "AI Switchboard is not hooked up right now."
+        : runtimeIssues.length > 0
+          ? `AI Switchboard needs attention: ${runtimeIssues.join(", ")}.`
+          : "AI Switchboard is running, but something needs attention.",
+    } as const;
+  })();
+
+  const calloutTitle =
+    calloutBanner.title.length <= 110
+      ? calloutBanner.title
+      : (() => {
+          const primaryIssue = runtimeIssues[0];
+          if (!primaryIssue) {
+            return calloutBanner.title;
+          }
+          if (calloutBanner.tone === "disconnected") {
+            return `AI Switchboard is not hooked up right now: ${primaryIssue}.`;
+          }
+          return `AI Switchboard needs attention: ${primaryIssue}.`;
+        })();
+  const showRuntimeRestartAction = shouldOfferRuntimeRestartAction(
+    calloutBanner.tone,
+    {
+      runtimeHealthy,
+      runtimeStarting: runtimeStatus?.starting === true,
+      connectorPhase,
+    },
+  );
+  const tierMismatch = localOnlyMode
+    ? null
+    : (pricingStatus?.tierMismatch ?? null);
+  const switchboardConnectors = sortClientConnectors(
+    aggregateClientConnectors(connectors),
+  );
+  const enabledSwitchboardConnectors = switchboardConnectors.filter(
+    (connector) => connector.enabled,
+  );
+  const derivedSwitchboardMode: SwitchboardMode = deriveSwitchboardMode(
+    runtimeStatus,
+    enabledSwitchboardConnectors,
+  );
+  const switchboardMode = switchboardState?.mode ?? derivedSwitchboardMode;
+  const switchboardEffectiveMode =
+    switchboardState?.effectiveMode ?? derivedSwitchboardMode;
+  const switchboardNeedsAttention =
+    switchboardState?.needsAttention ??
+    switchboardMode !== switchboardEffectiveMode;
+  const switchboardModeCopy =
+    switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
+  const savingsMode = switchboardState?.savingsMode ?? "balanced";
+  const switchboardRtkLabel = runtimeStatus?.rtk.installed
+    ? runtimeStatus.rtk.enabled
+      ? "Enabled"
+      : "Installed, off"
+    : "Not installed";
+  const switchboardProxyStatus =
+    runtimeStatus?.running && runtimeStatus.proxyReachable
+      ? "Running"
+      : runtimeStatus?.paused
+        ? "Paused"
+        : "Offline";
+  const proxyListenerAddress =
+    runtimeStatus?.proxyBindAddress ?? "127.0.0.1:6767";
+  const proxyListenerDetail =
+    runtimeStatus?.proxyReachable === true
+      ? `${proxyListenerAddress} is accepting loopback traffic. ${runtimeStatus?.proxyAuthDetail ?? "The listener is local-only."}`
+      : runtimeStatus?.paused
+        ? `${proxyListenerAddress} is intentionally stopped while the Headroom engine is paused.`
+        : `${proxyListenerAddress} is not accepting traffic.`;
+  const backendStatus = runtimeStatus?.backendStatus ?? null;
+  const backendPortDetail = backendStatus
+    ? backendStatus.port === backendStatus.defaultPort
+      ? `${backendStatus.bindAddress} is the default internal Headroom backend port.`
+      : `${backendStatus.bindAddress} is the selected fallback internal backend port; ${backendStatus.defaultPort} was unavailable.`
+    : "Internal backend port evidence is unavailable.";
+  const backendPortStatus =
+    backendStatus?.reachable === true
+      ? "Reachable"
+      : runtimeStatus?.paused
+        ? "Paused"
+        : "Unreachable";
+  const switchboardRtkDetail =
+    runtimeStatus?.rtk.enabled
+      ? rtkAvgSavingsPct !== null
+        ? `${percent1(rtkAvgSavingsPct)}% average savings`
+        : "Shell output compression active"
+      : runtimeStatus?.rtk.installed
+        ? "Installed but disabled"
+        : "Shell output compression not installed";
+  const switchboardHeadroomLabel =
+    (switchboardState?.enabledClients ?? enabledSwitchboardConnectors).length >
+    0
+      ? (switchboardState?.enabledClients ?? enabledSwitchboardConnectors)
+          .map((connector) => connector.name)
+          .join(", ")
+      : "No clients enabled";
+  const repoMemoryLifecycle = repoMemoryMcpLifecycle({
+    configured: runtimeStatus?.repoMemoryMcpConfigured,
+    error: runtimeStatus?.repoMemoryMcpError,
+    active: runtimeStatus?.repoMemoryMcpActive,
+    lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
+    lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
+    supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+    relaunchSurvivalStatus: runtimeStatus?.repoMemoryMcpRelaunchSurvivalStatus,
+    supervisionScope: runtimeStatus?.repoMemoryMcpSupervisionScope,
+    service: runtimeStatus?.repoMemoryMcpService,
+  });
+  const launchAgentStatus = runtimeStatus?.launchAgentStatus ?? null;
+  const launchAgentInstalled = launchAgentStatus?.installed === true;
+  const legacyLaunchAgentInstalled =
+    launchAgentStatus?.legacyInstalled === true;
+  const launchAgentLoaded = launchAgentStatus?.loaded === true;
+  const legacyLaunchAgentLoaded = launchAgentStatus?.legacyLoaded === true;
+  const launchAgentDetail = legacyLaunchAgentInstalled
+    ? `Legacy Headroom.plist exists at ${launchAgentStatus?.legacyPath ?? "~/Library/LaunchAgents/Headroom.plist"}. ${launchAgentStatus?.legacyLoadDetail ?? "Legacy launchd load state is unknown."} Run Doctor cleanup or uninstall to remove it.`
+    : launchAgentInstalled
+      ? `Launch at login plist exists at ${launchAgentStatus?.path ?? "~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"}. ${launchAgentStatus?.loadDetail ?? "launchd load state is unknown."}`
+      : `No app-managed launch-at-login plist found. ${launchAgentStatus?.loadDetail ?? "launchd load state is unknown."}`;
+  const switchboardRoutingConnectors =
+    switchboardState?.clients ?? switchboardConnectors;
+  const codexRoutingConnector = switchboardRoutingConnectors.find(
+    (connector) => connector.clientId === "codex",
+  );
+  const claudeRoutingConnector = switchboardRoutingConnectors.find(
+    (connector) => connector.clientId === "claude_code",
+  );
+  const additionalManagedRoutingConnectors = switchboardRoutingConnectors.filter(
+    (connector) =>
+      connector.installed === true &&
+      connectorSupportsAutomaticSetup(connector) &&
+      !["codex", "claude_code"].includes(connector.clientId),
+  );
+  const connectorRoutingRow = (
+    label: string,
+    connector: ClientConnectorStatus | undefined,
+  ) => {
+    const configured = connector?.enabled === true;
+    const verified = connector?.verified === true;
+    const canRepairManaged =
+      connector?.installed === true &&
+      connectorSupportsAutomaticSetup(connector) &&
+      (!configured || !verified);
+    const managedRepairAction =
+      connector?.clientId === "codex"
+        ? "repair_codex_setup"
+        : connector?.clientId
+          ? `repair_client_setup:${connector.clientId}`
+          : "repair_client_setups";
+    const actionLabel = canRepairManaged
+        ? connector?.clientId === "codex"
+          ? "Repair Codex"
+          : "Auto-fix app-managed setup"
+        : undefined;
+    const actionDisabled = canRepairManaged ? doctorRepairBusy !== null : undefined;
+    const onAction = canRepairManaged
+      ? () => void handleDoctorRepair(managedRepairAction)
+      : undefined;
+    return {
+      label,
+      status: configured
+        ? verified
+          ? "Verified"
+          : "Needs test"
+        : canRepairManaged
+          ? "Repair ready"
+          : "Direct",
+      detail: connector?.installed
+        ? configured
+          ? verified
+            ? `${connector.name} is routed through Headroom and verified.`
+            : `${connector.name} routing is configured; send a test prompt from Connectors.`
+          : canRepairManaged
+            ? `${connector.name} routing is repair ready. Use ${actionLabel} to re-apply reversible app-managed setup and verify routing evidence.`
+            : `${connector.name} is detected but not routed.`
+        : `${label.replace(" routing", "")} is not detected on this Mac.`,
+      actionLabel,
+      actionBusyLabel:
+        canRepairManaged && doctorRepairBusy === managedRepairAction
+          ? "Repairing"
+          : undefined,
+      actionDisabled,
+      onAction,
+    };
+  };
+  const enabledConnectorVerifications = switchboardRoutingConnectors
+    .filter((connector) => connector.enabled)
+    .map((connector) => connector.setupVerification)
+    .filter((verification): verification is NonNullable<typeof verification> =>
+      Boolean(verification),
+    );
+  const managedShellBlockVerified = enabledConnectorVerifications.some(
+    (verification) =>
+      verification.checks.some((check) =>
+        /managed shell block|shell profiles/i.test(check),
+      ),
+  );
+  const managedShellBlockMissing = enabledConnectorVerifications.some(
+    (verification) =>
+      verification.failures.some((failure) =>
+        /shell profiles|shell blocks/i.test(failure),
+      ),
+  );
+  const codexProviderVerified =
+    codexRoutingConnector?.setupVerification?.checks.some((check) =>
+      /provider block/i.test(check),
+    ) === true;
+  const codexProviderMissing =
+    codexRoutingConnector?.setupVerification?.failures.some((failure) =>
+      /provider block/i.test(failure),
+    ) === true;
+  const exactCacheRecommended = recommendExactCacheDefault({
+    mode: resolveSwitchboardModeForCache(runtimeStatus),
+    semanticCacheEnabled,
+    proxyReachable: runtimeStatus?.proxyReachable ?? false,
+  }).recommend;
+  const maxCompressionDisclosure = createMaxCompressionActivationPlan({
+    mode: resolveSwitchboardModeForCache(runtimeStatus),
+    semanticCacheEnabled,
+    proxyReachable: runtimeStatus?.proxyReachable ?? false,
+  }).excludedCopy;
+  const switchboardInspectorRows = [
+    {
+      label: "Proxy listener",
+      status:
+        runtimeStatus?.proxyReachable === true
+          ? "Reachable"
+          : runtimeStatus?.paused
+            ? "Paused"
+            : "Unreachable",
+      detail: proxyListenerDetail,
+    },
+    {
+      label: "Backend port",
+      status: backendPortStatus,
+      detail: backendPortDetail,
+    },
+    connectorRoutingRow("Codex routing", codexRoutingConnector),
+    connectorRoutingRow("Claude routing", claudeRoutingConnector),
+    ...additionalManagedRoutingConnectors.map((connector) =>
+      connectorRoutingRow(`${connector.name} routing`, connector),
+    ),
+    {
+      label: "Client routing",
+      status:
+        (switchboardState?.enabledClients ?? enabledSwitchboardConnectors)
+          .length > 0
+          ? "Managed"
+          : "Direct",
+      detail: switchboardHeadroomLabel,
+    },
+    {
+      label: "Managed shell blocks",
+      status: managedShellBlockVerified
+        ? "Verified"
+        : managedShellBlockMissing
+          ? "Missing"
+          : "No proof",
+      detail: managedShellBlockVerified
+        ? "Connector verification found managed shell routing blocks."
+        : managedShellBlockMissing
+          ? "Connector verification reported missing shell routing blocks."
+          : "No enabled connector has reported shell-block verification yet.",
+    },
+    {
+      label: "Codex provider block",
+      status: codexProviderVerified
+        ? "Verified"
+        : codexProviderMissing
+          ? "Missing"
+          : codexRoutingConnector?.enabled
+            ? "No proof"
+            : "Direct",
+      detail: codexProviderVerified
+        ? "Connector verification found the Headroom-managed provider block in ~/.codex/config.toml."
+        : codexProviderMissing
+          ? "Connector verification reported the Codex provider block is missing."
+          : codexRoutingConnector?.enabled
+            ? "Codex is enabled, but provider-block verification has not reported proof yet."
+            : "Codex provider routing is repair ready. Use the Codex routing repair-ready row to re-apply the managed provider block.",
+    },
+    {
+      label: "Shell export",
+      status: runtimeStatus?.rtk.pathConfigured ? "Configured" : "Not configured",
+      detail: runtimeStatus?.rtk.pathConfigured
+        ? "Managed RTK PATH export is present."
+        : "Managed RTK PATH export is not active.",
+    },
+    {
+      label: "RTK shell hook",
+      status: runtimeStatus?.rtk.hookConfigured ? "Configured" : "Not configured",
+      detail: runtimeStatus?.rtk.hookConfigured
+        ? "Managed RTK command-rewrite hook is present."
+        : runtimeStatus?.rtk.installed
+          ? "RTK is installed, but the managed shell hook is not active."
+          : "RTK shell hook is not installed.",
+    },
+    {
+      label: "Proxy session auth",
+      status: describeProxySessionAuthStatus(
+        runtimeStatus?.proxyAuthStatus
+          ? {
+              available: true,
+              enforce:
+                runtimeStatus.proxyAuthStatus === "session_token_enforced",
+              fingerprint: "",
+              status: runtimeStatus.proxyAuthStatus,
+              detail: runtimeStatus.proxyAuthDetail ?? "",
+              validatedRequestCount: 0,
+              rejectedRequestCount: 0,
+            }
+          : null,
+      ).label,
+      detail:
+        runtimeStatus?.proxyAuthDetail ??
+        "Proxy session auth status is unavailable.",
+      actionLabel: "Open Settings",
+      onAction: () => openSettingsFocus("proxy-session-auth"),
+    },
+    {
+      label: "Headroom MCP",
+      status:
+        runtimeStatus?.mcpConfigured === true
+          ? "Configured"
+          : runtimeStatus?.mcpConfigured === false
+            ? "Not configured"
+            : "Unknown",
+      detail:
+        runtimeStatus?.mcpConfigured === true
+          ? "Claude MCP config includes the local Headroom server."
+          : runtimeStatus?.mcpConfigured === false
+            ? (runtimeStatus.mcpError ??
+              "Claude MCP config does not include the local Headroom server.")
+            : "Headroom MCP configuration has not been checked yet.",
+    },
+    {
+      ...repoMemoryMcpInspectorRow({
+        configured: runtimeStatus?.repoMemoryMcpConfigured,
+        error: runtimeStatus?.repoMemoryMcpError,
+        active: runtimeStatus?.repoMemoryMcpActive,
+        lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
+        lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
+        supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+        relaunchSurvivalStatus: runtimeStatus?.repoMemoryMcpRelaunchSurvivalStatus,
+        supervisionScope: runtimeStatus?.repoMemoryMcpSupervisionScope,
+        service: runtimeStatus?.repoMemoryMcpService,
+      }),
+      actionLabel:
+        repoMemoryLifecycle.state === "active"
+          ? "Stop MCP"
+          : runtimeStatus?.repoMemoryMcpConfigured === true
+            ? "Start MCP"
+            : "Prepare MCP",
+      actionBusyLabel:
+        addonBusyId === "repo-memory" ? (addonBusyLabel ?? "Working") : undefined,
+      actionDisabled: addonBusyId !== null,
+      onAction:
+        repoMemoryLifecycle.state === "active"
+          ? () => void setRepoMemoryMcpActive(false)
+          : runtimeStatus?.repoMemoryMcpConfigured === true
+            ? () => void setRepoMemoryMcpActive(true)
+            : () => void prepareRepoMemoryMcp(),
+    },
+    {
+      label: "Launch at login",
+      status: legacyLaunchAgentInstalled || legacyLaunchAgentLoaded
+        ? "Legacy found"
+        : launchAgentLoaded
+          ? "Loaded"
+          : launchAgentInstalled
+            ? "Installed"
+          : "Not installed",
+      detail: launchAgentDetail,
+    },
+  ];
+  const switchboardLocalOnly = switchboardState?.localOnly ?? localOnlyMode;
+  const switchboardRemoteServicesEnabled =
+    switchboardState?.remoteServicesEnabled ?? !switchboardLocalOnly;
+  const trialDaysRemaining = (() => {
+    const target = pricingStatus?.account?.trialEndsAt
+      ? new Date(pricingStatus.account.trialEndsAt).getTime()
+      : Number.NaN;
+    if (Number.isNaN(target)) {
+      return null;
+    }
+    return Math.max(0, Math.ceil((target - Date.now()) / 86_400_000));
+  })();
+  const localGraceHoursRemaining = (() => {
+    const target = pricingStatus?.localGraceEndsAt
+      ? new Date(pricingStatus.localGraceEndsAt).getTime()
+      : Number.NaN;
+    if (Number.isNaN(target)) {
+      return null;
+    }
+    return Math.max(0, Math.ceil((target - Date.now()) / 3_600_000));
+  })();
+  const weeklyLimitPercentLabel = formatPercentValue(
+    pricingStatus?.effectiveDisableThresholdPercent ??
+      pricingStatus?.disableThresholdPercent,
+  );
+  const upgradeDefaultPlanId =
+    pricingAudience === "individual"
+      ? (pricingStatus?.recommendedSubscriptionTier ??
+        pricingStatus?.codex?.recommendedSubscriptionTier ??
+        cachedPricing.recommendedSubscriptionTier ??
+        upgradePlansState.featuredPlanId)
+      : "enterprise";
+  const upgradeDefaultPlan =
+    upgradePlansState.plans.find((plan) => plan.id === upgradeDefaultPlanId) ??
+    null;
+  const activeHeadroomPlanId =
+    pricingAudience === "individual" &&
+    pricingStatus?.account?.subscriptionActive
+      ? (pricingStatus.account.subscriptionTier ?? null)
+      : null;
+  const downgradePlanId = getNextLowerUpgradePlanId(activeHeadroomPlanId);
+  const visibleUpgradePlans = (() => {
+    if (showAllUpgradePlans || upgradePlansState.plans.length <= 2) {
+      return upgradePlansState.plans;
+    }
+
+    if (
+      pricingAudience === "individual" &&
+      activeHeadroomPlanId &&
+      downgradePlanId
+    ) {
+      const visiblePlanIds = new Set<UpgradePlanId>([
+        activeHeadroomPlanId,
+        downgradePlanId,
+      ]);
+      const activeWindowPlans = upgradePlansState.plans.filter((plan) =>
+        visiblePlanIds.has(plan.id),
+      );
+      if (activeWindowPlans.length === 2) {
+        return activeWindowPlans;
+      }
+    }
+
+    return upgradePlansState.plans.slice(0, 2);
+  })();
+  const hasHiddenUpgradePlans =
+    visibleUpgradePlans.length < upgradePlansState.plans.length;
+  const pendingUpgradePlanLabel = upgradePlanIntentLabel(pendingUpgradePlanId);
+  const upgradeAuthMessage = pendingUpgradePlanLabel
+    ? `Sign in with email to upgrade to the ${pendingUpgradePlanLabel} plan`
+    : "Sign in with email to unlock your 7-day Switchboard trial";
+  const accountDisplayEmail = (() => {
+    const enteredEmail = authEmail.trim();
+    return (
+      pricingStatus?.account?.email ??
+      (enteredEmail || pricingStatus?.claude.email || "unknown email")
+    );
+  })();
+  const accountPlanName = (() => {
+    if (!pricingStatus?.authenticated) {
+      return null;
+    }
+    if (!pricingStatus.account) {
+      return pricingStatus.accountSyncError
+        ? "Plan unavailable"
+        : "Syncing plan...";
+    }
+    if (pricingStatus.account.subscriptionActive) {
+      return subscriptionTierLabel(pricingStatus.account.subscriptionTier);
+    }
+    if (pricingStatus.account.trialActive) {
+      if (trialDaysRemaining != null) {
+        return `${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left in trial`;
+      }
+      return "7-day trial";
+    }
+    return "Trial expired";
+  })();
+  const upgradeTrialCallout = (() => {
+    if (pricingBusy && !pricingStatus) {
+      return {
+        tone: "neutral" as const,
+        message: "Loading your Switchboard access...",
+      };
+    }
+    if (!pricingStatus) {
+      return {
+        tone: "neutral" as const,
+        message: "Headroom pricing status is unavailable right now.",
+      };
+    }
+    if (!pricingStatus.authenticated) {
+      if (!pricingStatus.localGraceActive) {
+        return {
+          tone: "expired" as const,
+          message:
+            "Your 72-hour Switchboard access expired. Create an account to extend to 7 days.",
+          actionLabel: "Sign up",
+          onAction: openUpgradeAuthView,
+        };
+      }
+      const hoursLabel =
+        localGraceHoursRemaining != null
+          ? `${localGraceHoursRemaining} hour${localGraceHoursRemaining === 1 ? "" : "s"}`
+          : "72 hours";
+      return {
+        tone: "warning" as const,
+        message: `${hoursLabel} left in your 72-hour trial. Create an account to extend trial to 7 days.`,
+        actionLabel: "Sign up",
+        onAction: openUpgradeAuthView,
+      };
+    }
+    if (!pricingStatus.account) {
+      return {
+        tone: "neutral" as const,
+        message:
+          pricingStatus.accountSyncError ??
+          "Switchboard account connected. Syncing your trial and plan details...",
+      };
+    }
+    if (pricingStatus.account?.subscriptionActive) {
+      return {
+        tone: "healthy" as const,
+        message: `${subscriptionTierLabel(pricingStatus.account.subscriptionTier)} is active. Headroom can keep optimizing without limits.`,
+      };
+    }
+    if (pricingStatus.account?.trialActive) {
+      const daysLabel =
+        trialDaysRemaining != null
+          ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"}`
+          : "7 days";
+      return {
+        tone: "warning" as const,
+        message: `${daysLabel} of trial to go. Upgrade to continue using Switchboard without limits.`,
+        actionLabel: "Upgrade",
+        onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
+      };
+    }
+    return {
+      tone: pricingStatus.optimizationAllowed
+        ? ("warning" as const)
+        : ("expired" as const),
+      message: `Trial expired. In the free plan you can only use Switchboard for ${weeklyLimitPercentLabel} of your weekly Claude Code / Codex limits. Upgrade to use Switchboard without limits.`,
+      actionLabel: "Upgrade",
+      onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
+    };
+  })();
+  const pricingAuthCard = (
+    <PricingAuthCard
+      authCode={authCode}
+      authCodeRequestedFor={authCodeRequestedFor}
+      authCodeValid={Boolean(authCode.trim())}
+      authEmail={authEmail}
+      authEmailValid={authEmailValid}
+      authFlowError={authFlowError}
+      authFlowSuccess={authFlowSuccess}
+      authRequestBusy={authRequestBusy}
+      authVerifyBusy={authVerifyBusy}
+      onAuthCodeChange={(value) => {
+        setAuthCode(value);
+        setAuthFlowError(null);
+      }}
+      onAuthEmailChange={(value) => {
+        setAuthEmail(value);
+        setAuthFlowError(null);
+      }}
+      onRequestAuthCode={() => void handleRequestAuthCode()}
+      onResetAuthStep={resetUpgradeAuthStep}
+      onVerifyAuthCode={() => void handleVerifyAuthCode()}
+      pricingError={pricingError}
+      upgradeAuthMessage={upgradeAuthMessage}
+    />
+  );
+
+  return (
+    <TrayAppShell
+      upgradeOverlay={upgradeOverlay}
+      settingsView={
+        <SettingsView
+          hidden={activeView !== "settings"}
+          readinessSignals={localFirstReadinessSourceSignals}
+          dashboard={dashboard}
+          switchboardMode={switchboardMode}
+          savingsMode={savingsMode}
+          connectors={connectors}
+          appSemver={appSemver}
+          settingsTransferNotice={settingsTransferNotice}
+          setSettingsImportText={setSettingsImportText}
+          setSettingsImportPreview={setSettingsImportPreview}
+          setSettingsTransferNotice={setSettingsTransferNotice}
+          settingsImportText={settingsImportText}
+          settingsImportPreview={settingsImportPreview}
+          settingsImportBusy={settingsImportBusy}
+          copySettingsExport={copySettingsExport}
+          previewSettingsImport={previewSettingsImport}
+          applySettingsImport={applySettingsImport}
+          plannedConnectorReadiness={plannedConnectorReadiness}
+          plannedConnectorCopyNotice={plannedConnectorCopyNotice}
+          connectorsBusy={connectorsBusy}
+          connectorsError={connectorsError}
+          openConnectorHelpId={openConnectorHelpId}
+          setOpenConnectorHelpId={setOpenConnectorHelpId}
+          toggleConnector={toggleConnector}
+          copyPlannedConnectorCommand={copyPlannedConnectorCommand}
+          autostartEnabled={autostartEnabled}
+          autostartBusy={autostartBusy}
+          handleAutostartToggle={handleAutostartToggle}
+          showHeadroomDetails={showHeadroomDetails}
+          setShowHeadroomDetails={setShowHeadroomDetails}
+          setHeadroomLogLines={setHeadroomLogLines}
+          headroomLogLines={headroomLogLines}
+          headroomLogRef={headroomLogRef}
+          headroomVersion={headroomVersion}
+          headroomLifetimeSavingsPct={headroomLifetimeSavingsPct}
+          runtimeStatus={runtimeStatus}
+          kompressWarming={kompressWarming}
+          appUpdateConfig={appUpdateConfig}
+          appUpdateBusy={appUpdateBusy}
+          appUpdateInstallBusy={appUpdateInstallBusy}
+          appUpdateStatusCopy={appUpdateStatusCopy}
+          checkForAppUpdate={checkForAppUpdate}
+          releaseReadinessRefreshing={releaseReadinessRefreshing}
+          releaseEvidenceBusyId={releaseEvidenceBusyId}
+          releaseEvidenceResult={releaseEvidenceResult}
+          releaseReadinessCommand={releaseReadinessCommand}
+          releaseReadinessReport={releaseReadinessReport}
+          releaseReadinessEvidence={releaseReadinessEvidence}
+          releaseReadinessAction={releaseReadinessAction}
+          releaseReadinessError={releaseReadinessError}
+          releaseReadinessCounts={releaseReadinessCounts}
+          releaseReadinessRows={releaseReadinessRows}
+          releaseLocalEvidenceRows={releaseLocalEvidenceRows}
+          releaseReadinessCopyNotice={releaseReadinessCopyNotice}
+          copyReleaseReadinessReport={copyReleaseReadinessReport}
+          refreshReleaseReadinessReport={refreshReleaseReadinessReport}
+          runReleaseEvidenceCommand={runReleaseEvidenceCommand}
+          runLocalReleaseEvidenceSequence={runLocalReleaseEvidenceSequence}
+          formatLocalReleaseEvidenceSequenceCopy={formatLocalReleaseEvidenceSequenceCopy}
+          setUninstallError={setUninstallError}
+          setShowUninstallDialog={setShowUninstallDialog}
+          SUPPORT_ISSUES_URL={SUPPORT_ISSUES_URL}
+        />
+      }
+      activeView={activeView}
+      setActiveView={setActiveView}
+      localOnlyMode={localOnlyMode}
+      tierMismatch={tierMismatch}
+      upgradeActionError={upgradeActionError}
+      upgradeActionBusy={upgradeActionBusy}
+      handleUpgradeAction={handleUpgradeAction}
+      calloutBanner={calloutBanner}
+      calloutTitle={calloutTitle}
+      platformPreviewNotice={platformPreviewNotice}
+      showRuntimeRestartAction={showRuntimeRestartAction}
+      handleResumeRuntime={handleResumeRuntime}
+      resuming={resuming}
+      resumeError={resumeError}
+      connectorPhase={connectorPhase}
+      beginProxyVerificationStep={beginProxyVerificationStep}
+      connectors={connectors}
+      pricingStatus={pricingStatus}
+      codexNudgeDismissed={codexNudgeDismissed}
+      connectorsBusy={connectorsBusy}
+      toggleConnector={toggleConnector}
+      dismissCodexNudge={dismissCodexNudge}
+      switchboardMode={switchboardMode}
+      switchboardEffectiveMode={switchboardEffectiveMode}
+      switchboardNeedsAttention={switchboardNeedsAttention}
+      switchboardModeCopy={switchboardModeCopy}
+      switchboardLocalOnly={switchboardLocalOnly}
+      switchboardProxyStatus={switchboardProxyStatus}
+      switchboardHeadroomLabel={switchboardHeadroomLabel}
+      switchboardRtkLabel={switchboardRtkLabel}
+      switchboardRtkDetail={switchboardRtkDetail}
+      switchboardConnectors={switchboardConnectors}
+      dashboard={dashboard}
+      savingsMode={savingsMode}
+      savingsModeBusy={savingsModeBusy}
+      runtimeStatus={runtimeStatus}
+      switchboardModeBusy={switchboardModeBusy}
+      switchboardModeError={switchboardModeError}
+      switchboardInspectorRows={switchboardInspectorRows}
+      switchboardRemoteServicesEnabled={switchboardRemoteServicesEnabled}
+      handleSetSwitchboardMode={handleSetSwitchboardMode}
+      handleSetSavingsMode={handleSetSavingsMode}
+      doctorReport={doctorReport}
+      doctorRepairBusy={doctorRepairBusy}
+      doctorRepairError={doctorRepairError}
+      doctorRepairSuccess={doctorRepairSuccess}
+      managedFootprintReport={managedFootprintReport}
+      handleDoctorRepair={handleDoctorRepair}
+      chartMode={chartMode}
+      setChartMode={setChartMode}
+      setShowSavingsInfo={setShowSavingsInfo}
+      savingsDashboard={savingsDashboard}
+      savingsCalculatorRepoEstimate={savingsCalculatorRepoEstimate}
+      activityFeed={activityFeed}
+      savingsAttributionEvents={savingsAttributionEvents}
+      cavemanSavingsEstimate={cavemanSavingsEstimate}
+      ponytailSavingsEstimate={ponytailSavingsEstimate}
+      markitdownSavingsEstimate={markitdownSavingsEstimate}
+      savingsCalculatorScope={savingsCalculatorScope}
+      setSavingsCalculatorScope={setSavingsCalculatorScope}
+      historyLoadTimedOut={historyLoadTimedOut}
+      chartResetSignal={chartResetSignal}
+      masterActivationState={masterActivationState}
+      masterActivationProgress={masterActivationProgress}
+      masterFeatureStates={masterFeatureStates}
+      onActivateEverything={() => void activateEverything()}
+      onDeactivateEverything={() => void deactivateEverything()}
+      onActivateMasterFeature={(featureId) =>
+        void activateMasterFeature(featureId)
+      }
+      onDeactivateMasterFeature={(featureId) =>
+        void deactivateMasterFeature(featureId)
+      }
+      onOpenMasterFeature={(featureId) => {
+        if (featureId === "rollback") {
+          openSettingsFocus("rollback-center");
+          return;
+        }
+        setActiveView(masterFeatureView(featureId));
+      }}
+      masterActivationIsActive={masterActivationReceipt !== null}
+      masterOperation={masterOperation}
+      onActivateMaxCompression={() => void activateMaxCompression()}
+      maxCompressionBusy={maxCompressionBusy}
+      maxCompressionDisclosure={maxCompressionDisclosure}
+      exactCacheRecommended={exactCacheRecommended}
+      semanticCacheEnabled={semanticCacheEnabled}
+      onOpenCompressionPlaybook={openCompressionPlaybook}
+      headroomLearnSupported={headroomLearnSupported}
+      headroomLearnDisabledReason={headroomLearnDisabledReason}
+      headroomLearnPrereq={headroomLearnPrereq}
+      headroomLearnStatus={headroomLearnStatus}
+      headroomLearnBusy={headroomLearnBusy}
+      claudeLearnEnabled={claudeLearnEnabled}
+      codexLearnEnabled={codexLearnEnabled}
+      claudeProjectsBusy={claudeProjectsBusy}
+      claudeProjects={claudeProjects}
+      visibleClaudeProjects={visibleClaudeProjects}
+      sortedClaudeProjects={sortedClaudeProjects}
+      showAllClaudeProjects={showAllClaudeProjects}
+      setShowAllClaudeProjects={setShowAllClaudeProjects}
+      handleRunHeadroomLearn={handleRunHeadroomLearn}
+      copyLearnInstallCommand={copyLearnInstallCommand}
+      openLearnInstallDocsLink={openLearnInstallDocsLink}
+      refreshHeadroomLearnPrereq={refreshHeadroomLearnPrereq}
+      learnInstallCopyNotice={learnInstallCopyNotice}
+      optimizeAppliedByProject={optimizeAppliedByProject}
+      setOptimizeAppliedRefreshTick={setOptimizeAppliedRefreshTick}
+      claudeProjectsError={claudeProjectsError}
+      learnBlurb={learnBlurb}
+      activityFeedError={activityFeedError}
+      activityFeedLoaded={activityFeedLoaded}
+      setLatestRepoIntelligenceSummary={setLatestRepoIntelligenceSummary}
+      addonError={addonError}
+      addonCopy={addonCopy}
+      addonInfoId={addonInfoId}
+      setAddonInfoId={setAddonInfoId}
+      addonBusyId={addonBusyId}
+      addonBusyLabel={addonBusyLabel}
+      addonResult={addonResult}
+      setAddonResult={setAddonResult}
+      rtkAvgSavingsPct={rtkAvgSavingsPct}
+      rtkBusy={rtkBusy}
+      openExternalLink={openExternalLink}
+      runAddonAction={runAddonAction}
+      onMeasuredAddonSavingsRecorded={refreshSavingsAttributionEvents}
+      handleRtkToggle={handleRtkToggle}
+      setCavemanLevel={setCavemanLevel}
+      copyPlannedConnectorCommand={copyPlannedConnectorCommand}
+      pricingAudience={pricingAudience}
+      setPricingAudience={setPricingAudience}
+      setUpgradeActionError={setUpgradeActionError}
+      billingPeriod={billingPeriod}
+      setBillingPeriod={setBillingPeriod}
+      upgradeTrialCallout={upgradeTrialCallout}
+      authRequestBusy={authRequestBusy}
+      authVerifyBusy={authVerifyBusy}
+      upgradePlansState={upgradePlansState}
+      visibleUpgradePlans={visibleUpgradePlans}
+      activeHeadroomPlanId={activeHeadroomPlanId}
+      handleContactSubmit={handleContactSubmit}
+      contactEmail={contactEmail}
+      setContactEmail={setContactEmail}
+      contactSubmitError={contactSubmitError}
+      setContactSubmitError={setContactSubmitError}
+      contactSubmitSuccess={contactSubmitSuccess}
+      setContactSubmitSuccess={setContactSubmitSuccess}
+      contactMessage={contactMessage}
+      setContactMessage={setContactMessage}
+      contactEmailValid={contactEmailValid}
+      contactSubmitBusy={contactSubmitBusy}
+      handleReactivateSubscription={handleReactivateSubscription}
+      reactivateBusy={reactivateBusy}
+      hasHiddenUpgradePlans={hasHiddenUpgradePlans}
+      showAllUpgradePlans={showAllUpgradePlans}
+      setShowAllUpgradePlans={setShowAllUpgradePlans}
+      reactivateError={reactivateError}
+      pricingAuthCard={pricingAuthCard}
+      showSavingsInfo={showSavingsInfo}
+      showUninstallDialog={showUninstallDialog}
+      setShowUninstallDialog={setShowUninstallDialog}
+      uninstallBusy={uninstallBusy}
+      uninstallDisclosureTitle={uninstallDisclosureTitle}
+      uninstallDisclosureItems={uninstallDisclosureItems}
+      uninstallDisclosureFooter={uninstallDisclosureFooter}
+      uninstallCopyNotice={uninstallCopyNotice}
+      uninstallError={uninstallError}
+      copyUninstallDryRunReport={copyUninstallDryRunReport}
+      handleUninstall={handleUninstall}
+      pendingPlanChange={pendingPlanChange}
+      cancelPlanChange={cancelPlanChange}
+      confirmPlanChange={confirmPlanChange}
+      planChangeError={planChangeError}
+      planChangeBusy={planChangeBusy}
+      showAppUpdateDialog={showAppUpdateDialog}
+      setShowAppUpdateDialog={setShowAppUpdateDialog}
+      appUpdateAvailable={appUpdateAvailable}
+      appUpdateReadyToRestart={appUpdateReadyToRestart}
+      appUpdateInstallBusy={appUpdateInstallBusy}
+      restartIntoInstalledUpdate={restartIntoInstalledUpdate}
+      installAvailableUpdate={installAvailableUpdate}
+    />
+  );
+}

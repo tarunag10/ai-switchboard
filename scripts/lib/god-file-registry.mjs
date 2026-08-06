@@ -10,8 +10,8 @@ export function loadGodFileRegistry(root = process.cwd()) {
     throw new Error(`missing god file registry at ${REGISTRY_PATH}`);
   }
   const registry = JSON.parse(fs.readFileSync(absolute, "utf8"));
-  if (!Array.isArray(registry.godFiles) || registry.godFiles.length === 0) {
-    throw new Error("god file registry must define at least one godFiles entry");
+  if (!Array.isArray(registry.godFiles)) {
+    throw new Error("god file registry must define godFiles array");
   }
   return registry;
 }

@@ -116,8 +116,8 @@
         {
           "id": "P3.3",
           "name": "God-file splits",
-          "status": "in_progress",
-          "note": "Wave 2: launcher stage components, app-shell/tray-shell CSS; client_adapters_tests + client_detection; check:god-file-splits; lowered baselines 2026-08-06"
+          "status": "done",
+          "note": "App.tsx, client_adapters.rs, styles.css under 450 lines; TrayApp/TrayAppShell/SettingsView + 25 split modules; watchlist for TrayApp.tsx and client_setup_apply.rs shipped 2026-08-06"
         },
         {
           "id": "P3.4",

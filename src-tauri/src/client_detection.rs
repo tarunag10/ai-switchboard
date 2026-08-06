@@ -212,11 +212,11 @@ fn codex_user_state_exists() -> bool {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PlannedCliCompatibilityReport {
-    label: &'static str,
-    binary_path: Option<PathBuf>,
-    version: Option<String>,
-    config_surfaces: Vec<PathBuf>,
-    routing_blocker: &'static str,
+    pub(crate) label: &'static str,
+    pub(crate) binary_path: Option<PathBuf>,
+    pub(crate) version: Option<String>,
+    pub(crate) config_surfaces: Vec<PathBuf>,
+    pub(crate) routing_blocker: &'static str,
 }
 
 fn read_cli_version(path: &Path) -> Option<String> {

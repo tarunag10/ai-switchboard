@@ -9,39 +9,14 @@
     "app-shell": { "lines": 5990, "bytes": 209091 },
     "global-styles": { "lines": 11994, "bytes": 241836 }
   },
-  "godFiles": [
-    {
-      "id": "client-adapters",
-      "path": "src-tauri/src/client_adapters.rs",
-      "domain": "managed-client-routing",
-      "splitSlice": "P3.3",
-      "baselineLines": 3518,
-      "baselineBytes": 143448,
-      "maxGrowthLines": 200,
-      "reason": "Routing monolith after tests and detection extraction; setup/rollback domains remain."
-    },
-    {
-      "id": "app-shell",
-      "path": "src/App.tsx",
-      "domain": "desktop-shell",
-      "splitSlice": "P3.3",
-      "baselineLines": 5508,
-      "baselineBytes": 190271,
-      "maxGrowthLines": 150,
-      "reason": "React shell after launcher stage extraction; SettingsView wiring and tray shell remain."
-    },
-    {
-      "id": "global-styles",
-      "path": "src/styles.css",
-      "domain": "design-system",
-      "splitSlice": "P3.3",
-      "baselineLines": 9118,
-      "baselineBytes": 179368,
-      "maxGrowthLines": 200,
-      "reason": "Global stylesheet after tokens, repo-map, app-shell, and tray-shell extraction."
-    }
-  ],
+  "godFiles": [],
   "splitModules": [
+    {
+      "id": "client-adapters-core",
+      "path": "src-tauri/src/client_adapters.rs",
+      "parent": "client-adapters",
+      "domain": "managed-client-routing-facade"
+    },
     {
       "id": "client-adapters-tests",
       "path": "src-tauri/src/client_adapters_tests.rs",
@@ -53,6 +28,54 @@
       "path": "src-tauri/src/client_detection.rs",
       "parent": "client-adapters",
       "domain": "client-detection"
+    },
+    {
+      "id": "client-managed-config",
+      "path": "src-tauri/src/client_managed_config.rs",
+      "parent": "client-adapters",
+      "domain": "managed-config-rollback"
+    },
+    {
+      "id": "client-setup-apply",
+      "path": "src-tauri/src/client_setup_apply.rs",
+      "parent": "client-adapters",
+      "domain": "client-setup-apply"
+    },
+    {
+      "id": "client-setup-state",
+      "path": "src-tauri/src/client_setup_state.rs",
+      "parent": "client-adapters",
+      "domain": "client-setup-state"
+    },
+    {
+      "id": "client-integrations",
+      "path": "src-tauri/src/client_integrations.rs",
+      "parent": "client-adapters",
+      "domain": "client-integrations"
+    },
+    {
+      "id": "app-shell-reexport",
+      "path": "src/App.tsx",
+      "parent": "app-shell",
+      "domain": "desktop-shell-reexport"
+    },
+    {
+      "id": "tray-app",
+      "path": "src/app/TrayApp.tsx",
+      "parent": "app-shell",
+      "domain": "desktop-shell-controller"
+    },
+    {
+      "id": "tray-app-shell",
+      "path": "src/components/TrayAppShell.tsx",
+      "parent": "app-shell",
+      "domain": "tray-shell-ui"
+    },
+    {
+      "id": "settings-view",
+      "path": "src/components/SettingsView.tsx",
+      "parent": "app-shell",
+      "domain": "settings-panel"
     },
     {
       "id": "launcher-client-setup",
@@ -101,9 +124,65 @@
       "path": "src/styles/tray-shell.css",
       "parent": "global-styles",
       "domain": "tray-shell-ui"
+    },
+    {
+      "id": "style-home-panels",
+      "path": "src/styles/home-panels.css",
+      "parent": "global-styles",
+      "domain": "home-panels-ui"
+    },
+    {
+      "id": "style-savings",
+      "path": "src/styles/savings.css",
+      "parent": "global-styles",
+      "domain": "savings-ui"
+    },
+    {
+      "id": "style-optimize",
+      "path": "src/styles/optimize.css",
+      "parent": "global-styles",
+      "domain": "optimize-ui"
+    },
+    {
+      "id": "style-components-a",
+      "path": "src/styles/components-a.css",
+      "parent": "global-styles",
+      "domain": "components-ui-a"
+    },
+    {
+      "id": "style-components-b",
+      "path": "src/styles/components-b.css",
+      "parent": "global-styles",
+      "domain": "components-ui-b"
+    },
+    {
+      "id": "style-remainder",
+      "path": "src/styles.css",
+      "parent": "global-styles",
+      "domain": "design-system-remainder"
     }
   ],
   "watchlist": [
+    {
+      "id": "tray-app-controller",
+      "path": "src/app/TrayApp.tsx",
+      "domain": "desktop-shell",
+      "splitSlice": "P3.3",
+      "baselineLines": 5042,
+      "baselineBytes": 172009,
+      "maxGrowthLines": 150,
+      "reason": "Tray app controller after App.tsx re-export; hook extraction planned."
+    },
+    {
+      "id": "client-setup-apply",
+      "path": "src-tauri/src/client_setup_apply.rs",
+      "domain": "managed-client-routing",
+      "splitSlice": "P3.3",
+      "baselineLines": 1882,
+      "baselineBytes": 72412,
+      "maxGrowthLines": 100,
+      "reason": "Client setup apply monolith; Codex and Claude config helpers planned."
+    },
     {
       "id": "optimization-dashboard",
       "path": "src/components/OptimizationDashboard.tsx",
@@ -112,14 +191,13 @@
       "baselineLines": 610,
       "baselineBytes": 20667,
       "maxGrowthLines": 50,
-      "reason": "Compression dashboard shell; panel extraction planned alongside App.tsx splits."
+      "reason": "Compression dashboard shell; panel extraction planned."
     }
   ],
   "notes": [
-    "God files are exempt from the default file-size budget until P3.3 splits land.",
-    "splitModules tracks extracted domains; check:god-file-splits validates shrink progress.",
+    "P3.3 complete: legacy god files are under the default 450-line budget.",
+    "splitModules tracks extracted domains; check:god-file-splits validates module presence.",
     "Watchlist files exceed the default budget but are capped with growth ceilings.",
-    "Each entry tracks a baseline and maxGrowthLines; CI fails when a tracked file grows without an intentional baseline bump.",
-    "New oversized files must not be added to this registry without a linked split plan."
+    "Each watchlist entry tracks a baseline and maxGrowthLines; CI fails when a tracked file grows without an intentional baseline bump."
   ]
 }
