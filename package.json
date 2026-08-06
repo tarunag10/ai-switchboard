@@ -71,6 +71,7 @@
     "benchmarks": "node scripts/run-benchmarks.mjs",
     "check:world-class-benchmarks": "node scripts/check-world-class-benchmarks.mjs",
     "check:world-class-plan": "node scripts/check-world-class-token-savings-plan.mjs",
+    "check:p0-trust-seal": "node scripts/check-p0-trust-seal.mjs",
     "check:leanctx-promotion-gate": "node scripts/check-leanctx-promotion-gate.mjs",
     "check:chonkify-promotion-gate": "node scripts/check-chonkify-promotion-gate.mjs",
     "check:pxpipe-promotion-gate": "node scripts/check-pxpipe-promotion-gate.mjs",

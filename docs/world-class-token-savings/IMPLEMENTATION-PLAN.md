@@ -88,7 +88,7 @@
 - Inspector verdict matches fixture runtime payloads in unit tests.
 - Doctor panel references inspector verdict when routing drift detected.
 
-**Status:** `in_progress` — baseline UI exists; verdict module started in this program.
+**Status:** `done` — verdict module, proxy auth surfacing, Doctor cross-link, and panel tests shipped 2026-08-06.
 
 ---
 
@@ -124,7 +124,7 @@
 - Intercept returns `401` in enforce mode without header.
 - Mode Inspector shows fingerprint + mode label.
 
-**Status:** `in_progress` — module and wiring started 2026-07-30.
+**Status:** `done` — module, intercept validation, Settings card, and Mode Inspector fingerprint shipped 2026-08-06.
 
 ---
 
@@ -142,7 +142,7 @@
 - `npm run check:world-class-plan` passes on CI checkout.
 - Fails clearly when plan docs or slice ledger missing.
 
-**Status:** `in_progress`
+**Status:** `done` — `check:p0-trust-seal` aggregates plan docs, proxy auth surfaces, reboot schema checker, and local-only network guard 2026-08-06.
 
 ---
 

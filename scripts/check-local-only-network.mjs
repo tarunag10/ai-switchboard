@@ -48,6 +48,11 @@ const requiredGuardSignals = {
   "src-tauri/src/external_open.rs": [
     "validate_external_link_url",
   ],
+  "src-tauri/src/proxy_session_auth.rs": [
+    "proxy-session-auth.json",
+    "base_dir.join(\"config\")",
+    "PROXY_SESSION_HEADER",
+  ],
 };
 
 const documentedAppOwnedRemoteSignals = [

@@ -17,6 +17,9 @@ import {
   type UpgradePlanId,
 } from "../lib/appHelpers";
 import { shouldShowCodexNudge, type TrayView } from "../lib/trayHelpers";
+import { switchboardModeDiagnostic } from "../lib/switchboardDiagnostics";
+import { switchboardModeLabel } from "../lib/switchboardDisplay";
+import { deriveModeInspectorVerdict } from "../lib/modeInspectorVerdict";
 import type {
   ClientConnectorStatus,
   DashboardState,
@@ -219,6 +222,26 @@ export function HomeView({
   semanticCacheEnabled = false,
   onOpenCompressionPlaybook,
 }: HomeViewProps) {
+  const modeDiagnostic = switchboardModeDiagnostic(
+    switchboardMode,
+    switchboardEffectiveMode,
+    switchboardNeedsAttention,
+  );
+  const modeInspectorVerdict = deriveModeInspectorVerdict({
+    requestedMode: modeDiagnostic.requestedLabel,
+    activeMode: switchboardModeLabel(
+      switchboardEffectiveMode ?? switchboardMode,
+    ),
+    proxyStatus: switchboardProxyStatus,
+    proxyAuthStatus: runtimeStatus?.proxyAuthStatus ?? undefined,
+    staleShellWarning: switchboardNeedsAttention,
+    rows: switchboardInspectorRows.map((row) => ({
+      id: row.label,
+      label: row.label,
+      status: row.status,
+    })),
+  });
+
   return (
     <div className="tray-content" hidden={hidden}>
       {tierMismatch ? (
@@ -454,6 +477,7 @@ export function HomeView({
         footprintReport={managedFootprintReport}
         exactCacheRecommended={exactCacheRecommended}
         semanticCacheEnabled={semanticCacheEnabled}
+        modeInspectorVerdict={modeInspectorVerdict}
         onRepair={(action) => void handleDoctorRepair(action)}
       />
 

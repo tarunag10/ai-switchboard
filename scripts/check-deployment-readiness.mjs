@@ -84,6 +84,7 @@ const requiredScripts = {
     '"check:comprehensive-compression-plan"',
     '"check:comprehensive-compression-success"',
     '"check:world-class-benchmarks"',
+    '"check:p0-trust-seal"',
     '"check:god-file-registry"',
     '"check:god-file-splits"',
     '"export:god-file-registry"',

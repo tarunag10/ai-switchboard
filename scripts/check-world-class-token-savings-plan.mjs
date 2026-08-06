@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -109,6 +110,14 @@ const inProgress = Object.values(ledger.phases)
   .flatMap((phase) => phase.slices)
   .filter((slice) => slice.status === "in_progress").length;
 
+const p0TrustSeal = JSON.parse(
+  execSync("node scripts/check-p0-trust-seal.mjs", {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }),
+);
+
 console.log(
   JSON.stringify(
     {
@@ -118,6 +127,7 @@ console.log(
       inProgressSlices: inProgress,
       requiredFiles,
       codeSignals: requiredCodeSignals.map((signal) => signal.label),
+      p0TrustSeal,
     },
     null,
     2,

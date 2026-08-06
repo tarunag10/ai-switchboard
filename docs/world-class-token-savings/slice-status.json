@@ -23,20 +23,20 @@
         {
           "id": "P0.2",
           "name": "Mode Inspector proves active reality",
-          "status": "in_progress",
-          "note": "Inspector verdict module + Home wiring shipped 2026-07-30"
+          "status": "done",
+          "note": "modeInspectorVerdict.ts, SwitchboardPanel verdict row, Doctor cross-link, unit tests shipped 2026-08-06"
         },
         {
           "id": "P0.3",
           "name": "Per-session proxy auth token",
-          "status": "in_progress",
-          "note": "proxy_session_auth.rs + intercept validation shipped 2026-07-30"
+          "status": "done",
+          "note": "proxy_session_auth.rs, intercept validation, ProxySessionAuthCard, Mode Inspector row shipped 2026-08-06"
         },
         {
           "id": "P0.4",
           "name": "Local-only network and trust-seal checks",
-          "status": "in_progress",
-          "note": "check:world-class-plan script shipped 2026-07-30"
+          "status": "done",
+          "note": "check:p0-trust-seal, check:world-class-plan aggregation, proxy-session-auth local-only guard shipped 2026-08-06"
         }
       ]
     },

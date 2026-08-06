@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorReport } from "../lib/types";
@@ -87,6 +87,39 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.queryByText(/manual-only warnings/i)).not.toBeInTheDocument();
   });
 
+  it("links Mode Inspector verdict when routing drift is open", () => {
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Doctor found switchboard items that may need attention.",
+          issues: [
+            {
+              id: "switchboard_mode_degraded",
+              title: "Requested mode differs from active mode",
+              body: "Full optimization requested, RTK only active.",
+              severity: "warning",
+              repairAction: "repair_all",
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        modeInspectorVerdict={{
+          verdict: "blocked",
+          summary: "Requested and active modes differ.",
+          attentionCount: 1,
+        }}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Review Home → Mode Inspector for live/i),
+    ).toBeInTheDocument();
+  });
+
   it("shows successful repair message when report is healthy", () => {
     render(
       <SwitchboardDoctorPanel
@@ -160,26 +193,32 @@ describe("SwitchboardDoctorPanel", () => {
       screen.getByRole("button", { name: "Repair all" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Restart Headroom" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Restart Headroom" }).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: "Auto-fix all app-managed clients" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Auto-fix all app-managed clients" })
+        .length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: "Repair Codex" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Repair Codex" }).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: "Install RTK" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Install RTK" }).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByRole("button", { name: "Repair RTK" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: "Repair RTK" }).length,
+    ).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("button", { name: "Reset Codex" }));
+    const actions = screen.getByRole("heading", { name: "Actions" }).parentElement;
+    if (!actions) {
+      throw new Error("Doctor actions section missing");
+    }
+
+    await user.click(within(actions).getByRole("button", { name: "Reset Codex" }));
     expect(onRepair).toHaveBeenCalledWith("reset_codex_bypass");
-    await user.click(screen.getByRole("button", { name: "Repair Codex" }));
+    await user.click(within(actions).getByRole("button", { name: "Repair Codex" }));
     expect(onRepair).toHaveBeenCalledWith("repair_codex_setup");
-    await user.click(screen.getByRole("button", { name: "Install RTK" }));
+    await user.click(within(actions).getByRole("button", { name: "Install RTK" }));
     expect(onRepair).toHaveBeenCalledWith("repair_rtk_runtime");
     await user.click(screen.getByRole("button", { name: "Repair all" }));
     expect(onRepair).toHaveBeenCalledWith("repair_all");
@@ -415,7 +454,12 @@ describe("SwitchboardDoctorPanel", () => {
       ),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Prepare MCP" }));
+    const actions = screen.getByRole("heading", { name: "Actions" }).parentElement;
+    if (!actions) {
+      throw new Error("Doctor actions section missing");
+    }
+
+    await user.click(within(actions).getByRole("button", { name: "Prepare MCP" }));
 
     expect(onRepair).toHaveBeenCalledWith("install_repo_memory_mcp");
   });

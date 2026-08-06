@@ -597,6 +597,57 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows aligned inspector verdict when routing evidence matches", () => {
+    renderPanel({
+      mode: "full",
+      effectiveMode: "full",
+      proxyAuthStatus: "session_token_available",
+      inspectorRows: [
+        {
+          label: "Codex routing",
+          status: "Verified",
+          detail: "Codex is routed through Headroom and verified.",
+        },
+        {
+          label: "Claude routing",
+          status: "Verified",
+          detail: "Claude Code routing is verified.",
+        },
+      ],
+    });
+
+    const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(inspector.getByText("Inspector verdict")).toBeInTheDocument();
+    expect(inspector.getByText("aligned")).toBeInTheDocument();
+  });
+
+  it("shows blocked inspector verdict when requested and active modes differ", () => {
+    renderPanel({
+      mode: "off",
+      effectiveMode: "full",
+      needsAttention: true,
+    });
+
+    const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(inspector.getByText("blocked")).toBeInTheDocument();
+  });
+
+  it("offers compression playbook when inspector verdict needs attention", () => {
+    const onOpenCompressionPlaybook = vi.fn();
+    renderPanel({
+      mode: "full",
+      effectiveMode: "full",
+      needsAttention: true,
+      onOpenCompressionPlaybook,
+    });
+
+    const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(inspector.getByText("attention")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open compression playbook" }),
+    ).toBeInTheDocument();
+  });
+
   it("shows the effective mode when the requested mode needs attention", () => {
     renderPanel({
       mode: "full",

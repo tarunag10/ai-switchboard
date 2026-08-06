@@ -15,6 +15,7 @@ import {
   plannedConnectorDoctorPreviewRows,
   summarizeCompressionDoctorPlaybook,
 } from "../lib/doctorRepairCopy";
+import type { ModeInspectorVerdictResult } from "../lib/modeInspectorVerdict";
 import {
   formatManagedFootprintReport,
   formatManagedRollbackInventory,
@@ -35,8 +36,16 @@ interface SwitchboardDoctorPanelProps {
   footprintReport?: ManagedFootprintReport | null;
   exactCacheRecommended?: boolean;
   semanticCacheEnabled?: boolean;
+  modeInspectorVerdict?: ModeInspectorVerdictResult | null;
   onRepair: (action: string) => void;
 }
+
+const ROUTING_DRIFT_ISSUE_IDS = new Set([
+  "switchboard_mode_degraded",
+  "codex_direct_bypass",
+  "proxy_loopback_unauthenticated",
+  "no_headroom_clients",
+]);
 
 function issueTone(issue: DoctorIssue): string {
   return issue.severity === "error" ? "error" : "warning";
@@ -50,6 +59,7 @@ export function SwitchboardDoctorPanel({
   footprintReport,
   exactCacheRecommended = false,
   semanticCacheEnabled = false,
+  modeInspectorVerdict = null,
   onRepair,
 }: SwitchboardDoctorPanelProps) {
   if (!report) {
@@ -96,6 +106,13 @@ export function SwitchboardDoctorPanel({
     exactCacheRecommended,
     semanticCacheEnabled,
   });
+  const hasRoutingDrift = report.issues.some((issue) =>
+    ROUTING_DRIFT_ISSUE_IDS.has(issue.id),
+  );
+  const showModeInspectorCrossLink =
+    modeInspectorVerdict !== null &&
+    modeInspectorVerdict.verdict !== "aligned" &&
+    hasRoutingDrift;
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [retaggingSettings, setRetaggingSettings] =
@@ -282,6 +299,14 @@ export function SwitchboardDoctorPanel({
         </div>
       </div>
       <p className="switchboard-doctor__summary">{report.summary}</p>
+
+      {showModeInspectorCrossLink ? (
+        <p className="switchboard-doctor__inspector-link">
+          Mode Inspector verdict is <strong>{modeInspectorVerdict.verdict}</strong>
+          : {modeInspectorVerdict.summary} Review Home → Mode Inspector for live
+          requested vs active routing evidence before relying on repairs alone.
+        </p>
+      ) : null}
 
       <div className="switchboard-doctor__action-center">
         <div>
