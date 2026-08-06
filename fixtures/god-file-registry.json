@@ -244,6 +244,24 @@
       "path": "src/lib/trayInspectorRows.ts",
       "parent": "app-shell",
       "domain": "tray-inspector-rows"
+    },
+    {
+      "id": "tray-pricing-presentation",
+      "path": "src/lib/trayPricingPresentation.ts",
+      "parent": "app-shell",
+      "domain": "tray-pricing-presentation"
+    },
+    {
+      "id": "tray-pricing-controller",
+      "path": "src/lib/useTrayPricingController.ts",
+      "parent": "app-shell",
+      "domain": "tray-pricing-controller"
+    },
+    {
+      "id": "tray-master-activation-controller",
+      "path": "src/lib/useMasterActivationController.ts",
+      "parent": "app-shell",
+      "domain": "tray-master-activation-controller"
     }
   ],
   "watchlist": [
@@ -252,10 +270,10 @@
       "path": "src/app/TrayApp.tsx",
       "domain": "desktop-shell",
       "splitSlice": "P3.3-watchlist",
-      "baselineLines": 4563,
+      "baselineLines": 3541,
       "baselineBytes": 164459,
       "maxGrowthLines": 150,
-      "reason": "Tray app controller; master-activation hook extraction planned."
+      "reason": "Tray app controller; further view wiring and onboarding extraction planned."
     }
   ],
   "notes": [

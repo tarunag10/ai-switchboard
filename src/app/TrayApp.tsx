@@ -63,6 +63,15 @@ import {
   loadDashboard,
   loadSavingsAttributionEvents,
 } from "../lib/trayLoaders";
+import { useMasterActivationController } from "../lib/useMasterActivationController";
+import { useTrayPricingController } from "../lib/useTrayPricingController";
+import {
+  accountDisplayEmailFromPricing,
+  accountPlanNameFromPricing,
+  localGraceHoursRemainingFromPricing,
+  trialDaysRemainingFromPricing,
+  upgradeTrialCalloutFromPricing,
+} from "../lib/trayPricingPresentation";
 import {
   formatPlannedConnectorConfigCreationPlansMarkdown,
   getPlannedConnector,
@@ -251,21 +260,8 @@ import {
   type MasterFeatureState,
   type MasterFeatureStatus,
 } from "../components/MasterActivationCard";
-import {
-  createMasterActivationPlan,
-  executeMasterActivation,
-  createMasterDeactivationPlan,
-  executeMasterDeactivation,
-  type MasterActivationLocalFeatureId,
-  type MasterActivationReceipt,
-  type MasterDeactivationCallbacks,
-} from "../lib/masterActivation";
-import { resolveMasterActivationLocalOptimizations } from "../lib/leanctxPromotionGate";
-import {
-  createMaxCompressionActivationPlan,
-  createMaxCompressionLifecycleReceipts,
-} from "../lib/maxCompressionActivation";
 import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
+import { createMaxCompressionActivationPlan } from "../lib/maxCompressionActivation";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
 import { getAgentMemorySnapshot } from "../lib/agentMemory";
 import {
@@ -317,7 +313,6 @@ import {
 
 type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
 
-const authCodeExpiryFallbackSeconds = 900;
 const APP_UPDATE_BACKGROUND_INITIAL_DELAY_MS = 12_000;
 const APP_UPDATE_BACKGROUND_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -362,28 +357,7 @@ export default function TrayApp() {
   const [settingsFocusTarget, setSettingsFocusTarget] = useState<string | null>(
     null,
   );
-  const [masterActivationState, setMasterActivationState] =
-    useState<MasterFeatureStatus>("ready");
-  const [masterFeatureStates, setMasterFeatureStates] = useState<
-    Partial<Record<MasterFeatureId, MasterFeatureState>>
-  >({});
-  const [masterActivationProgress, setMasterActivationProgress] = useState({
-    completed: 0,
-    total: 9,
-  });
-  const [masterActivationReceipt, setMasterActivationReceipt] = useState<{
-    activation: MasterActivationReceipt;
-    previousMode: SwitchboardMode;
-    mcpWasActive: boolean;
-  } | null>(null);
-  const [masterOperation, setMasterOperation] = useState<
-    "activate" | "deactivate"
-  >("activate");
-  const [maxCompressionBusy, setMaxCompressionBusy] = useState(false);
   const [semanticCacheEnabled, setSemanticCacheEnabled] = useState(false);
-  const [pricingAudience, setPricingAudience] =
-    useState<PricingAudience>("individual");
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("annual");
   // Launcher stage is a single source of truth for which onboarding screen
   // is showing. Only one screen can be active at a time; transitions go
   // through `setLauncherStage` so implicit renders from bootstrap/dashboard
@@ -541,31 +515,6 @@ export default function TrayApp() {
     setClaudeProjects,
     trayWindowFocused,
   });
-  const [pricingStatus, setPricingStatus] =
-    useState<HeadroomPricingStatus | null>(null);
-  const [cachedPricing] = useState<CachedPricing>(() => readCachedPricing());
-  const [pricingBusy, setPricingBusy] = useState(false);
-  const [pricingError, setPricingError] = useState<string | null>(null);
-  const pricingRefreshInFlightRef = useRef(false);
-  const [authEmail, setAuthEmail] = useState("");
-  const [authCode, setAuthCode] = useState("");
-  const [authCodeRequestedFor, setAuthCodeRequestedFor] = useState<
-    string | null
-  >(null);
-  const [authCodeExpirySeconds, setAuthCodeExpirySeconds] = useState(
-    authCodeExpiryFallbackSeconds,
-  );
-  const [authRequestBusy, setAuthRequestBusy] = useState(false);
-  const [authVerifyBusy, setAuthVerifyBusy] = useState(false);
-  const [authFlowError, setAuthFlowError] = useState<string | null>(null);
-  const [authFlowSuccess, setAuthFlowSuccess] = useState<string | null>(null);
-  const [pendingUpgradePlanId, setPendingUpgradePlanId] =
-    useState<UpgradePlanId | null>(null);
-  const [showAllUpgradePlans, setShowAllUpgradePlans] = useState(false);
-  const [checkoutPollingDeadline, setCheckoutPollingDeadline] = useState<
-    number | null
-  >(null);
-  const desktopActivationSentRef = useRef(false);
   const autoDisabledByGateRef = useRef<Set<string>>(new Set());
   const [stepSignature, setStepSignature] = useState("");
   const [stepStartedAtMs, setStepStartedAtMs] = useState<number | null>(null);
@@ -620,20 +569,6 @@ export default function TrayApp() {
   const [uninstallCopyNotice, setUninstallCopyNotice] = useState<string | null>(
     null,
   );
-  const [upgradeActionBusy, setUpgradeActionBusy] =
-    useState<UpgradePlanId | null>(null);
-  const [upgradeActionError, setUpgradeActionError] = useState<string | null>(
-    null,
-  );
-  const [pendingPlanChange, setPendingPlanChange] = useState<{
-    fromTier: HeadroomSubscriptionTier;
-    toTier: HeadroomSubscriptionTier;
-    billingPeriod: BillingPeriod;
-  } | null>(null);
-  const [planChangeBusy, setPlanChangeBusy] = useState(false);
-  const [planChangeError, setPlanChangeError] = useState<string | null>(null);
-  const [reactivateBusy, setReactivateBusy] = useState(false);
-  const [reactivateError, setReactivateError] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [contactSubmitBusy, setContactSubmitBusy] = useState(false);
@@ -666,6 +601,95 @@ export default function TrayApp() {
     null,
   );
   const localOnlyMode = localOnlyModeEnabled();
+
+  function openSettingsFocus(targetId: string) {
+    setSettingsFocusTarget(targetId);
+    setActiveView("settings");
+  }
+
+  const {
+    masterActivationState,
+    masterFeatureStates,
+    masterActivationProgress,
+    masterActivationReceipt,
+    masterOperation,
+    maxCompressionBusy,
+    masterActivationIsActive,
+    activateEverything,
+    deactivateEverything,
+    activateMasterFeature,
+    deactivateMasterFeature,
+    activateMaxCompression,
+    openCompressionPlaybook,
+    masterFeatureView,
+  } = useMasterActivationController({
+    switchboardState,
+    connectors,
+    runtimeStatus,
+    semanticCacheEnabled,
+    setSemanticCacheEnabled,
+    setActiveView,
+    openSettingsFocus,
+    handleSetSwitchboardMode,
+    applyRuntimeStatusIfChanged,
+    refreshRuntimeStatus,
+    refreshConnectors,
+    refreshDoctorReport,
+    prepareRepoMemoryMcp,
+    setRepoMemoryMcpActive,
+  });
+  const {
+    pricingStatus,
+    setPricingStatus,
+    cachedPricing,
+    pricingBusy,
+    pricingError,
+    authEmail,
+    setAuthEmail,
+    authCode,
+    setAuthCode,
+    authCodeRequestedFor,
+    authCodeExpirySeconds,
+    authRequestBusy,
+    authVerifyBusy,
+    authFlowError,
+    authFlowSuccess,
+    authEmailValid,
+    pendingUpgradePlanId,
+    showAllUpgradePlans,
+    setShowAllUpgradePlans,
+    checkoutPollingDeadline,
+    pricingAudience,
+    setPricingAudience,
+    billingPeriod,
+    setBillingPeriod,
+    upgradeActionBusy,
+    upgradeActionError,
+    pendingPlanChange,
+    planChangeBusy,
+    planChangeError,
+    reactivateBusy,
+    reactivateError,
+    setAuthFlowError,
+    setUpgradeActionError,
+    refreshPricingStatus,
+    openUpgradeAuthView,
+    resetUpgradeAuthStep,
+    handleRequestAuthCode,
+    handleVerifyAuthCode,
+    handleSignOutHeadroomAccount,
+    handleUpgradeAction,
+    confirmPlanChange,
+    cancelPlanChange,
+    handleReactivateSubscription,
+  } = useTrayPricingController({
+    trayWindowFocused,
+    runtimeStatus,
+    connectorPhase,
+    setActiveView,
+    refreshConnectors,
+    openExternalLink,
+  });
   const appSemver = "0.0.0";
   const savingsDashboard = dashboard.savingsHistoryLoaded
     ? dashboard
@@ -719,7 +743,6 @@ export default function TrayApp() {
     pricingStatus?.activePercentOff ?? 0,
   );
   const contactEmailValid = isValidEmailAddress(contactEmail);
-  const authEmailValid = isValidEmailAddress(authEmail);
   const showInstallProgress =
     bootstrapping ||
     bootstrapProgress.running ||
@@ -861,56 +884,18 @@ export default function TrayApp() {
   }, [activeView, localOnlyMode]);
 
   useEffect(() => {
-    setShowAllUpgradePlans(false);
-    if (pricingAudience !== "individual") setBillingPeriod("annual");
-  }, [pricingAudience]);
-
-  useEffect(() => {
-    if (!pricingStatus?.authenticated) {
-      desktopActivationSentRef.current = false;
-    }
-  }, [pricingStatus?.authenticated]);
-
-  useEffect(() => {
-    if (!pricingStatus) return;
-    writeCachedPricing(cachePricingStatus(pricingStatus));
-  }, [pricingStatus]);
-
-  useEffect(() => {
-    const STORAGE_KEY = "headroom:lastNotifiedMismatchTier";
-    if (localOnlyMode) {
-      window.localStorage.removeItem(STORAGE_KEY);
+    if (activeView !== "settings" || !settingsFocusTarget) {
       return;
     }
-    const mismatch = pricingStatus?.tierMismatch;
-    if (!mismatch) {
-      window.localStorage.removeItem(STORAGE_KEY);
-      return;
-    }
-    const rank: Record<string, number> = { pro: 1, max5x: 2, max20x: 3 };
-    const previous = window.localStorage.getItem(STORAGE_KEY);
-    // Notify on first detection and whenever the recommended tier climbs higher.
-    if (
-      previous !== null &&
-      (rank[mismatch.recommendedTier] ?? 0) <= (rank[previous] ?? 0)
-    ) {
-      return;
-    }
-    const paidLabel = upgradePlanIntentLabel(mismatch.paidTier);
-    const recommendedLabel = upgradePlanIntentLabel(mismatch.recommendedTier);
-    const sourceLabel = tierRecommendationSourceLabel(
-      mismatch.recommendedSource,
-    );
-    void invoke("show_notification", {
-      title: "Upgrade your Headroom plan",
-      body: `Your ${sourceLabel} usage needs the Switchboard ${recommendedLabel} plan, above your current ${paidLabel} plan. Upgrade to keep unlimited optimization.`,
-    }).catch(() => {});
-    window.localStorage.setItem(STORAGE_KEY, mismatch.recommendedTier);
-  }, [
-    localOnlyMode,
-    pricingStatus?.tierMismatch?.recommendedTier,
-    pricingStatus?.tierMismatch,
-  ]);
+    const timeout = window.setTimeout(() => {
+      document.getElementById(settingsFocusTarget)?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+      setSettingsFocusTarget(null);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [activeView, settingsFocusTarget]);
 
   useEffect(() => {
     const claudeConnector = getClaudeConnector(connectors);
@@ -1754,87 +1739,6 @@ export default function TrayApp() {
     });
   }, [anyConnectorEnabled]);
 
-  useEffect(() => {
-    if (localOnlyMode || !hasTauriEventRuntime()) {
-      return;
-    }
-    // Pricing status hits the remote Headroom API. When the tray is focused,
-    // poll at 60s so fresh subscription/trial state is visible on demand.
-    // When hidden, slow to 10 min — still fast enough for trial-expiry and
-    // urgent notifications to fire, while cutting hourly API traffic by
-    // ~90%. The launcher window never sets `trayWindowFocused` to false
-    // (its focus listener isn't wired up), so it keeps the 60s cadence.
-    const intervalMs = trayWindowFocused ? 60_000 : 600_000;
-    void refreshPricingStatus();
-    const interval = window.setInterval(() => {
-      void refreshPricingStatus();
-    }, intervalMs);
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [localOnlyMode, trayWindowFocused]);
-
-  // headroom:// deep links from the backend trigger an immediate pricing
-  // refresh — the typical case is Polar's checkout success page redirecting
-  // to headroom://upgraded. Backend has already reconciled the runtime; this
-  // just pulls the new status into UI state without waiting for the next
-  // poll tick.
-  useEffect(() => {
-    if (localOnlyMode || !hasTauriEventRuntime()) {
-      return;
-    }
-    let unlisten: (() => void) | undefined;
-    void listen("pricing-refreshed", () => {
-      void refreshPricingStatus();
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => unlisten?.();
-  }, [localOnlyMode]);
-
-  // After the user opens a Polar checkout URL, poll pricing status every 5s
-  // for up to 5 minutes so we can flip the UI back to "active" within seconds
-  // of payment confirmation, instead of waiting out the 60s baseline cadence.
-  // Auto-stops once subscription_active is observed or the window expires.
-  useEffect(() => {
-    if (localOnlyMode) {
-      return;
-    }
-    if (checkoutPollingDeadline === null) return;
-    if (Date.now() > checkoutPollingDeadline) {
-      setCheckoutPollingDeadline(null);
-      return;
-    }
-    const interval = window.setInterval(() => {
-      if (Date.now() > checkoutPollingDeadline) {
-        setCheckoutPollingDeadline(null);
-        return;
-      }
-      void refreshPricingStatus();
-    }, 5_000);
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [checkoutPollingDeadline, localOnlyMode]);
-
-  // Stop the aggressive checkout poll the moment we observe a live
-  // subscription. Saves traffic and stops competing with the 60s cadence.
-  useEffect(() => {
-    if (localOnlyMode) {
-      return;
-    }
-    if (
-      checkoutPollingDeadline !== null &&
-      pricingStatus?.account?.subscriptionActive
-    ) {
-      setCheckoutPollingDeadline(null);
-    }
-  }, [
-    checkoutPollingDeadline,
-    localOnlyMode,
-    pricingStatus?.account?.subscriptionActive,
-  ]);
-
   // When the pricing gate closes, pause optimization on every enabled
   // connector (not just Claude Code) one at a time. Each disable refreshes
   // `connectors`, re-running this effect until none remain enabled.
@@ -1882,35 +1786,6 @@ export default function TrayApp() {
     }
     void toggleConnector(target, true);
   }, [connectors, connectorsBusy, localOnlyMode, pricingStatus]);
-
-  useEffect(() => {
-    if (localOnlyMode) {
-      return;
-    }
-    const runtimeHealthyNow =
-      runtimeStatus?.running === true &&
-      runtimeStatus?.proxyReachable === true &&
-      connectorPhase === "healthy";
-    if (
-      !pricingStatus?.authenticated ||
-      !runtimeHealthyNow ||
-      desktopActivationSentRef.current
-    ) {
-      return;
-    }
-    desktopActivationSentRef.current = true;
-    void invoke<HeadroomPricingStatus>("activate_headroom_account")
-      .then((status) => setPricingStatus(status))
-      .catch(() => {
-        desktopActivationSentRef.current = false;
-      });
-  }, [
-    connectorPhase,
-    localOnlyMode,
-    pricingStatus?.authenticated,
-    runtimeStatus?.proxyReachable,
-    runtimeStatus?.running,
-  ]);
 
   // While verifying, poll the proxy's /stats request counter and flip to
   // healthy when it ticks past the anchor we captured on the first reachable
@@ -2303,37 +2178,6 @@ export default function TrayApp() {
     }
   }
 
-  async function refreshPricingStatus() {
-    if (localOnlyMode) {
-      setPricingBusy(false);
-      setPricingError(null);
-      return;
-    }
-    if (pricingRefreshInFlightRef.current) {
-      return;
-    }
-    pricingRefreshInFlightRef.current = true;
-    setPricingBusy(true);
-    try {
-      const status = await invoke<HeadroomPricingStatus>(
-        "get_headroom_pricing_status",
-      );
-      setPricingStatus(status);
-      void maybeFireTrialNotifications(status);
-      void maybeFireUrgentPricingNotifications(status, { localOnlyMode });
-      setPricingError(null);
-    } catch (error) {
-      setPricingError(
-        error instanceof Error
-          ? error.message
-          : "Could not load pricing status.",
-      );
-    } finally {
-      pricingRefreshInFlightRef.current = false;
-      setPricingBusy(false);
-    }
-  }
-
   async function refreshClaudeProjects() {
     setClaudeProjectsBusy(true);
     try {
@@ -2629,469 +2473,6 @@ export default function TrayApp() {
     }
   }
 
-  function setMasterFeature(
-    id: MasterFeatureId,
-    state: MasterFeatureState,
-  ) {
-    setMasterFeatureStates((current) => ({ ...current, [id]: state }));
-  }
-
-  function removeMasterOwnedFeature(id: MasterFeatureId) {
-    setMasterActivationReceipt((current) => {
-      if (!current) return current;
-      const ownedId = id === "gateway-mcp" ? "repo-memory-mcp" : id;
-      const ownedActions = current.activation.ownedActions.filter(
-        (action) => action.id !== ownedId,
-      );
-      if (ownedActions.length === 0) return null;
-      return {
-        ...current,
-        activation: { ...current.activation, ownedActions },
-      };
-    });
-  }
-
-  function masterFeatureView(id: MasterFeatureId): TrayView {
-    switch (id) {
-      case "agent-memory":
-        return "agentMemory";
-      case "token-xray":
-        return "xray";
-      case "daily-briefing":
-        return "briefing";
-      case "agent-session":
-        return "optimization";
-      case "repo-intelligence":
-        return "repoIntelligence";
-      case "addons":
-      case "gateway-mcp":
-        return "addons";
-      case "doctor":
-        return "doctor";
-      case "rollback":
-        return "settings";
-    }
-  }
-
-  async function activateMasterFeature(id: MasterFeatureId) {
-    setMasterFeature(id, { status: "running", actionLabel: "Working…" });
-    try {
-      switch (id) {
-        case "agent-memory":
-          await getAgentMemorySnapshot();
-          break;
-        case "token-xray":
-          await loadTokenXraySnapshot();
-          break;
-        case "daily-briefing":
-          await loadDailyUsageBriefing();
-          break;
-        case "repo-intelligence":
-          await invoke("get_latest_repo_intelligence_summary");
-          break;
-        case "gateway-mcp":
-          if (!(await prepareRepoMemoryMcp())) {
-            throw new Error("Repo Memory MCP could not be prepared.");
-          }
-          break;
-        case "doctor":
-          await refreshDoctorReport();
-          break;
-        case "addons":
-          await Promise.all([refreshRuntimeStatus(), refreshConnectors()]);
-          break;
-        case "rollback":
-          await refreshDoctorReport();
-          openSettingsFocus("rollback-center");
-          setMasterFeature(id, {
-            status: "partial",
-            actionLabel: "Open Settings",
-            detail: "Rollback inventory is in Settings below.",
-          });
-          return;
-        case "agent-session":
-          setActiveView("optimization");
-          setMasterFeature(id, {
-            status: "partial",
-            actionLabel: "Open",
-            detail: "Prepare and copy the session payload before launch.",
-          });
-          return;
-      }
-      setMasterFeature(id, {
-        status: "complete",
-        actionLabel: "Run again",
-        detail: "Local evidence refreshed.",
-      });
-    } catch (error) {
-      setMasterFeature(id, {
-        status: "error",
-        actionLabel: "Retry",
-        detail: error instanceof Error ? error.message : "Action failed.",
-      });
-    }
-  }
-
-  async function activateEverything() {
-    if (masterActivationState === "running") return;
-    const previousMode = switchboardMode;
-    const mcpWasActive = runtimeStatus?.repoMemoryMcpActive === true;
-    setMasterOperation("activate");
-    setMasterActivationState("running");
-    setMasterFeatureStates({});
-    setMasterActivationProgress({ completed: 0, total: 9 });
-    try {
-      await handleSetSwitchboardMode("full");
-      const activatedRuntime = await invoke<RuntimeStatus>(
-        "get_runtime_status",
-      );
-      applyRuntimeStatusIfChanged(activatedRuntime);
-      if (!activatedRuntime.running || !activatedRuntime.proxyReachable) {
-        throw new Error(
-          "The full local mode did not bring the Headroom runtime online.",
-        );
-      }
-      let leanctxSidecar: {
-        configured: boolean;
-        promotion?: {
-          status: string;
-          capabilityVersionOk: boolean;
-          protectedContentOk: boolean;
-          failOpenOk: boolean;
-          shadowContractOk: boolean;
-          livePromotionAllowed: boolean;
-          reasons: string[];
-        };
-      } | null = null;
-      try {
-        leanctxSidecar = await invoke("get_leanctx_sidecar_status");
-      } catch {
-        leanctxSidecar = null;
-      }
-      const supportedLocalOptimizations = resolveMasterActivationLocalOptimizations(
-        leanctxSidecar?.promotion ?? null,
-      );
-      const callbacks = {
-        refreshAgentMemory: async () => {
-          await getAgentMemorySnapshot();
-          setMasterFeature("agent-memory", {
-            status: "complete",
-            detail: "Local memory metadata refreshed.",
-          });
-        },
-        refreshRepoIntelligence: async () => {
-          await invoke("get_latest_repo_intelligence_summary");
-          setMasterFeature("repo-intelligence", {
-            status: "complete",
-            detail: "Latest local repository evidence checked.",
-          });
-        },
-        refreshTokenXray: async () => {
-          await loadTokenXraySnapshot();
-          setMasterFeature("token-xray", {
-            status: "complete",
-            detail: "Local token evidence refreshed.",
-          });
-        },
-        refreshDailyBriefing: async () => {
-          await loadDailyUsageBriefing();
-          setMasterFeature("daily-briefing", {
-            status: "complete",
-            detail: "Local briefing evidence refreshed.",
-          });
-        },
-        enableLocalOptimization: async (optimizationId: string) => {
-          if (optimizationId === "semantic-cache") {
-            await invoke("set_semantic_cache_enabled", { enabled: true });
-          } else if (optimizationId === "leanctx-shadow") {
-            if (!leanctxSidecar?.configured) {
-              await invoke("install_addon", { id: "leanctx" });
-            }
-            await invoke("set_addon_enabled", { id: "leanctx", enabled: true });
-          }
-          setMasterFeature("addons", {
-            status: "partial",
-            detail: `Enabled ${optimizationId} from the evidence-gated allowlist.`,
-          });
-        },
-        ...(mcpWasActive
-          ? {}
-          : {
-              prepareRepoMemoryMcp: async () => {
-                if (!(await prepareRepoMemoryMcp())) {
-                  throw new Error("Repo Memory MCP could not be prepared.");
-                }
-                setMasterFeature("gateway-mcp", {
-                  status: "complete",
-                  detail: "Read-only Repo Memory MCP prepared.",
-                });
-              },
-            }),
-      };
-      const plan = createMasterActivationPlan({
-        runtimeState:
-          runtimeStatus?.running && runtimeStatus.proxyReachable
-            ? "running"
-            : "offline",
-        supportedLocalOptimizations,
-        callbacks,
-      });
-      const result = await executeMasterActivation(plan, { callbacks });
-      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
-      setMasterFeature("addons", { status: "complete", detail: "Runtime and connector health refreshed." });
-      setMasterFeature("doctor", { status: "complete", detail: "Doctor report refreshed." });
-      setMasterFeature("rollback", { status: "complete", actionLabel: "Open Settings", detail: "Rollback inventory is in Settings." });
-      setMasterFeature("agent-session", { status: "partial", actionLabel: "Open", detail: "Prepare and copy a payload before launch." });
-      const completed = new Set(result.completed.map((item) => item.id));
-      if (result.receipt.ownedActions.length > 0) {
-        setMasterActivationReceipt({
-          activation: result.receipt,
-          previousMode,
-          mcpWasActive,
-        });
-      }
-      setMasterActivationProgress({ completed: Math.min(9, completed.size + 3), total: 9 });
-      setMasterActivationState(result.failed.length ? "partial" : "complete");
-    } catch (error) {
-      setMasterActivationState("error");
-      setMasterFeature("doctor", {
-        status: "error",
-        actionLabel: "Retry",
-        detail: error instanceof Error ? error.message : "Master activation failed.",
-      });
-    }
-  }
-
-  function openSettingsFocus(targetId: string) {
-    setSettingsFocusTarget(targetId);
-    setActiveView("settings");
-  }
-
-  useEffect(() => {
-    if (activeView !== "settings" || !settingsFocusTarget) {
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      document.getElementById(settingsFocusTarget)?.scrollIntoView({
-        block: "start",
-        behavior: "smooth",
-      });
-      setSettingsFocusTarget(null);
-    }, 0);
-    return () => window.clearTimeout(timeout);
-  }, [activeView, settingsFocusTarget]);
-
-  function masterFeatureToOwnedActionId(
-    id: MasterFeatureId,
-  ): MasterActivationLocalFeatureId | null {
-    switch (id) {
-      case "agent-memory":
-        return "agent-memory";
-      case "token-xray":
-        return "token-xray";
-      case "daily-briefing":
-        return "daily-briefing";
-      case "repo-intelligence":
-        return "repo-intelligence";
-      case "addons":
-        return "local-optimizations";
-      case "gateway-mcp":
-        return "repo-memory-mcp";
-      case "agent-session":
-      case "doctor":
-      case "rollback":
-        return null;
-    }
-  }
-
-  async function activateMaxCompression() {
-    if (masterActivationState === "running" || maxCompressionBusy) return;
-    setMaxCompressionBusy(true);
-    try {
-      const plan = createMaxCompressionActivationPlan({
-        mode: "full",
-        proxyReachable: runtimeStatus?.proxyReachable ?? false,
-        semanticCacheEnabled,
-      });
-      void createMaxCompressionLifecycleReceipts(plan);
-      await handleSetSwitchboardMode("full");
-      const activatedRuntime = await invoke<RuntimeStatus>("get_runtime_status");
-      applyRuntimeStatusIfChanged(activatedRuntime);
-      if (!activatedRuntime.running || !activatedRuntime.proxyReachable) {
-        throw new Error(
-          "Max compression requires a reachable Headroom runtime in Full mode.",
-        );
-      }
-      if (plan.engines.includes("semantic-cache")) {
-        await invoke("set_semantic_cache_enabled", { enabled: true });
-        setSemanticCacheEnabled(true);
-      }
-      if (plan.engines.includes("rtk")) {
-        await invoke("set_rtk_enabled", { enabled: true });
-      }
-      setActiveView("repoIntelligence");
-      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
-      setMasterFeature("doctor", {
-        status: "complete",
-        detail: "Doctor refreshed after max compression activation.",
-      });
-      setMasterFeature("repo-intelligence", {
-        status: "partial",
-        actionLabel: "Open",
-        detail: "Index the active repository before starting an agent session.",
-      });
-    } catch (error) {
-      setMasterFeature("doctor", {
-        status: "error",
-        actionLabel: "Retry",
-        detail:
-          error instanceof Error
-            ? error.message
-            : "Max compression activation failed.",
-      });
-    } finally {
-      setMaxCompressionBusy(false);
-    }
-  }
-
-  function openCompressionPlaybook() {
-    setActiveView("home");
-    window.setTimeout(() => {
-      document
-        .getElementById("doctor-compression-playbook")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  }
-
-  function createMasterDeactivationCallbacks(
-    receipt: NonNullable<typeof masterActivationReceipt>,
-  ): MasterDeactivationCallbacks {
-    return {
-      deactivateAgentMemory: async () => undefined,
-      deactivateRepoIntelligence: async () => undefined,
-      deactivateTokenXray: async () => undefined,
-      deactivateDailyBriefing: async () => undefined,
-      disableLocalOptimization: async (optimizationId: string) => {
-        if (optimizationId === "semantic-cache") {
-          await invoke("set_semantic_cache_enabled", { enabled: false });
-        } else if (optimizationId === "leanctx-shadow") {
-          await invoke("set_addon_enabled", { id: "leanctx", enabled: false });
-        }
-      },
-      ...(receipt.mcpWasActive
-        ? {}
-        : {
-            stopRepoMemoryMcp: async () => {
-              if (!(await setRepoMemoryMcpActive(false))) {
-                throw new Error("Repo Memory MCP could not be stopped.");
-              }
-            },
-          }),
-    };
-  }
-
-  async function deactivateMasterFeature(id: MasterFeatureId) {
-    const receipt = masterActivationReceipt;
-    if (!receipt) return;
-    setMasterFeature(id, { status: "running", actionLabel: "Working…" });
-    const ownedActionId = masterFeatureToOwnedActionId(id);
-
-    if (!ownedActionId) {
-      setMasterFeature(id, {
-        status: "ready",
-        actionLabel: "Activate",
-        detail: "No master-owned backend state remains active for this feature.",
-      });
-      return;
-    }
-
-    const owned = receipt.activation.ownedActions.find(
-      (action) => action.id === ownedActionId,
-    );
-    if (!owned) {
-      setMasterFeature(id, {
-        status: "ready",
-        actionLabel: "Activate",
-        detail:
-          "This feature was refreshed during activation but left no reversible master-owned state.",
-      });
-      return;
-    }
-
-    try {
-      const partialReceipt: MasterActivationReceipt = {
-        ...receipt.activation,
-        ownedActions: [owned],
-      };
-      const plan = createMasterDeactivationPlan({ receipt: partialReceipt });
-      const result = await executeMasterDeactivation(plan, {
-        receipt: partialReceipt,
-        callbacks: createMasterDeactivationCallbacks(receipt),
-      });
-      if (result.failed.length > 0) {
-        throw new Error(result.failed[0]?.detail ?? "Deactivation failed.");
-      }
-      await refreshRuntimeStatus();
-      setMasterFeature(id, {
-        status: "ready",
-        actionLabel: "Activate",
-        detail: "Master-owned state for this feature was reversed.",
-      });
-      removeMasterOwnedFeature(id);
-    } catch (error) {
-      setMasterFeature(id, {
-        status: "error",
-        actionLabel: "Retry deactivation",
-        detail: error instanceof Error ? error.message : "Deactivation failed.",
-      });
-    }
-  }
-
-  async function deactivateEverything() {
-    const receipt = masterActivationReceipt;
-    if (!receipt || masterActivationState === "running") return;
-    setMasterOperation("deactivate");
-    setMasterActivationState("running");
-    try {
-      const callbacks = createMasterDeactivationCallbacks(receipt);
-      const plan = createMasterDeactivationPlan({
-        receipt: receipt.activation,
-        callbacks,
-      });
-      const result = await executeMasterDeactivation(plan, {
-        receipt: receipt.activation,
-        callbacks,
-      });
-      if (receipt.previousMode !== "full") {
-        await handleSetSwitchboardMode(receipt.previousMode);
-      }
-      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
-      const failed = result.failed.length > 0;
-      if (!failed) {
-        setMasterActivationReceipt(null);
-        setMasterActivationProgress({ completed: 0, total: 9 });
-        setMasterFeatureStates({});
-        setMasterActivationState("ready");
-      } else {
-        setMasterActivationState("partial");
-        for (const item of result.failed) {
-          setMasterFeature(item.id === "repo-memory-mcp" ? "gateway-mcp" : "addons", {
-            status: "error",
-            actionLabel: "Retry deactivation",
-            detail: item.detail,
-          });
-        }
-      }
-    } catch (error) {
-      setMasterActivationState("partial");
-      setMasterFeature("doctor", {
-        status: "error",
-        actionLabel: "Retry deactivation",
-        detail: error instanceof Error ? error.message : "Master deactivation failed.",
-      });
-    }
-  }
-
   async function setRepoMemoryMcpActive(active: boolean): Promise<boolean> {
     setAddonBusyId("repo-memory");
     setAddonBusyLabel(active ? "Starting Repo Memory MCP..." : "Stopping Repo Memory MCP...");
@@ -3144,311 +2525,6 @@ export default function TrayApp() {
     } finally {
       setAddonBusyId(null);
       setAddonBusyLabel(null);
-    }
-  }
-
-  function openUpgradeAuthView(planId: UpgradePlanId | null = null) {
-    setActiveView(safeTrayViewForMode("upgradeAuth", localOnlyMode));
-    setPendingUpgradePlanId(planId);
-    setAuthFlowError(null);
-    setAuthFlowSuccess(null);
-  }
-
-  function resetUpgradeAuthStep() {
-    setAuthCode("");
-    setAuthCodeRequestedFor(null);
-    setAuthFlowError(null);
-    setAuthFlowSuccess(null);
-  }
-
-  async function handleRequestAuthCode() {
-    if (!authEmailValid) {
-      setAuthFlowError("Enter a valid email address.");
-      return;
-    }
-    setAuthRequestBusy(true);
-    setAuthFlowError(null);
-    setAuthFlowSuccess(null);
-    try {
-      const result = await invoke<HeadroomAuthCodeRequest>(
-        "request_headroom_auth_code",
-        {
-          email: authEmail.trim(),
-        },
-      );
-      setAuthCodeRequestedFor(result.email);
-      setAuthCodeExpirySeconds(result.expiresInSeconds);
-      setAuthFlowSuccess(`We sent a sign-in code to ${result.email}.`);
-    } catch (error) {
-      setAuthFlowError(
-        describeInvokeError(error, "Could not send sign-in code."),
-      );
-    } finally {
-      setAuthRequestBusy(false);
-    }
-  }
-
-  async function handleVerifyAuthCode() {
-    if (!authEmailValid) {
-      setAuthFlowError("Enter a valid email address.");
-      return;
-    }
-    if (!authCode.trim()) {
-      setAuthFlowError("Enter the authentication code from your email.");
-      return;
-    }
-    setAuthVerifyBusy(true);
-    setAuthFlowError(null);
-    setAuthFlowSuccess(null);
-    try {
-      const status = await invoke<HeadroomPricingStatus>(
-        "verify_headroom_auth_code",
-        {
-          email: authEmail.trim(),
-          code: authCode.trim(),
-          inviteCode: null,
-        },
-      );
-      setPricingStatus(status);
-      setAuthCode("");
-      setAuthCodeRequestedFor(null);
-      setAuthFlowSuccess("Switchboard account connected.");
-      setPendingUpgradePlanId(null);
-      setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
-      await refreshConnectors();
-    } catch (error) {
-      setAuthFlowError(
-        describeInvokeError(error, "Could not verify sign-in code."),
-      );
-    } finally {
-      setAuthVerifyBusy(false);
-    }
-  }
-
-  async function handleSignOutHeadroomAccount() {
-    setAuthFlowError(null);
-    setAuthFlowSuccess(null);
-    try {
-      await invoke("sign_out_headroom_account");
-      setPricingStatus(
-        await invoke<HeadroomPricingStatus>("get_headroom_pricing_status"),
-      );
-      setAuthCode("");
-      setAuthCodeRequestedFor(null);
-      setAuthFlowSuccess("Signed out of Headroom.");
-      setPendingUpgradePlanId(null);
-    } catch (error) {
-      setAuthFlowError(
-        error instanceof Error
-          ? error.message
-          : "Could not sign out of Headroom.",
-      );
-    }
-  }
-
-  async function handleUpgradeAction(planId: UpgradePlanId) {
-    const activeHeadroomPlanId = pricingStatus?.account?.subscriptionActive
-      ? (pricingStatus.account.subscriptionTier ?? null)
-      : null;
-    const action = (() => {
-      switch (planId) {
-        case "free":
-          return {
-            kind: activeHeadroomPlanId
-              ? ("billing_portal" as const)
-              : ("internal" as const),
-          };
-        case "pro":
-        case "max5x":
-        case "max20x": {
-          if (activeHeadroomPlanId === planId)
-            return { kind: "internal" as const };
-          // Polar prorates the product swap with the existing discount applied,
-          // so every plan change on an active subscription uses the PATCH path.
-          if (activeHeadroomPlanId) {
-            return { kind: "change_plan" as const };
-          }
-          return { kind: "checkout" as const };
-        }
-        case "team":
-          return {
-            kind: "external" as const,
-            url: SALES_CONTACT_URL,
-            missing:
-              "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Team sales inquiries.",
-          };
-        case "enterprise":
-          return {
-            kind: "external" as const,
-            url: SALES_CONTACT_URL,
-            missing:
-              "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Enterprise contact.",
-          };
-        default:
-          return null;
-      }
-    })();
-
-    if (!action) {
-      return;
-    }
-
-    trackAnalyticsEvent("upgrade_button_clicked", {
-      plan_id: planId,
-      action_kind: action.kind,
-      email:
-        pricingStatus?.account?.email ??
-        pricingStatus?.claude?.email ??
-        undefined,
-    });
-
-    if (action.kind === "internal") {
-      setUpgradeActionError(null);
-      setActiveView("home");
-      return;
-    }
-
-    if (!pricingStatus?.authenticated) {
-      openUpgradeAuthView(planId);
-      return;
-    }
-
-    if (action.kind === "change_plan") {
-      const fromTier = pricingStatus?.account?.subscriptionTier;
-      if (!fromTier) return;
-      setPlanChangeError(null);
-      setPendingPlanChange({
-        fromTier,
-        toTier: planId as HeadroomSubscriptionTier,
-        billingPeriod,
-      });
-      return;
-    }
-
-    if (action.kind === "checkout") {
-      setUpgradeActionBusy(planId);
-      setUpgradeActionError(null);
-
-      try {
-        const url = await invoke<string>("create_headroom_checkout_session", {
-          subscriptionTier: planId,
-          billingPeriod,
-        });
-        await openExternalLink(url);
-        // Aggressive poll for the next 5 minutes so the moment Polar marks
-        // the subscription active we surface "Headroom is back online" without
-        // making the user wait out the normal 60s pricing-refresh cadence.
-        setCheckoutPollingDeadline(Date.now() + 5 * 60_000);
-      } catch (error) {
-        setUpgradeActionError(
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : "Could not start checkout.",
-        );
-      } finally {
-        setUpgradeActionBusy(null);
-      }
-      return;
-    }
-
-    if (action.kind === "billing_portal") {
-      setUpgradeActionBusy(planId);
-      setUpgradeActionError(null);
-
-      try {
-        // Deep-link to the user's subscription page so they land one click
-        // away from "Change plan" instead of at the portal root.
-        const url = await invoke<string>("get_headroom_billing_portal_url", {
-          target: "subscription",
-        });
-        await openExternalLink(url);
-      } catch (error) {
-        setUpgradeActionError(
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : "Could not open billing portal.",
-        );
-      } finally {
-        setUpgradeActionBusy(null);
-      }
-      return;
-    }
-
-    if (!action.url) {
-      setUpgradeActionError(
-        action.missing ?? "Could not open the selected plan link.",
-      );
-      return;
-    }
-
-    setUpgradeActionBusy(planId);
-    setUpgradeActionError(null);
-
-    try {
-      await openExternalLink(action.url);
-    } catch (error) {
-      setUpgradeActionError(
-        error instanceof Error
-          ? error.message
-          : "Could not open the selected plan link.",
-      );
-    } finally {
-      setUpgradeActionBusy(null);
-    }
-  }
-
-  async function confirmPlanChange() {
-    if (!pendingPlanChange) return;
-    setPlanChangeBusy(true);
-    setPlanChangeError(null);
-    try {
-      await invoke("change_headroom_subscription_plan", {
-        subscriptionTier: pendingPlanChange.toTier,
-        billingPeriod: pendingPlanChange.billingPeriod,
-      });
-      await refreshPricingStatus();
-      setPendingPlanChange(null);
-      setActiveView("home");
-    } catch (error) {
-      setPlanChangeError(
-        error instanceof Error
-          ? error.message
-          : typeof error === "string"
-            ? error
-            : "Could not change subscription plan.",
-      );
-    } finally {
-      setPlanChangeBusy(false);
-    }
-  }
-
-  function cancelPlanChange() {
-    if (planChangeBusy) return;
-    setPendingPlanChange(null);
-    setPlanChangeError(null);
-  }
-
-  async function handleReactivateSubscription() {
-    if (reactivateBusy) return;
-    setReactivateBusy(true);
-    setReactivateError(null);
-    try {
-      await invoke("reactivate_headroom_subscription");
-      await refreshPricingStatus();
-    } catch (error) {
-      setReactivateError(
-        error instanceof Error
-          ? error.message
-          : typeof error === "string"
-            ? error
-            : "Could not reactivate subscription.",
-      );
-    } finally {
-      setReactivateBusy(false);
     }
   }
 
@@ -4118,24 +3194,8 @@ export default function TrayApp() {
   const switchboardLocalOnly = switchboardState?.localOnly ?? localOnlyMode;
   const switchboardRemoteServicesEnabled =
     switchboardState?.remoteServicesEnabled ?? !switchboardLocalOnly;
-  const trialDaysRemaining = (() => {
-    const target = pricingStatus?.account?.trialEndsAt
-      ? new Date(pricingStatus.account.trialEndsAt).getTime()
-      : Number.NaN;
-    if (Number.isNaN(target)) {
-      return null;
-    }
-    return Math.max(0, Math.ceil((target - Date.now()) / 86_400_000));
-  })();
-  const localGraceHoursRemaining = (() => {
-    const target = pricingStatus?.localGraceEndsAt
-      ? new Date(pricingStatus.localGraceEndsAt).getTime()
-      : Number.NaN;
-    if (Number.isNaN(target)) {
-      return null;
-    }
-    return Math.max(0, Math.ceil((target - Date.now()) / 3_600_000));
-  })();
+  const trialDaysRemaining = trialDaysRemainingFromPricing(pricingStatus);
+  const localGraceHoursRemaining = localGraceHoursRemainingFromPricing(pricingStatus);
   const weeklyLimitPercentLabel = formatPercentValue(
     pricingStatus?.effectiveDisableThresholdPercent ??
       pricingStatus?.disableThresholdPercent,
@@ -4186,102 +3246,20 @@ export default function TrayApp() {
   const upgradeAuthMessage = pendingUpgradePlanLabel
     ? `Sign in with email to upgrade to the ${pendingUpgradePlanLabel} plan`
     : "Sign in with email to unlock your 7-day Switchboard trial";
-  const accountDisplayEmail = (() => {
-    const enteredEmail = authEmail.trim();
-    return (
-      pricingStatus?.account?.email ??
-      (enteredEmail || pricingStatus?.claude.email || "unknown email")
-    );
-  })();
-  const accountPlanName = (() => {
-    if (!pricingStatus?.authenticated) {
-      return null;
-    }
-    if (!pricingStatus.account) {
-      return pricingStatus.accountSyncError
-        ? "Plan unavailable"
-        : "Syncing plan...";
-    }
-    if (pricingStatus.account.subscriptionActive) {
-      return subscriptionTierLabel(pricingStatus.account.subscriptionTier);
-    }
-    if (pricingStatus.account.trialActive) {
-      if (trialDaysRemaining != null) {
-        return `${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left in trial`;
-      }
-      return "7-day trial";
-    }
-    return "Trial expired";
-  })();
-  const upgradeTrialCallout = (() => {
-    if (pricingBusy && !pricingStatus) {
-      return {
-        tone: "neutral" as const,
-        message: "Loading your Switchboard access...",
-      };
-    }
-    if (!pricingStatus) {
-      return {
-        tone: "neutral" as const,
-        message: "Headroom pricing status is unavailable right now.",
-      };
-    }
-    if (!pricingStatus.authenticated) {
-      if (!pricingStatus.localGraceActive) {
-        return {
-          tone: "expired" as const,
-          message:
-            "Your 72-hour Switchboard access expired. Create an account to extend to 7 days.",
-          actionLabel: "Sign up",
-          onAction: openUpgradeAuthView,
-        };
-      }
-      const hoursLabel =
-        localGraceHoursRemaining != null
-          ? `${localGraceHoursRemaining} hour${localGraceHoursRemaining === 1 ? "" : "s"}`
-          : "72 hours";
-      return {
-        tone: "warning" as const,
-        message: `${hoursLabel} left in your 72-hour trial. Create an account to extend trial to 7 days.`,
-        actionLabel: "Sign up",
-        onAction: openUpgradeAuthView,
-      };
-    }
-    if (!pricingStatus.account) {
-      return {
-        tone: "neutral" as const,
-        message:
-          pricingStatus.accountSyncError ??
-          "Switchboard account connected. Syncing your trial and plan details...",
-      };
-    }
-    if (pricingStatus.account?.subscriptionActive) {
-      return {
-        tone: "healthy" as const,
-        message: `${subscriptionTierLabel(pricingStatus.account.subscriptionTier)} is active. Headroom can keep optimizing without limits.`,
-      };
-    }
-    if (pricingStatus.account?.trialActive) {
-      const daysLabel =
-        trialDaysRemaining != null
-          ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"}`
-          : "7 days";
-      return {
-        tone: "warning" as const,
-        message: `${daysLabel} of trial to go. Upgrade to continue using Switchboard without limits.`,
-        actionLabel: "Upgrade",
-        onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
-      };
-    }
-    return {
-      tone: pricingStatus.optimizationAllowed
-        ? ("warning" as const)
-        : ("expired" as const),
-      message: `Trial expired. In the free plan you can only use Switchboard for ${weeklyLimitPercentLabel} of your weekly Claude Code / Codex limits. Upgrade to use Switchboard without limits.`,
-      actionLabel: "Upgrade",
-      onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
-    };
-  })();
+  const accountDisplayEmail = accountDisplayEmailFromPricing(
+    pricingStatus,
+    authEmail,
+  );
+  const accountPlanName = accountPlanNameFromPricing(
+    pricingStatus,
+    trialDaysRemaining,
+  );
+  const upgradeTrialCallout = upgradeTrialCalloutFromPricing(
+    pricingBusy,
+    pricingStatus,
+    localGraceHoursRemaining,
+    openUpgradeAuthView,
+  );
   const pricingAuthCard = (
     <PricingAuthCard
       authCode={authCode}
@@ -4458,7 +3436,7 @@ export default function TrayApp() {
         }
         setActiveView(masterFeatureView(featureId));
       }}
-      masterActivationIsActive={masterActivationReceipt !== null}
+      masterActivationIsActive={masterActivationIsActive}
       masterOperation={masterOperation}
       onActivateMaxCompression={() => void activateMaxCompression()}
       maxCompressionBusy={maxCompressionBusy}

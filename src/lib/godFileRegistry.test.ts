@@ -44,6 +44,8 @@ describe("godFileRegistry", () => {
         "src-tauri/src/client_setup_verify.rs",
         "src/lib/trayInspectorRows.ts",
         "src/lib/trayLoaders.ts",
+        "src/lib/useMasterActivationController.ts",
+        "src/lib/useTrayPricingController.ts",
         "src/styles/tokens.css",
         "src/styles.css",
       ]),
