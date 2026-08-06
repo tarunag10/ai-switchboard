@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-08-05T17:58:54.063Z",
+  "defaultBudget": {
+    "maxLines": 450,
+    "maxBytes": 40960
+  },
+  "entries": [
+    {
+      "id": "client-adapters",
+      "path": "src-tauri/src/client_adapters.rs",
+      "domain": "managed-client-routing",
+      "splitSlice": "P3.3",
+      "baselineLines": 9414,
+      "measuredLines": 9414,
+      "growthLines": 0,
+      "lineCeiling": 9614,
+      "withinGrowth": true,
+      "measuredBytes": 380748
+    },
+    {
+      "id": "app-shell",
+      "path": "src/App.tsx",
+      "domain": "desktop-shell",
+      "splitSlice": "P3.3",
+      "baselineLines": 5990,
+      "measuredLines": 5990,
+      "growthLines": 0,
+      "lineCeiling": 6140,
+      "withinGrowth": true,
+      "measuredBytes": 209091
+    },
+    {
+      "id": "global-styles",
+      "path": "src/styles.css",
+      "domain": "design-system",
+      "splitSlice": "P3.3",
+      "baselineLines": 11994,
+      "measuredLines": 11994,
+      "growthLines": 0,
+      "lineCeiling": 12194,
+      "withinGrowth": true,
+      "measuredBytes": 241836
+    },
+    {
+      "id": "optimization-dashboard",
+      "path": "src/components/OptimizationDashboard.tsx",
+      "domain": "compression-ui",
+      "splitSlice": "P3.3",
+      "baselineLines": 610,
+      "measuredLines": 610,
+      "growthLines": 0,
+      "lineCeiling": 660,
+      "withinGrowth": true,
+      "measuredBytes": 20667
+    }
+  ]
+}

@@ -2,16 +2,28 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { loadGodFileRegistry } from "./lib/god-file-registry.mjs";
 
 const root = process.cwd();
-
-const godFiles = [
-  "src-tauri/src/client_adapters.rs",
-  "src/App.tsx",
-  "src/styles.css",
-];
+const registry = loadGodFileRegistry(root);
+const godFiles = registry.godFiles.map((entry) => entry.path);
 
 const requiredSignals = [
+  {
+    label: "god file registry fixture",
+    file: "fixtures/god-file-registry.json",
+    needles: ["client-adapters", "app-shell", "global-styles", "watchlist", "maxGrowthLines"],
+  },
+  {
+    label: "god file registry loader",
+    file: "scripts/lib/god-file-registry.mjs",
+    needles: ["evaluateGodFileRegistry", "trackedOversizePathSet"],
+  },
+  {
+    label: "god file registry gate",
+    file: "scripts/check-god-file-registry.mjs",
+    needles: ["evaluateGodFileRegistry", "lineCeiling"],
+  },
   {
     label: "repo memory relaunch supervision",
     file: "src-tauri/src/state/repo_memory_mcp.rs",
@@ -29,12 +41,17 @@ const requiredSignals = [
   {
     label: "file size budget script",
     file: "scripts/check-file-size-budget.mjs",
-    needles: ["MAX_LINES", "MAX_BYTES"],
+    needles: ["loadGodFileRegistry", "trackedOversizePathSet"],
   },
   {
     label: "benchmark leaderboard export",
     file: "scripts/export-benchmark-leaderboard.mjs",
     needles: ["fixtures.json", "leaderboard"],
+  },
+  {
+    label: "god file registry typescript",
+    file: "src/lib/godFileRegistry.ts",
+    needles: ["describeGodFileRegistry", "godFileRegistry"],
   },
 ];
 
@@ -63,6 +80,18 @@ for (const file of godFiles) {
   }
 }
 
+for (const script of ["scripts/check-god-file-registry.mjs"]) {
+  try {
+    execFileSync("node", [script], {
+      cwd: root,
+      stdio: "pipe",
+      encoding: "utf8",
+    });
+  } catch (error) {
+    fail(`${script} failed: ${error.stderr || error.message}`);
+  }
+}
+
 try {
   execFileSync(
     "node",
@@ -81,7 +110,7 @@ try {
     },
   );
 } catch (error) {
-  fail(`file size budget failed: ${error.stderr || error.message}`);
+  fail(`focused file size budget failed: ${error.stderr || error.message}`);
 }
 
 console.log(
@@ -89,6 +118,7 @@ console.log(
     {
       ok: true,
       godFiles,
+      defaultBudget: registry.defaultBudget,
       signals: requiredSignals.map((signal) => signal.label),
     },
     null,

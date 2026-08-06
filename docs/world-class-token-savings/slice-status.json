@@ -104,8 +104,8 @@
         {
           "id": "P3.1",
           "name": "God-file registry and file-size budget",
-          "status": "in_progress",
-          "note": "check-file-size-budget god-file exemptions + check:phase3-maintainability shipped 2026-07-30"
+          "status": "done",
+          "note": "fixtures/god-file-registry.json, scripts/lib/god-file-registry.mjs, check:god-file-registry, export:god-file-registry, godFileRegistry.ts shipped 2026-08-05"
         },
         {
           "id": "P3.2",

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "defaultBudget": {
+    "maxLines": 450,
+    "maxBytes": 40960
+  },
+  "godFiles": [
+    {
+      "id": "client-adapters",
+      "path": "src-tauri/src/client_adapters.rs",
+      "domain": "managed-client-routing",
+      "splitSlice": "P3.3",
+      "baselineLines": 9414,
+      "baselineBytes": 380748,
+      "maxGrowthLines": 200,
+      "reason": "Connector apply, verify, rollback, and routing monolith pending domain extraction."
+    },
+    {
+      "id": "app-shell",
+      "path": "src/App.tsx",
+      "domain": "desktop-shell",
+      "splitSlice": "P3.3",
+      "baselineLines": 5990,
+      "baselineBytes": 209091,
+      "maxGrowthLines": 150,
+      "reason": "Primary React shell; view extraction planned into routed panels."
+    },
+    {
+      "id": "global-styles",
+      "path": "src/styles.css",
+      "domain": "design-system",
+      "splitSlice": "P3.3",
+      "baselineLines": 11994,
+      "baselineBytes": 241836,
+      "maxGrowthLines": 200,
+      "reason": "Global stylesheet monolith; modular token layers planned."
+    }
+  ],
+  "watchlist": [
+    {
+      "id": "optimization-dashboard",
+      "path": "src/components/OptimizationDashboard.tsx",
+      "domain": "compression-ui",
+      "splitSlice": "P3.3",
+      "baselineLines": 610,
+      "baselineBytes": 20667,
+      "maxGrowthLines": 50,
+      "reason": "Compression dashboard shell; panel extraction planned alongside App.tsx splits."
+    }
+  ],
+  "notes": [
+    "God files are exempt from the default file-size budget until P3.3 splits land.",
+    "Watchlist files exceed the default budget but are capped with growth ceilings.",
+    "Each entry tracks a baseline and maxGrowthLines; CI fails when a tracked file grows without an intentional baseline bump.",
+    "New oversized files must not be added to this registry without a linked split plan."
+  ]
+}
