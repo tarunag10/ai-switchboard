@@ -22,6 +22,7 @@ mod client_cleanup;
 mod client_connector_list;
 mod client_connector_status;
 mod client_connectors;
+mod client_detection;
 mod client_footprint;
 mod client_paths;
 mod client_provider_configs;

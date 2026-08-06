@@ -59,6 +59,24 @@ if (!session.includes('"kind": "mac_ai_switchboard.agent_session_preparation"'))
   fail("--start-session alias did not return an agent session preparation");
 }
 
+const directAgents = spawnSync(
+  process.execPath,
+  ["scripts/repo-intelligence.mjs", ".", "--list-agents"],
+  {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 4 * 1024 * 1024,
+  },
+);
+if (directAgents.status !== 0) {
+  fail(
+    `repo:intelligence --list-agents exited ${directAgents.status}: ${directAgents.stderr || directAgents.stdout}`,
+  );
+}
+if (!directAgents.stdout.includes("codex") || !directAgents.stdout.includes("gemini")) {
+  fail("npm run repo:intelligence compatibility path did not return expected agent ids");
+}
+
 const readme = readFileSync("README.md", "utf8");
 const platform = readFileSync("docs/platform-support.md", "utf8");
 

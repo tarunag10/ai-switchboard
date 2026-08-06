@@ -5,6 +5,10 @@ import Clarity from "@microsoft/clarity";
 import App from "./App";
 import { remoteTelemetryEnabled } from "./lib/localMode";
 import { sanitizeSentryEvent } from "./lib/telemetryRedaction";
+import "./styles/tokens.css";
+import "./styles/repo-map.css";
+import "./styles/app-shell.css";
+import "./styles/tray-shell.css";
 import "./styles.css";
 import "./switchboard-theme.css";
 

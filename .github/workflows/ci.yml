@@ -75,6 +75,12 @@ jobs:
       - name: Check god-file registry
         run: npm run check:god-file-registry
 
+      - name: Check god-file splits
+        run: npm run check:god-file-splits
+
+      - name: Check Switchboard CLI parity
+        run: npm run check:switchboard-cli
+
       - name: Check Rust formatting
         run: npm run fmt:desktop
 

@@ -7,6 +7,7 @@ import {
   godFileRegistry,
   godFileRegistryPaths,
   trackedOversizeRegistryPaths,
+  splitModuleRegistryPaths,
   validateGodFileRegistry,
   watchlistRegistryPaths,
 } from "./godFileRegistry";
@@ -29,6 +30,18 @@ describe("godFileRegistry", () => {
       "src/components/OptimizationDashboard.tsx",
     );
     expect(trackedOversizeRegistryPaths()).toHaveLength(4);
+  });
+
+  it("tracks wave-1 split modules", () => {
+    expect(splitModuleRegistryPaths()).toEqual(
+      expect.arrayContaining([
+        "src-tauri/src/client_adapters_tests.rs",
+        "src-tauri/src/client_detection.rs",
+        "src/components/LauncherClientSetupStep.tsx",
+        "src/styles/tokens.css",
+        "src/styles/tray-shell.css",
+      ]),
+    );
   });
 
   it("computes growth ceilings per entry", () => {

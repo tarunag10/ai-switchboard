@@ -11,6 +11,13 @@ export interface GodFileRegistryEntry {
   reason: string;
 }
 
+export interface GodFileSplitModule {
+  id: string;
+  path: string;
+  parent: string;
+  domain: string;
+}
+
 export interface GodFileRegistry {
   schemaVersion: number;
   defaultBudget: {
@@ -20,6 +27,8 @@ export interface GodFileRegistry {
   notes: string[];
   godFiles: GodFileRegistryEntry[];
   watchlist?: GodFileRegistryEntry[];
+  splitModules?: GodFileSplitModule[];
+  originalBaselines?: Record<string, { lines: number; bytes: number }>;
 }
 
 export const godFileRegistry = registry as GodFileRegistry;
@@ -30,6 +39,10 @@ export function godFileRegistryPaths(): string[] {
 
 export function watchlistRegistryPaths(): string[] {
   return (godFileRegistry.watchlist ?? []).map((entry) => entry.path);
+}
+
+export function splitModuleRegistryPaths(): string[] {
+  return (godFileRegistry.splitModules ?? []).map((entry) => entry.path);
 }
 
 export function trackedOversizeRegistryPaths(): string[] {

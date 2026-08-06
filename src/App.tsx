@@ -12,9 +12,7 @@ import {
   CaretLeft,
   Cpu,
   CurrencyDollar,
-  Info,
   SignOut,
-  Sparkle,
 } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -111,8 +109,6 @@ import {
   reportBootstrapFailure,
 } from "./lib/bootstrapSentry";
 import {
-} from "./lib/cliInstallCommands";
-import {
   compactNumber,
   connectorControlState,
   connectorCompatibilityReport,
@@ -165,6 +161,8 @@ import {
   trackAnalyticsEvent,
   trackInstallMilestoneOnce,
 } from "./lib/analytics";
+import type { ProxyVerificationRow } from "./lib/proxyVerification";
+import { launcherConnectorFallback } from "./lib/launcherConnectorFallback";
 import { localOnlyModeEnabled } from "./lib/localMode";
 import {
   buildManagedRollbackExecutionPreview,
@@ -233,8 +231,11 @@ import { ActivityFeed } from "./components/ActivityFeed";
 import { AddonsView } from "./components/AddonsView";
 import { DoctorView } from "./components/DoctorView";
 import { HomeView } from "./components/HomeView";
+import { LauncherClientSetupStep } from "./components/LauncherClientSetupStep";
 import { LauncherInstallStep } from "./components/LauncherInstallStep";
-import { LauncherShell } from "./components/LauncherShell";
+import { LauncherPostInstallStep } from "./components/LauncherPostInstallStep";
+import { LauncherProxyVerifyStep } from "./components/LauncherProxyVerifyStep";
+import { LauncherRuntimeUpgradeStep } from "./components/LauncherRuntimeUpgradeStep";
 import { OptimizationView } from "./components/OptimizationView";
 import { PricingAuthCard } from "./components/PricingAuthCard";
 import { RepoMapView } from "./components/RepoMapView";
@@ -393,23 +394,6 @@ const addonCopy: Record<string, AddonCopy> = {
 
 const connectorSupportWarnings: Record<string, string> = {};
 
-const launcherConnectorFallback: ClientConnectorStatus[] = [
-  {
-    clientId: "claude_code",
-    name: "Claude Code",
-    installed: false,
-    enabled: false,
-    verified: false,
-  },
-  {
-    clientId: "codex",
-    name: "Codex",
-    installed: false,
-    enabled: false,
-    verified: false,
-  },
-];
-
 const idleBootstrapProgress: BootstrapProgress = {
   running: false,
   complete: false,
@@ -461,18 +445,6 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
   });
-}
-
-function renderConnectorLogo(clientId: string) {
-  return <Sparkle className="client-logo__glyph" size={20} weight="duotone" />;
-}
-
-interface ProxyVerificationRow {
-  clientId: string;
-  name: string;
-  state: "processing" | "waiting" | "testing" | "verified";
-  message: string;
-  oneClickSupported: boolean;
 }
 
 interface ConnectorSmokeTestResult {
@@ -4025,122 +3997,17 @@ export default function App() {
       (showUpgradeBanner && upgradeFailure))
   ) {
     return (
-      <LauncherShell
-        shellClassName="intro-shell intro-shell--post-install"
-        spinnerClassName="intro-shell__spinner intro-shell__spinner--post-install"
-        copyClassName="intro-shell__copy intro-shell__copy--post-install"
+      <LauncherRuntimeUpgradeStep
+        appSemver={appSemver}
+        onFirstLaunchContinue={handleFirstLaunchContinue}
         onMouseDown={handleLauncherSurfaceMouseDown}
-        version={appSemver}
-        showSpinner={showUpgradeModal}
-      >
-        {showUpgradeSuccess ? (
-          <>
-            <h1>
-              {`Headroom ${runtimeUpgradeProgress.toVersion ?? ""} is ready`}
-            </h1>
-            <p className="launcher-install-notice">
-              {runtimeUpgradeProgress.message}
-            </p>
-            <div className="install-progress-shell">
-              <div className="install-progress" aria-live="polite">
-                <div className="install-progress__bar-track">
-                  <div
-                    className="install-progress__bar-fill"
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-            </div>
-          </>
-        ) : showUpgradeModal ? (
-          <>
-            <h1>
-              {runtimeUpgradeProgress.toVersion
-                ? `Finishing Headroom engine ${runtimeUpgradeProgress.toVersion} update…`
-                : "Finishing Headroom engine update…"}
-            </h1>
-            <p className="launcher-install-notice">
-              {runtimeUpgradeProgress.message ||
-                "Wrapping up the Headroom engine update."}
-            </p>
-            <div className="install-progress-shell">
-              <div className="install-progress" aria-live="polite">
-                <div className="install-progress__bar-track">
-                  <div
-                    className="install-progress__bar-fill"
-                    style={{
-                      width: `${runtimeUpgradeProgress.overallPercent}%`,
-                    }}
-                  />
-                </div>
-                <div className="install-progress__meta">
-                  <p>{runtimeUpgradeProgress.currentStep}</p>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : upgradeFailure ? (
-          <>
-            <h1>
-              {`Headroom ${upgradeFailure.appVersion} couldn't finish updating`}
-            </h1>
-            <p className="launcher-install-notice">
-              {upgradeFailure.errorHint ??
-                (upgradeFailure.fallbackHeadroomVersion
-                  ? "Running the previous version while we wait for you to retry."
-                  : "Running the previous version.")}
-              {upgradeExhausted
-                ? " We won't auto-retry on launch — click Retry to try again."
-                : ""}
-            </p>
-            <div className="launcher-install-buttons">
-              <button
-                type="button"
-                className="primary-button primary-button--large"
-                onClick={() => void invoke("retry_runtime_upgrade")}
-                disabled={runtimeUpgradeProgress.running}
-              >
-                Retry update
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => void handleFirstLaunchContinue()}
-              >
-                Continue with previous version
-              </button>
-              {upgradeFailure.failurePhase === "boot_validation" && (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    void invoke("retry_runtime_upgrade_with_rebuild")
-                  }
-                  disabled={runtimeUpgradeProgress.running}
-                >
-                  Retry with full rebuild
-                </button>
-              )}
-              {upgradeFailure.failurePhase === "boot_validation" && (
-                <button
-                  type="button"
-                  className="secondary-button secondary-button--small"
-                  onClick={() =>
-                    void invoke("open_external_link", {
-                              url: buildUpgradeIssueUrl(
-                                SUPPORT_ISSUES_URL,
-                                upgradeFailure,
-                              ),
-                    }).catch(() => {})
-                  }
-                >
-                  Report issue
-                </button>
-              )}
-            </div>
-          </>
-        ) : null}
-      </LauncherShell>
+        runtimeUpgradeProgress={runtimeUpgradeProgress}
+        showUpgradeModal={showUpgradeModal}
+        showUpgradeSuccess={showUpgradeSuccess}
+        supportIssuesUrl={SUPPORT_ISSUES_URL}
+        upgradeExhausted={upgradeExhausted}
+        upgradeFailure={upgradeFailure}
+      />
     );
   }
   if (windowLabel === "launcher" && launcherStage === "install") {
@@ -4168,407 +4035,56 @@ export default function App() {
   if (windowLabel === "launcher" && launcherStage === "client_setup") {
     const launcherConnectors =
       connectors.length > 0 ? connectors : launcherConnectorFallback;
-    const sortedLauncherConnectors = sortClientConnectors(launcherConnectors);
-    const availableConnectors = sortedLauncherConnectors.filter((connector) =>
-      canConfigureConnectorWithoutDetection(connector),
-    );
-    const unavailableConnectors = sortedLauncherConnectors.filter(
-      (connector) => !canConfigureConnectorWithoutDetection(connector),
-    );
-    const enabledConnectorCount = launcherConnectors.filter(
-      (connector) => connector.enabled,
-    ).length;
-    const requireSelection = availableConnectors.length > 0;
 
     return (
-      <LauncherShell
-        shellClassName="intro-shell intro-shell--post-install intro-shell--client-setup"
-        spinnerClassName="intro-shell__spinner intro-shell__spinner--post-install"
-        copyClassName="intro-shell__copy intro-shell__copy--post-install"
+      <LauncherClientSetupStep
+        appSemver={appSemver}
+        connectors={launcherConnectors}
+        connectorsBusy={connectorsBusy}
+        connectorsError={connectorsError}
+        onContinue={beginProxyVerificationStep}
         onMouseDown={handleLauncherSurfaceMouseDown}
-        version={appSemver}
-      >
-        <div className="post-install__lead">
-          <h1>Connect your coding tools</h1>
-          <p>Toggle each tool to automatically route it through Headroom.</p>
-          <div className="connector-list">
-            {availableConnectors.map((connector) => {
-              const unavailableReason =
-                getConnectorUnavailableReason(connector);
-              const detectionWarning = getConnectorDetectionWarning(connector);
-              const supportWarning = getConnectorSupportWarning(connector);
-              const needsRestart = connector.enabled && !connector.verified;
-              const plannedConnector = getPlannedConnector(connector.clientId);
-              return (
-                <article className="connector-item" key={connector.clientId}>
-                  <div>
-                    <h3>
-                      <span className="client-logo" aria-hidden="true">
-                        {renderConnectorLogo(connector.clientId)}
-                      </span>
-                      {connector.name}
-                      {supportWarning ? (
-                        <button
-                          className="connector-warning-help"
-                          onClick={() =>
-                            setOpenConnectorWarningId((current) =>
-                              current === connector.clientId
-                                ? null
-                                : connector.clientId,
-                            )
-                          }
-                          type="button"
-                          aria-label={`Show warning for ${connector.name}`}
-                          aria-expanded={
-                            openConnectorWarningId === connector.clientId
-                          }
-                        >
-                          !
-                        </button>
-                      ) : null}
-                      <button
-                        className="connector-help"
-                        onClick={() =>
-                          setOpenConnectorHelpId((current) =>
-                            current === connector.clientId
-                              ? null
-                              : connector.clientId,
-                          )
-                        }
-                        type="button"
-                        aria-label={`Show setup details for ${connector.name}`}
-                        aria-expanded={
-                          openConnectorHelpId === connector.clientId
-                        }
-                      >
-                        <Info size={11} weight="bold" />
-                      </button>
-                    </h3>
-                    {openConnectorHelpId === connector.clientId ? (
-                      <p className="connector-tooltip">
-                        {plannedConnector?.notes ??
-                          connectorSetupDetails[connector.clientId] ??
-                          "Switchboard applies local connector configuration."}
-                      </p>
-                    ) : null}
-                    {openConnectorWarningId === connector.clientId &&
-                    supportWarning ? (
-                      <p className="connector-tooltip connector-tooltip--warning">
-                        {supportWarning}
-                      </p>
-                    ) : null}
-                    {needsRestart ? (
-                      <p className="connector-item__restart">
-                        Restart {connector.name} to apply changes.
-                      </p>
-                    ) : null}
-                    {(detectionWarning ?? unavailableReason) ? (
-                      <p className="connector-item__reason">
-                        {detectionWarning ?? unavailableReason}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="connector-item__controls">
-                    <button
-                      aria-checked={connector.enabled}
-                      aria-label={`${connector.enabled ? "Disable" : "Enable"} ${connector.name} connector`}
-                      className={`connector-switch${connector.enabled ? " is-on" : ""}`}
-                      disabled={connectorsBusy}
-                      onClick={() =>
-                        void toggleConnector(connector, !connector.enabled)
-                      }
-                      role="switch"
-                      title={unavailableReason ?? undefined}
-                      type="button"
-                    >
-                      <span className="connector-switch__thumb" />
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          {unavailableConnectors.length > 0 ? (
-            <div className="connector-list connector-list--unavailable">
-              <p className="connector-list__section-label">
-                Not detected on this machine
-              </p>
-              {unavailableConnectors.map((connector) => {
-                const unavailableReason =
-                  getConnectorUnavailableReason(connector);
-                const supportWarning = getConnectorSupportWarning(connector);
-                return (
-                  <article
-                    className="connector-item is-unavailable"
-                    key={connector.clientId}
-                  >
-                    <div>
-                      <h3>
-                        <span className="client-logo" aria-hidden="true">
-                          {renderConnectorLogo(connector.clientId)}
-                        </span>
-                        {connector.name}
-                        {supportWarning ? (
-                          <button
-                            className="connector-warning-help"
-                            onClick={() =>
-                              setOpenConnectorWarningId((current) =>
-                                current === connector.clientId
-                                  ? null
-                                  : connector.clientId,
-                              )
-                            }
-                            type="button"
-                            aria-label={`Show warning for ${connector.name}`}
-                            aria-expanded={
-                              openConnectorWarningId === connector.clientId
-                            }
-                          >
-                            !
-                          </button>
-                        ) : null}
-                      </h3>
-                      {openConnectorWarningId === connector.clientId &&
-                      supportWarning ? (
-                        <p className="connector-tooltip connector-tooltip--warning">
-                          {supportWarning}
-                        </p>
-                      ) : null}
-                      {unavailableReason ? (
-                        <p className="connector-item__reason">
-                          {unavailableReason}
-                        </p>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-          {connectorsError ? (
-            <p className="install-progress__error">{connectorsError}</p>
-          ) : null}
-        </div>
-        <div className="post-install__actions">
-          <button
-            className="secondary-button post-install__reopen-setup"
-            onClick={() => {
-              setLauncherStage("install");
-            }}
-            type="button"
-          >
-            Back
-          </button>
-          <button
-            className="primary-button primary-button--large primary-button--success"
-            disabled={
-              connectorsBusy ||
-              (requireSelection && enabledConnectorCount === 0)
-            }
-            onClick={() => {
-              void beginProxyVerificationStep();
-            }}
-            type="button"
-          >
-            Continue
-          </button>
-        </div>
-      </LauncherShell>
+        openConnectorHelpId={openConnectorHelpId}
+        openConnectorWarningId={openConnectorWarningId}
+        setLauncherStage={setLauncherStage}
+        setOpenConnectorHelpId={setOpenConnectorHelpId}
+        setOpenConnectorWarningId={setOpenConnectorWarningId}
+        toggleConnector={toggleConnector}
+      />
     );
   }
 
   if (windowLabel === "launcher" && launcherStage === "proxy_verify") {
-    const hasEnabledApps = proxyVerificationRows.length > 0;
-    const hasOneClickTests =
-      hasPendingOneClickProxyVerification(proxyVerificationRows);
-    const allVerified =
-      hasEnabledApps &&
-      proxyVerificationRows.every((row) => row.state === "verified");
-
     return (
-      <LauncherShell
-        shellClassName="intro-shell intro-shell--post-install"
-        spinnerClassName="intro-shell__spinner intro-shell__spinner--post-install"
-        copyClassName="intro-shell__copy intro-shell__copy--post-install"
+      <LauncherProxyVerifyStep
+        appSemver={appSemver}
+        connectorSmokeBusyId={connectorSmokeBusyId}
+        onBack={() => setLauncherStage("client_setup")}
+        onContinue={() => {
+          void invoke("complete_setup_wizard");
+          setLauncherStage("post_install");
+        }}
         onMouseDown={handleLauncherSurfaceMouseDown}
-        version={appSemver}
-      >
-        <div className="post-install__lead">
-          <h1>Test your setup</h1>
-          <p>
-            Send automatic test prompts for Claude Code and Codex, then watch
-            for a verified badge. For tools without automatic tests, open the
-            tool and send one tiny prompt. Restart tools that were already open
-            so they reload the managed config.
-          </p>
-          {hasOneClickTests ? (
-            <button
-              className="primary-button primary-button--large"
-              disabled={connectorSmokeBusyId !== null}
-              onClick={() => void runAllSupportedConnectorSmokeTests()}
-              type="button"
-            >
-              {connectorSmokeBusyId !== null
-                ? "Sending test prompts..."
-                : "Send all test prompts"}
-            </button>
-          ) : null}
-          {hasEnabledApps ? (
-            <div className="connector-list">
-              {proxyVerificationRows.map((row) => (
-                <article className="connector-item" key={row.clientId}>
-                  <div>
-                    <h3>
-                      <span className="client-logo" aria-hidden="true">
-                        {renderConnectorLogo(row.clientId)}
-                      </span>
-                      {row.name}
-                    </h3>
-                    <div className="proxy-verify-item__message">
-                      <span>{row.message}</span>
-                      {row.state === "verified" ? (
-                        <span className="proxy-verified-pill">verified</span>
-                      ) : null}
-                    </div>
-                  </div>
-                  {row.oneClickSupported && row.state !== "verified" ? (
-                    <button
-                      className="secondary-button connector-item__action"
-                      disabled={connectorSmokeBusyId !== null}
-                      onClick={() => void runConnectorSmokeTest(row)}
-                      type="button"
-                    >
-                      {connectorSmokeBusyId === row.clientId
-                        ? "Sending..."
-                        : "Send test prompt"}
-                    </button>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="launcher-restart-hint">
-              No tools are enabled yet. Go back to the previous step and enable
-              one.
-            </p>
-          )}
-          {proxyVerificationHint ? (
-            <p className="install-progress__error">{proxyVerificationHint}</p>
-          ) : null}
-        </div>
-        <div className="post-install__actions">
-          <button
-            className="secondary-button post-install__reopen-setup"
-            onClick={() => {
-              setLauncherStage("client_setup");
-            }}
-            type="button"
-          >
-            Back
-          </button>
-          <button
-            className="primary-button primary-button--large primary-button--success"
-            onClick={() => {
-              void invoke("complete_setup_wizard");
-              setLauncherStage("post_install");
-            }}
-            type="button"
-          >
-            Continue
-          </button>
-        </div>
-      </LauncherShell>
+        proxyVerificationHint={proxyVerificationHint}
+        proxyVerificationRows={proxyVerificationRows}
+        runAllSupportedConnectorSmokeTests={runAllSupportedConnectorSmokeTests}
+        runConnectorSmokeTest={runConnectorSmokeTest}
+      />
     );
   }
 
   if (windowLabel === "launcher" && launcherStage === "post_install") {
     return (
-      <LauncherShell
-        shellClassName="intro-shell intro-shell--post-install"
-        spinnerClassName="intro-shell__spinner intro-shell__spinner--post-install"
-        copyClassName="intro-shell__copy intro-shell__copy--post-install"
+      <LauncherPostInstallStep
+        appSemver={appSemver}
+        dashboard={dashboard}
+        lifetimeDataDays={lifetimeDataDays}
+        lifetimeDataDaysLabel={lifetimeDataDaysLabel}
+        onBack={beginProxyVerificationStep}
+        onGetStarted={triggerHide}
         onMouseDown={handleLauncherSurfaceMouseDown}
-        version={appSemver}
-      >
-        <div className="post-install__lead">
-          <h1>
-            AI Switchboard is ready
-            <br />
-            in the menu bar
-          </h1>
-          {dashboard.launchExperience === "first_run" ? (
-            <p>
-              Use Test setup to send a first prompt automatically where
-              supported, or send your first prompt from a connected tool.
-              Switchboard will route through the local Headroom engine and
-              track savings automatically.
-            </p>
-          ) : (
-            <>
-              <p>
-                Switchboard will trim prompt bloat whenever you use
-                enabled clients such as Claude Code or Codex.
-              </p>
-              <div className="post-install__metrics">
-                <article className="soft-card stat-card">
-                  <span className="stat-card__label">
-                    <CurrencyDollar
-                      aria-hidden="true"
-                      className="stat-card__icon"
-                      size={15}
-                      weight="bold"
-                    />
-                    Savings all-time
-                  </span>
-                  <strong className="stat-value--green">
-                    {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
-                  </strong>
-                  <p>{lifetimeDataDaysLabel}</p>
-                </article>
-                <article className="soft-card stat-card">
-                  <span className="stat-card__label">
-                    <Cpu
-                      aria-hidden="true"
-                      className="stat-card__icon"
-                      size={15}
-                      weight="bold"
-                    />
-                    Tokens saved all-time
-                  </span>
-                  <strong className="stat-value--blue">
-                    {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
-                  </strong>
-                  <p>
-                    Across{" "}
-                    {lifetimeDataDays > 0
-                      ? `${lifetimeDataDays} tracked day${lifetimeDataDays === 1 ? "" : "s"}`
-                      : "all recorded usage"}
-                  </p>
-                </article>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="post-install__actions">
-          <button
-            className="secondary-button post-install__reopen-setup"
-            onClick={() => {
-              void beginProxyVerificationStep();
-            }}
-            type="button"
-          >
-            Back
-          </button>
-          <button
-            className="primary-button primary-button--large primary-button--success"
-            onClick={() => triggerHide()}
-            type="button"
-          >
-            Get started
-          </button>
-          <p>Headroom stays active in your menu bar while you work.</p>
-        </div>
-      </LauncherShell>
+        savingsDashboard={savingsDashboard}
+      />
     );
   }
 

@@ -25,6 +25,11 @@ const requiredSignals = [
     needles: ["evaluateGodFileRegistry", "lineCeiling"],
   },
   {
+    label: "god file splits gate",
+    file: "scripts/check-god-file-splits.mjs",
+    needles: ["splitModules", "originalBaselines"],
+  },
+  {
     label: "repo memory relaunch supervision",
     file: "src-tauri/src/state/repo_memory_mcp.rs",
     needles: [
@@ -53,6 +58,21 @@ const requiredSignals = [
     file: "src/lib/godFileRegistry.ts",
     needles: ["describeGodFileRegistry", "godFileRegistry"],
   },
+  {
+    label: "cross-platform cli entrypoint",
+    file: "bin/switchboard.mjs",
+    needles: ["repo-intelligence", "optimize"],
+  },
+  {
+    label: "platform support matrix",
+    file: "docs/platform-support.md",
+    needles: ["Linux", "Windows", "Repo-local preview"],
+  },
+  {
+    label: "switchboard cli gate",
+    file: "scripts/check-switchboard-cli.mjs",
+    needles: ["repo-intelligence", "platform-support.md"],
+  },
 ];
 
 function fail(message) {
@@ -80,7 +100,11 @@ for (const file of godFiles) {
   }
 }
 
-for (const script of ["scripts/check-god-file-registry.mjs"]) {
+for (const script of [
+  "scripts/check-god-file-registry.mjs",
+  "scripts/check-god-file-splits.mjs",
+  "scripts/check-switchboard-cli.mjs",
+]) {
   try {
     execFileSync("node", [script], {
       cwd: root,

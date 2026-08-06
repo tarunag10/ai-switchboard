@@ -116,13 +116,14 @@
         {
           "id": "P3.3",
           "name": "God-file splits",
-          "status": "planned",
-          "blocker": "client_adapters.rs, App.tsx, styles.css remain tracked exemptions"
+          "status": "in_progress",
+          "note": "Wave 2: launcher stage components, app-shell/tray-shell CSS; client_adapters_tests + client_detection; check:god-file-splits; lowered baselines 2026-08-06"
         },
         {
           "id": "P3.4",
           "name": "Cross-platform CLI parity",
-          "status": "planned"
+          "status": "done",
+          "note": "check:switchboard-cli in CI; repo:intelligence compatibility path; platform-support.md; phase3 gate shipped 2026-08-06"
         }
       ]
     },

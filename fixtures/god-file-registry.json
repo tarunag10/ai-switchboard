@@ -4,36 +4,103 @@
     "maxLines": 450,
     "maxBytes": 40960
   },
+  "originalBaselines": {
+    "client-adapters": { "lines": 9414, "bytes": 380748 },
+    "app-shell": { "lines": 5990, "bytes": 209091 },
+    "global-styles": { "lines": 11994, "bytes": 241836 }
+  },
   "godFiles": [
     {
       "id": "client-adapters",
       "path": "src-tauri/src/client_adapters.rs",
       "domain": "managed-client-routing",
       "splitSlice": "P3.3",
-      "baselineLines": 9414,
-      "baselineBytes": 380748,
+      "baselineLines": 3518,
+      "baselineBytes": 143448,
       "maxGrowthLines": 200,
-      "reason": "Connector apply, verify, rollback, and routing monolith pending domain extraction."
+      "reason": "Routing monolith after tests and detection extraction; setup/rollback domains remain."
     },
     {
       "id": "app-shell",
       "path": "src/App.tsx",
       "domain": "desktop-shell",
       "splitSlice": "P3.3",
-      "baselineLines": 5990,
-      "baselineBytes": 209091,
+      "baselineLines": 5508,
+      "baselineBytes": 190271,
       "maxGrowthLines": 150,
-      "reason": "Primary React shell; view extraction planned into routed panels."
+      "reason": "React shell after launcher stage extraction; SettingsView wiring and tray shell remain."
     },
     {
       "id": "global-styles",
       "path": "src/styles.css",
       "domain": "design-system",
       "splitSlice": "P3.3",
-      "baselineLines": 11994,
-      "baselineBytes": 241836,
+      "baselineLines": 9118,
+      "baselineBytes": 179368,
       "maxGrowthLines": 200,
-      "reason": "Global stylesheet monolith; modular token layers planned."
+      "reason": "Global stylesheet after tokens, repo-map, app-shell, and tray-shell extraction."
+    }
+  ],
+  "splitModules": [
+    {
+      "id": "client-adapters-tests",
+      "path": "src-tauri/src/client_adapters_tests.rs",
+      "parent": "client-adapters",
+      "domain": "managed-client-routing-tests"
+    },
+    {
+      "id": "client-detection",
+      "path": "src-tauri/src/client_detection.rs",
+      "parent": "client-adapters",
+      "domain": "client-detection"
+    },
+    {
+      "id": "launcher-client-setup",
+      "path": "src/components/LauncherClientSetupStep.tsx",
+      "parent": "app-shell",
+      "domain": "launcher-client-setup"
+    },
+    {
+      "id": "launcher-proxy-verify",
+      "path": "src/components/LauncherProxyVerifyStep.tsx",
+      "parent": "app-shell",
+      "domain": "launcher-proxy-verify"
+    },
+    {
+      "id": "launcher-post-install",
+      "path": "src/components/LauncherPostInstallStep.tsx",
+      "parent": "app-shell",
+      "domain": "launcher-post-install"
+    },
+    {
+      "id": "launcher-runtime-upgrade",
+      "path": "src/components/LauncherRuntimeUpgradeStep.tsx",
+      "parent": "app-shell",
+      "domain": "launcher-runtime-upgrade"
+    },
+    {
+      "id": "style-tokens",
+      "path": "src/styles/tokens.css",
+      "parent": "global-styles",
+      "domain": "design-tokens"
+    },
+    {
+      "id": "style-repo-map",
+      "path": "src/styles/repo-map.css",
+      "parent": "global-styles",
+      "domain": "repo-map-ui"
+    },
+    {
+      "id": "style-app-shell",
+      "path": "src/styles/app-shell.css",
+      "parent": "global-styles",
+      "domain": "app-shell-ui"
+    },
+    {
+      "id": "style-tray-shell",
+      "path": "src/styles/tray-shell.css",
+      "parent": "global-styles",
+      "domain": "tray-shell-ui"
     }
   ],
   "watchlist": [
@@ -50,6 +117,7 @@
   ],
   "notes": [
     "God files are exempt from the default file-size budget until P3.3 splits land.",
+    "splitModules tracks extracted domains; check:god-file-splits validates shrink progress.",
     "Watchlist files exceed the default budget but are capped with growth ceilings.",
     "Each entry tracks a baseline and maxGrowthLines; CI fails when a tracked file grows without an intentional baseline bump.",
     "New oversized files must not be added to this registry without a linked split plan."
