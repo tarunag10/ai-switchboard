@@ -206,6 +206,18 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "Remove only the managed Grok / xAI CLI Switchboard sidecar dossier.",
   },
   {
+    id: "aider-provider-routing",
+    kind: "client_config",
+    owner: "Aider provider routing",
+    text: "Managed Aider openai-api-base routing in ~/.aider.conf.yml.",
+    paths: ["~/.aider.conf.yml"],
+    markerId: switchboardManagedMarkerId("aider-provider"),
+    backupPath: "next to Aider config as *.headroom-backup-*",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Restore only the selected Aider config backup; API keys and unrelated settings remain untouched.",
+  },
+  {
     id: "aider-routing",
     kind: "client_config",
     owner: "Aider routing",
@@ -783,6 +795,7 @@ export const nativeRollbackRecordIds = new Set([
   "cursor-routing",
   "grok-routing",
   "aider-routing",
+  "aider-provider-routing",
   "continue-routing",
   "continue-provider-routing",
   "goose-routing",

@@ -12,9 +12,15 @@ use crate::client_adapters::{
     GEMINI_BASE_URL_ENV_KEY, GOOSE_SIDECAR_APPLY_RECORD_ID, GOOSE_SIDECAR_OWNER,
     GROK_SIDECAR_APPLY_RECORD_ID, GROK_SIDECAR_OWNER,
 };
+use crate::aider_provider_configs::{
+    aider_apply_confirmation_phrase, aider_config_backup_pattern, aider_next_provider_config,
+    aider_provider_config_matches, configure_aider_provider_config, AIDER_NATIVE_APPLY_RECORD_ID,
+    AIDER_NATIVE_MARKER, AIDER_NATIVE_OWNER,
+};
 use crate::client_paths::{
-    codex_config_toml_path, continue_config_path, grok_config_path, home_dir, opencode_config_path,
-    planned_sidecar_routing_path, windsurf_config_path, zed_config_path, SWITCHBOARD_ROUTING_FILE,
+    aider_config_path, codex_config_toml_path, continue_config_path, grok_config_path, home_dir,
+    opencode_config_path, planned_sidecar_routing_path, windsurf_config_path, zed_config_path,
+    SWITCHBOARD_ROUTING_FILE,
 };
 use crate::continue_provider_configs::{
     configure_continue_provider_config, continue_apply_confirmation_phrase,
@@ -86,6 +92,13 @@ const CONTINUE_ROLLBACK_EVIDENCE: &[&str] = &[
     "Relaunch-survival evidence requires re-reading restored config from disk after write.",
     "Provider credentials, apiKey values, account state, and unrelated model entries remain untouched.",
 ];
+const AIDER_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: aider-provider-routing.",
+    "Backup must live next to ~/.aider.conf.yml and use *.headroom-backup-*.",
+    "Current config must still contain the managed openai-api-base field before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+    "API keys, api-key entries, set-env values, and unrelated Aider settings remain untouched.",
+];
 const MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION: &str =
     "Undo all ready Switchboard native rollback rows";
 const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
@@ -98,6 +111,7 @@ const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
     "grok-routing",
     "aider-routing",
     CONTINUE_NATIVE_APPLY_RECORD_ID,
+    AIDER_NATIVE_APPLY_RECORD_ID,
     "continue-routing",
     "goose-routing",
     "qwen-code-routing",
@@ -255,8 +269,19 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
                 "Restore the Continue config from the selected sibling backup after creating a fresh safety backup.",
             evidence: CONTINUE_ROLLBACK_EVIDENCE,
         }),
+        AIDER_NATIVE_APPLY_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: AIDER_NATIVE_APPLY_RECORD_ID,
+            owner: AIDER_NATIVE_OWNER,
+            marker: AIDER_NATIVE_MARKER,
+            target_path: aider_config_path,
+            marker_matches: aider_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Aider config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: AIDER_ROLLBACK_EVIDENCE,
+        }),
         _ => Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {CONTINUE_NATIVE_APPLY_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {CONTINUE_NATIVE_APPLY_RECORD_ID}, {AIDER_NATIVE_APPLY_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -521,8 +546,44 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 ],
             })
         }
+        AIDER_NATIVE_APPLY_RECORD_ID => {
+            let path = aider_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                String::new()
+            };
+            let (proposed_state, changed) = aider_next_provider_config()?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: AIDER_NATIVE_APPLY_RECORD_ID.to_string(),
+                owner: AIDER_NATIVE_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: AIDER_NATIVE_MARKER.to_string(),
+                backup_path: aider_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: aider_apply_confirmation_phrase(
+                    AIDER_NATIVE_MARKER,
+                    &current_state,
+                ),
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "Aider .aider.conf.yml openai-api-base is allowlisted for native safe apply."
+                        .to_string(),
+                    "Preview preserves API keys, api-key entries, set-env values, and unrelated settings."
+                        .to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed YAML, verifies openai-api-base, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {CONTINUE_NATIVE_APPLY_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, {CONTINUE_NATIVE_APPLY_RECORD_ID}, and {AIDER_NATIVE_APPLY_RECORD_ID}."
         )),
     }
 }
@@ -728,8 +789,36 @@ pub fn execute_managed_config_apply(
                 ],
             })
         }
+        AIDER_NATIVE_APPLY_RECORD_ID => {
+            let path = aider_config_path();
+            let (changed_files, backup_files) = configure_aider_provider_config()?;
+            if !aider_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Aider provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: AIDER_NATIVE_APPLY_RECORD_ID.to_string(),
+                owner: AIDER_NATIVE_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: AIDER_NATIVE_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "Aider openai-api-base matches the Switchboard-managed Headroom proxy URL."
+                        .to_string(),
+                    "API keys, api-key entries, set-env values, and unrelated settings were not read or changed.".to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {CONTINUE_NATIVE_APPLY_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, {CONTINUE_NATIVE_APPLY_RECORD_ID}, and {AIDER_NATIVE_APPLY_RECORD_ID}."
         )),
     }
 }
@@ -816,6 +905,7 @@ pub fn execute_managed_rollback(
             | GROK_ROLLBACK_RECORD_ID
             | GOOSE_NATIVE_APPLY_RECORD_ID
             | CONTINUE_NATIVE_APPLY_RECORD_ID
+            | AIDER_NATIVE_APPLY_RECORD_ID
             | GEMINI_ROLLBACK_RECORD_ID
             | WINDSURF_ROLLBACK_RECORD_ID
             | ZED_ROLLBACK_RECORD_ID

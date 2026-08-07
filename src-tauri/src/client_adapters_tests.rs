@@ -2129,21 +2129,44 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     #[serial_test::serial]
     fn aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
         let home = TestHome::new();
+        let config = home.path().join(".aider.conf.yml");
         let sidecar = home
             .path()
             .join(".config")
             .join("aider")
             .join(SWITCHBOARD_ROUTING_FILE);
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create aider dir");
+        fs::write(
+            &config,
+            "model: gpt-4o\n# user aider settings\n",
+        )
+        .expect("seed aider config");
         fs::write(&sidecar, "# aider user note\nkeep this\n").expect("seed sidecar");
+
+        let prev_aider = std::env::var_os("AIDER_CONFIG_PATH");
+        std::env::set_var("AIDER_CONFIG_PATH", &config);
 
         let result = super::apply_client_setup("aider").expect("apply aider setup");
         assert!(result.applied);
         assert!(!result.already_configured);
-        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
-        assert_eq!(result.backup_files.len(), 1);
+        assert_eq!(result.changed_files.len(), 2);
+        assert!(result
+            .changed_files
+            .iter()
+            .any(|path| path == &config.display().to_string()));
+        assert!(result
+            .changed_files
+            .iter()
+            .any(|path| path == &sidecar.display().to_string()));
+        assert_eq!(result.backup_files.len(), 2);
         assert!(result.verification.verified);
         assert!(result.summary.contains("Aider"));
+
+        let config_content = fs::read_to_string(&config).expect("read aider config");
+        assert!(config_content.contains(crate::aider_provider_configs::AIDER_OPENAI_API_BASE_KEY));
+        assert!(config_content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        assert!(crate::aider_provider_configs::aider_provider_config_matches()
+            .expect("verify aider provider"));
 
         let content = fs::read_to_string(&sidecar).expect("read aider sidecar");
         assert!(content.contains("# aider user note\nkeep this"));
@@ -2212,15 +2235,38 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             "# aider user note\nkeep this\n"
         );
 
+        let provider_preview = super::preview_managed_config_apply("aider-provider-routing")
+            .expect("preview aider provider apply");
+        assert_eq!(provider_preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(provider_preview
+            .confirmation_phrase
+            .starts_with("Apply ai-switchboard:aider-provider to"));
+
+        let provider_rollback =
+            super::preview_managed_rollback("aider-provider-routing")
+                .expect("preview aider provider rollback");
+        assert_eq!(provider_rollback.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            provider_rollback.confirmation_phrase,
+            "Restore ai-switchboard:aider-provider for Aider provider routing"
+        );
+
         super::apply_client_setup("aider").expect("reapply aider setup");
         super::disable_client_setup("aider").expect("disable aider setup");
         assert_eq!(
             fs::read_to_string(&sidecar).expect("read disabled aider sidecar"),
             "# aider user note\nkeep this\n"
         );
+        assert!(!crate::aider_provider_configs::aider_provider_config_matches()
+            .expect("aider provider removed"));
         let verification =
             super::verify_client_setup("aider").expect("verify disabled aider setup");
         assert!(!verification.verified);
+
+        match prev_aider {
+            Some(value) => std::env::set_var("AIDER_CONFIG_PATH", value),
+            None => std::env::remove_var("AIDER_CONFIG_PATH"),
+        }
     }
 
     #[test]

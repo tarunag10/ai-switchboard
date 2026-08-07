@@ -347,6 +347,40 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                 ));
             }
         }
+        "aider" => {
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
+            let sidecar_path = planned_sidecar_routing_path(client_id)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
+            let provider_ok = crate::aider_provider_configs::aider_provider_config_matches()?;
+
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            }
+            if provider_ok {
+                checks.push(format!(
+                    "Found Aider {} pointing to Headroom in {}.",
+                    crate::aider_provider_configs::AIDER_OPENAI_API_BASE_KEY,
+                    crate::client_paths::aider_config_path().display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Aider {} was not found in {}.",
+                    crate::aider_provider_configs::AIDER_OPENAI_API_BASE_KEY,
+                    crate::client_paths::aider_config_path().display()
+                ));
+            }
+        }
         other if planned_sidecar_spec(other).is_some() => {
             let sidecar = planned_sidecar_spec(other)
                 .ok_or_else(|| anyhow!("Unknown planned sidecar {other}"))?;

@@ -65,9 +65,9 @@
     "category": "agent",
     "support_status": "managed",
     "detection": { "binaries": ["aider"], "paths": ["~/.aider.conf.yml", "~/.config/aider"] },
-    "config": { "locations": ["~/.aider.conf.yml", "~/.config/aider"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect provider configuration without exposing secrets.", "Back up the Switchboard-owned sidecar before managed edits.", "Write only the Switchboard-owned Aider routing-intent sidecar.", "Verify Aider sidecar routing in Doctor without reading provider secrets.", "Rollback removes only the Switchboard-owned Aider sidecar marker.", "Off mode removes managed routing without touching provider config."],
-    "manual_workflow": ["Confirm Aider is installed.", "Toggle the connector on from Settings to create the managed sidecar.", "Keep provider config manual until a documented provider file adapter is proven."]
+    "config": { "locations": ["~/.aider.conf.yml", "~/.config/aider"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "openai-api-key", "anthropic-api-key", "api-key"] },
+    "automation_gates": ["Detect provider configuration without exposing secrets.", "Back up ~/.aider.conf.yml before managed endpoint edits.", "Write only the allowlisted openai-api-base field and Switchboard-owned sidecar.", "Verify Aider endpoint routing and sidecar routing in Doctor without reading provider secrets.", "Rollback restores .aider.conf.yml from backup or removes only the managed openai-api-base field.", "Off mode removes managed routing without touching API keys."],
+    "manual_workflow": ["Confirm Aider is installed.", "Toggle the connector on from Settings to apply managed endpoint routing and the sidecar.", "Keep API keys in your existing config or .env file."]
   },
   {
     "id": "continue",

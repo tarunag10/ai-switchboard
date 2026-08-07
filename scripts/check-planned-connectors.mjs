@@ -6,6 +6,18 @@ const appPath = "src/App.tsx";
 const settingsConnectorCopyPath = "src/lib/settingsConnectorCopy.ts";
 const backendPath = "src-tauri/src/client_adapters.rs";
 const backendRegistryPath = "src-tauri/src/client_connectors.rs";
+const backendConnectorListPath = "src-tauri/src/client_connector_list.rs";
+const backendLifecyclePaths = [
+  "src-tauri/src/client_setup_apply.rs",
+  "src-tauri/src/client_setup_verify.rs",
+  "src-tauri/src/client_setup_disable.rs",
+  "src-tauri/src/client_managed_config.rs",
+  "src-tauri/src/client_adapters_tests.rs",
+  "src-tauri/src/aider_provider_configs.rs",
+  "src-tauri/src/continue_provider_configs.rs",
+  "src-tauri/src/goose_provider_configs.rs",
+  "src-tauri/src/client_provider_configs.rs",
+];
 const cliPath = "scripts/repo-intelligence.mjs";
 const repoApiPath = "src-tauri/src/repo_intelligence.rs";
 const repoIntelligenceUiPath = "src/lib/repoIntelligence.ts";
@@ -362,9 +374,11 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
       "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup",
     ],
     aider: [
-      '"aider"',
+      '"aider" => {',
+      "configure_aider_provider_config",
       "configure_planned_switchboard_sidecar",
       "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+      'preview_managed_config_apply("aider-provider-routing")',
       'connector.client_id == "aider"',
       "ClientConnectorSupportStatus::Managed",
     ],
@@ -650,7 +664,9 @@ const settingsConnectorCopySource = readFile(settingsConnectorCopyPath);
 const connectorUiSource = `${appSource}\n${settingsConnectorCopySource}`;
 const backendSource = readFile(backendPath);
 const backendRegistrySource = readFile(backendRegistryPath);
-const backendContractSource = `${backendSource}\n${backendRegistrySource}`;
+const backendConnectorListSource = readFile(backendConnectorListPath);
+const backendLifecycleSource = backendLifecyclePaths.map(readFile).join("\n");
+const backendContractSource = `${backendSource}\n${backendRegistrySource}\n${backendConnectorListSource}`;
 const cliSource = readFile(cliPath);
 const repoApiSource = readFile(repoApiPath);
 const repoIntelligenceUiSource = readFile(repoIntelligenceUiPath);
@@ -716,7 +732,7 @@ metadataErrors.push(
 );
 metadataErrors.push(
   ...validateManagedConnectorEndToEndContract(
-    backendSource,
+    backendLifecycleSource,
     connectorManifestById,
     manifestManagedIds,
   ),

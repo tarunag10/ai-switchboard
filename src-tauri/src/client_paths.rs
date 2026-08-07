@@ -12,6 +12,7 @@ pub(crate) const GROK_CONFIG_FILE: &str = "config.toml";
 pub(crate) const WINDSURF_CONFIG_FILE: &str = "settings.json";
 pub(crate) const ZED_CONFIG_FILE: &str = "settings.json";
 pub(crate) const CONTINUE_CONFIG_FILE: &str = "config.yaml";
+pub(crate) const AIDER_CONFIG_FILE: &str = ".aider.conf.yml";
 pub(crate) const ZSH_PROFILE_FILE: &str = ".zprofile";
 pub(crate) const ZSH_RC_FILE: &str = ".zshrc";
 pub(crate) const BASH_PROFILE_FILE: &str = ".bash_profile";
@@ -112,6 +113,12 @@ pub(crate) fn continue_config_path() -> PathBuf {
         })
         .unwrap_or_else(|| home_dir().join(".continue"));
     continue_dir.join(CONTINUE_CONFIG_FILE)
+}
+
+pub(crate) fn aider_config_path() -> PathBuf {
+    std::env::var_os("AIDER_CONFIG_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home_dir().join(AIDER_CONFIG_FILE))
 }
 
 pub(crate) enum ShellFamily {

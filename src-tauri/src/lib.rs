@@ -36,6 +36,7 @@ mod client_detection;
 mod client_footprint;
 mod client_paths;
 mod client_provider_configs;
+mod aider_provider_configs;
 mod continue_provider_configs;
 mod client_setup_commands;
 mod client_sidecar_rollbacks;

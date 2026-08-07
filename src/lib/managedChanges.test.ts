@@ -32,6 +32,7 @@ describe("managedChangeRecords", () => {
       "cursor-routing",
       "grok-routing",
       "grok-sidecar-routing",
+      "aider-provider-routing",
       "aider-routing",
       "continue-routing",
       "continue-provider-routing",
@@ -211,6 +212,7 @@ describe("managedChangeRecords", () => {
       "cursor-routing",
       "grok-routing",
       "grok-sidecar-routing",
+      "aider-provider-routing",
       "aider-routing",
       "continue-routing",
       "continue-provider-routing",
@@ -416,6 +418,7 @@ describe("managedChangeRecords", () => {
       "opencode-routing",
       "cursor-routing",
       "grok-routing",
+      "aider-provider-routing",
       "aider-routing",
       "continue-routing",
       "continue-provider-routing",
@@ -450,7 +453,7 @@ describe("managedChangeRecords", () => {
 
     expect(text).toContain("AI Switchboard undo-all rollback preview");
     expect(text).toContain("Native write status: not_executed");
-    expect(text).toContain("Executable native rows: 14");
+    expect(text).toContain("Executable native rows: 15");
     expect(text).toContain("Codex routing (codex-routing)");
     expect(text).toContain("Gemini CLI routing (gemini-routing)");
     expect(text).toContain("OpenCode routing (opencode-routing)");

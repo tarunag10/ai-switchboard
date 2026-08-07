@@ -22,6 +22,7 @@ import {
   plannedConnectorReadinessStageOrder,
   plannedConnectors,
   promotedSidecarConnectorIds,
+  promotedNativeConfigConnectorIds,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
 
@@ -511,13 +512,13 @@ describe("planned connectors", () => {
     expect(cursor.nativeAutomationEnabled).toBe(false);
     expect(cursor.nativeNextBlockedStage).toBe("backupImplemented");
     expect(cursor.nativeWriteEvidence).toMatch(/documented.*schema/i);
-    expect(aider.nativeAutomationEnabled).toBe(false);
-    expect(aider.nativeWriteEvidence).toMatch(/sidecar.*provider schema/i);
+    expect(aider.nativeAutomationEnabled).toBe(true);
+    expect(aider.nativeWriteEvidence).toMatch(/fixture-home apply/i);
     expect(goose.nativeAutomationEnabled).toBe(true);
     expect(grok.nativeAutomationEnabled).toBe(true);
     expect(getPlannedConnectorReadinessContract(getPlannedConnector("aider")!)).toMatchObject({
-      nativeAutomationEnabled: false,
-      nativeNextBlockedStage: "applyImplemented",
+      nativeAutomationEnabled: true,
+      nativeNextBlockedStage: null,
     });
   });
 
@@ -584,7 +585,7 @@ describe("planned connectors", () => {
     );
     expect(markdown).toContain("Automation stays disabled");
     expect(markdown).toContain("## Aider");
-    expect(markdown).toContain("Detect config surface: Detect PATH: aider");
+    expect(markdown).toContain("Detect ~/.aider.conf.yml");
     expect(markdown).toContain("Required evidence:");
     expect(markdown).toContain("No files, profiles, credentials, or account state changed");
     expect(markdown).toContain("managed marker boundary");
@@ -671,10 +672,11 @@ describe("planned connectors", () => {
     const plan = getPlannedConnectorConfigCreationPlan(aider);
 
     expect(aider.supportStatus).toBe("managed");
-    expect(aider.safeToday).toContain("Switchboard-owned sidecar");
-    expect(aider.firstAutomation).toContain("Sidecar apply");
+    expect(aider.safeToday).toContain("openai-api-base");
+    expect(aider.firstAutomation).toContain("Native endpoint apply");
     expect(plan.automationEnabled).toBe(true);
     expect(promotedSidecarConnectorIds.has("aider")).toBe(true);
+    expect(promotedNativeConfigConnectorIds.has("aider")).toBe(true);
     expect(aiderManifest.config?.locations).toEqual([
       "~/.aider.conf.yml",
       "~/.config/aider",
@@ -683,6 +685,9 @@ describe("planned connectors", () => {
       "*token*",
       "*secret*",
       "auth.json",
+      "openai-api-key",
+      "anthropic-api-key",
+      "api-key",
     ]);
   });
 });

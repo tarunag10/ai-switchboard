@@ -580,15 +580,20 @@ export const plannedConnectors: PlannedConnector[] = [
     statusLabel: "Managed",
     setupPhase: "Managed",
     integrationTarget:
-      "Switchboard-owned routing-intent sidecar plus Repo Intelligence context packs.",
+      "Reversible allowlisted Aider openai-api-base routing plus the Switchboard routing-intent sidecar.",
     notes:
-      "Managed reversible sidecar automation never reads provider secrets or rewrites saved provider config.",
-    capabilityBadges: ["Managed sidecar", "Doctor repair", "Rollback"],
+      "Switchboard manages the documented openai-api-base field in ~/.aider.conf.yml and its routing-intent sidecar with backup, rollback, and Off-mode cleanup; API keys and unrelated settings stay user-owned.",
+    capabilityBadges: [
+      "Native endpoint routing",
+      "Managed sidecar",
+      "Doctor repair",
+      "Rollback",
+    ],
     supportedModes: ["Full optimization", "RTK only", "Repo packs", "Off"],
     safeToday:
-      "Create the Switchboard-owned sidecar and keep saved provider config manual.",
+      "Apply managed openai-api-base routing and keep API keys in your existing config or .env file.",
     firstAutomation:
-      "Sidecar apply, verify, rollback, Doctor repair, and Off cleanup are covered by fixture-home tests.",
+      "Native endpoint apply, sidecar apply, verify, rollback, Doctor repair, and Off cleanup are covered by fixture-home tests.",
     capabilityRows: [
       {
         label: "Detection",
@@ -603,25 +608,26 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Provider config",
-        state: "Manual today",
+        state: "Available now",
         detail:
-          "Saved Aider provider config remains untouched until a documented provider adapter is proven.",
+          "Switchboard sets only the documented openai-api-base field without reading API keys or unrelated settings.",
       },
     ],
     configSurfaces: [
       "Aider binary",
-      "provider environment",
+      "~/.aider.conf.yml openai-api-base",
       "repo context files",
     ],
     automationGates: [
       "Detect provider configuration without exposing secrets.",
-      "Write only the Switchboard-owned Aider routing-intent sidecar.",
-      "Verify Doctor repair, rollback, and Off cleanup leave provider config untouched.",
+      "Back up ~/.aider.conf.yml before managed endpoint edits.",
+      "Write only the allowlisted openai-api-base field and Switchboard-owned sidecar.",
+      "Verify Doctor repair, rollback, and Off cleanup leave API keys untouched.",
     ],
     manualWorkflow: [
       "Confirm Aider is installed.",
-      "Toggle the connector on from Settings to create the managed sidecar.",
-      "Keep saved provider config manual until a documented provider file adapter is proven.",
+      "Toggle the connector on from Settings to apply managed endpoint routing and the sidecar.",
+      "Keep API keys in your existing config or .env file and run one Aider prompt through Headroom.",
     ],
   },
   {
@@ -667,7 +673,7 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     configSurfaces: [
       "Continue config folder",
-      "~/.continue/config.yaml models[]",
+      "~/.continue/config.yaml Headroom model entry",
       "provider list",
       "editor integration",
     ],
@@ -884,6 +890,7 @@ export const promotedNativeConfigConnectorIds = new Set([
   "windsurf",
   "zed_ai",
   "continue",
+  "aider",
 ]);
 
 export const managedMcpBridgeConnectorIds = new Set(["goose"]);
@@ -966,13 +973,13 @@ const plannedConnectorSafetyDossiers: Record<
   aider: {
     connectorId: "aider",
     configPathStrategy:
-      "Detect PATH: aider and manage only the Switchboard-owned sidecar marker.",
+      "Detect ~/.aider.conf.yml, then manage only the allowlisted openai-api-base field and Switchboard-owned sidecar marker.",
     providerSemantics:
-      "Provider routing stays manual; the managed path records reversible routing intent without changing Aider provider files.",
+      "Set openai-api-base to the local Headroom OpenAI-compatible proxy; API keys and unrelated settings stay manual.",
     accountCaveat:
-      "Existing provider secrets remain in the user's shell or provider config and are never copied.",
+      "API keys and credentials remain in the user's existing config or .env file and are never read or copied into Switchboard storage.",
     rollbackStrategy:
-      "Remove only the Switchboard-owned Aider sidecar marker while preserving user-authored sidecar notes and provider config.",
+      "Restore .aider.conf.yml from backup or remove only the managed openai-api-base field while preserving unrelated settings and the sidecar notes users authored.",
   },
   continue: {
     connectorId: "continue",

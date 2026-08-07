@@ -25,7 +25,7 @@ export const connectorSetupDetails: Record<string, string> = {
   grok_cli:
     "Grok / xAI CLI uses the documented ~/.grok/config.toml [endpoints].models_base_url field for reversible native routing; XAI_API_KEY/login, account state, and model selection remain manual.",
   aider:
-    "Aider is detected when installed. RTK-only mode can already reduce noisy shell output while provider setup remains manual.",
+    "Aider can use managed openai-api-base routing in ~/.aider.conf.yml plus the Switchboard sidecar. API keys stay in your existing config or .env file.",
   continue:
     "Continue can use managed config.yaml model routing plus the Switchboard sidecar. Provider credentials and apiKey values stay manual.",
   goose:
@@ -54,7 +54,7 @@ export const connectorUnavailableReasons: Record<string, string> = {
   grok_cli:
     "Grok / xAI CLI endpoint routing is managed when ~/.grok/config.toml is available; keep XAI_API_KEY/login, model, and account choices manual.",
   aider:
-    "Aider automatic setup is off for now. Use RTK-only mode or copied Repo Intelligence packs.",
+    "Aider endpoint routing is managed when ~/.aider.conf.yml is available; keep API keys in your existing config or .env file.",
   continue:
     "Continue native model routing is managed when ~/.continue/config.yaml is available; keep provider credentials and apiKey values manual.",
   goose:
@@ -84,7 +84,8 @@ export function supportsNativeConfigApply(record: ManagedChangeRecord) {
     record.id === "opencode-routing" ||
     record.id === "grok-routing" ||
     record.id === "goose-provider-routing" ||
-    record.id === "continue-provider-routing"
+    record.id === "continue-provider-routing" ||
+    record.id === "aider-provider-routing"
   );
 }
 
