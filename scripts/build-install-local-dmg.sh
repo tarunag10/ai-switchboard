@@ -19,7 +19,7 @@ case "${ARCH_NAME}" in
   *) DMG_ARCH="${ARCH_NAME}" ;;
 esac
 
-APP_NAME_CANDIDATES=("AI Switchboard for Mac" "AI Switchboard" "Mac AI Switchboard" "Mac Switchboard" Switchboard)
+APP_NAME_CANDIDATES=("AI Switchboard" "AI Switchboard for Mac" "Mac AI Switchboard" "Mac Switchboard" Switchboard)
 
 discover_raw_dmg() {
   local app_name candidate
@@ -47,8 +47,8 @@ discover_raw_dmg() {
 
 LOCAL_DIR="dist/release-artifacts"
 LOCAL_DMG="${LOCAL_DIR}/Mac-AI-Switchboard_${APP_VERSION}-local-unsigned-${DMG_ARCH}.dmg"
-APP_DEST="${MAC_AI_SWITCHBOARD_LOCAL_APP_DEST:-/Applications/AI Switchboard for Mac.app}"
-LEGACY_APP_DEST="/Applications/Mac AI Switchboard.app"
+APP_DEST="${MAC_AI_SWITCHBOARD_LOCAL_APP_DEST:-/Applications/AI Switchboard.app}"
+LEGACY_APP_DEST="/Applications/AI Switchboard for Mac.app"
 
 echo "Building local unsigned/ad-hoc DMG..."
 CI=true npx tauri build --bundles dmg --ci

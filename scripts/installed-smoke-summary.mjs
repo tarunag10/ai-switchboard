@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const appPathCandidates = [
-  "/Applications/AI Switchboard for Mac.app",
   "/Applications/AI Switchboard.app",
+  "/Applications/AI Switchboard for Mac.app",
   "/Applications/Mac AI Switchboard.app",
   "/Applications/Mac Switchboard.app",
 ];

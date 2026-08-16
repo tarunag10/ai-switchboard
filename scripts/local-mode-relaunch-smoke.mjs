@@ -4,8 +4,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const appCandidates = [
-  { path: "/Applications/AI Switchboard for Mac.app", name: "AI Switchboard for Mac" },
   { path: "/Applications/AI Switchboard.app", name: "AI Switchboard" },
+  { path: "/Applications/AI Switchboard for Mac.app", name: "AI Switchboard for Mac" },
   { path: "/Applications/Mac AI Switchboard.app", name: "Mac AI Switchboard" },
   { path: "/Applications/Mac Switchboard.app", name: "Mac Switchboard" },
 ];

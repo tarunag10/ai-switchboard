@@ -5,8 +5,8 @@ const betaSmokeDoc = "docs/beta-smoke-test.md";
 const installDoc = "docs/install.md";
 const releaseDoc = "docs/macos-release.md";
 const appPathCandidates = [
-  "/Applications/AI Switchboard for Mac.app",
   "/Applications/AI Switchboard.app",
+  "/Applications/AI Switchboard for Mac.app",
   "/Applications/Mac AI Switchboard.app",
   "/Applications/Mac Switchboard.app",
 ];

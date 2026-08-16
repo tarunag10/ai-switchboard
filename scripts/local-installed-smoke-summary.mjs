@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const appPathCandidates = [
-  "/Applications/AI Switchboard for Mac.app",
   "/Applications/AI Switchboard.app",
+  "/Applications/AI Switchboard for Mac.app",
   "/Applications/Mac AI Switchboard.app",
   "/Applications/Mac Switchboard.app",
 ];
@@ -17,8 +17,8 @@ const tauriConfig = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf
 const arch = process.arch === "arm64" ? "aarch64" : process.arch;
 const dmgPath = `dist/release-artifacts/Mac-AI-Switchboard_${packageJson.version}-local-unsigned-${arch}.dmg`;
 const rawDmgCandidates = [
-  `src-tauri/target/release/bundle/dmg/AI Switchboard for Mac_${packageJson.version}_${arch}.dmg`,
   `src-tauri/target/release/bundle/dmg/AI Switchboard_${packageJson.version}_${arch}.dmg`,
+  `src-tauri/target/release/bundle/dmg/AI Switchboard for Mac_${packageJson.version}_${arch}.dmg`,
   `src-tauri/target/release/bundle/dmg/Mac AI Switchboard_${packageJson.version}_${arch}.dmg`,
   `src-tauri/target/release/bundle/dmg/Mac Switchboard_${packageJson.version}_${arch}.dmg`,
 ];

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AI Switchboard for Mac",
+  "productName": "AI Switchboard",
   "version": "0.0.1",
   "identifier": "com.tarunagarwal.mac-ai-switchboard",
   "build": {
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "AI Switchboard for Mac",
+        "title": "AI Switchboard",
         "width": 760,
         "height": 560,
         "resizable": false,
@@ -34,7 +34,7 @@
       },
       {
         "label": "launcher",
-        "title": "Welcome to AI Switchboard for Mac",
+        "title": "Welcome to AI Switchboard",
         "width": 760,
         "height": 540,
         "resizable": false,
