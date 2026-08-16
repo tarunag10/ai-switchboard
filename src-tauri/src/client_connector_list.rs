@@ -4,7 +4,8 @@ use crate::client_adapters::{
     configured_timestamp, is_configured, load_setup_state, normalized_setup_id, verify_client_setup,
 };
 use crate::client_connector_status::{
-    managed_connector_config_locations, planned_connector_automation_path, MANAGED_CLIENT_SPECS,
+    connector_has_complete_lifecycle_fixture, managed_connector_config_locations,
+    planned_connector_automation_path, MANAGED_CLIENT_SPECS,
 };
 use crate::client_connectors::{
     connector_manifest, manifest_config_locations, manifest_detection_sources,
@@ -23,6 +24,7 @@ pub fn list_client_connectors(
         .iter()
         .map(|spec| {
             let manifest = connector_manifest(spec.id);
+            let lifecycle_managed = connector_has_complete_lifecycle_fixture(spec.id);
             let installed = detected_clients
                 .iter()
                 .find(|client| client.id == spec.id)
@@ -51,9 +53,17 @@ pub fn list_client_connectors(
                     .as_ref()
                     .map(|item| item.name.clone())
                     .unwrap_or_else(|| spec.name.to_string()),
-                support_status: manifest_support_status(manifest.as_ref()),
-                setup_phase: "managed".to_string(),
-                setup_hint: "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.".to_string(),
+                support_status: if lifecycle_managed {
+                    manifest_support_status(manifest.as_ref())
+                } else {
+                    ClientConnectorSupportStatus::Planned
+                },
+                setup_phase: if lifecycle_managed { "managed" } else { "fixture-incomplete" }.to_string(),
+                setup_hint: if lifecycle_managed {
+                    "Automatic reversible setup, verification, repair, and off-mode cleanup are supported."
+                } else {
+                    "Lifecycle fixture proof is incomplete; this connector cannot be labelled Managed."
+                }.to_string(),
                 category: manifest
                     .as_ref()
                     .map(|item| item.category.clone())
@@ -123,6 +133,8 @@ pub fn list_client_connectors(
             .unwrap_or_else(|| vec!["Not checked yet.".to_string()]);
         let config_dry_run_preview = planned_connector_dry_run_preview(spec, &detection_evidence);
         let has_implemented_setup = planned_connector_has_implemented_setup(spec.id);
+        let lifecycle_managed =
+            has_implemented_setup && connector_has_complete_lifecycle_fixture(spec.id);
         let enabled = has_implemented_setup && is_configured(&setup_state, spec.id);
         let setup_verification = if enabled {
             verify_client_setup(spec.id).ok()
@@ -140,17 +152,17 @@ pub fn list_client_connectors(
             enabled,
             verified,
         );
-        let support_status = if has_implemented_setup {
+        let support_status = if lifecycle_managed {
             ClientConnectorSupportStatus::Managed
         } else {
             manifest_support_status(manifest.as_ref())
         };
-        let setup_phase = if has_implemented_setup {
+        let setup_phase = if lifecycle_managed {
             "managed"
         } else {
             spec.setup_phase
         };
-        let setup_hint = if has_implemented_setup {
+        let setup_hint = if lifecycle_managed {
             "Automatic reversible setup, verification, repair, restore, and off-mode cleanup are supported."
         } else {
             spec.setup_hint

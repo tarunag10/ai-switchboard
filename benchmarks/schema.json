@@ -1,5 +1,11 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "manifest": {
+    "fixturesVersion": "2026-08-16.p0",
+    "offlineHeadroomVersion": "not-invoked-offline",
+    "offlineRtkVersion": "not-invoked-offline",
+    "defaultProfile": "offline-static"
+  },
   "minimumFixtures": 12,
   "minimumCategories": 6,
   "requiredCategories": [
@@ -23,5 +29,14 @@
   "qualityGates": {
     "minimumRelevantFactRetentionPct": 95,
     "maximumWrongOmissionRatePct": 0
+  },
+  "regressionThresholds": {
+    "maximumAggregateSavedPctDrop": 2,
+    "maximumAggregateLatencyIncreaseMs": 2,
+    "maximumPerFixtureSavedPctDrop": 5,
+    "maximumPerFixtureLatencyIncreaseMs": 5,
+    "maximumFactRetentionDropPct": 0,
+    "maximumWrongOmissionIncreasePct": 0,
+    "minimumStaticSuccessPassRatePct": 100
   }
 }

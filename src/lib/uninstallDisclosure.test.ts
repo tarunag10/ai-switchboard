@@ -56,6 +56,7 @@ describe("uninstallDisclosure", () => {
       "cursor-routing",
       "grok-routing",
       "grok-sidecar-routing",
+      "aider-provider-routing",
       "aider-routing",
       "continue-routing",
       "continue-provider-routing",
@@ -99,7 +100,7 @@ describe("uninstallDisclosure", () => {
     expect(report).toContain("Remove managed Claude Code shell routing");
     expect(report).toContain("Remove managed Codex shell routing");
     expect(report).toContain("~/.codex/config.toml");
-    expect(report).toContain("Marker: headroom:codex_cli");
+    expect(report).toContain("Marker: ai-switchboard:codex_cli");
     expect(report).toContain(
       "Backup: next to edited client config as *.headroom-backup-*",
     );

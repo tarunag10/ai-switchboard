@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "requiredStages": ["detect", "preview", "backup", "apply", "verify", "rollback", "off"],
+  "connectors": [
+    {
+      "id": "claude_code",
+      "name": "Claude Code",
+      "stages": {
+        "detect": "planned_connector_registry_includes_backend_detection_metadata",
+        "preview": "apply_then_verify_claude_code_writes_expected_files",
+        "backup": "write_file_if_changed_skips_backups_when_content_is_unchanged",
+        "apply": "apply_then_verify_claude_code_writes_expected_files",
+        "verify": "apply_then_verify_claude_code_writes_expected_files",
+        "rollback": "disable_then_clear_claude_code_removes_traces",
+        "off": "disable_then_clear_claude_code_removes_traces"
+      }
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "stages": {
+        "detect": "planned_connector_registry_includes_backend_detection_metadata",
+        "preview": "apply_then_verify_then_disable_codex_round_trip",
+        "backup": "managed_rollback_preview_and_execute_restores_codex_backup",
+        "apply": "apply_then_verify_then_disable_codex_round_trip",
+        "verify": "apply_then_verify_then_disable_codex_round_trip",
+        "rollback": "managed_rollback_preview_and_execute_restores_codex_backup",
+        "off": "apply_then_verify_then_disable_codex_round_trip"
+      }
+    },
+    {
+      "id": "gemini_cli",
+      "name": "Gemini CLI",
+      "stages": {
+        "detect": "gemini_detection_reports_managed_routing_lifecycle",
+        "preview": "gemini_setup_writes_verifies_and_cleans_sidecar_only",
+        "backup": "gemini_setup_writes_verifies_and_cleans_sidecar_only",
+        "apply": "gemini_setup_writes_verifies_and_cleans_sidecar_only",
+        "verify": "gemini_setup_writes_verifies_and_cleans_sidecar_only",
+        "rollback": "gemini_managed_rollback_removes_shell_and_sidecar_blocks",
+        "off": "gemini_setup_writes_verifies_and_cleans_sidecar_only"
+      }
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "stages": {
+        "detect": "opencode_compatibility_evidence_reports_version_config_and_managed_routing",
+        "preview": "managed_config_apply_preview_and_execute_promotes_opencode_safely",
+        "backup": "managed_config_apply_preview_and_execute_promotes_opencode_safely",
+        "apply": "opencode_setup_writes_verifies_and_cleans_native_routing_only",
+        "verify": "opencode_setup_writes_verifies_and_cleans_native_routing_only",
+        "rollback": "managed_rollback_preview_and_execute_restores_opencode_backup",
+        "off": "opencode_setup_writes_verifies_and_cleans_native_routing_only"
+      }
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "stages": {
+        "detect": "cursor_connector_has_fixture_home_dry_run_preview",
+        "preview": "cursor_connector_has_fixture_home_dry_run_preview",
+        "backup": null,
+        "apply": null,
+        "verify": null,
+        "rollback": null,
+        "off": null
+      }
+    },
+    {
+      "id": "grok_cli",
+      "name": "Grok / xAI CLI",
+      "stages": {
+        "detect": "grok_compatibility_evidence_reports_model_account_blocker",
+        "preview": "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup",
+        "backup": "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup",
+        "apply": "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup",
+        "verify": "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup",
+        "rollback": "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup",
+        "off": "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup"
+      }
+    },
+    {
+      "id": "aider",
+      "name": "Aider",
+      "stages": {
+        "detect": "aider_compatibility_evidence_reports_environment_wrapper_blocker",
+        "preview": "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "backup": "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "apply": "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "verify": "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "rollback": "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "off": "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables"
+      }
+    },
+    {
+      "id": "continue",
+      "name": "Continue",
+      "stages": {
+        "detect": "continue_connector_exposes_managed_native_and_sidecar_paths",
+        "preview": "continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "backup": "continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "apply": "continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "verify": "continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "rollback": "continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "off": "continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables"
+      }
+    },
+    {
+      "id": "goose",
+      "name": "Goose",
+      "stages": {
+        "detect": "goose_compatibility_evidence_reports_mcp_handoff_blocker",
+        "preview": "goose_native_endpoint_apply_exposes_rollback_center_restore",
+        "backup": "goose_native_endpoint_apply_exposes_rollback_center_restore",
+        "apply": "goose_native_provider_and_mcp_bridge_lifecycle_preserves_user_state",
+        "verify": "goose_native_provider_and_mcp_bridge_lifecycle_preserves_user_state",
+        "rollback": "goose_native_endpoint_apply_exposes_rollback_center_restore",
+        "off": "goose_native_provider_and_mcp_bridge_lifecycle_preserves_user_state"
+      }
+    },
+    {
+      "id": "qwen_code",
+      "name": "Qwen Code",
+      "stages": {
+        "detect": "qwen_connector_exposes_managed_sidecar_without_provider_writes",
+        "preview": "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only",
+        "backup": "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only",
+        "apply": "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only",
+        "verify": "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only",
+        "rollback": "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only",
+        "off": "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only"
+      }
+    },
+    {
+      "id": "amazon_q",
+      "name": "Amazon Q Developer CLI",
+      "stages": {
+        "detect": "amazon_q_compatibility_evidence_reports_managed_sidecar_lifecycle",
+        "preview": "amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "backup": "amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "apply": "amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "verify": "amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "rollback": "amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+        "off": "amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables"
+      }
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "stages": {
+        "detect": "planned_connector_registry_includes_backend_detection_metadata",
+        "preview": "managed_config_apply_preview_and_execute_promotes_windsurf_rollback_safely",
+        "backup": "managed_config_apply_preview_and_execute_promotes_windsurf_rollback_safely",
+        "apply": "windsurf_setup_writes_verifies_and_off_cleanup_removes_native_routing_only",
+        "verify": "windsurf_setup_writes_verifies_and_off_cleanup_removes_native_routing_only",
+        "rollback": "managed_config_apply_preview_and_execute_promotes_windsurf_rollback_safely",
+        "off": "windsurf_setup_writes_verifies_and_off_cleanup_removes_native_routing_only"
+      }
+    },
+    {
+      "id": "zed_ai",
+      "name": "Zed AI",
+      "stages": {
+        "detect": "planned_connector_registry_includes_backend_detection_metadata",
+        "preview": "managed_config_apply_preview_and_execute_promotes_zed_rollback_safely",
+        "backup": "managed_config_apply_preview_and_execute_promotes_zed_rollback_safely",
+        "apply": "zed_setup_writes_verifies_and_off_cleanup_removes_native_routing_only",
+        "verify": "zed_setup_writes_verifies_and_off_cleanup_removes_native_routing_only",
+        "rollback": "managed_config_apply_preview_and_execute_promotes_zed_rollback_safely",
+        "off": "zed_setup_writes_verifies_and_off_cleanup_removes_native_routing_only"
+      }
+    }
+  ]
+}

@@ -3,6 +3,50 @@ use crate::client_connectors::{
 };
 use crate::client_paths::planned_sidecar_routing_path;
 use crate::models::{ClientConnectorAutomationStage, ClientConnectorConfigDryRunPreview};
+use serde::Deserialize;
+use std::collections::BTreeMap;
+
+pub(crate) const CONNECTOR_LIFECYCLE_FIXTURES_JSON: &str =
+    include_str!("../../connectors/lifecycle-fixtures.json");
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ConnectorLifecycleFixtureCatalog {
+    required_stages: Vec<String>,
+    connectors: Vec<ConnectorLifecycleFixture>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ConnectorLifecycleFixture {
+    id: String,
+    stages: BTreeMap<String, Option<String>>,
+}
+
+pub(crate) fn connector_has_complete_lifecycle_fixture(client_id: &str) -> bool {
+    let Ok(catalog) =
+        serde_json::from_str::<ConnectorLifecycleFixtureCatalog>(CONNECTOR_LIFECYCLE_FIXTURES_JSON)
+    else {
+        return false;
+    };
+    let normalized = if client_id == "codex_cli" {
+        "codex"
+    } else {
+        client_id
+    };
+    catalog
+        .connectors
+        .iter()
+        .find(|fixture| fixture.id == normalized)
+        .is_some_and(|fixture| {
+            catalog.required_stages.iter().all(|stage| {
+                fixture
+                    .stages
+                    .get(stage)
+                    .and_then(Option::as_deref)
+                    .is_some_and(|proof| !proof.trim().is_empty())
+            })
+        })
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct ManagedClientSpec {
@@ -147,6 +191,36 @@ mod tests {
             vec!["~/.codex/config.toml", "~/.codex/AGENTS.md"]
         );
         assert!(managed_connector_config_locations("cursor").is_empty());
+    }
+
+    #[test]
+    fn managed_connector_labels_require_complete_lifecycle_fixture_proof() {
+        let catalog: ConnectorLifecycleFixtureCatalog =
+            serde_json::from_str(CONNECTOR_LIFECYCLE_FIXTURES_JSON).expect("fixture catalog");
+        let adapter_tests = include_str!("client_adapters_tests.rs");
+
+        for fixture in &catalog.connectors {
+            for proof in fixture.stages.values().flatten() {
+                assert!(
+                    adapter_tests.contains(&format!("fn {proof}(")),
+                    "{} references missing lifecycle test {proof}",
+                    fixture.id
+                );
+            }
+        }
+        for spec in MANAGED_CLIENT_SPECS {
+            assert!(connector_has_complete_lifecycle_fixture(spec.id));
+        }
+        for spec in PLANNED_CLIENT_SPECS {
+            let manifest = crate::client_connectors::connector_manifest(spec.id)
+                .expect("connector manifest");
+            assert_eq!(
+                manifest.support_status == "managed",
+                connector_has_complete_lifecycle_fixture(spec.id),
+                "{} manifest status must match complete lifecycle fixture proof",
+                spec.id
+            );
+        }
     }
 
     #[test]

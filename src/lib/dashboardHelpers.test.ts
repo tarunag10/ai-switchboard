@@ -1318,14 +1318,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 3,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 31,
+      safeTodayCount: 33,
       plannedCapabilityCount: 1,
-      automationGateCount: 45,
+      automationGateCount: 47,
       detectedNames: ["Gemini CLI", "Grok / xAI CLI", "Cursor"],
       notDetectedNames: ["Aider"],
       headline: "3 connector tools detected locally",
       detail:
-        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 31 safe capabilities are available now; 1 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
+        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 33 safe capabilities are available now; 1 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
     });
   });
 });

@@ -11,7 +11,7 @@ describe("MasterActivationCard", () => {
     render(<MasterActivationCard onActivateAll={vi.fn()} onActivateFeature={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Activate everything" })).toBeInTheDocument();
-    for (const label of ["Agent Memory", "Token X-Ray", "Daily Briefing", "Agent Session", "Repo Intelligence", "Add-ons", "Gateway / MCP", "Doctor", "Rollback"]) {
+    for (const label of ["Agent Memory", "Token X-Ray", "Daily Briefing", "Agent Session", "Repo Intelligence", "Add-ons", "Gateway / MCP", "Doctor", "Rollback inventory"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.getByText(/Gateway\/MCP setup, provider credentials/)).toBeInTheDocument();
@@ -41,9 +41,9 @@ describe("MasterActivationCard", () => {
     const onDeactivateFeature = vi.fn();
     render(<MasterActivationCard activationState="complete" progress={{ completed: 9, total: 9 }} featureStates={{ "agent-memory": { status: "complete" } }} onActivateAll={vi.fn()} onDeactivateAll={onDeactivateAll} onActivateFeature={vi.fn()} onDeactivateFeature={onDeactivateFeature} />);
 
-    expect(screen.getByRole("button", { name: "Deactivate everything" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Deactivate local workspace" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Deactivate Agent Memory" })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Deactivate everything" }));
+    await user.click(screen.getByRole("button", { name: "Deactivate local workspace" }));
     await user.click(screen.getByRole("button", { name: "Deactivate Agent Memory" }));
     expect(onDeactivateAll).toHaveBeenCalledOnce();
     expect(onDeactivateFeature).toHaveBeenCalledWith("agent-memory");
@@ -59,7 +59,7 @@ describe("MasterActivationCard", () => {
     expect(screen.getByText(/Requires a user-owned gateway/)).toBeInTheDocument();
 
     rerender(<MasterActivationCard activationState="complete" progress={{ completed: 9, total: 9 }} onActivateAll={vi.fn()} onActivateFeature={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Deactivate everything" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Deactivate local workspace" })).toBeDisabled();
     expect(screen.getByText("All local features activated")).toBeInTheDocument();
   });
 });

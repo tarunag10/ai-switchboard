@@ -2530,7 +2530,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             assert!(preview.current_state.contains("keep this"));
             assert!(preview
                 .proposed_state
-                .contains(&format!("headroom:{client_id}")));
+                .contains(&format!("ai-switchboard:{client_id}")));
             assert!(preview
                 .evidence
                 .iter()
@@ -4952,18 +4952,24 @@ js_repl = false\n",
     #[test]
     fn qwen_connector_applies_and_disables_switchboard_owned_sidecar_only() {
         let _home = TestHome::new();
+        let routing_path = planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
+        std::fs::create_dir_all(routing_path.parent().expect("qwen sidecar parent"))
+            .expect("create qwen config directory");
+        std::fs::write(&routing_path, "# user-owned qwen note\nkeep this\n")
+            .expect("seed qwen sidecar");
 
         let result = super::apply_client_setup("qwen_code").expect("apply qwen sidecar");
         assert!(result.applied);
         assert!(!result.already_configured);
         assert_eq!(result.client_id, "qwen_code");
+        assert_eq!(result.backup_files.len(), 1);
         assert!(result
             .changed_files
             .iter()
             .any(|path| path.contains("ai-switchboard-routing.md")));
 
-        let routing_path = planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
         let body = std::fs::read_to_string(&routing_path).expect("read qwen sidecar");
+        assert!(body.contains("# user-owned qwen note\nkeep this"));
         assert!(body.contains("ai-switchboard:qwen_code"));
         assert!(body.contains("reversible Qwen Code routing-intent sidecar"));
         assert!(
@@ -4972,6 +4978,23 @@ js_repl = false\n",
                 .verified
         );
 
+        let rollback = super::preview_managed_rollback("qwen-code-routing")
+            .expect("preview qwen rollback");
+        assert_eq!(rollback.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(rollback.marker_present);
+        let rollback_result = super::execute_managed_rollback(
+            "qwen-code-routing",
+            "",
+            "Restore ai-switchboard:qwen_code for Qwen Code routing",
+        )
+        .expect("execute qwen rollback");
+        assert_eq!(rollback_result.record_id, "qwen-code-routing");
+        assert_eq!(
+            std::fs::read_to_string(&routing_path).expect("read rolled back qwen sidecar"),
+            "# user-owned qwen note\nkeep this\n"
+        );
+
+        super::apply_client_setup("qwen_code").expect("reapply qwen sidecar");
         super::disable_client_setup("qwen_code").expect("disable qwen sidecar");
         assert!(
             !super::verify_client_setup("qwen_code")
@@ -4980,5 +5003,6 @@ js_repl = false\n",
         );
         assert!(routing_path.exists());
         let cleaned = std::fs::read_to_string(&routing_path).expect("read cleaned qwen sidecar");
+        assert!(cleaned.contains("# user-owned qwen note\nkeep this"));
         assert!(!cleaned.contains("ai-switchboard:qwen_code"));
     }

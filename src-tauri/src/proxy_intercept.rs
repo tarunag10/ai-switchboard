@@ -30,10 +30,10 @@ use crate::backend_port;
 use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
 use crate::models::{CodexPlanTier, CodexRateLimitSnapshot, CodexUsageWindow};
 use crate::optimization::telemetry;
+use crate::proxy_session_auth::{ProxySessionAuth, ProxySessionValidation, PROXY_SESSION_HEADER};
 use crate::semantic_cache::{
     CacheHit, CacheNamespace, CacheRequest, CacheResponse, SemanticCacheService,
 };
-use crate::proxy_session_auth::{ProxySessionAuth, ProxySessionValidation, PROXY_SESSION_HEADER};
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
@@ -1759,7 +1759,8 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        annotate_provider_auth_error, bearer_value_changed, cache_plan_from_request,
+        annotate_provider_auth_error, bearer_value_changed, bounded_json_response_len,
+        cache_plan_from_request,
         classify_provider_auth_error, codex_snapshot_from_usage_payload, codex_window_label,
         decode_codex_plan_tier, extract_bearer, extract_header_value, find_header_end,
         is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
@@ -1775,6 +1776,8 @@ mod tests {
     use base64::Engine;
     use parking_lot::Mutex;
     use serial_test::serial;
+    use serde::Deserialize;
+    use std::collections::BTreeMap;
     use std::net::SocketAddr;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
@@ -1783,7 +1786,137 @@ mod tests {
     use tokio::time::{timeout, Duration};
 
     fn test_proxy_session_auth() -> Arc<crate::proxy_session_auth::ProxySessionAuth> {
-        crate::proxy_session_auth::ProxySessionAuth::open(std::env::temp_dir().as_path())
+        let isolated_base = std::env::temp_dir().join(format!(
+            "ai-switchboard-proxy-auth-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        crate::proxy_session_auth::ProxySessionAuth::open(&isolated_base)
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RequestPathFixtureFile {
+        version: u32,
+        cases: Vec<RequestPathFixture>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RequestPathFixture {
+        id: String,
+        request: FixtureRequest,
+        expected: FixtureExpected,
+        behavior_test: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FixtureRequest {
+        method: String,
+        path: String,
+        headers: BTreeMap<String, String>,
+        body: String,
+        advertised_content_length: Option<usize>,
+        alternate_scope_headers: Option<BTreeMap<String, String>>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FixtureExpected {
+        provider: String,
+        cache_eligible: bool,
+        bypass_headroom: bool,
+        loopback_safe: bool,
+        #[serde(default)]
+        namespace_isolated: bool,
+    }
+
+    fn fixture_request_bytes(request: &FixtureRequest, alternate_scope: bool) -> Vec<u8> {
+        let mut headers = request.headers.clone();
+        if alternate_scope {
+            for (name, value) in request.alternate_scope_headers.clone().unwrap_or_default() {
+                headers.insert(name, value);
+            }
+        }
+        headers.insert("Host".into(), "127.0.0.1:6767".into());
+        headers.insert(
+            "Content-Length".into(),
+            request
+                .advertised_content_length
+                .unwrap_or(request.body.len())
+                .to_string(),
+        );
+        let mut rendered = format!("{} {} HTTP/1.1\r\n", request.method, request.path);
+        for (name, value) in headers {
+            rendered.push_str(&format!("{name}: {value}\r\n"));
+        }
+        rendered.push_str("\r\n");
+        rendered.push_str(&request.body);
+        rendered.into_bytes()
+    }
+
+    #[test]
+    fn request_path_regression_fixtures_lock_current_classification() {
+        let fixture: RequestPathFixtureFile = serde_json::from_str(include_str!(
+            "../../fixtures/request-path/v1.json"
+        ))
+        .expect("request-path fixture parses");
+        assert_eq!(fixture.version, 1);
+        assert_eq!(fixture.cases.len(), 13);
+
+        let source = include_str!("proxy_intercept.rs");
+        for case in fixture.cases {
+            let raw = fixture_request_bytes(&case.request, false);
+            let header_end = find_header_end(&raw).expect("fixture header boundary");
+            let parsed = parse_request_head(&raw[..header_end + 4]).expect("fixture request parses");
+            let provider = if is_local_proxy_path(&parsed.path) {
+                "local"
+            } else if is_openai_path(&parsed.path) {
+                "openai"
+            } else {
+                "anthropic"
+            };
+            assert_eq!(provider, case.expected.provider, "{} provider", case.id);
+            assert_eq!(
+                request_is_loopback_safe(&raw),
+                case.expected.loopback_safe,
+                "{} loopback contract",
+                case.id
+            );
+            assert_eq!(
+                request_should_bypass_headroom(&raw),
+                case.expected.bypass_headroom,
+                "{} preflight contract",
+                case.id
+            );
+            let plan = cache_plan_from_request(&parsed, case.request.body.as_bytes());
+            assert_eq!(
+                plan.is_some(),
+                case.expected.cache_eligible,
+                "{} cache contract",
+                case.id
+            );
+            if case.expected.namespace_isolated {
+                let first = plan.expect("primary namespace");
+                let alternate_raw = fixture_request_bytes(&case.request, true);
+                let alternate_end = find_header_end(&alternate_raw).expect("alternate header");
+                let alternate_parsed = parse_request_head(&alternate_raw[..alternate_end + 4])
+                    .expect("alternate request parses");
+                let alternate = cache_plan_from_request(
+                    &alternate_parsed,
+                    case.request.body.as_bytes(),
+                )
+                .expect("alternate namespace");
+                assert_ne!(first.namespace.account, alternate.namespace.account);
+                assert_ne!(first.namespace.workspace, alternate.namespace.workspace);
+            }
+            assert!(
+                source.contains(&format!("fn {}(", case.behavior_test)),
+                "{} references missing behavioral test {}",
+                case.id,
+                case.behavior_test
+            );
+        }
     }
 
     #[test]
@@ -2042,6 +2175,42 @@ mod tests {
 
         assert!(buf.windows(4).any(|window| window == b"\r\n\r\n"));
         writer.await.expect("writer task");
+    }
+
+    #[tokio::test]
+    async fn partial_request_eof_is_treated_as_cancellation() {
+        let (mut client, mut server_stream) = duplex(1024);
+        client
+            .write_all(b"POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1")
+            .await
+            .expect("write partial request");
+        drop(client);
+
+        let mut buf = Vec::new();
+        let error = timeout(
+            Duration::from_millis(250),
+            read_http_headers(&mut server_stream, &mut buf),
+        )
+        .await
+        .expect("cancellation is observed promptly")
+        .expect_err("partial request must not be accepted");
+
+        assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
+        assert!(find_header_end(&buf).is_none());
+    }
+
+    #[test]
+    fn malformed_response_is_never_cacheable() {
+        for malformed in [
+            b"not-http\r\n\r\n".as_slice(),
+            b"HTTP/1.1 200 OK\r\nContent-Type application/json\r\n\r\n".as_slice(),
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: nope\r\n\r\n"
+                .as_slice(),
+        ] {
+            // Policy headers alone do not authorize storage: the bounded JSON
+            // capture gate must also parse a valid status/content-length head.
+            assert!(bounded_json_response_len(malformed).is_none());
+        }
     }
 
     /// Bind a fresh `TcpListener` on an ephemeral port and return its address.
@@ -2600,10 +2769,21 @@ mod tests {
             .expect("write headers");
         client.write_all(req_body).await.expect("write body");
 
-        let received = timeout(Duration::from_secs(5), upstream_task)
-            .await
-            .expect("upstream got request in time")
-            .expect("upstream task ok");
+        let received = match timeout(Duration::from_secs(5), upstream_task).await {
+            Ok(result) => result.expect("upstream task ok"),
+            Err(_) => {
+                let mut response = [0u8; 512];
+                let detail =
+                    match timeout(Duration::from_millis(250), client.read(&mut response)).await {
+                        Ok(Ok(count)) => {
+                            String::from_utf8_lossy(&response[..count]).into_owned()
+                        }
+                        Ok(Err(error)) => format!("client read error: {error}"),
+                        Err(_) => "no client response".to_string(),
+                    };
+                panic!("upstream got no request; intercept response: {detail:?}");
+            }
+        };
         let received_str = std::str::from_utf8(&received).expect("utf8");
 
         assert!(

@@ -408,7 +408,9 @@ describe("SwitchboardDoctorPanel", () => {
       "No files are changed by this report.",
     );
     expect(writeText.mock.calls[0][0]).toContain("## Codex routing");
-    expect(writeText.mock.calls[0][0]).toContain("Marker: headroom:codex_cli");
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Marker: ai-switchboard:codex_cli",
+    );
     expect(writeText.mock.calls[0][0]).toContain(
       "Remove managed Codex shell routing",
     );
@@ -560,7 +562,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.queryByText("Connector ID: cursor")).not.toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Dry-run preview: target User/settings.json; marker mac-ai-switchboard:cursor",
+        "Dry-run preview: target User/settings.json; marker ai-switchboard:cursor",
       ),
     ).not.toBeInTheDocument();
 
@@ -572,7 +574,7 @@ describe("SwitchboardDoctorPanel", () => {
     ).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+        "Dry-run target: User/settings.json; marker: ai-switchboard:cursor",
       ),
     ).toBeInTheDocument();
 
@@ -589,7 +591,7 @@ describe("SwitchboardDoctorPanel", () => {
     );
     expect(writeText.mock.calls[0][0]).toContain("Connector ID: cursor");
     expect(writeText.mock.calls[0][0]).toContain(
-      "Dry-run preview: target User/settings.json; marker mac-ai-switchboard:cursor",
+      "Dry-run preview: target User/settings.json; marker ai-switchboard:cursor",
     );
     expect(screen.getByText("Copied connector details.")).toBeInTheDocument();
   });

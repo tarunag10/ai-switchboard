@@ -1,7 +1,9 @@
-# Adapter Lifecycle Contract
+# Coding-Client Adapter Lifecycle Contract
 
-Every managed connector must satisfy the same safety lifecycle before it can be
-advertised as managed.
+Every managed `CodingClientAdapter` must satisfy the same safety lifecycle
+before its coding client or agent can be advertised as managed. See
+[ADR-0002](adr/0002-coding-client-adapter-lifecycle.md) for the binding
+architecture decision.
 
 ## Required Stages
 

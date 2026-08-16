@@ -69,6 +69,8 @@
     "check:repo-intelligence-map": "node scripts/check-repo-intelligence-map-context.mjs",
     "check:switchboard-cli": "node scripts/check-switchboard-cli.mjs",
     "benchmarks": "node scripts/run-benchmarks.mjs",
+    "benchmarks:check": "node --test scripts/run-benchmarks.node-test.mjs && node scripts/run-benchmarks.mjs --check --no-write",
+    "check:phase0-baseline": "npm run benchmarks:check && node scripts/check-connector-lifecycle-matrix.mjs && node scripts/check-phase-0-security-baseline.mjs && npm run check:p0-trust-seal",
     "check:world-class-benchmarks": "node scripts/check-world-class-benchmarks.mjs",
     "check:world-class-plan": "node scripts/check-world-class-token-savings-plan.mjs",
     "check:p0-trust-seal": "node scripts/check-p0-trust-seal.mjs",

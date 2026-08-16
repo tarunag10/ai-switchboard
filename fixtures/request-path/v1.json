@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "openai-compatible-non-streaming",
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "headers": {"Authorization": "Bearer account-a", "Content-Type": "application/json"},
+        "body": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}"
+      },
+      "expected": {"provider": "openai", "cacheEligible": true, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "exact_cache_hit_is_served_by_intercept_without_second_backend_request"
+    },
+    {
+      "id": "openai-compatible-streaming",
+      "request": {
+        "method": "POST",
+        "path": "/v1/responses",
+        "headers": {"Content-Type": "application/json"},
+        "body": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"stream\":true,\"input\":\"hello\"}"
+      },
+      "expected": {"provider": "openai", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "bypass_forwards_request_to_upstream_and_streams_response_back"
+    },
+    {
+      "id": "anthropic-style-request",
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "headers": {"Anthropic-Version": "2023-06-01", "Content-Type": "application/json", "X-Api-Key": "account-a"},
+        "body": "{\"model\":\"claude-sonnet\",\"temperature\":0,\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}"
+      },
+      "expected": {"provider": "anthropic", "cacheEligible": true, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "intercept_captures_bearer_and_forwards_headers_to_backend"
+    },
+    {
+      "id": "tool-bearing-request",
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "headers": {"Content-Type": "application/json"},
+        "body": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\"}}],\"messages\":[]}"
+      },
+      "expected": {"provider": "openai", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "exact_cache_rejects_streaming_tools_and_sensitive_markers"
+    },
+    {
+      "id": "oversized-request-bypass",
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "headers": {"Content-Type": "application/json"},
+        "body": "{}",
+        "advertisedContentLength": 8388609
+      },
+      "expected": {"provider": "anthropic", "cacheEligible": false, "bypassHeadroom": true, "loopbackSafe": true},
+      "behaviorTest": "headroom_preflight_bypasses_large_api_requests"
+    },
+    {
+      "id": "no-cache-request",
+      "request": {
+        "method": "POST",
+        "path": "/v1/responses",
+        "headers": {"Cache-Control": "no-store", "Content-Type": "application/json"},
+        "body": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"input\":\"hello\"}"
+      },
+      "expected": {"provider": "openai", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "cached_response_requires_json_200_without_private_or_encoded_body"
+    },
+    {
+      "id": "sensitive-data-request",
+      "request": {
+        "method": "POST",
+        "path": "/v1/messages",
+        "headers": {"Content-Type": "application/json"},
+        "body": "{\"model\":\"claude-sonnet\",\"temperature\":0,\"messages\":[{\"role\":\"user\",\"content\":\"password: fixture-secret\"}]}"
+      },
+      "expected": {"provider": "anthropic", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "exact_cache_rejects_streaming_tools_and_sensitive_markers"
+    },
+    {
+      "id": "account-workspace-namespace",
+      "request": {
+        "method": "POST",
+        "path": "/v1/chat/completions",
+        "headers": {"Authorization": "Bearer account-a", "Content-Type": "application/json", "X-Switchboard-Workspace": "workspace-a"},
+        "body": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"messages\":[{\"role\":\"user\",\"content\":\"hello\"}]}",
+        "alternateScopeHeaders": {"Authorization": "Bearer account-b", "X-Switchboard-Workspace": "workspace-b"}
+      },
+      "expected": {"provider": "openai", "cacheEligible": true, "bypassHeadroom": false, "loopbackSafe": true, "namespaceIsolated": true},
+      "behaviorTest": "exact_cache_namespaces_api_key_accounts_and_requires_temperature"
+    },
+    {
+      "id": "optimizer-unavailable",
+      "request": {"method": "POST", "path": "/v1/messages", "headers": {"Content-Type": "application/json"}, "body": "{}"},
+      "expected": {"provider": "anthropic", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "intercept_returns_502_when_backend_is_unreachable"
+    },
+    {
+      "id": "downstream-unavailable",
+      "request": {"method": "POST", "path": "/v1/messages", "headers": {"Content-Type": "application/json"}, "body": "{}"},
+      "expected": {"provider": "anthropic", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "bypass_returns_502_when_upstream_unreachable"
+    },
+    {
+      "id": "malformed-response",
+      "request": {"method": "POST", "path": "/v1/chat/completions", "headers": {"Content-Type": "application/json"}, "body": "{\"model\":\"gpt-4o-mini\",\"temperature\":0,\"messages\":[]}"},
+      "expected": {"provider": "openai", "cacheEligible": true, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "malformed_response_is_never_cacheable"
+    },
+    {
+      "id": "client-cancellation",
+      "request": {"method": "POST", "path": "/v1/messages", "headers": {"Content-Type": "application/json"}, "body": "{}"},
+      "expected": {"provider": "anthropic", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "partial_request_eof_is_treated_as_cancellation"
+    },
+    {
+      "id": "retry-after-runtime-recovery",
+      "request": {"method": "POST", "path": "/v1/messages", "headers": {"Content-Type": "application/json"}, "body": "{}"},
+      "expected": {"provider": "anthropic", "cacheEligible": false, "bypassHeadroom": false, "loopbackSafe": true},
+      "behaviorTest": "intercept_picks_up_backend_port_changes_between_connections"
+    }
+  ]
+}

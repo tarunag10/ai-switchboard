@@ -223,6 +223,20 @@ pub(crate) fn backup_if_exists(path: &Path) -> Result<Option<PathBuf>> {
     }
     std::fs::copy(path, &backup_path)
         .with_context(|| format!("creating backup {}", backup_path.display()))?;
+    // Backups can contain provider endpoints, account identifiers, or other
+    // user configuration. Never let a permissive source mode make the backup
+    // group/world-readable.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = std::fs::metadata(&backup_path)
+            .with_context(|| format!("reading backup permissions {}", backup_path.display()))?
+            .permissions();
+        permissions.set_mode(0o600);
+        std::fs::set_permissions(&backup_path, permissions)
+            .with_context(|| format!("restricting backup permissions {}", backup_path.display()))?;
+    }
 
     // Prune old backups - keep only the 3 most recent for this base path.
     let file_name = path
@@ -253,6 +267,38 @@ pub(crate) fn backup_if_exists(path: &Path) -> Result<Option<PathBuf>> {
     }
 
     Ok(Some(backup_path))
+}
+
+#[cfg(test)]
+mod security_tests {
+    use super::backup_if_exists;
+
+    #[cfg(unix)]
+    #[test]
+    fn config_backups_are_owner_read_write_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let config = temp.path().join("provider-config.json");
+        std::fs::write(&config, r#"{"token":"fixture-only"}"#).expect("seed config");
+        std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o644))
+            .expect("make source deliberately permissive");
+
+        let backup = backup_if_exists(&config)
+            .expect("create backup")
+            .expect("backup path");
+        let mode = std::fs::metadata(&backup)
+            .expect("backup metadata")
+            .permissions()
+            .mode()
+            & 0o777;
+
+        assert_eq!(mode, 0o600);
+        assert_eq!(
+            std::fs::read_to_string(backup).expect("backup content"),
+            r#"{"token":"fixture-only"}"#
+        );
+    }
 }
 
 pub(crate) fn managed_marker_start(prefix: &str, block_id: &str) -> String {

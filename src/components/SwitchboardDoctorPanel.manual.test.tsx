@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -96,7 +96,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+        "Dry-run target: User/settings.json; marker: ai-switchboard:cursor",
       ),
     ).not.toBeInTheDocument();
 
@@ -104,7 +104,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
 
     expect(
       screen.getByText(
-        "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+        "Dry-run target: User/settings.json; marker: ai-switchboard:cursor",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/RTK-only mode/i)).toBeInTheDocument();
@@ -123,9 +123,15 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
         "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Clear index" })).toHaveLength(
-      2,
-    );
+    const actions = screen.getByRole("heading", {
+      name: "Actions",
+    }).parentElement;
+    expect(actions).not.toBeNull();
+    expect(
+      within(actions as HTMLElement).getAllByRole("button", {
+        name: "Clear index",
+      }),
+    ).toHaveLength(2);
   });
 
   it("treats corrupt Repo Intelligence storage as automatic cleanup", () => {
@@ -161,8 +167,14 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
         "Use Clear index to remove the corrupt or unreadable saved Repo Intelligence summary from Switchboard managed storage, then open Addons and re-index a local repo before copying packs into another agent.",
       ),
     ).toBeInTheDocument();
+    const actions = screen.getByRole("heading", {
+      name: "Actions",
+    }).parentElement;
+    expect(actions).not.toBeNull();
     expect(
-      screen.getByRole("button", { name: "Clear index" }),
+      within(actions as HTMLElement).getByRole("button", {
+        name: "Clear index",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -230,8 +242,14 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     );
 
     expect(screen.getByText("Auto repair")).toBeInTheDocument();
+    const actions = screen.getByRole("heading", {
+      name: "Actions",
+    }).parentElement;
+    expect(actions).not.toBeNull();
     expect(
-      screen.getByRole("button", { name: "Install RTK" }),
+      within(actions as HTMLElement).getByRole("button", {
+        name: "Install RTK",
+      }),
     ).toBeInTheDocument();
   });
 });

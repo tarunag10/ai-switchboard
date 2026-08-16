@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "controls": [
+    {
+      "id": "remote-gateway-probes-disabled",
+      "tests": ["readiness_never_claims_a_profile_is_live_or_contacts_by_default", "remote_profiles_cannot_enable_connectivity_probing"],
+      "sourceNeedles": [{"file": "src-tauri/src/gateway_readiness.rs", "needle": "run_local_connectivity.unwrap_or(false) && profile_id == \"litellm-local-cache\""}]
+    },
+    {
+      "id": "loopback-only-local-probes",
+      "tests": ["remote_url_is_not_eligible", "non_loopback_host_is_rejected", "origin_header_causes_rejection_even_on_loopback"],
+      "sourceNeedles": [{"file": "src-tauri/src/optimization_addons_readiness.rs", "needle": "address.ip().is_loopback()"}]
+    },
+    {
+      "id": "log-redaction",
+      "tests": ["redacts_fake_secrets_in_nested_payloads"],
+      "sourceNeedles": [{"file": "src-tauri/src/message_logging.rs", "needle": "Value::String(text) => Value::String(redact_text(&text))"}]
+    },
+    {
+      "id": "repo-intelligence-secret-exclusions",
+      "tests": ["excludes_secret_like_paths_from_default_packs"],
+      "sourceNeedles": [{"file": "src-tauri/src/repo_intelligence.rs", "needle": "secret-like path excluded from default packs"}]
+    },
+    {
+      "id": "cache-namespace-isolation",
+      "tests": ["exact_cache_namespaces_api_key_accounts_and_requires_temperature", "namespace_invalidation_clears_all_variants_but_not_other_scopes", "unscoped_namespace_is_fail_closed"],
+      "sourceNeedles": [{"file": "src-tauri/src/proxy_intercept.rs", "needle": "x-switchboard-workspace"}]
+    },
+    {
+      "id": "config-backup-permissions",
+      "tests": ["config_backups_are_owner_read_write_only"],
+      "sourceNeedles": [{"file": "src-tauri/src/managed_files.rs", "needle": "permissions.set_mode(0o600)"}]
+    },
+    {
+      "id": "external-url-validation",
+      "tests": ["external_link_validator_rejects_local_and_unsafe_links"],
+      "sourceNeedles": [{"file": "src-tauri/src/external_open.rs", "needle": "is_blocked_external_link_host"}]
+    },
+    {
+      "id": "updater-signature-verification",
+      "tests": ["resolve_release_updater_config_errors_when_pubkey_missing", "updater_release_config_accepts_explicit_feed"],
+      "sourceNeedles": [{"file": "src-tauri/src/app_update_commands.rs", "needle": ".pubkey(config.pubkey)"}]
+    },
+    {
+      "id": "managed-footprint-secret-free",
+      "tests": ["managed_footprint_report_is_redacted_and_lists_core_surfaces", "managed_footprint_marks_existing_paths_without_reading_values"],
+      "sourceNeedles": [{"file": "src-tauri/src/client_footprint.rs", "needle": "pub(crate) fn get_managed_footprint()"}]
+    }
+  ]
+}

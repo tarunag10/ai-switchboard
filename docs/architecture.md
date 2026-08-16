@@ -1,6 +1,13 @@
-# Mac AI Switchboard Architecture
+# AI Switchboard Architecture
 
-Mac AI Switchboard is a small Tauri desktop shell with a local daemon-oriented backend built around the Headroom engine.
+AI Switchboard is a local-first optimization, routing, and control plane for AI
+coding clients and agents. The current distribution, AI Switchboard for Mac,
+uses a Tauri desktop shell and a local daemon-oriented backend. Headroom is the
+first optimization engine used by the product; it is not the product itself.
+
+Canonical architecture vocabulary is defined in
+[Product Terminology](terminology.md). Decisions that constrain future changes
+are indexed in [Architecture Decision Records](adr/README.md).
 
 - `src/`: Tauri frontend tray UI, onboarding surfaces, Switchboard controls, Addons, Doctor, live activity, and local-first account gating.
 - `src-tauri/src/lib.rs`: Tauri command entrypoints, tray wiring, Switchboard mode orchestration, Doctor report construction, and release/update commands.
@@ -13,23 +20,23 @@ Mac AI Switchboard is a small Tauri desktop shell with a local daemon-oriented b
 
 ## Bootstrap Strategy
 
-The downloadable app stays small: it ships the Tauri shell, Rust backend, and installer logic. Third-party Python components are fetched on first launch into Mac AI Switchboard's managed application support directory.
+The downloadable app stays small: it ships the Tauri shell, Rust backend, and installer logic. Third-party Python components are fetched on first launch into AI Switchboard for Mac's managed application support directory.
 
 The packaged app identity is `Mac AI Switchboard`, and new runtime storage lives under `~/Library/Application Support/Mac AI Switchboard`. On first launch after an older build, the app copies legacy `~/Library/Application Support/Headroom` storage into the current app storage path, records `config/migrations.json`, and preserves the legacy directory for one-release compatibility with existing runtimes, logs, receipts, backups, cleanup paths, and reversible client setup state.
 
 ## V1 Boundaries
 
 - macOS is the polished v1 target.
-- `headroom` is required for proxy compression.
+- Headroom is the current `OptimizationEngine` for proxy compression.
 - `rtk` is required for local shell-output compression.
-- Managed tools may be Python-based or standalone binaries, but Headroom owns their install path.
-- Client configuration changes require explicit user consent and rollback support.
+- Managed tools may be Python-based or standalone binaries, but AI Switchboard owns their managed install path and lifecycle.
+- Coding-client configuration changes require explicit user consent and rollback support.
 - Managed connectors are visible and repairable. Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, Zed AI, Goose, and Grok / xAI CLI have managed setup/verify/repair coverage for their proven routing surfaces; Goose's native writes are limited to documented OpenAI/Anthropic endpoint fields plus the read-only Repo Memory MCP bridge, and Grok's to `endpoints.models_base_url`. Cursor, Aider, Continue, Qwen Code, and Amazon Q Developer CLI remain guided or detected until their native surfaces satisfy the same backup, restore, Doctor verification, rollback, and Off-mode cleanup contract. Each connector carries a readiness contract: config surfaces the app may inspect, safe Switchboard modes available today, automation gates, the current manual workflow, and the first safe automation step.
 - Repo Intelligence is read-only in the current app: it scans local repo metadata, estimates tokens, builds bounded context packs, persists the latest summary and fingerprint/parser metadata in managed app storage, exposes Doctor warnings for stale or missing indexes, and lets users clear the saved index. It now surfaces dependency hubs, path-based import/dependency edges, content-derived import references, tree-sitter-assisted call references, reverse dependency hubs, and a bounded symbol graph alongside directories, languages, entrypoints, tests, and config hubs. The index records cache state, parser health, skipped-file reasons, and graph inputs so unchanged repositories can reuse trusted metadata while changed or mismatched indexes are rebuilt safely. The app exposes read-only local query commands for manifest, pack, handoff, freshness, symbol, and dependent lookups, plus an app-owned repo-memory MCP stdio lifecycle with install/start/stop controls, read-only smoke checks, stale-config detection, and periodic health rechecks while the app session supervises it. It intentionally does not provide whole-program type or dynamic-dispatch resolution, writable repository automation, or signed installed-app/reboot proof.
 
 ## Managed Connector Architecture
 
-Managed connectors are intentionally split into three layers:
+Managed `CodingClientAdapter` implementations are intentionally split into three layers:
 
 - Backend detection in `src-tauri/src/client_adapters.rs` looks for local binaries and known config surfaces without writing files.
 - Frontend contract data in `src/lib/plannedConnectors.ts` explains setup phase, safe modes, readiness stages, automation gates, safety badges, native config gate state, and rollback strategy.
@@ -44,6 +51,27 @@ all are behind the shared lifecycle. Remaining gated connectors stay manual
 while provider/editor native config mutation waits for model/account
 compatibility, fixture-home restore tests, Doctor verification, rollback, and
 Off cleanup.
+
+## Request and Cache Boundaries
+
+Coding clients and agents target a stable, Switchboard-owned local intercept.
+The intercept remains a small safety boundary and delegates policy,
+optimization, and destination behavior instead of containing provider-specific
+branches. Headroom is the first `OptimizationEngine`. A provider or self-hosted
+serving destination is an `InferenceEndpoint`.
+
+Cache terms describe separate ownership boundaries:
+
+- **response cache**: AI Switchboard's exact replay cache;
+- **prompt cache**: a provider-side prefix or prompt cache that Switchboard may
+  optimize for but does not own;
+- **KV cache**: an inference-runtime cache owned by the serving runtime;
+- **semantic cache**: reserved for a future approximate-reuse system based on
+  semantic similarity, never the name of exact replay behavior.
+
+Existing storage keys or compatibility identifiers may retain historical names
+until a separately tested migration is available. User-facing architecture and
+new identifiers must use the taxonomy above.
 
 ## Repo Intelligence
 
