@@ -731,6 +731,7 @@ mod doctor_tests {
             enabled: false,
             verified: false,
             setup_verification: None,
+            adapter_contract: None,
             last_configured_at: None,
         }]);
 
@@ -853,6 +854,7 @@ mod doctor_tests {
             enabled,
             verified,
             setup_verification: None,
+            adapter_contract: None,
             last_configured_at: None,
         }
     }

@@ -2,7 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <!-- AI Switchboard is a regular Mac app with a Dock presence. The tray icon
+       remains available as a companion while the main window is hidden. -->
   <key>LSUIElement</key>
-  <true/>
+  <false/>
 </dict>
 </plist>

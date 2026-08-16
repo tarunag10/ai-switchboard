@@ -91,41 +91,39 @@ mod tests {
     use anyhow::{ensure, Result};
 
     use super::*;
-    use crate::inference_endpoint::{InferenceCapabilities, InferenceEndpoint, InferenceProtocol};
-
-    struct MockEndpoint;
-
-    impl InferenceEndpoint for MockEndpoint {
-        fn id(&self) -> &str {
-            "mock-local"
-        }
-
-        fn display_name(&self) -> &str {
-            "Deterministic local mock"
-        }
-
-        fn protocol(&self) -> InferenceProtocol {
-            InferenceProtocol::LocalMock
-        }
-
-        fn capabilities(&self) -> InferenceCapabilities {
-            InferenceCapabilities {
-                streaming: false,
-                tool_use: false,
-                runtime_optimization: true,
-            }
-        }
-    }
+    use crate::inference_endpoint::{
+        CredentialStrategy, EndpointCapabilities, HealthPolicy, InferenceEndpoint,
+        InferenceProtocol, ModelDiscovery, OpenAiCompatibleEndpoint, PrefixCacheEvidence,
+    };
 
     struct MockTarget {
-        endpoint: MockEndpoint,
+        endpoint: OpenAiCompatibleEndpoint,
         warmed: AtomicBool,
     }
 
     impl MockTarget {
         fn new() -> Self {
             Self {
-                endpoint: MockEndpoint,
+                endpoint: OpenAiCompatibleEndpoint::new(
+                    "mock-local",
+                    "Deterministic local mock",
+                    "http://127.0.0.1:8000/v1",
+                    HealthPolicy::Disabled,
+                    "mock-model",
+                    EndpointCapabilities {
+                        protocol: InferenceProtocol::OpenAiCompatible,
+                        streaming: false,
+                        tools: false,
+                        structured_output: true,
+                        max_context: Some(4_096),
+                        prefix_cache_evidence: PrefixCacheEvidence::Unknown,
+                        health_endpoint: None,
+                        model_discovery: ModelDiscovery::Static,
+                    },
+                    CredentialStrategy::None,
+                    true,
+                )
+                .expect("valid local benchmark endpoint"),
                 warmed: AtomicBool::new(false),
             }
         }
@@ -192,8 +190,11 @@ mod tests {
         assert_eq!(first[2].end_to_end_latency_ms, 80.0);
         assert_eq!(first[3].input_tokens, 75);
         assert_eq!(first[3].end_to_end_latency_ms, 80.0);
-        assert_eq!(target.endpoint().protocol(), InferenceProtocol::LocalMock);
-        assert!(target.endpoint().capabilities().runtime_optimization);
+        assert_eq!(
+            target.endpoint().protocol(),
+            InferenceProtocol::OpenAiCompatible
+        );
+        assert!(target.endpoint().capabilities().structured_output);
     }
 
     #[test]

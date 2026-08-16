@@ -51,11 +51,12 @@ describe("notificationActionView", () => {
     expect(notificationActionView("connectors")).toBe("settings");
   });
 
-  it("routes release and rollback evidence actions to settings", () => {
+  it("routes release evidence to settings and Doctor actions to Doctor", () => {
     expect(notificationActionView("release")).toBe("settings");
     expect(notificationActionView("release-readiness")).toBe("settings");
-    expect(notificationActionView("rollback")).toBe("settings");
-    expect(notificationActionView("rollback-center")).toBe("settings");
+    expect(notificationActionView("run-doctor")).toBe("doctor");
+    expect(notificationActionView("rollback")).toBe("doctor");
+    expect(notificationActionView("rollback-center")).toBe("doctor");
   });
 
   it("routes optimize/activity actions to their respective views", () => {
@@ -115,7 +116,7 @@ describe("safeNotificationActionView", () => {
   it("keeps local notification actions in local-only mode", () => {
     expect(safeNotificationActionView("runtime", true)).toBe("settings");
     expect(safeNotificationActionView("release-readiness", true)).toBe("settings");
-    expect(safeNotificationActionView("rollback-center", true)).toBe("settings");
+    expect(safeNotificationActionView("rollback-center", true)).toBe("doctor");
     expect(safeNotificationActionView("activity", true)).toBe("notifications");
   });
 

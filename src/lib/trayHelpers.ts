@@ -37,9 +37,11 @@ export function notificationActionView(action: string | null): TrayView | null {
     case "connectors":
     case "release":
     case "release-readiness":
+      return "settings";
+    case "run-doctor":
     case "rollback":
     case "rollback-center":
-      return "settings";
+      return "doctor";
     case "optimize":
       return "optimization";
     case "activity":

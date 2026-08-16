@@ -34,6 +34,128 @@ pub(crate) struct PromptSegmentPlan {
     pub(crate) original_index: usize,
 }
 
+/// Content-free request characteristics consumed by the unified policy facade.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RequestFacts {
+    pub(crate) task: String,
+    pub(crate) requested_model: String,
+    pub(crate) cheap_model: String,
+    pub(crate) capable_model: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClientFacts {
+    pub(crate) client: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContextFacts {
+    pub(crate) context_tokens: u64,
+    pub(crate) context_window_tokens: u64,
+    pub(crate) projected_next_turn_tokens: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CacheFacts {
+    pub(crate) prompt_segments: Vec<PromptSegmentPlan>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct EndpointFacts {
+    pub(crate) endpoint_id: String,
+    pub(crate) model_id: String,
+    pub(crate) enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UserPolicy {
+    pub(crate) actions: OptimizationActionPolicy,
+    pub(crate) compaction_threshold_percent: u8,
+}
+
+impl Default for UserPolicy {
+    fn default() -> Self {
+        Self {
+            actions: OptimizationActionPolicy::default(),
+            compaction_threshold_percent: 90,
+        }
+    }
+}
+
+/// One conservative view over the existing independent policy decisions.
+///
+/// `selected_model` is always the user's requested model in Phase 1. The
+/// existing model-routing heuristic is preserved as `model_route_observation`
+/// so benchmark collection cannot silently promote it into live routing.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RouteDecision {
+    pub(crate) selected_endpoint: String,
+    pub(crate) selected_model: String,
+    pub(crate) prompt_segment_order: Vec<String>,
+    pub(crate) compaction_action: CompactionDecision,
+    pub(crate) model_route_observation: ModelRouteDecision,
+    pub(crate) reasons: Vec<String>,
+    pub(crate) observe_only: bool,
+}
+
+pub(crate) fn decide_route(
+    request: &RequestFacts,
+    client: &ClientFacts,
+    context: ContextFacts,
+    cache: &CacheFacts,
+    endpoint: &EndpointFacts,
+    policy: &UserPolicy,
+) -> RouteDecision {
+    let prompt_segment_order = plan_prompt_cache_order(&policy.actions, &cache.prompt_segments);
+    let compaction_action = actionable_compaction_decision(
+        &policy.actions,
+        CompactionInput {
+            context_tokens: context.context_tokens,
+            context_window_tokens: context.context_window_tokens,
+            projected_next_turn_tokens: context.projected_next_turn_tokens,
+            threshold_percent: policy.compaction_threshold_percent,
+        },
+    );
+    let model_route_observation = actionable_model_route(
+        &policy.actions,
+        &ModelRouteInput {
+            client: client.client.clone(),
+            task: request.task.clone(),
+            requested_model: request.requested_model.clone(),
+            cheap_model: request.cheap_model.clone(),
+            capable_model: request.capable_model.clone(),
+            enabled: endpoint.enabled,
+        },
+    );
+    let mut reasons = vec![
+        compaction_action.reason.clone(),
+        model_route_observation.reason.clone(),
+    ];
+    if !endpoint.enabled {
+        reasons.push("endpoint_disabled_no_automatic_fallback".to_string());
+    }
+    if endpoint.model_id != request.requested_model {
+        reasons.push("configured_endpoint_model_not_promoted".to_string());
+    }
+
+    RouteDecision {
+        selected_endpoint: endpoint.endpoint_id.clone(),
+        selected_model: request.requested_model.clone(),
+        prompt_segment_order,
+        compaction_action,
+        model_route_observation,
+        reasons,
+        observe_only: true,
+    }
+}
+
 pub(crate) fn plan_prompt_cache_order(
     policy: &OptimizationActionPolicy,
     segments: &[PromptSegmentPlan],
@@ -171,5 +293,114 @@ mod tests {
 
         assert!(decision.should_compact);
         assert_eq!(decision.reason, "projected_context_crosses_threshold");
+    }
+
+    #[test]
+    fn unified_facade_reuses_each_policy_and_never_promotes_model_routing() {
+        let request = RequestFacts {
+            task: "write commit message for staged diff".to_string(),
+            requested_model: "capable".to_string(),
+            cheap_model: "cheap".to_string(),
+            capable_model: "capable".to_string(),
+        };
+        let decision = decide_route(
+            &request,
+            &ClientFacts {
+                client: "codex".to_string(),
+            },
+            ContextFacts {
+                context_tokens: 85,
+                context_window_tokens: 100,
+                projected_next_turn_tokens: 5,
+            },
+            &CacheFacts {
+                prompt_segments: vec![
+                    PromptSegmentPlan {
+                        id: "user".to_string(),
+                        stable: false,
+                        cacheable_tokens: 10,
+                        original_index: 0,
+                    },
+                    PromptSegmentPlan {
+                        id: "system".to_string(),
+                        stable: true,
+                        cacheable_tokens: 100,
+                        original_index: 1,
+                    },
+                ],
+            },
+            &EndpointFacts {
+                endpoint_id: "current-provider".to_string(),
+                model_id: "capable".to_string(),
+                enabled: true,
+            },
+            &UserPolicy::default(),
+        );
+
+        assert_eq!(decision.selected_endpoint, "current-provider");
+        assert_eq!(decision.selected_model, "capable");
+        assert_eq!(decision.model_route_observation.selected_model, "cheap");
+        assert!(decision.model_route_observation.observe_only);
+        assert!(decision.compaction_action.should_compact);
+        assert_eq!(decision.prompt_segment_order, vec!["system", "user"]);
+        assert!(decision.observe_only);
+    }
+
+    #[test]
+    fn unified_facade_honors_all_existing_disable_switches() {
+        let decision = decide_route(
+            &RequestFacts {
+                task: "lint".to_string(),
+                requested_model: "requested".to_string(),
+                cheap_model: "cheap".to_string(),
+                capable_model: "capable".to_string(),
+            },
+            &ClientFacts {
+                client: "codex".to_string(),
+            },
+            ContextFacts {
+                context_tokens: 95,
+                context_window_tokens: 100,
+                projected_next_turn_tokens: 5,
+            },
+            &CacheFacts {
+                prompt_segments: vec![
+                    PromptSegmentPlan {
+                        id: "user".to_string(),
+                        stable: false,
+                        cacheable_tokens: 1,
+                        original_index: 0,
+                    },
+                    PromptSegmentPlan {
+                        id: "system".to_string(),
+                        stable: true,
+                        cacheable_tokens: 10,
+                        original_index: 1,
+                    },
+                ],
+            },
+            &EndpointFacts {
+                endpoint_id: "disabled-endpoint".to_string(),
+                model_id: "different".to_string(),
+                enabled: false,
+            },
+            &UserPolicy {
+                actions: OptimizationActionPolicy {
+                    prompt_cache_reorder_enabled: false,
+                    preemptive_compaction_enabled: false,
+                    model_routing_enabled: false,
+                    max_prompt_reorder_items: 24,
+                },
+                compaction_threshold_percent: 90,
+            },
+        );
+
+        assert_eq!(decision.prompt_segment_order, vec!["user", "system"]);
+        assert!(!decision.compaction_action.should_compact);
+        assert_eq!(decision.model_route_observation.selected_model, "requested");
+        assert!(decision
+            .reasons
+            .contains(&"endpoint_disabled_no_automatic_fallback".to_string()));
+        assert_eq!(decision.selected_model, "requested");
     }
 }

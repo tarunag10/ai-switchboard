@@ -15,22 +15,18 @@
       {
         "label": "main",
         "title": "AI Switchboard",
-        "width": 760,
-        "height": 560,
-        "resizable": false,
+        "width": 1180,
+        "height": 760,
+        "minWidth": 760,
+        "minHeight": 560,
+        "resizable": true,
         "fullscreen": false,
         "visible": false,
         "alwaysOnTop": false,
-        "skipTaskbar": true,
-        "decorations": false,
+        "skipTaskbar": false,
+        "decorations": true,
         "center": true,
-        "transparent": true,
-        "windowEffects": {
-          "effects": [
-            "sidebar"
-          ],
-          "state": "followsWindowActiveState"
-        }
+        "transparent": false
       },
       {
         "label": "launcher",

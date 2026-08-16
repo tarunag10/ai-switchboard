@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::client_adapter_contract::adapter_status_for_listing;
 use crate::client_adapters::{
     configured_timestamp, is_configured, load_setup_state, normalized_setup_id, verify_client_setup,
 };
@@ -25,11 +26,9 @@ pub fn list_client_connectors(
         .map(|spec| {
             let manifest = connector_manifest(spec.id);
             let lifecycle_managed = connector_has_complete_lifecycle_fixture(spec.id);
-            let installed = detected_clients
+            let detected_client = detected_clients
                 .iter()
-                .find(|client| client.id == spec.id)
-                .map(|client| client.installed)
-                .unwrap_or(false);
+                .find(|client| client.id == spec.id);
             // Fall back to the remembered snapshot while restore_client_setups
             // is still re-applying on launch, so the connector doesn't flash
             // "disabled" during the async restore window after a restart.
@@ -37,14 +36,33 @@ pub fn list_client_connectors(
                 || setup_state
                     .remembered_clients
                     .contains_key(normalized_setup_id(spec.id));
-            let setup_verification = if enabled {
-                verify_client_setup(spec.id).ok()
-            } else {
-                None
-            };
-            let verified = setup_verification
+            let adapter_contract = detected_client
+                .and_then(|detected| {
+                    adapter_status_for_listing(spec.id, detected, enabled)
+                        .ok()
+                        .flatten()
+                });
+            let installed = adapter_contract
                 .as_ref()
-                .map(|result| result.verified)
+                .map(|status| status.detection.installed)
+                .or_else(|| detected_client.map(|client| client.installed))
+                .unwrap_or(false);
+            let setup_verification = adapter_contract
+                .as_ref()
+                .and_then(|status| status.verification.as_ref())
+                .map(|report| crate::models::ClientSetupVerification {
+                    client_id: report.client_id.clone(),
+                    verified: report.verified,
+                    proxy_reachable: report.proxy_reachable,
+                    checks: report.checks.clone(),
+                    failures: report.failures.clone(),
+                })
+                .or_else(|| enabled.then(|| verify_client_setup(spec.id).ok()).flatten());
+            let verified = adapter_contract
+                .as_ref()
+                .and_then(|status| status.verification.as_ref())
+                .map(|report| report.verified)
+                .or_else(|| setup_verification.as_ref().map(|result| result.verified))
                 .unwrap_or(false);
 
             ClientConnectorStatus {
@@ -72,10 +90,10 @@ pub fn list_client_connectors(
                     .as_ref()
                     .map(manifest_detection_sources)
                     .unwrap_or_else(|| vec!["App state and local config".to_string()]),
-                detection_evidence: detected_clients
-                    .iter()
-                    .find(|client| client.id == spec.id)
-                    .map(|client| client.notes.clone())
+                detection_evidence: adapter_contract
+                    .as_ref()
+                    .map(|status| status.detection.evidence.clone())
+                    .or_else(|| detected_client.map(|client| client.notes.clone()))
                     .unwrap_or_default(),
                 config_locations: {
                     let manifest_locations = manifest_config_locations(manifest.as_ref());
@@ -117,6 +135,7 @@ pub fn list_client_connectors(
                 enabled,
                 verified,
                 setup_verification,
+                adapter_contract,
                 last_configured_at: configured_timestamp(&setup_state, spec.id),
             }
         })
@@ -125,9 +144,6 @@ pub fn list_client_connectors(
     connectors.extend(PLANNED_CLIENT_SPECS.iter().map(|spec| {
         let manifest = connector_manifest(spec.id);
         let detected_client = detected_clients.iter().find(|client| client.id == spec.id);
-        let installed = detected_client
-            .map(|client| client.installed)
-            .unwrap_or(false);
         let detection_evidence = detected_client
             .map(|client| client.notes.clone())
             .unwrap_or_else(|| vec!["Not checked yet.".to_string()]);
@@ -136,14 +152,33 @@ pub fn list_client_connectors(
         let lifecycle_managed =
             has_implemented_setup && connector_has_complete_lifecycle_fixture(spec.id);
         let enabled = has_implemented_setup && is_configured(&setup_state, spec.id);
-        let setup_verification = if enabled {
-            verify_client_setup(spec.id).ok()
-        } else {
-            None
-        };
-        let verified = setup_verification
+        let adapter_contract = detected_client
+            .and_then(|detected| {
+                adapter_status_for_listing(spec.id, detected, enabled)
+                    .ok()
+                    .flatten()
+            });
+        let installed = adapter_contract
             .as_ref()
-            .map(|result| result.verified)
+            .map(|status| status.detection.installed)
+            .or_else(|| detected_client.map(|client| client.installed))
+            .unwrap_or(false);
+        let setup_verification = adapter_contract
+            .as_ref()
+            .and_then(|status| status.verification.as_ref())
+            .map(|report| crate::models::ClientSetupVerification {
+                client_id: report.client_id.clone(),
+                verified: report.verified,
+                proxy_reachable: report.proxy_reachable,
+                checks: report.checks.clone(),
+                failures: report.failures.clone(),
+            })
+            .or_else(|| enabled.then(|| verify_client_setup(spec.id).ok()).flatten());
+        let verified = adapter_contract
+            .as_ref()
+            .and_then(|status| status.verification.as_ref())
+            .map(|report| report.verified)
+            .or_else(|| setup_verification.as_ref().map(|result| result.verified))
             .unwrap_or(false);
         let automation_path = planned_connector_automation_path(
             spec,
@@ -282,6 +317,7 @@ pub fn list_client_connectors(
             enabled,
             verified,
             setup_verification,
+            adapter_contract,
             last_configured_at: configured_timestamp(&setup_state, spec.id),
         }
     }));

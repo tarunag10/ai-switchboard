@@ -879,6 +879,8 @@ pub struct ClientConnectorStatus {
     pub verified: bool,
     #[serde(default)]
     pub setup_verification: Option<ClientSetupVerification>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter_contract: Option<crate::client_adapter_contract::CodingClientAdapterStatus>,
     pub last_configured_at: Option<String>,
 }
 

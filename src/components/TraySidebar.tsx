@@ -22,16 +22,16 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: "home", label: "Home", icon: House },
-  { id: "usage", label: "Usage", icon: Calculator },
+  { id: "home", label: "Overview & Connectors", icon: House },
+  { id: "optimization", label: "Optimization", icon: Sliders },
+  { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
+  { id: "usage", label: "Activity & Savings", icon: Calculator },
+  { id: "doctor", label: "Doctor & Rollback", icon: FirstAidKit },
   { id: "xray", label: "Token X-Ray", icon: Eye },
   { id: "briefing", label: "Daily Briefing", icon: Graph },
   { id: "agentMemory", label: "Agent Memory", icon: Brain },
-  { id: "doctor", label: "Doctor", icon: FirstAidKit },
-  { id: "optimization", label: "Optimize", icon: Sliders },
-  { id: "notifications", label: "Activity", icon: Bell },
+  { id: "notifications", label: "Event Log", icon: Bell },
   { id: "repoMap", label: "Repo Map", icon: Graph },
-  { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
   { id: "addons", label: "Addons", icon: PuzzlePiece },
 ];
 
@@ -47,7 +47,7 @@ export function TraySidebar({ activeView, localOnlyMode, onSelectView }: TraySid
       <div className="tray-sidebar__logo">
         <img src={macAiSwitchboardLogo} alt="AI Switchboard" />
       </div>
-      <nav className="tray-nav" aria-label="Tray navigation">
+      <nav className="tray-nav" aria-label="AI Switchboard navigation">
         {navItems.map((item) => (
           <button
             key={item.id}

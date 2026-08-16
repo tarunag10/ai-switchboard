@@ -16,6 +16,7 @@ mod claude_cli;
 mod claude_sessions;
 mod cli_discovery;
 mod cli_entry;
+mod client_adapter_contract;
 mod client_adapters;
 mod client_integrations;
 mod client_managed_config;
@@ -28,6 +29,7 @@ mod client_setup_disable;
 mod client_setup_verify;
 mod client_setup_state;
 mod compression_commands;
+mod context_provider;
 mod client_cleanup;
 mod client_connector_list;
 mod client_connector_status;
@@ -67,6 +69,7 @@ mod message_logging;
 mod message_settings_commands;
 mod models;
 mod optimization;
+mod optimization_engine;
 mod optimization_addons_readiness;
 mod optimization_commands;
 mod port_conflict;
@@ -99,6 +102,7 @@ mod switchboard_commands;
 mod token_xray;
 mod tool_manager;
 mod tray_runtime;
+#[cfg(test)]
 mod tray_window;
 
 use std::process::Command;
@@ -111,10 +115,11 @@ use serde_json::{json, Value};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
-use tauri::{AppHandle, Rect, Window, WindowEvent};
+use tauri::{AppHandle, Window, WindowEvent};
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
+use crate::optimization_engine::{HeadroomOptimizationEngine, OptimizationEngine};
 use crate::state::AppState;
 pub(crate) use runtime_failure_reporting::{
     capture_headroom_start_failure, capture_upgrade_failure, classify_upgrade_error,
@@ -128,8 +133,6 @@ pub(crate) use runtime_failure_reporting::{
 
 const SENTRY_DSN: Option<&str> = option_env!("HEADROOM_SENTRY_DSN");
 const AUTOSTART_LAUNCH_ARG: &str = "--autostart";
-const MAIN_WINDOW_BLUR_HIDE_DELAY_MS: u64 = 150;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum QuitSource {
     SettingsButton,
@@ -296,18 +299,15 @@ fn show_dashboard_window(app: AppHandle) -> Result<(), String> {
 
     ensure_runtime_ready_for_tray(&app);
     hide_launcher_window(&app).map_err(|err| err.to_string())?;
-    show_main_window(&app, None).map_err(|err| err.to_string())
+    show_main_window(&app).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 async fn pause_headroom(app: AppHandle) -> Result<(), String> {
     let state: tauri::State<'_, AppState> = app.state();
-    state.set_runtime_paused(true);
-    // A deliberate user pause is not an auto-pause; clear the flag so the
-    // self-heal loop doesn't fight the user by auto-resuming.
-    state.set_runtime_auto_paused(false);
-    state.stop_headroom();
-    client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
+    HeadroomOptimizationEngine::new(&state)
+        .stop()
+        .map_err(|err| err.to_string())?;
     analytics::track_event(&app, "runtime_paused", None);
     Ok(())
 }
@@ -315,10 +315,9 @@ async fn pause_headroom(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn start_headroom(app: AppHandle) -> Result<(), String> {
     let state: tauri::State<'_, AppState> = app.state();
-    state.resume_runtime().map_err(|err| err.to_string())?;
-    std::thread::spawn(|| {
-        client_adapters::restore_client_setups();
-    });
+    HeadroomOptimizationEngine::new(&state)
+        .start()
+        .map_err(|err| err.to_string())?;
     analytics::track_event(&app, "runtime_resumed", None);
     Ok(())
 }
@@ -544,13 +543,11 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
-                // Accessory policy makes this a menu-bar-only app (no dock icon).
-                // Do NOT also call set_dock_visibility(false): it uses Carbon's
-                // TransformProcessType, which Apple warns must not be mixed with
-                // setActivationPolicy on the same process and intermittently
-                // registers a dock icon. LSUIElement=true in Info.plist already
-                // covers the packaged bundle.
-                app.set_activation_policy(ActivationPolicy::Accessory);
+                // AI Switchboard is a full Mac app with a normal Dock presence.
+                // The tray icon remains a companion for quick access while the
+                // main window is hidden, and closing a window does not stop the
+                // optimization runtime.
+                app.set_activation_policy(ActivationPolicy::Regular);
             }
 
             let launched_from_autostart = launched_from_autostart();
@@ -884,6 +881,22 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if matches!(
+                &event,
+                tauri::RunEvent::Reopen {
+                    has_visible_windows: false,
+                    ..
+                }
+            ) {
+                if onboarding_complete(app) {
+                    let _ = hide_launcher_window(app);
+                    let _ = show_main_window(app);
+                } else {
+                    let _ = show_launcher_window(app);
+                }
+            }
+
             // Tear down the proxy on every exit path (Cmd-Q, dock quit, signal,
             // or our explicit quit/restart commands). Without this, the proxy
             // outlives the desktop and the next launch reuses an orphan.
@@ -938,6 +951,15 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
+    let run_doctor =
+        tauri::menu::MenuItem::with_id(app, "run-doctor", "Run Doctor", true, None::<&str>)?;
+    let restart_optimizer = tauri::menu::MenuItem::with_id(
+        app,
+        "restart-optimizer",
+        "Restart Optimizer",
+        true,
+        None::<&str>,
+    )?;
     let quit =
         tauri::menu::MenuItem::with_id(app, "quit", "Quit AI Switchboard", true, None::<&str>)?;
     let separator = tauri::menu::PredefinedMenuItem::separator(app)?;
@@ -945,6 +967,8 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         app,
         &[
             &show,
+            &run_doctor,
+            &restart_optimizer,
             &release_readiness,
             &rollback_center,
             &separator,
@@ -961,11 +985,10 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
-                rect,
                 ..
             } = event
             {
-                let _ = toggle_main_window(tray.app_handle(), Some(rect));
+                let _ = toggle_main_window(tray.app_handle());
             }
 
             if let TrayIconEvent::Click {
@@ -988,17 +1011,17 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             "show" => {
                 if onboarding_complete(app) {
                     let _ = hide_launcher_window(app);
-                    let _ = show_main_window(app, None);
+                    let _ = show_main_window(app);
                     let app_bg = app.clone();
                     std::thread::spawn(move || ensure_runtime_ready_for_tray(&app_bg));
                 } else {
                     let _ = show_launcher_window(app);
                 }
             }
-            "release-readiness" | "rollback-center" => {
+            "run-doctor" | "release-readiness" | "rollback-center" => {
                 if onboarding_complete(app) {
                     let _ = hide_launcher_window(app);
-                    let _ = show_main_window(app, None);
+                    let _ = show_main_window(app);
                     let _ = app.emit(
                         "notification-clicked",
                         serde_json::json!({ "action": event.id.as_ref() }),
@@ -1006,6 +1029,14 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                 } else {
                     let _ = show_launcher_window(app);
                 }
+            }
+            "restart-optimizer" => {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(err) = force_restart_headroom(app).await {
+                        log::warn!("tray: optimizer restart failed: {err}");
+                    }
+                });
             }
             "quit" => {
                 exit_headroom(app, QuitSource::TrayMenu);
@@ -1237,22 +1268,6 @@ fn spawn_tray_savings_updater(app: AppHandle) {
 
 fn handle_window_event(window: &Window, event: &WindowEvent) {
     match event {
-        WindowEvent::Focused(false) => {
-            if window.label() == "main" {
-                let window = window.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_millis(
-                        MAIN_WINDOW_BLUR_HIDE_DELAY_MS,
-                    ));
-
-                    let still_unfocused = matches!(window.is_focused(), Ok(false));
-                    let still_visible = matches!(window.is_visible(), Ok(true));
-                    if still_unfocused && still_visible {
-                        let _ = window.hide();
-                    }
-                });
-            }
-        }
         WindowEvent::CloseRequested { api, .. } => {
             api.prevent_close();
             let _ = window.hide();
@@ -1263,7 +1278,7 @@ fn handle_window_event(window: &Window, event: &WindowEvent) {
 
 struct TraySessionSavings(Mutex<f64>);
 
-fn toggle_main_window(app: &AppHandle, anchor_rect: Option<Rect>) -> tauri::Result<()> {
+fn toggle_main_window(app: &AppHandle) -> tauri::Result<()> {
     if !onboarding_complete(app) {
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.hide();
@@ -1281,7 +1296,7 @@ fn toggle_main_window(app: &AppHandle, anchor_rect: Option<Rect>) -> tauri::Resu
     if window.is_visible()? {
         window.hide()?;
     } else {
-        show_main_window(app, anchor_rect)?;
+        show_main_window(app)?;
         // Start/verify headroom in the background so the window appears immediately.
         let app_bg = app.clone();
         std::thread::spawn(move || ensure_runtime_ready_for_tray(&app_bg));
@@ -1339,14 +1354,10 @@ async fn accept_terms(app: AppHandle, version: u32) {
     });
 }
 
-fn show_main_window(app: &AppHandle, anchor_rect: Option<Rect>) -> tauri::Result<()> {
+fn show_main_window(app: &AppHandle) -> tauri::Result<()> {
     let Some(window) = app.get_webview_window("main") else {
         return Err(tauri::Error::WebviewNotFound);
     };
-
-    if let Some(rect) = anchor_rect {
-        tray_window::position_tray_window(&window, rect)?;
-    }
 
     window.show()?;
     let _ = window.unminimize();
