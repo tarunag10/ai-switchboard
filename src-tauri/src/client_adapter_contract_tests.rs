@@ -30,6 +30,19 @@ fn first_adapter_cohort_is_registered_behind_one_contract() {
 }
 
 #[test]
+fn experimental_dsh_adapter_is_registered_without_changing_the_first_cohort() {
+    let adapter = coding_client_adapter("dsh").expect("dsh adapter");
+    assert_eq!(adapter.id(), "deepseek_harness");
+    assert!(!adapter.footprint().secret_values_included);
+    assert_eq!(
+        coding_client_adapter("deepseek_harness")
+            .expect("canonical dsh adapter")
+            .id(),
+        "deepseek_harness"
+    );
+}
+
+#[test]
 fn plan_is_a_deterministic_secret_free_diff_and_requires_exact_consent() {
     let adapter = coding_client_adapter("claude_code").expect("Claude adapter");
     let plan = adapter.plan(SwitchboardMode::Full).expect("Claude plan");

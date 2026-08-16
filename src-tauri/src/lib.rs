@@ -48,7 +48,9 @@ mod cursor_native;
 mod cursor_native_commands;
 mod daily_briefing;
 mod dashboard_commands;
+mod dsh_context_prototype;
 mod dedicated_cleanup_rollback;
+mod deepseek_harness;
 mod device;
 mod doctor;
 mod external_open;
@@ -58,6 +60,7 @@ mod headroom_advanced_settings;
 mod headroom_learn;
 mod insights;
 mod inference_endpoint;
+mod inference_endpoint_commands;
 mod keychain;
 mod learning_commands;
 mod live_benchmark;
@@ -102,6 +105,7 @@ mod switchboard_commands;
 mod token_xray;
 mod tool_manager;
 mod tray_runtime;
+mod vllm_benchmark_adapter;
 #[cfg(test)]
 mod tray_window;
 
@@ -730,6 +734,11 @@ pub fn run() {
             analytics_commands::preview_clear_usage_analytics,
             analytics_commands::clear_usage_analytics,
             gateway_readiness::get_gateway_readiness,
+            inference_endpoint_commands::list_inference_endpoints,
+            inference_endpoint_commands::add_inference_endpoint,
+            inference_endpoint_commands::verify_inference_endpoint,
+            inference_endpoint_commands::select_inference_endpoint,
+            inference_endpoint_commands::disable_inference_endpoint,
             optimization_addons_readiness::get_optimization_addon_readiness,
             dashboard_commands::get_dashboard_state,
             dashboard_commands::get_savings_attribution_events,

@@ -379,7 +379,7 @@ impl CodingClientAdapter for ExistingCodingClientAdapter {
     }
 }
 
-fn validate_plan_and_consent(
+pub(crate) fn validate_plan_and_consent(
     adapter_id: &str,
     plan: &ConfigPlan,
     consent: &ConsentToken,
@@ -423,6 +423,11 @@ fn detection_from_status(client_id: &str, status: &ClientStatus) -> DetectionRes
 }
 
 pub fn coding_client_adapter(client_id: &str) -> Option<Box<dyn CodingClientAdapter>> {
+    if matches!(client_id, "deepseek_harness" | "dsh") {
+        return Some(Box::new(
+            crate::deepseek_harness::DeepSeekHarnessAdapter::default(),
+        ));
+    }
     let kind = match client_id {
         "claude_code" => BuiltinAdapterKind::ClaudeCode,
         "codex" | "codex_cli" => BuiltinAdapterKind::Codex,

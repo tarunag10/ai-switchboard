@@ -17,10 +17,11 @@ describe("TraySidebar", () => {
       node.textContent?.trim(),
     );
 
-    expect(labels.slice(0, 5)).toEqual([
+    expect(labels.slice(0, 6)).toEqual([
       "Overview & Connectors",
       "Optimization",
       "Repo Intelligence",
+      "Routing & Models",
       "Activity & Savings",
       "Doctor & Rollback",
     ]);

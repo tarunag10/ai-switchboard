@@ -5,7 +5,16 @@
 //! discover a network service, or contain runtime-specific behavior.
 
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 use url::Url;
+
+mod registry;
+
+pub(crate) use registry::{
+    EndpointAllowlist, EndpointDiagnostic, EndpointProbe, EndpointRegistry,
+    EndpointRegistryService, EndpointVerification, ProbeObservation, ProbePurpose, ProbeRequest,
+    RouteTarget, UserEndpointApproval, VllmEndpoint,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -65,21 +74,22 @@ pub(crate) enum SecurityClassification {
     RemoteProvider,
     UserConfiguredRemote,
     LocalLoopback,
+    LocalNetwork,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct EndpointProfile {
-    id: String,
-    label: String,
-    base_url: String,
-    protocol: InferenceProtocol,
-    health_policy: HealthPolicy,
-    model_id: String,
-    capabilities: EndpointCapabilities,
-    credential_strategy: CredentialStrategy,
-    security_classification: SecurityClassification,
-    enabled: bool,
+pub(super) struct EndpointProfile {
+    pub(super) id: String,
+    pub(super) label: String,
+    pub(super) base_url: String,
+    pub(super) protocol: InferenceProtocol,
+    pub(super) health_policy: HealthPolicy,
+    pub(super) model_id: String,
+    pub(super) capabilities: EndpointCapabilities,
+    pub(super) credential_strategy: CredentialStrategy,
+    pub(super) security_classification: SecurityClassification,
+    pub(super) enabled: bool,
 }
 
 /// Object-safe, read-only endpoint boundary shared by policy and benchmarks.
@@ -155,14 +165,7 @@ impl OpenAiCompatibleEndpoint {
         let base_url = validate_base_url(&base_url.into(), true)?;
         let parsed =
             Url::parse(&base_url).map_err(|err| format!("invalid endpoint base URL: {err}"))?;
-        let security_classification = if parsed
-            .host_str()
-            .is_some_and(|host| matches!(host, "localhost" | "127.0.0.1" | "::1"))
-        {
-            SecurityClassification::LocalLoopback
-        } else {
-            SecurityClassification::UserConfiguredRemote
-        };
+        let security_classification = classify_user_endpoint(&parsed);
         let profile = EndpointProfile {
             id: id.into(),
             label: label.into(),
@@ -220,6 +223,28 @@ macro_rules! impl_endpoint {
 impl_endpoint!(CurrentRemoteProviderEndpoint);
 impl_endpoint!(OpenAiCompatibleEndpoint);
 
+fn classify_user_endpoint(parsed: &Url) -> SecurityClassification {
+    let Some(host) = parsed.host_str() else {
+        return SecurityClassification::UserConfiguredRemote;
+    };
+    if matches!(host, "localhost" | "127.0.0.1" | "::1") {
+        return SecurityClassification::LocalLoopback;
+    }
+    if host.ends_with(".local") {
+        return SecurityClassification::LocalNetwork;
+    }
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        let private = match ip {
+            IpAddr::V4(ip) => ip.is_private() || ip.is_link_local(),
+            IpAddr::V6(ip) => ip.is_unique_local() || ip.is_unicast_link_local(),
+        };
+        if private {
+            return SecurityClassification::LocalNetwork;
+        }
+    }
+    SecurityClassification::UserConfiguredRemote
+}
+
 fn validate_profile(profile: &EndpointProfile) -> Result<(), String> {
     if profile.id.trim().is_empty() {
         return Err("endpoint id is required".to_string());
@@ -241,12 +266,13 @@ fn validate_profile(profile: &EndpointProfile) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_base_url(raw: &str, allow_loopback_http: bool) -> Result<String, String> {
+fn validate_base_url(raw: &str, allow_private_http: bool) -> Result<String, String> {
     let trimmed = raw.trim().trim_end_matches('/');
     let parsed = Url::parse(trimmed).map_err(|err| format!("invalid endpoint base URL: {err}"))?;
-    let loopback = parsed
-        .host_str()
-        .is_some_and(|host| matches!(host, "localhost" | "127.0.0.1" | "::1"));
+    let private = matches!(
+        classify_user_endpoint(&parsed),
+        SecurityClassification::LocalLoopback | SecurityClassification::LocalNetwork
+    );
     if parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() {
         return Err(
             "endpoint base URL requires a host and must not contain credentials".to_string(),
@@ -255,10 +281,9 @@ fn validate_base_url(raw: &str, allow_loopback_http: bool) -> Result<String, Str
     if parsed.query().is_some() || parsed.fragment().is_some() {
         return Err("endpoint base URL must not contain a query or fragment".to_string());
     }
-    if parsed.scheme() != "https" && !(allow_loopback_http && parsed.scheme() == "http" && loopback)
-    {
+    if parsed.scheme() != "https" && !(allow_private_http && parsed.scheme() == "http" && private) {
         return Err(
-            "endpoint base URL must use HTTPS; loopback HTTP is allowed for generic endpoints"
+            "endpoint base URL must use HTTPS; local and LAN HTTP are allowed for user-managed endpoints"
                 .to_string(),
         );
     }

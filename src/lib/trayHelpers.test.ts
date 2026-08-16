@@ -97,6 +97,7 @@ describe("safeTrayViewForMode", () => {
     expect(safeTrayViewForMode("repoIntelligence", true)).toBe(
       "repoIntelligence",
     );
+    expect(safeTrayViewForMode("routingModels", true)).toBe("routingModels");
     expect(safeTrayViewForMode("settings", true)).toBe("settings");
   });
 

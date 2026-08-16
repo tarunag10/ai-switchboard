@@ -1,0 +1,15 @@
+{
+  "runtime": "vllm-openai",
+  "model_name": "fixture/model",
+  "time_to_first_token_ms": 90.0,
+  "inter_token_latency_ms": 7.0,
+  "request_latency_ms": 700.0,
+  "output_token_throughput": 144.0,
+  "cache": {
+    "prefix_hit_rate": 0.5
+  },
+  "queue": {
+    "depth": 1.0,
+    "time_ms": 4.0
+  }
+}

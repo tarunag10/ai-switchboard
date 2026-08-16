@@ -188,6 +188,23 @@ impl ToolManager {
                     &mut command,
                     &upstream_profiles,
                 );
+                // A manually selected, verified endpoint takes precedence over
+                // the legacy provider override. Selection changes only the
+                // optimizer's upstream; coding-client configuration remains on
+                // the same local Switchboard intercept.
+                if let Ok(endpoint_registry) =
+                    crate::inference_endpoint::EndpointRegistryService::load(
+                        &crate::storage::app_data_dir().join("config"),
+                    )
+                {
+                    if let Some(target) = endpoint_registry.selected_route_target() {
+                        if target.protocol
+                            == crate::inference_endpoint::InferenceProtocol::OpenAiCompatible
+                        {
+                            command.env("OPENAI_TARGET_API_URL", target.base_url);
+                        }
+                    }
+                }
                 crate::headroom_advanced_settings::apply_headroom_advanced_env(
                     &mut command,
                     &crate::headroom_advanced_settings::load_headroom_advanced_settings(),

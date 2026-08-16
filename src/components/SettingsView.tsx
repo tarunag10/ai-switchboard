@@ -7,7 +7,6 @@ import { SettingsLegalPanel } from "./SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./SettingsOpenLoginCard";
 import { SettingsReleaseReadinessCard } from "./SettingsReleaseReadinessCard";
 import { SettingsRuntimeStatusCard } from "./SettingsRuntimeStatusCard";
-import { SettingsProviderUpstreamCard } from "./SettingsProviderUpstreamCard";
 import { SettingsTransferCard } from "./SettingsTransferCard";
 import { SettingsUninstallCard } from "./SettingsUninstallCard";
 import type { SettingsImportPreview } from "../lib/settingsTransfer";
@@ -295,7 +294,6 @@ export function SettingsView({
           showHeadroomDetails={showHeadroomDetails}
           showLogsLabel="Show headroom logs"
         />
-        <SettingsProviderUpstreamCard />
         <SettingsReleaseReadinessCard
           copyReleaseReadinessReport={() => void copyReleaseReadinessReport()}
           formatLocalReleaseEvidenceSequenceCopy={

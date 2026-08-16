@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "runtime": "vllm",
+    "model": "fixture/model",
+    "aiperf_version": "0.12.0"
+  },
+  "metrics": {
+    "time_to_first_token": { "value": 112.5, "unit": "ms" },
+    "inter_token_latency": { "value": 8.25, "unit": "ms" },
+    "time_per_output_token": { "value": 9.5, "unit": "ms" },
+    "request_latency": { "value": 893.0, "unit": "ms" },
+    "output_token_throughput_per_user": { "value": 128.0, "unit": "tokens/sec/user" },
+    "prefix_cache_hit_rate": 0.72,
+    "queue_depth": 2.0,
+    "queue_time_ms": 6.5,
+    "gpu_utilization_pct": 61.0,
+    "gpu_memory_used_bytes": 17179869184
+  }
+}

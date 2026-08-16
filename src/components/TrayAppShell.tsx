@@ -10,6 +10,7 @@ import { HomeView, type HomeViewProps } from "./HomeView";
 import { OptimizationView, type OptimizationViewProps } from "./OptimizationView";
 import { RepoIntelligencePreview } from "./RepoIntelligencePreview";
 import { RepoMapView } from "./RepoMapView";
+import { RoutingModelsView } from "./RoutingModelsView";
 import { SavingsInfoDialog } from "./SavingsInfoDialog";
 import { TokenXrayView } from "./TokenXrayView";
 import { TraySidebar } from "./TraySidebar";
@@ -471,6 +472,8 @@ export function TrayAppShell({
             />
           </section>
         </div>
+
+        <RoutingModelsView hidden={activeView !== "routingModels"} />
 
         <AddonsView
           activeView={activeView}
