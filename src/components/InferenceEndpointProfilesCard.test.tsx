@@ -12,6 +12,9 @@ describe("InferenceEndpointProfilesCard", () => {
     expect(markup).toContain("never rewrites coding-client config");
     expect(markup).toContain("llama.cpp local profile");
     expect(markup).toContain("LiteLLM externally owned profile");
+    expect(markup).toContain("Envoy AI Gateway enterprise profile");
+    expect(markup).toContain("NVIDIA Dynamo deployment profile");
+    expect(markup).toContain("TensorRT-LLM verified endpoint");
     expect(markup).toContain("No user-managed endpoints configured");
   });
 });

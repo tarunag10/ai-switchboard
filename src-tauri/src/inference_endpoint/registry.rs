@@ -40,6 +40,12 @@ const LLAMA_CPP_PROPS_PATH: &str = "/props";
 const LLAMA_CPP_MODELS_PATH: &str = "/v1/models";
 const LITELLM_LIVELINESS_PATH: &str = "/health/liveliness";
 const LITELLM_MODELS_PATH: &str = "/v1/models";
+const ENTERPRISE_GATEWAY_MODELS_PATH: &str = "/v1/models";
+const DYNAMO_HEALTH_PATH: &str = "/health";
+const DYNAMO_MODELS_PATH: &str = "/v1/models";
+const TENSORRT_LLM_HEALTH_PATH: &str = "/health";
+const TENSORRT_LLM_VERSION_PATH: &str = "/version";
+const TENSORRT_LLM_MODELS_PATH: &str = "/v1/models";
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -379,6 +385,242 @@ impl LiteLlmEndpoint {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct EnterpriseGatewayEndpoint {
+    profile: EndpointProfile,
+    pub remote_connectivity_opt_in: bool,
+    pub externally_owned: bool,
+    pub gateway_implementation: String,
+    pub compatibility_source: String,
+}
+
+impl EnterpriseGatewayEndpoint {
+    pub(crate) fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        base_url: impl Into<String>,
+        model_id: impl Into<String>,
+        max_context: Option<u64>,
+        remote_connectivity_opt_in: bool,
+    ) -> Result<Self, String> {
+        let endpoint = OpenAiCompatibleEndpoint::new(
+            id,
+            label,
+            base_url,
+            HealthPolicy::Passive,
+            model_id,
+            EndpointCapabilities {
+                protocol: InferenceProtocol::OpenAiCompatible,
+                streaming: true,
+                tools: false,
+                structured_output: false,
+                max_context,
+                prefix_cache_evidence: PrefixCacheEvidence::Unknown,
+                health_endpoint: None,
+                model_discovery: ModelDiscovery::Endpoint {
+                    path: ENTERPRISE_GATEWAY_MODELS_PATH.to_string(),
+                },
+            },
+            CredentialStrategy::EnvironmentVariable {
+                variable: "AI_SWITCHBOARD_ENTERPRISE_GATEWAY_TOKEN".to_string(),
+            },
+            false,
+        )?;
+        require_remote_opt_in(&endpoint, remote_connectivity_opt_in, "enterprise gateway")?;
+        let remote_connectivity_opt_in = requires_remote_opt_in(&endpoint);
+        Ok(Self {
+            profile: endpoint.profile,
+            remote_connectivity_opt_in,
+            externally_owned: true,
+            gateway_implementation: "envoy_ai_gateway".to_string(),
+            compatibility_source: "envoyproxy/ai-gateway@06381c5195178b349fa5b77648179775f0b1d839"
+                .to_string(),
+        })
+    }
+
+    fn validate_external_policy(&self) -> Result<(), String> {
+        validate_external_endpoint(
+            self,
+            self.externally_owned,
+            self.remote_connectivity_opt_in,
+            "AI_SWITCHBOARD_ENTERPRISE_GATEWAY_TOKEN",
+            "enterprise gateway",
+        )?;
+        if self.gateway_implementation != "envoy_ai_gateway" {
+            return Err("unsupported enterprise gateway implementation".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DynamoEndpoint {
+    profile: EndpointProfile,
+    pub remote_connectivity_opt_in: bool,
+    pub externally_owned: bool,
+    pub compatibility_source: String,
+}
+
+impl DynamoEndpoint {
+    pub(crate) fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        base_url: impl Into<String>,
+        model_id: impl Into<String>,
+        max_context: Option<u64>,
+        remote_connectivity_opt_in: bool,
+    ) -> Result<Self, String> {
+        let endpoint = OpenAiCompatibleEndpoint::new(
+            id,
+            label,
+            base_url,
+            HealthPolicy::Active,
+            model_id,
+            EndpointCapabilities {
+                protocol: InferenceProtocol::OpenAiCompatible,
+                streaming: true,
+                tools: true,
+                structured_output: true,
+                max_context,
+                prefix_cache_evidence: PrefixCacheEvidence::Unknown,
+                health_endpoint: Some(DYNAMO_HEALTH_PATH.to_string()),
+                model_discovery: ModelDiscovery::Endpoint {
+                    path: DYNAMO_MODELS_PATH.to_string(),
+                },
+            },
+            CredentialStrategy::EnvironmentVariable {
+                variable: "AI_SWITCHBOARD_DYNAMO_TOKEN".to_string(),
+            },
+            false,
+        )?;
+        require_remote_opt_in(&endpoint, remote_connectivity_opt_in, "Dynamo")?;
+        let remote_connectivity_opt_in = requires_remote_opt_in(&endpoint);
+        Ok(Self {
+            profile: endpoint.profile,
+            remote_connectivity_opt_in,
+            externally_owned: true,
+            compatibility_source: "ai-dynamo/dynamo@4ae1af02db404c6268c4560df1071c0225f88b36"
+                .to_string(),
+        })
+    }
+
+    fn validate_external_policy(&self) -> Result<(), String> {
+        validate_external_endpoint(
+            self,
+            self.externally_owned,
+            self.remote_connectivity_opt_in,
+            "AI_SWITCHBOARD_DYNAMO_TOKEN",
+            "Dynamo",
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TensorRtLlmEndpoint {
+    profile: EndpointProfile,
+    pub quantization: Option<String>,
+    pub externally_owned: bool,
+    pub compatibility_source: String,
+}
+
+impl TensorRtLlmEndpoint {
+    pub(crate) fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        base_url: impl Into<String>,
+        model_id: impl Into<String>,
+        max_context: Option<u64>,
+        quantization: Option<String>,
+    ) -> Result<Self, String> {
+        let endpoint = OpenAiCompatibleEndpoint::new(
+            id,
+            label,
+            base_url,
+            HealthPolicy::Active,
+            model_id,
+            EndpointCapabilities {
+                protocol: InferenceProtocol::OpenAiCompatible,
+                streaming: true,
+                tools: true,
+                structured_output: true,
+                max_context,
+                prefix_cache_evidence: PrefixCacheEvidence::Unknown,
+                health_endpoint: Some(TENSORRT_LLM_HEALTH_PATH.to_string()),
+                model_discovery: ModelDiscovery::Endpoint {
+                    path: TENSORRT_LLM_MODELS_PATH.to_string(),
+                },
+            },
+            CredentialStrategy::None,
+            false,
+        )?;
+        if endpoint.security_classification() == SecurityClassification::UserConfiguredRemote {
+            return Err(
+                "direct TensorRT-LLM endpoint must be loopback or local-network hosted; use an enterprise gateway for public remote access"
+                    .to_string(),
+            );
+        }
+        Ok(Self {
+            profile: endpoint.profile,
+            quantization: validate_quantization(quantization)?,
+            externally_owned: true,
+            compatibility_source: "NVIDIA/TensorRT-LLM@210397bedcbec4305722942b49ddcb17c1cce3c1"
+                .to_string(),
+        })
+    }
+
+    fn validate_external_policy(&self) -> Result<(), String> {
+        if !self.externally_owned
+            || self.security_classification() == SecurityClassification::UserConfiguredRemote
+            || self.credential_strategy() != &CredentialStrategy::None
+            || validate_quantization(self.quantization.clone())? != self.quantization
+        {
+            return Err("TensorRT-LLM endpoint policy is invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
+fn requires_remote_opt_in(endpoint: &dyn InferenceEndpoint) -> bool {
+    endpoint.security_classification() != SecurityClassification::LocalLoopback
+}
+
+fn require_remote_opt_in(
+    endpoint: &dyn InferenceEndpoint,
+    approved: bool,
+    label: &str,
+) -> Result<(), String> {
+    if requires_remote_opt_in(endpoint) && !approved {
+        return Err(format!(
+            "remote {label} connectivity requires explicit opt-in"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_endpoint(
+    endpoint: &dyn InferenceEndpoint,
+    externally_owned: bool,
+    remote_connectivity_opt_in: bool,
+    credential_variable: &str,
+    label: &str,
+) -> Result<(), String> {
+    if !externally_owned {
+        return Err(format!("{label} endpoint must remain externally owned"));
+    }
+    require_remote_opt_in(endpoint, remote_connectivity_opt_in, label)?;
+    if endpoint.credential_strategy()
+        != &(CredentialStrategy::EnvironmentVariable {
+            variable: credential_variable.to_string(),
+        })
+    {
+        return Err(format!("{label} endpoint credential policy is invalid"));
+    }
+    Ok(())
+}
+
 macro_rules! impl_profile_endpoint {
     ($endpoint:ty) => {
         impl InferenceEndpoint for $endpoint {
@@ -418,6 +660,9 @@ macro_rules! impl_profile_endpoint {
 
 impl_profile_endpoint!(LlamaCppEndpoint);
 impl_profile_endpoint!(LiteLlmEndpoint);
+impl_profile_endpoint!(EnterpriseGatewayEndpoint);
+impl_profile_endpoint!(DynamoEndpoint);
+impl_profile_endpoint!(TensorRtLlmEndpoint);
 
 fn validate_quantization(value: Option<String>) -> Result<Option<String>, String> {
     let Some(value) = value else {
@@ -453,6 +698,9 @@ pub(crate) struct ProbeRequest {
     /// Environment variable name only. Secret values never enter registry
     /// state, diagnostics, or probe observations.
     pub credential_environment_variable: Option<String>,
+    /// Configured profile kind used to disambiguate shared identity paths.
+    /// It is not itself observed runtime proof.
+    pub runtime_identity_hint: Option<String>,
 }
 
 /// Sanitized observation only: implementations must not return raw bodies,
@@ -498,6 +746,9 @@ enum ManagedEndpoint {
     Sglang(SglangEndpoint),
     LlamaCpp(LlamaCppEndpoint),
     LiteLlm(LiteLlmEndpoint),
+    EnterpriseGateway(EnterpriseGatewayEndpoint),
+    Dynamo(DynamoEndpoint),
+    TensorRtLlm(TensorRtLlmEndpoint),
 }
 
 impl ManagedEndpoint {
@@ -508,6 +759,9 @@ impl ManagedEndpoint {
             Self::Sglang(value) => value,
             Self::LlamaCpp(value) => value,
             Self::LiteLlm(value) => value,
+            Self::EnterpriseGateway(value) => value,
+            Self::Dynamo(value) => value,
+            Self::TensorRtLlm(value) => value,
         }
     }
 
@@ -518,6 +772,9 @@ impl ManagedEndpoint {
             Self::Sglang(value) => &mut value.profile,
             Self::LlamaCpp(value) => &mut value.profile,
             Self::LiteLlm(value) => &mut value.profile,
+            Self::EnterpriseGateway(value) => &mut value.profile,
+            Self::Dynamo(value) => &mut value.profile,
+            Self::TensorRtLlm(value) => &mut value.profile,
         }
     }
 
@@ -530,6 +787,13 @@ impl ManagedEndpoint {
                 NormalizedRuntimeCapabilities::llama_cpp(value, value.quantization.as_deref())
             }
             Self::LiteLlm(value) => NormalizedRuntimeCapabilities::litellm(value),
+            Self::EnterpriseGateway(value) => {
+                NormalizedRuntimeCapabilities::enterprise_gateway(value)
+            }
+            Self::Dynamo(value) => NormalizedRuntimeCapabilities::dynamo(value),
+            Self::TensorRtLlm(value) => {
+                NormalizedRuntimeCapabilities::tensorrt_llm(value, value.quantization.as_deref())
+            }
         }
     }
 
@@ -538,12 +802,18 @@ impl ManagedEndpoint {
     }
 
     fn remote_connectivity_opt_in(&self) -> bool {
-        matches!(self, Self::LiteLlm(value) if value.remote_connectivity_opt_in)
+        match self {
+            Self::LiteLlm(value) => value.remote_connectivity_opt_in,
+            Self::EnterpriseGateway(value) => value.remote_connectivity_opt_in,
+            Self::Dynamo(value) => value.remote_connectivity_opt_in,
+            _ => false,
+        }
     }
 
     fn quantization(&self) -> Option<String> {
         match self {
             Self::LlamaCpp(value) => value.quantization.clone(),
+            Self::TensorRtLlm(value) => value.quantization.clone(),
             _ => None,
         }
     }
@@ -555,6 +825,9 @@ impl ManagedEndpoint {
             Self::Sglang(_) => "sglang",
             Self::LlamaCpp(_) => "llama_cpp",
             Self::LiteLlm(_) => "litellm",
+            Self::EnterpriseGateway(_) => "envoy_ai_gateway",
+            Self::Dynamo(_) => "dynamo",
+            Self::TensorRtLlm(_) => "tensorrt_llm",
         }
     }
 }
@@ -764,6 +1037,18 @@ impl EndpointRegistry {
                     validate_profile(&value.profile)?;
                     value.validate_external_policy()?;
                 }
+                ManagedEndpoint::EnterpriseGateway(value) => {
+                    validate_profile(&value.profile)?;
+                    value.validate_external_policy()?;
+                }
+                ManagedEndpoint::Dynamo(value) => {
+                    validate_profile(&value.profile)?;
+                    value.validate_external_policy()?;
+                }
+                ManagedEndpoint::TensorRtLlm(value) => {
+                    validate_profile(&value.profile)?;
+                    value.validate_external_policy()?;
+                }
             }
         }
         if let Some(selected) = &self.selected_endpoint_id {
@@ -797,6 +1082,8 @@ fn verify_record(
         } else {
             None
         },
+        runtime_identity_hint: (purpose == ProbePurpose::RuntimeIdentity)
+            .then(|| record.endpoint.runtime_kind().to_string()),
     };
     let successful = |observation: &ProbeObservation| (200..300).contains(&observation.status);
 
@@ -900,6 +1187,22 @@ fn verify_record(
             LITELLM_LIVELINESS_PATH,
             "litellm",
             false,
+            models,
+        ),
+        ManagedEndpoint::EnterpriseGateway(_) | ManagedEndpoint::Dynamo(_) => {
+            Ok(EndpointVerification::Verified {
+                runtime_id: None,
+                runtime_version: None,
+                model_ids: models,
+                benchmark_profile_id: None,
+            })
+        }
+        ManagedEndpoint::TensorRtLlm(_) => verified_runtime_identity(
+            probe,
+            &request,
+            TENSORRT_LLM_VERSION_PATH,
+            "tensorrt_llm",
+            true,
             models,
         ),
         ManagedEndpoint::OpenAi(_) => Ok(EndpointVerification::Verified {
@@ -1015,6 +1318,30 @@ impl EndpointRegistryService {
         self.mutate(|registry| registry.add(ManagedEndpoint::LiteLlm(endpoint), approval))
     }
 
+    pub(crate) fn add_enterprise_gateway(
+        &mut self,
+        endpoint: EnterpriseGatewayEndpoint,
+        approval: UserEndpointApproval,
+    ) -> Result<(), String> {
+        self.mutate(|registry| registry.add(ManagedEndpoint::EnterpriseGateway(endpoint), approval))
+    }
+
+    pub(crate) fn add_dynamo(
+        &mut self,
+        endpoint: DynamoEndpoint,
+        approval: UserEndpointApproval,
+    ) -> Result<(), String> {
+        self.mutate(|registry| registry.add(ManagedEndpoint::Dynamo(endpoint), approval))
+    }
+
+    pub(crate) fn add_tensorrt_llm(
+        &mut self,
+        endpoint: TensorRtLlmEndpoint,
+        approval: UserEndpointApproval,
+    ) -> Result<(), String> {
+        self.mutate(|registry| registry.add(ManagedEndpoint::TensorRtLlm(endpoint), approval))
+    }
+
     pub(crate) fn verify(
         &mut self,
         id: &str,
@@ -1102,6 +1429,8 @@ mod tests {
                     runtime_implementation: Some(
                         if self.fail_identity {
                             "unknown"
+                        } else if request.runtime_identity_hint.as_deref() == Some("tensorrt_llm") {
+                            "tensorrt_llm"
                         } else if request.path == SGLANG_SERVER_INFO_PATH {
                             "sglang"
                         } else if request.path == LLAMA_CPP_PROPS_PATH {
@@ -1199,6 +1528,40 @@ mod tests {
             Some(32_768),
             opt_in,
         )
+    }
+
+    fn enterprise_gateway(opt_in: bool) -> Result<EnterpriseGatewayEndpoint, String> {
+        EnterpriseGatewayEndpoint::new(
+            "enterprise-gateway",
+            "Organization Envoy AI Gateway",
+            "https://ai-gateway.example.test/v1",
+            "test-model",
+            Some(128_000),
+            opt_in,
+        )
+    }
+
+    fn dynamo(opt_in: bool) -> Result<DynamoEndpoint, String> {
+        DynamoEndpoint::new(
+            "dynamo-frontend",
+            "Organization Dynamo Frontend",
+            "https://dynamo.example.test/v1",
+            "test-model",
+            Some(131_072),
+            opt_in,
+        )
+    }
+
+    fn tensorrt_llm() -> TensorRtLlmEndpoint {
+        TensorRtLlmEndpoint::new(
+            "local-tensorrt-llm",
+            "TensorRT-LLM",
+            "http://192.168.1.30:8000/v1",
+            "test-model",
+            Some(131_072),
+            Some("FP8".to_string()),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -1543,6 +1906,164 @@ mod tests {
         let persisted = fs::read_to_string(service.registry_path()).unwrap();
         assert!(!persisted.contains("Bearer"));
         assert!(!persisted.contains("sk-"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn enterprise_gateway_is_external_opt_in_and_model_verified_only() {
+        assert!(enterprise_gateway(false).is_err());
+        let endpoint = enterprise_gateway(true).unwrap();
+        let dir = temp_dir("enterprise-gateway");
+        let mut service = EndpointRegistryService::load(&dir).unwrap();
+        service
+            .add_enterprise_gateway(
+                endpoint.clone(),
+                UserEndpointApproval::explicit(endpoint.base_url()).unwrap(),
+            )
+            .unwrap();
+        let probe = MockProbe {
+            requests: Mutex::new(vec![]),
+            fail_identity: false,
+        };
+
+        assert!(matches!(
+            service.verify(endpoint.id(), &probe).unwrap(),
+            EndpointVerification::Verified {
+                runtime_id: None,
+                runtime_version: None,
+                ..
+            }
+        ));
+        let requests = probe.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].path, ENTERPRISE_GATEWAY_MODELS_PATH);
+        assert_eq!(
+            requests[0].credential_environment_variable.as_deref(),
+            Some("AI_SWITCHBOARD_ENTERPRISE_GATEWAY_TOKEN")
+        );
+        drop(requests);
+        let diagnostic = &service.list_diagnostics()[0];
+        assert_eq!(diagnostic.runtime_kind, "envoy_ai_gateway");
+        assert!(diagnostic.externally_owned);
+        assert!(diagnostic.remote_connectivity_opt_in);
+        let serialized_diagnostic = serde_json::to_string(diagnostic).unwrap();
+        assert!(!serialized_diagnostic.contains("AI_SWITCHBOARD_ENTERPRISE_GATEWAY_TOKEN"));
+        assert!(!serialized_diagnostic
+            .to_ascii_lowercase()
+            .contains("authorization"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn dynamo_proof_uses_only_frontend_health_and_models_without_cluster_control() {
+        assert!(dynamo(false).is_err());
+        let endpoint = dynamo(true).unwrap();
+        let dir = temp_dir("dynamo");
+        let mut service = EndpointRegistryService::load(&dir).unwrap();
+        service
+            .add_dynamo(
+                endpoint.clone(),
+                UserEndpointApproval::explicit(endpoint.base_url()).unwrap(),
+            )
+            .unwrap();
+        let probe = MockProbe {
+            requests: Mutex::new(vec![]),
+            fail_identity: false,
+        };
+
+        assert!(matches!(
+            service.verify(endpoint.id(), &probe).unwrap(),
+            EndpointVerification::Verified {
+                runtime_id: None,
+                ..
+            }
+        ));
+        let paths: BTreeSet<_> = probe
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|request| request.path.clone())
+            .collect();
+        assert_eq!(
+            paths,
+            BTreeSet::from([
+                DYNAMO_HEALTH_PATH.to_string(),
+                DYNAMO_MODELS_PATH.to_string()
+            ])
+        );
+        let diagnostic = &service.list_diagnostics()[0];
+        assert_eq!(diagnostic.runtime_kind, "dynamo");
+        assert_eq!(
+            diagnostic.normalized_capabilities.prefix_cache.state,
+            CapabilityState::Supported
+        );
+        assert!(diagnostic.externally_owned);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn tensorrt_llm_is_verified_by_pinned_paths_and_profile_hint() {
+        assert!(TensorRtLlmEndpoint::new(
+            "remote-trt",
+            "Remote TensorRT-LLM",
+            "https://trt.example.test/v1",
+            "test-model",
+            None,
+            None,
+        )
+        .is_err());
+        let endpoint = tensorrt_llm();
+        let dir = temp_dir("tensorrt-llm");
+        let mut service = EndpointRegistryService::load(&dir).unwrap();
+        service
+            .add_tensorrt_llm(
+                endpoint.clone(),
+                UserEndpointApproval::explicit(endpoint.base_url()).unwrap(),
+            )
+            .unwrap();
+        let probe = MockProbe {
+            requests: Mutex::new(vec![]),
+            fail_identity: false,
+        };
+
+        assert!(matches!(
+            service.verify(endpoint.id(), &probe).unwrap(),
+            EndpointVerification::Verified {
+                runtime_id: Some(ref value),
+                runtime_version: Some(_),
+                ..
+            } if value == "tensorrt_llm"
+        ));
+        let requests = probe.requests.lock().unwrap();
+        let paths: BTreeSet<_> = requests
+            .iter()
+            .map(|request| request.path.clone())
+            .collect();
+        assert_eq!(
+            paths,
+            BTreeSet::from([
+                TENSORRT_LLM_HEALTH_PATH.to_string(),
+                TENSORRT_LLM_MODELS_PATH.to_string(),
+                TENSORRT_LLM_VERSION_PATH.to_string(),
+            ])
+        );
+        let identity = requests
+            .iter()
+            .find(|request| request.purpose == ProbePurpose::RuntimeIdentity)
+            .unwrap();
+        assert_eq!(
+            identity.runtime_identity_hint.as_deref(),
+            Some("tensorrt_llm")
+        );
+        drop(requests);
+        let diagnostic = &service.list_diagnostics()[0];
+        assert_eq!(diagnostic.runtime_kind, "tensorrt_llm");
+        assert_eq!(diagnostic.quantization.as_deref(), Some("FP8"));
+        assert_eq!(
+            diagnostic.normalized_capabilities.quantization.state,
+            CapabilityState::Configured
+        );
         let _ = fs::remove_dir_all(dir);
     }
 

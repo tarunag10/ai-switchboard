@@ -7,11 +7,11 @@ use tauri::{AppHandle, Manager, State};
 use url::Url;
 
 use crate::inference_endpoint::{
-    CredentialStrategy, EndpointCapabilities, EndpointDiagnostic, EndpointProbe,
-    EndpointRegistryService, EndpointVerification, HealthPolicy, InferenceProtocol,
-    LiteLlmEndpoint, LlamaCppEndpoint, ModelDiscovery, OpenAiCompatibleEndpoint,
+    CredentialStrategy, DynamoEndpoint, EndpointCapabilities, EndpointDiagnostic, EndpointProbe,
+    EndpointRegistryService, EndpointVerification, EnterpriseGatewayEndpoint, HealthPolicy,
+    InferenceProtocol, LiteLlmEndpoint, LlamaCppEndpoint, ModelDiscovery, OpenAiCompatibleEndpoint,
     PrefixCacheEvidence, ProbeObservation, ProbePurpose, ProbeRequest, SglangEndpoint,
-    UserEndpointApproval, VllmEndpoint,
+    TensorRtLlmEndpoint, UserEndpointApproval, VllmEndpoint,
 };
 use crate::state::AppState;
 
@@ -39,6 +39,9 @@ pub(crate) enum EndpointKind {
     Sglang,
     LlamaCpp,
     LiteLlm,
+    EnterpriseGateway,
+    Dynamo,
+    TensorrtLlm,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -123,6 +126,39 @@ pub(crate) fn add_inference_endpoint(
                 input.model_id,
                 input.max_context,
                 input.remote_connectivity_opt_in,
+            )?,
+            approval,
+        )?,
+        EndpointKind::EnterpriseGateway => service.add_enterprise_gateway(
+            EnterpriseGatewayEndpoint::new(
+                input.id,
+                input.label,
+                input.base_url,
+                input.model_id,
+                input.max_context,
+                input.remote_connectivity_opt_in,
+            )?,
+            approval,
+        )?,
+        EndpointKind::Dynamo => service.add_dynamo(
+            DynamoEndpoint::new(
+                input.id,
+                input.label,
+                input.base_url,
+                input.model_id,
+                input.max_context,
+                input.remote_connectivity_opt_in,
+            )?,
+            approval,
+        )?,
+        EndpointKind::TensorrtLlm => service.add_tensorrt_llm(
+            TensorRtLlmEndpoint::new(
+                input.id,
+                input.label,
+                input.base_url,
+                input.model_id,
+                input.max_context,
+                input.quantization,
             )?,
             approval,
         )?,
@@ -222,7 +258,11 @@ impl HttpEndpointProbe {
     fn runtime_identity(request: &ProbeRequest, value: &Value) -> (Option<String>, Option<String>) {
         match request.path.as_str() {
             "/version" => (
-                Some("vllm".to_string()),
+                Some(match request.runtime_identity_hint.as_deref() {
+                    Some("vllm") => "vllm".to_string(),
+                    Some("tensorrt_llm") => "tensorrt_llm".to_string(),
+                    _ => "unknown".to_string(),
+                }),
                 value
                     .get("version")
                     .and_then(Value::as_str)
@@ -330,6 +370,7 @@ mod tests {
             path: "/health".to_string(),
             purpose: ProbePurpose::Health,
             credential_environment_variable: None,
+            runtime_identity_hint: None,
         };
         assert_eq!(
             HttpEndpointProbe::probe_url(&request).unwrap().as_str(),
@@ -345,6 +386,13 @@ mod tests {
             path: path.to_string(),
             purpose: ProbePurpose::RuntimeIdentity,
             credential_environment_variable: None,
+            runtime_identity_hint: match path {
+                "/version" => Some("vllm".to_string()),
+                "/server_info" => Some("sglang".to_string()),
+                "/props" => Some("llama_cpp".to_string()),
+                "/health/liveliness" => Some("litellm".to_string()),
+                _ => None,
+            },
         };
         assert_eq!(
             HttpEndpointProbe::runtime_identity(
@@ -352,6 +400,15 @@ mod tests {
                 &serde_json::json!({ "version": "0.8" }),
             ),
             (Some("vllm".to_string()), Some("0.8".to_string()))
+        );
+        let mut tensorrt = request("/version");
+        tensorrt.runtime_identity_hint = Some("tensorrt_llm".to_string());
+        assert_eq!(
+            HttpEndpointProbe::runtime_identity(
+                &tensorrt,
+                &serde_json::json!({ "version": "1.2" }),
+            ),
+            (Some("tensorrt_llm".to_string()), Some("1.2".to_string()))
         );
         assert_eq!(
             HttpEndpointProbe::runtime_identity(

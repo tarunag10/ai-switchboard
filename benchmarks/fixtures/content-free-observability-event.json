@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "requestId": "req-01HXYZ",
+  "clientAdapter": "codex",
+  "optimizationProfile": "cache-safe",
+  "engine": "headroom",
+  "action": "compress-and-route",
+  "endpoint": "local-vllm",
+  "model": "fixture-model",
+  "tokens": {
+    "before": 1200,
+    "after": 800,
+    "cacheRead": 300
+  },
+  "latency": {
+    "optimizerMicros": 12000,
+    "ttftMicros": 85000,
+    "interTokenMicros": 9000,
+    "endToEndMicros": 600000
+  },
+  "cacheResult": "hit",
+  "compressionResult": "applied",
+  "status": "success",
+  "failureReason": null,
+  "qualityOutcomeReference": "quality-run-0042"
+}

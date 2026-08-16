@@ -14,10 +14,10 @@ mod registry;
 pub(crate) use capabilities::{CapabilityState, NormalizedRuntimeCapabilities};
 
 pub(crate) use registry::{
-    EndpointAllowlist, EndpointDiagnostic, EndpointProbe, EndpointRegistry,
-    EndpointRegistryService, EndpointVerification, LiteLlmEndpoint, LlamaCppEndpoint,
-    ProbeObservation, ProbePurpose, ProbeRequest, RouteTarget, SglangEndpoint,
-    UserEndpointApproval, VllmEndpoint,
+    DynamoEndpoint, EndpointAllowlist, EndpointDiagnostic, EndpointProbe, EndpointRegistry,
+    EndpointRegistryService, EndpointVerification, EnterpriseGatewayEndpoint, LiteLlmEndpoint,
+    LlamaCppEndpoint, ProbeObservation, ProbePurpose, ProbeRequest, RouteTarget, SglangEndpoint,
+    TensorRtLlmEndpoint, UserEndpointApproval, VllmEndpoint,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

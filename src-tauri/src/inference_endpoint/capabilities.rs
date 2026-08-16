@@ -121,6 +121,59 @@ impl NormalizedRuntimeCapabilities {
         profile.tool_calling = unknown(evidence);
         profile
     }
+
+    pub(crate) fn enterprise_gateway(endpoint: &dyn InferenceEndpoint) -> Self {
+        let mut profile = Self::unknown(endpoint);
+        let evidence = "enterprise gateway does not prove downstream runtime capability";
+        profile.prefix_cache = unknown(evidence);
+        profile.speculative_decoding = unknown(evidence);
+        profile.continuous_batching = unknown(evidence);
+        profile.disaggregated_prefill_decode = unknown(evidence);
+        profile.quantization = unknown(evidence);
+        profile.parallelism = unknown(evidence);
+        profile.tool_calling = unknown(evidence);
+        profile
+    }
+
+    pub(crate) fn dynamo(endpoint: &dyn InferenceEndpoint) -> Self {
+        let source = "ai-dynamo/dynamo@4ae1af02db404c6268c4560df1071c0225f88b36";
+        Self {
+            prefix_cache: supported(source),
+            speculative_decoding: unknown("backend and deployment dependent"),
+            continuous_batching: unknown("backend and deployment dependent"),
+            disaggregated_prefill_decode: supported(source),
+            quantization: unknown("backend and model dependent"),
+            parallelism: supported(source),
+            max_context: NormalizedCapability::configured_value(
+                endpoint.capabilities().max_context,
+                "organization deployment configuration",
+            ),
+            tool_calling: supported(source),
+        }
+    }
+
+    pub(crate) fn tensorrt_llm(
+        endpoint: &dyn InferenceEndpoint,
+        quantization: Option<&str>,
+    ) -> Self {
+        let source = "NVIDIA/TensorRT-LLM@210397bedcbec4305722942b49ddcb17c1cce3c1";
+        Self {
+            prefix_cache: supported(source),
+            speculative_decoding: supported(source),
+            continuous_batching: supported(source),
+            disaggregated_prefill_decode: supported(source),
+            quantization: match quantization {
+                Some(value) => configured(format!("organization endpoint configuration: {value}")),
+                None => supported(source),
+            },
+            parallelism: supported(source),
+            max_context: NormalizedCapability::configured_value(
+                endpoint.capabilities().max_context,
+                "organization endpoint configuration",
+            ),
+            tool_calling: supported(source),
+        }
+    }
 }
 
 fn runtime_profile(
@@ -257,5 +310,31 @@ mod tests {
         assert_eq!(capabilities.prefix_cache.state, CapabilityState::Unknown);
         assert_eq!(capabilities.quantization.state, CapabilityState::Unknown);
         assert_eq!(capabilities.max_context.state, CapabilityState::Configured);
+    }
+
+    #[test]
+    fn enterprise_gateway_does_not_inherit_backend_capabilities() {
+        let endpoint = endpoint(Some(128_000));
+        let capabilities = NormalizedRuntimeCapabilities::enterprise_gateway(&endpoint);
+
+        assert_eq!(capabilities.prefix_cache.state, CapabilityState::Unknown);
+        assert_eq!(capabilities.parallelism.state, CapabilityState::Unknown);
+        assert_eq!(capabilities.max_context.state, CapabilityState::Configured);
+    }
+
+    #[test]
+    fn dynamo_and_tensorrt_keep_support_separate_from_endpoint_configuration() {
+        let endpoint = endpoint(Some(131_072));
+        let dynamo = NormalizedRuntimeCapabilities::dynamo(&endpoint);
+        let trt = NormalizedRuntimeCapabilities::tensorrt_llm(&endpoint, Some("FP8"));
+
+        assert_eq!(dynamo.prefix_cache.state, CapabilityState::Supported);
+        assert_eq!(
+            dynamo.disaggregated_prefill_decode.state,
+            CapabilityState::Supported
+        );
+        assert_eq!(dynamo.speculative_decoding.state, CapabilityState::Unknown);
+        assert_eq!(trt.quantization.state, CapabilityState::Configured);
+        assert_eq!(trt.continuous_batching.state, CapabilityState::Supported);
     }
 }

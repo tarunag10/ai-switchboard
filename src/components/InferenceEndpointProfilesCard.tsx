@@ -1,7 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 
-type EndpointKind = "vllm" | "sglang" | "llama_cpp" | "litellm" | "open_ai_compatible";
+type EndpointKind =
+  | "vllm"
+  | "sglang"
+  | "llama_cpp"
+  | "litellm"
+  | "enterprise_gateway"
+  | "dynamo"
+  | "tensorrt_llm"
+  | "open_ai_compatible";
 
 interface EndpointVerification {
   status: "unverified" | "verified" | "failed";
@@ -139,6 +147,9 @@ export function InferenceEndpointProfilesCard() {
             <option value="sglang">SGLang verified profile</option>
             <option value="llama_cpp">llama.cpp local profile</option>
             <option value="litellm">LiteLLM externally owned profile</option>
+            <option value="enterprise_gateway">Envoy AI Gateway enterprise profile</option>
+            <option value="dynamo">NVIDIA Dynamo deployment profile</option>
+            <option value="tensorrt_llm">TensorRT-LLM verified endpoint</option>
             <option value="open_ai_compatible">Generic OpenAI-compatible</option>
           </select>
         </label>
@@ -166,7 +177,7 @@ export function InferenceEndpointProfilesCard() {
             />
           </label>
         ))}
-        {form.kind === "llama_cpp" ? (
+        {form.kind === "llama_cpp" || form.kind === "tensorrt_llm" ? (
           <label>
             Quantization (optional)
             <input
@@ -180,16 +191,16 @@ export function InferenceEndpointProfilesCard() {
             />
           </label>
         ) : null}
-        {form.kind === "litellm" ? (
+        {["litellm", "enterprise_gateway", "dynamo"].includes(form.kind) ? (
           <label className="optimize-project-row">
             <span className="optimize-project-row__main">
-              <span className="optimize-project-row__name">Remote connectivity opt-in</span>
+              <span className="optimize-project-row__name">External connectivity opt-in</span>
               <span className="optimize-project-row__meta">
-                Required outside loopback. LiteLLM remains externally owned; the API key value is never stored.
+                Required outside loopback. The service remains externally owned; token values are never stored.
               </span>
             </span>
             <input
-              aria-label="Remote LiteLLM connectivity opt-in"
+              aria-label="External endpoint connectivity opt-in"
               checked={form.remoteConnectivityOptIn}
               disabled={busy !== null}
               onChange={(event) =>
