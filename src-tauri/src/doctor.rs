@@ -49,8 +49,8 @@ fn exact_cache_recommended_issue(
     }
     Some(DoctorIssue {
         id: "exact_cache_recommended".to_string(),
-        title: "Exact replay cache is eligible but disabled".to_string(),
-        body: "Full or Headroom mode is healthy enough to recommend exact cache. Enable it from Add-ons or Doctor; cache hits remain separate from compression savings.".to_string(),
+        title: "Exact Response Cache is eligible but disabled".to_string(),
+        body: "Full or Headroom mode is healthy enough to recommend the Exact Response Cache. Enable it from Add-ons or Doctor; exact response-cache hits remain separate from compression savings.".to_string(),
         severity: DoctorSeverity::Warning,
         repair_action: Some("enable_semantic_cache".to_string()),
     })

@@ -35,6 +35,12 @@ identifiers may require compatibility aliases until a tested migration exists.
 A true semantic cache is a separate, gated feature rather than an upgrade hidden
 behind the response-cache name.
 
+The Phase 4 migration keeps legacy `semantic_cache` SQLite/state/command
+identifiers readable while exposing the canonical, secret-free
+`get_response_cache_diagnostics` contract. The historical normalized-prefix v2
+flag is migrated off and cannot be re-enabled; true semantic similarity remains
+a separate gated experiment.
+
 ## Reversal strategy
 
 If the response cache is unsafe, disable it and clear only its Switchboard-owned

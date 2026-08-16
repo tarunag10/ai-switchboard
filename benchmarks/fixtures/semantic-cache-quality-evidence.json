@@ -1,0 +1,8 @@
+{
+  "measured": true,
+  "sampleCount": 200,
+  "truePositiveHits": 100,
+  "falsePositiveHits": 2,
+  "successfulCachedTasks": 99,
+  "unsafeHits": 0
+}

@@ -14,10 +14,10 @@ const base = {
   prompt: "Summarize the changed files",
 };
 
-describe("semantic cache safety policy", () => {
-  it("classifies exact and semantic requests", () => {
+describe("response cache safety policy", () => {
+  it("allows exact requests and bypasses non-identical requests", () => {
     expect(classifySemanticCacheRequest({ ...base, exactCacheEligible: true })).toEqual({ classification: "exact" });
-    expect(classifySemanticCacheRequest(base)).toEqual({ classification: "semantic" });
+    expect(classifySemanticCacheRequest(base)).toEqual({ classification: "bypass", reason: "not-exact-match" });
   });
 
   it.each([
@@ -34,7 +34,7 @@ describe("semantic cache safety policy", () => {
   });
 
   it("namespaces provider, model, account, workspace, and policy", () => {
-    expect(buildSemanticCacheNamespaceKey(base)).toBe("openai:gpt-5:acct-1:%2Frepo:semantic-cache-v1");
+    expect(buildSemanticCacheNamespaceKey(base)).toBe("openai:gpt-5:acct-1:%2Frepo:exact-response-cache-v1");
     expect(buildSemanticCacheNamespaceKey(base, { policyVersion: "v2", semanticTemperatureMax: 0.1 })).toContain(":v2");
   });
 

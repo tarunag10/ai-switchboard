@@ -13,10 +13,7 @@ import {
   type OptimizationEngineId,
 } from "../lib/optimizationEngines";
 import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
-import {
-  canEnableSemanticCacheV2,
-  describeSemanticCacheV2Policy,
-} from "../lib/semanticCachePolicy";
+import { describeSemanticCacheV2Policy } from "../lib/semanticCachePolicy";
 import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
 import type { RuntimeStatus, CompressionProfileView } from "../lib/types";
@@ -101,6 +98,16 @@ type SemanticCacheStats = {
   namespaces: SemanticCacheNamespaceStat[];
 };
 
+type ResponseCacheDiagnostics = {
+  exactMatchOnly: boolean;
+  storagePath: string;
+  bypassRules: string[];
+  safetyRules: string[];
+  clearAction: {
+    confirmationPhrase: string;
+  };
+};
+
 type DisplayState =
   | "configured"
   | "ready"
@@ -119,7 +126,7 @@ type LifecycleReceipt = OptimizationReceipt & { action: string };
 const promotionMatrix = [
   { id: "headroom-native", label: "Headroom Native", mode: "Live", evidence: "Native runtime metric", gate: "Promotion-ready when runtime is healthy and native compression is enabled." },
   { id: "leanctx", label: "leanctx shadow", mode: "Shadow", evidence: "Benchmark/readiness evidence", gate: "Observe locally; no provider traffic until a reviewed promotion path exists." },
-  { id: "semantic-cache", label: "Semantic cache", mode: "Live cache replay", evidence: "Cache-hit counters", gate: "Eligible exact replays only; savings remain separate from compression." },
+  { id: "semantic-cache", label: "Exact Response Cache", mode: "Live exact replay", evidence: "Observed hit/miss counters", gate: "Byte-identical eligible requests only; semantic reuse remains an unavailable experiment." },
   { id: "chonkify", label: "Chonkify", mode: "Blocked", evidence: "Manual review", gate: "License and source-provenance evidence required." },
   { id: "llmlingua-2", label: "LLMLingua-2", mode: "Design-only", evidence: "Benchmark required", gate: "Local model, quality baseline, and protected-content gates required." },
   { id: "pxpipe-text-image", label: "pxpipe", mode: "Design-only", evidence: "Manual review", gate: "Versioned Headroom text_image seam and quality evidence required." },
@@ -359,8 +366,9 @@ function OptimizationEngineRow({
   const [leanctxStatus, setLeanctxStatus] = useState<LeanctxSidecarStatus | null>(null);
   const [semanticCacheStatus, setSemanticCacheStatus] = useState<SemanticCacheStatus | null>(null);
   const [semanticCacheStats, setSemanticCacheStats] = useState<SemanticCacheStats | null>(null);
-  const [semanticV2Consent, setSemanticV2Consent] = useState(false);
+  const [responseCacheDiagnostics, setResponseCacheDiagnostics] = useState<ResponseCacheDiagnostics | null>(null);
   const [namespaceClearPhrase, setNamespaceClearPhrase] = useState("");
+  const [responseCacheClearPhrase, setResponseCacheClearPhrase] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -368,8 +376,14 @@ function OptimizationEngineRow({
   const activationBlocked = !canActivateOptimizationEngine(engine.id);
 
   const refreshSemanticCacheStatus = async () => {
-    setSemanticCacheStatus(await invoke<SemanticCacheStatus>("get_semantic_cache_status"));
-    setSemanticCacheStats(await invoke<SemanticCacheStats>("get_semantic_cache_stats"));
+    const [status, stats, diagnostics] = await Promise.all([
+      invoke<SemanticCacheStatus>("get_semantic_cache_status"),
+      invoke<SemanticCacheStats>("get_semantic_cache_stats"),
+      invoke<ResponseCacheDiagnostics>("get_response_cache_diagnostics"),
+    ]);
+    setSemanticCacheStatus(status);
+    setSemanticCacheStats(stats);
+    setResponseCacheDiagnostics(diagnostics);
   };
 
   const refreshBackendStatus = async () => {
@@ -613,7 +627,7 @@ function OptimizationEngineRow({
           )}
           {engine.id === "semantic-cache" && semanticCacheStatus && (
             <div>
-              <p><strong>Backend:</strong> {semanticCacheStatus.enabled ? "enabled" : "disabled"}; {semanticCacheStatus.entries} live entries; {semanticCacheStatus.hits} hits / {semanticCacheStatus.misses} misses.</p>
+              <p><strong>Exact Response Cache:</strong> {semanticCacheStatus.enabled ? "enabled" : "disabled"}; {semanticCacheStatus.entries} live entries; {semanticCacheStatus.hits} hits / {semanticCacheStatus.misses} misses.</p>
               {!semanticCacheStatus.enabled && runtimeStatus ? (
                 <p>
                   <strong>Recommendation:</strong>{" "}
@@ -628,52 +642,17 @@ function OptimizationEngineRow({
               ) : null}
               <p><strong>Evidence:</strong> {semanticCacheStatus.evidence}; storage {semanticCacheStatus.storageAvailable ? "available" : "unavailable"}; read failures {semanticCacheStatus.readFailures}; write failures {semanticCacheStatus.writeFailures}.</p>
               <p><strong>Policy:</strong> {semanticCacheStatus.policy}. {semanticCacheStatus.disclosure}</p>
-              <p><strong>Semantic v2:</strong> {describeSemanticCacheV2Policy()}</p>
-              <label className="optimize-project-row">
-                <span className="optimize-project-row__main">
-                  <span className="optimize-project-row__name">Embedding model consent</span>
-                  <span className="optimize-project-row__meta">
-                    Required before enabling semantic v2 similarity replay.
-                  </span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={semanticV2Consent}
-                  disabled={checking || !semanticCacheStatus.enabled}
-                  onChange={(event) => setSemanticV2Consent(event.target.checked)}
-                />
-              </label>
-              <button
-                type="button"
-                className="addon-card__action"
-                disabled={
-                  checking ||
-                  !canEnableSemanticCacheV2({
-                    exactCacheEnabled: semanticCacheStatus.enabled,
-                    embeddingModelConsent: semanticV2Consent,
-                  })
-                }
-                onClick={async () => {
-                  setChecking(true);
-                  try {
-                    await invoke("set_semantic_cache_v2_enabled", {
-                      enabled: !semanticCacheStatus.semanticV2Enabled,
-                    });
-                    await refreshSemanticCacheStatus();
-                  } catch (error: unknown) {
-                    setActionError(error instanceof Error ? error.message : String(error));
-                  } finally {
-                    setChecking(false);
-                  }
-                }}
-              >
-                {semanticCacheStatus.semanticV2Enabled
-                  ? "Disable semantic v2"
-                  : "Enable semantic v2"}
-              </button>
+              {responseCacheDiagnostics ? (
+                <>
+                  <p><strong>Matching:</strong> {responseCacheDiagnostics.exactMatchOnly ? "exact request identity only" : "unavailable safety state"}.</p>
+                  <p><strong>Bypass rules:</strong> {responseCacheDiagnostics.bypassRules.join(", ")}.</p>
+                  <p><strong>Safety rules:</strong> {responseCacheDiagnostics.safetyRules.join(", ")}.</p>
+                </>
+              ) : null}
+              <p><strong>Semantic cache experiment:</strong> {describeSemanticCacheV2Policy()}</p>
               {semanticCacheStats?.namespaces && semanticCacheStats.namespaces.length > 0 ? (
                 <table className="gateway-profile__table">
-                  <caption>Cache namespaces (no prompt bodies)</caption>
+                  <caption>Exact response cache namespaces (no prompt bodies)</caption>
                   <thead>
                     <tr>
                       <th scope="col">Provider</th>
@@ -742,14 +721,25 @@ function OptimizationEngineRow({
               >
                 Clear first namespace
               </button>
-              <p><strong>Database:</strong> local app storage only; prompt text is never persisted as a key, while eligible response bodies remain until TTL or clear. Secret-marker screening is conservative and not a guarantee of secrecy.</p>
+              <p><strong>Storage path:</strong> <code>{responseCacheDiagnostics?.storagePath ?? semanticCacheStatus.databasePath}</code>. Prompt text is never persisted as a key, while eligible exact response bodies remain until TTL or clear. Secret-marker screening is conservative and not a guarantee of secrecy.</p>
+              <label>
+                Confirmation phrase to clear all exact responses
+                <input
+                  value={responseCacheClearPhrase}
+                  onChange={(event) => setResponseCacheClearPhrase(event.target.value)}
+                  placeholder={responseCacheDiagnostics?.clearAction.confirmationPhrase ?? "clear exact response cache"}
+                />
+              </label>
               <button
                 type="button"
                 className="addon-card__action"
                 onClick={async () => {
                   setChecking(true);
                   try {
-                    await invoke("clear_semantic_cache");
+                    await invoke("clear_response_cache", {
+                      confirmationPhrase: responseCacheClearPhrase,
+                    });
+                    setResponseCacheClearPhrase("");
                     await refreshSemanticCacheStatus();
                   } catch (error: unknown) {
                     setActionError(error instanceof Error ? error.message : String(error));
@@ -757,7 +747,12 @@ function OptimizationEngineRow({
                     setChecking(false);
                   }
                 }}
-                disabled={checking || semanticCacheStatus.entries === 0}
+                disabled={
+                  checking ||
+                  semanticCacheStatus.entries === 0 ||
+                  responseCacheClearPhrase !==
+                    (responseCacheDiagnostics?.clearAction.confirmationPhrase ?? "clear exact response cache")
+                }
               >
                 Clear cached responses
               </button>

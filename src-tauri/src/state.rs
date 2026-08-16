@@ -298,16 +298,16 @@ impl AppState {
                 // switchboard or provider routing from starting. Fall back to
                 // an empty disabled in-memory cache and leave the disk receipt
                 // for Doctor/log inspection.
-                log::warn!("semantic cache unavailable; using disabled in-memory fallback: {err}");
+                log::warn!("response cache unavailable; using disabled in-memory fallback: {err}");
                 let fallback = crate::semantic_cache::SemanticCacheService::open(
                     ":memory:",
                     base_dir.join("semantic-cache-fallback.json"),
                 )
                 .map_err(|fallback_err| {
-                    anyhow::anyhow!("opening semantic cache fallback: {fallback_err}")
+                        anyhow::anyhow!("opening response cache fallback: {fallback_err}")
                 })?;
                 fallback.set_enabled(false).map_err(|fallback_err| {
-                    anyhow::anyhow!("disabling semantic cache fallback: {fallback_err}")
+                    anyhow::anyhow!("disabling response cache fallback: {fallback_err}")
                 })?;
                 std::sync::Arc::new(fallback)
             }

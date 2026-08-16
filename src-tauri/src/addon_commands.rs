@@ -68,7 +68,7 @@ pub async fn install_addon(
                 .map_err(|err| err.to_string())?;
             Ok(state.dashboard())
         }
-        "semantic-cache" => {
+        "response-cache" | "semantic-cache" => {
             state
                 .semantic_cache
                 .set_enabled(false)
@@ -141,7 +141,7 @@ pub async fn set_addon_enabled(
                 .map_err(|err| err.to_string())?;
             Ok(state.dashboard())
         }
-        "semantic-cache" => {
+        "response-cache" | "semantic-cache" => {
             if enabled
                 && matches!(
                     client_adapters::load_switchboard_mode(),
@@ -149,7 +149,7 @@ pub async fn set_addon_enabled(
                 )
             {
                 return Err(
-                    "Semantic Cache requires Full or Headroom mode; Off and RTK-only modes do not serve cached provider responses."
+                        "Exact Response Cache requires Full or Headroom mode; Off and RTK-only modes do not serve cached provider responses."
                         .into(),
                 );
             }
@@ -214,7 +214,7 @@ pub async fn uninstall_addon(
                 .map_err(|err| err.to_string())?;
             Ok(state.dashboard())
         }
-        "semantic-cache" => {
+        "response-cache" | "semantic-cache" => {
             state
                 .semantic_cache
                 .set_enabled(false)

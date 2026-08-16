@@ -33,6 +33,15 @@ describe("OptimizationEngineProfilesCard", () => {
       if (command === "get_semantic_cache_stats") {
         return Promise.resolve({ namespaces: [] });
       }
+      if (command === "get_response_cache_diagnostics") {
+        return Promise.resolve({
+          exactMatchOnly: true,
+          storagePath: "/local/semantic-cache.sqlite3",
+          bypassRules: ["streaming", "tools_or_mcp"],
+          safetyRules: ["local_app_storage_only", "sha256_request_key"],
+          clearAction: { confirmationPhrase: "clear exact response cache" },
+        });
+      }
       if (command === "get_compression_profile") {
         return Promise.resolve({
           version: 1,
@@ -135,6 +144,15 @@ describe("OptimizationEngineProfilesCard", () => {
       }
       if (command === "get_semantic_cache_stats") {
         return Promise.resolve({ namespaces: [] });
+      }
+      if (command === "get_response_cache_diagnostics") {
+        return Promise.resolve({
+          exactMatchOnly: true,
+          storagePath: "/local/semantic-cache.sqlite3",
+          bypassRules: ["streaming"],
+          safetyRules: ["local_app_storage_only"],
+          clearAction: { confirmationPhrase: "clear exact response cache" },
+        });
       }
       if (command === "set_addon_enabled") return Promise.resolve({});
       return Promise.resolve({

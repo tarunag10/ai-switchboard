@@ -63,7 +63,7 @@ fn profile_contract(profile_id: &str) -> Option<ProfileContract> {
             path: "CHONKIFY_PATH",
             base_url: None,
         },
-        "semantic-cache" => ProfileContract {
+        "response-cache" | "semantic-cache" => ProfileContract {
             configuration: &[],
             executable: "",
             path: "",
@@ -119,7 +119,7 @@ pub fn get_optimization_addon_readiness(
 ) -> Result<OptimizationAddonReadinessReport, String> {
     let contract = profile_contract(&profile_id)
         .ok_or_else(|| "Unknown optimization addon profile.".to_string())?;
-    let is_semantic_cache = profile_id == "semantic-cache";
+    let is_response_cache = matches!(profile_id.as_str(), "response-cache" | "semantic-cache");
     let connectivity = if run_local_connectivity.unwrap_or(false) && contract.base_url.is_some() {
         match loopback_socket(contract.base_url.unwrap()) {
             Ok(address) => match TcpStream::connect_timeout(&address, Duration::from_millis(800)) {
@@ -145,8 +145,8 @@ pub fn get_optimization_addon_readiness(
             && std::env::var_os(contract.path).is_some_and(|value| !value.is_empty()),
         connectivity,
         live: false,
-        guidance: if is_semantic_cache {
-            "Built-in local cache readiness is exposed separately in Addons; this command performs no external connectivity check.".into()
+        guidance: if is_response_cache {
+            "Built-in Exact Response Cache readiness is exposed separately in Add-ons; this command performs no external connectivity check. The legacy semantic-cache profile ID remains a compatibility alias.".into()
         } else {
             "Advisory presence only. It does not prove installation, authentication, routing, or sidecar health.".into()
         },
@@ -165,6 +165,15 @@ mod tests {
         let report = get_optimization_addon_readiness("pxpipe-text-image".into(), None).unwrap();
         assert!(!report.live);
         assert!(!report.connectivity.attempted);
+    }
+    #[test]
+    fn response_cache_is_canonical_and_legacy_profile_id_remains_compatible() {
+        let canonical = get_optimization_addon_readiness("response-cache".into(), None).unwrap();
+        let legacy = get_optimization_addon_readiness("semantic-cache".into(), None).unwrap();
+        assert_eq!(canonical.profile_id, "response-cache");
+        assert_eq!(legacy.profile_id, "semantic-cache");
+        assert!(canonical.guidance.contains("Exact Response Cache"));
+        assert!(legacy.guidance.contains("compatibility alias"));
     }
     #[test]
     fn remote_url_is_not_eligible() {

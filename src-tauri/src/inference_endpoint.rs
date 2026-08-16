@@ -15,8 +15,9 @@ pub(crate) use capabilities::{CapabilityState, NormalizedRuntimeCapabilities};
 
 pub(crate) use registry::{
     EndpointAllowlist, EndpointDiagnostic, EndpointProbe, EndpointRegistry,
-    EndpointRegistryService, EndpointVerification, ProbeObservation, ProbePurpose, ProbeRequest,
-    RouteTarget, SglangEndpoint, UserEndpointApproval, VllmEndpoint,
+    EndpointRegistryService, EndpointVerification, LiteLlmEndpoint, LlamaCppEndpoint,
+    ProbeObservation, ProbePurpose, ProbeRequest, RouteTarget, SglangEndpoint,
+    UserEndpointApproval, VllmEndpoint,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

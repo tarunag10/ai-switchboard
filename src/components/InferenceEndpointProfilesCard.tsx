@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 
-type EndpointKind = "vllm" | "sglang" | "open_ai_compatible";
+type EndpointKind = "vllm" | "sglang" | "llama_cpp" | "litellm" | "open_ai_compatible";
 
 interface EndpointVerification {
   status: "unverified" | "verified" | "failed";
@@ -21,6 +21,14 @@ interface EndpointDiagnostic {
   enabled: boolean;
   selected: boolean;
   verification: EndpointVerification;
+  baseUrl: string;
+  host: string;
+  modelId: string;
+  maxContext?: number | null;
+  quantization?: string | null;
+  runtimeKind: string;
+  externallyOwned: boolean;
+  remoteConnectivityOptIn: boolean;
 }
 
 interface EndpointMutationResult {
@@ -34,6 +42,8 @@ const emptyForm = {
   baseUrl: "",
   modelId: "",
   maxContext: "",
+  quantization: "",
+  remoteConnectivityOptIn: false,
   kind: "vllm" as EndpointKind,
 };
 
@@ -100,8 +110,9 @@ export function InferenceEndpointProfilesCard() {
         <div>
           <h3>Inference endpoint profiles</h3>
           <p>
-            Add a generic OpenAI-compatible server or a verified vLLM profile.
-            Selection stays manual and never rewrites coding-client config.
+            Add verified vLLM, SGLang, llama.cpp, LiteLLM, or generic
+            OpenAI-compatible profiles. Selection stays manual and never
+            rewrites coding-client config.
           </p>
         </div>
       </div>
@@ -126,6 +137,8 @@ export function InferenceEndpointProfilesCard() {
           >
             <option value="vllm">vLLM verified profile</option>
             <option value="sglang">SGLang verified profile</option>
+            <option value="llama_cpp">llama.cpp local profile</option>
+            <option value="litellm">LiteLLM externally owned profile</option>
             <option value="open_ai_compatible">Generic OpenAI-compatible</option>
           </select>
         </label>
@@ -149,10 +162,43 @@ export function InferenceEndpointProfilesCard() {
               }
               placeholder={placeholder}
               type={field === "maxContext" ? "number" : "text"}
-              value={form[field as keyof typeof form]}
+              value={String(form[field as "id" | "label" | "baseUrl" | "modelId" | "maxContext"])}
             />
           </label>
         ))}
+        {form.kind === "llama_cpp" ? (
+          <label>
+            Quantization (optional)
+            <input
+              aria-label="Quantization (optional)"
+              disabled={busy !== null}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, quantization: event.target.value }))
+              }
+              placeholder="Q4_K_M"
+              value={form.quantization}
+            />
+          </label>
+        ) : null}
+        {form.kind === "litellm" ? (
+          <label className="optimize-project-row">
+            <span className="optimize-project-row__main">
+              <span className="optimize-project-row__name">Remote connectivity opt-in</span>
+              <span className="optimize-project-row__meta">
+                Required outside loopback. LiteLLM remains externally owned; the API key value is never stored.
+              </span>
+            </span>
+            <input
+              aria-label="Remote LiteLLM connectivity opt-in"
+              checked={form.remoteConnectivityOptIn}
+              disabled={busy !== null}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, remoteConnectivityOptIn: event.target.checked }))
+              }
+              type="checkbox"
+            />
+          </label>
+        ) : null}
         <button
           className="addon-card__action addon-card__action--primary"
           disabled={
@@ -180,6 +226,22 @@ export function InferenceEndpointProfilesCard() {
               {endpoint.verification.status}
               {endpoint.selected ? " · selected" : ""}
             </p>
+            <p>
+              <strong>Runtime:</strong> {endpoint.runtimeKind.replace(/_/g, " ")} ·{" "}
+              <strong>Host:</strong> <code>{endpoint.host}</code> ·{" "}
+              <strong>Model:</strong> <code>{endpoint.modelId}</code>
+            </p>
+            <p>
+              <strong>Context:</strong> {endpoint.maxContext?.toLocaleString() ?? "unknown"} ·{" "}
+              <strong>Quantization:</strong> {endpoint.quantization ?? "unknown"} ·{" "}
+              <strong>Health:</strong> {endpoint.verification.status}
+            </p>
+            {endpoint.externallyOwned ? (
+              <p>
+                Externally owned profile · remote connectivity{" "}
+                {endpoint.remoteConnectivityOptIn ? "explicitly allowed" : "loopback-only"} · secrets redacted.
+              </p>
+            ) : null}
             {endpoint.verification.reason ? <p>{endpoint.verification.reason}</p> : null}
             <div className="gateway-profile__actions">
               <button

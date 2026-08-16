@@ -1,0 +1,24 @@
+{
+  "evidenceVersion": "2026-08-16.p4",
+  "sourceRevision": "LMCache/LMCache@e8f938189d42875abf469f25a34765659e0f9c2d",
+  "nativePrefixOnly": {
+    "measured": true,
+    "sampleCount": 200,
+    "nativePrefixCacheEnabled": true,
+    "medianTtftMicros": 100000,
+    "gpuPrefillMillis": 50000,
+    "successfulTaskCostMicrousd": 10000,
+    "taskSuccessRateBasisPoints": 9950,
+    "operationalComplexityScore": 20
+  },
+  "nativePrefixPlusLmcache": {
+    "measured": true,
+    "sampleCount": 200,
+    "nativePrefixCacheEnabled": true,
+    "medianTtftMicros": 70000,
+    "gpuPrefillMillis": 40000,
+    "successfulTaskCostMicrousd": 8000,
+    "taskSuccessRateBasisPoints": 9950,
+    "operationalComplexityScore": 35
+  }
+}

@@ -115,11 +115,11 @@ pub struct CacheHit {
     pub status_code: u16,
 }
 
-pub struct SemanticCache {
+pub struct ExactResponseCache {
     connection: Connection,
 }
 
-impl SemanticCache {
+impl ExactResponseCache {
     pub fn open(path: impl AsRef<Path>) -> rusqlite::Result<Self> {
         let connection = Connection::open(path)?;
         let cache = Self { connection };
@@ -161,40 +161,23 @@ impl SemanticCache {
         )
     }
 
-    pub fn key_hash(request: &CacheRequest<'_>, semantic_v2: bool) -> String {
+    pub fn key_hash(request: &CacheRequest<'_>) -> String {
         let namespace =
             serde_json::to_string(&request.namespace).expect("namespace is serializable");
-        let prompt_key = if semantic_v2 {
-            request
-                .prompt
-                .chars()
-                .take(240)
-                .collect::<String>()
-                .to_ascii_lowercase()
-        } else {
-            request.prompt.to_string()
-        };
         let mut hasher = Sha256::new();
         hasher.update((namespace.len() as u64).to_be_bytes());
         hasher.update(namespace.as_bytes());
-        hasher.update((prompt_key.len() as u64).to_be_bytes());
-        hasher.update(prompt_key.as_bytes());
-        if semantic_v2 {
-            hasher.update(b"semantic-v2");
-        }
+        hasher.update((request.prompt.len() as u64).to_be_bytes());
+        hasher.update(request.prompt.as_bytes());
         format!("{:x}", hasher.finalize())
     }
 
-    pub fn get(
-        &self,
-        request: &CacheRequest<'_>,
-        semantic_v2: bool,
-    ) -> rusqlite::Result<Option<CacheHit>> {
+    pub fn get(&self, request: &CacheRequest<'_>) -> rusqlite::Result<Option<CacheHit>> {
         if !request.cacheable() {
             return Ok(None);
         }
         self.purge_expired()?;
-        let key = Self::key_hash(request, semantic_v2);
+        let key = Self::key_hash(request);
         let now = unix_seconds();
         let hit = self.connection.query_row(
             "SELECT response, metadata, key_hash, status_code FROM semantic_cache WHERE key_hash=?1 AND expires_at>?2 AND no_cache=0 AND invalidated=0",
@@ -207,12 +190,11 @@ impl SemanticCache {
         &self,
         request: &CacheRequest<'_>,
         response: &CacheResponse,
-        semantic_v2: bool,
     ) -> rusqlite::Result<bool> {
         if !request.cacheable() || response.no_cache || response.ttl_seconds == 0 {
             return Ok(false);
         }
-        let key = Self::key_hash(request, semantic_v2);
+        let key = Self::key_hash(request);
         let metadata = serde_json::to_string(&response.metadata)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         self.connection.execute("INSERT OR REPLACE INTO semantic_cache
@@ -221,10 +203,10 @@ impl SemanticCache {
         Ok(true)
     }
 
-    pub fn invalidate(&self, request: &CacheRequest<'_>, semantic_v2: bool) -> rusqlite::Result<bool> {
+    pub fn invalidate(&self, request: &CacheRequest<'_>) -> rusqlite::Result<bool> {
         let changed = self.connection.execute(
             "DELETE FROM semantic_cache WHERE key_hash=?1",
-            params![Self::key_hash(request, semantic_v2)],
+            params![Self::key_hash(request)],
         )?;
         Ok(changed != 0)
     }
@@ -233,8 +215,16 @@ impl SemanticCache {
         Ok(self.connection.execute("DELETE FROM semantic_cache WHERE provider=?1 AND model=?2 AND account=?3 AND workspace=?4 AND policy=?5", params![namespace.provider, namespace.model, namespace.account, namespace.workspace, namespace.policy])?)
     }
 
+    pub fn clear_with_receipt(&self) -> rusqlite::Result<ResponseCacheClearReceipt> {
+        let entries_cleared = self.connection.execute("DELETE FROM semantic_cache", [])?;
+        Ok(ResponseCacheClearReceipt {
+            entries_cleared,
+            restore_available: false,
+        })
+    }
+
     pub fn clear(&self) -> rusqlite::Result<usize> {
-        Ok(self.connection.execute("DELETE FROM semantic_cache", [])?)
+        Ok(self.clear_with_receipt()?.entries_cleared)
     }
 
     pub fn entry_count(&self) -> rusqlite::Result<u64> {
@@ -383,11 +373,69 @@ pub struct SemanticCacheStatus {
     pub disclosure: &'static str,
 }
 
+/// Compatibility alias for the pre-taxonomy backend name. The SQLite table,
+/// state filenames, command names, and serialized fields stay readable during
+/// migration; new product contracts use Exact Response Cache terminology.
+pub type SemanticCache = ExactResponseCache;
+pub type SemanticCacheService = ExactResponseCacheService;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseCacheClearReceipt {
+    pub entries_cleared: usize,
+    pub restore_available: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseCacheClearResult {
+    pub receipt: ResponseCacheClearReceipt,
+    pub diagnostics: ResponseCacheDiagnostics,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseCacheNamespaceDiagnostics {
+    /// SHA-256 identifier over namespace fields. Account and workspace values
+    /// are deliberately not exposed by the diagnostics API.
+    pub namespace_id: String,
+    pub entries: u64,
+    pub hits: u64,
+    pub misses: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseCacheClearAction {
+    pub command: &'static str,
+    pub confirmation_phrase: &'static str,
+    pub restore_command: Option<&'static str>,
+    pub restore_available: bool,
+    pub retains_local_restore_copy: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseCacheDiagnostics {
+    pub product_name: &'static str,
+    pub enabled: bool,
+    pub exact_match_only: bool,
+    pub matching_strategy: &'static str,
+    pub entries: u64,
+    pub hits: u64,
+    pub misses: u64,
+    pub namespaces: Vec<ResponseCacheNamespaceDiagnostics>,
+    pub storage_path: String,
+    pub bypass_rules: Vec<&'static str>,
+    pub safety_rules: Vec<&'static str>,
+    pub clear_action: ResponseCacheClearAction,
+}
+
 /// App-owned exact cache service. It is deliberately opt-in and local-only;
 /// the proxy uses it only for safe, non-streaming requests. The prompt is
 /// hashed before SQLite sees it, and all cache failures are fail-open.
-pub struct SemanticCacheService {
-    cache: Mutex<SemanticCache>,
+pub struct ExactResponseCacheService {
+    cache: Mutex<ExactResponseCache>,
     database_path: std::path::PathBuf,
     state_path: std::path::PathBuf,
     enabled: AtomicBool,
@@ -399,7 +447,7 @@ pub struct SemanticCacheService {
     storage_available: AtomicBool,
 }
 
-impl SemanticCacheService {
+impl ExactResponseCacheService {
     fn load_state_file(state_path: &Path) -> SemanticCacheStateFile {
         fs::read_to_string(state_path)
             .ok()
@@ -411,14 +459,21 @@ impl SemanticCacheService {
             })
     }
 
-    fn write_state_file(&self, state: &SemanticCacheStateFile) -> std::io::Result<()> {
-        if let Some(parent) = self.state_path.parent() {
+    fn write_state_file_at(
+        state_path: &Path,
+        state: &SemanticCacheStateFile,
+    ) -> std::io::Result<()> {
+        if let Some(parent) = state_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let tmp = self.state_path.with_extension("json.tmp");
+        let tmp = state_path.with_extension("json.tmp");
         fs::write(&tmp, serde_json::to_vec(state).unwrap_or_default())?;
-        fs::rename(tmp, &self.state_path)?;
+        fs::rename(tmp, state_path)?;
         Ok(())
+    }
+
+    fn write_state_file(&self, state: &SemanticCacheStateFile) -> std::io::Result<()> {
+        Self::write_state_file_at(&self.state_path, state)
     }
 
     pub fn open(
@@ -428,9 +483,17 @@ impl SemanticCacheService {
         if let Some(parent) = database_path.as_ref().parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let state = Self::load_state_file(state_path.as_ref());
+        let mut state = Self::load_state_file(state_path.as_ref());
+        if state.semantic_v2_enabled {
+            state.semantic_v2_enabled = false;
+            if let Err(err) = Self::write_state_file_at(state_path.as_ref(), &state) {
+                log::warn!(
+                    "could not persist removal of legacy normalized-prefix v2 cache mode; it remains disabled in memory: {err}"
+                );
+            }
+        }
         Ok(Self {
-            cache: Mutex::new(SemanticCache::open(database_path.as_ref())?),
+            cache: Mutex::new(ExactResponseCache::open(database_path.as_ref())?),
             database_path: database_path.as_ref().to_path_buf(),
             state_path: state_path.as_ref().to_path_buf(),
             enabled: AtomicBool::new(state.enabled),
@@ -460,54 +523,46 @@ impl SemanticCacheService {
     }
 
     pub fn set_semantic_v2_enabled(&self, enabled: bool) -> std::io::Result<()> {
+        if enabled {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "legacy normalized-prefix v2 replay is unavailable; it is not semantic similarity",
+            ));
+        }
         let mut state = Self::load_state_file(&self.state_path);
-        state.semantic_v2_enabled = enabled;
+        state.semantic_v2_enabled = false;
         self.write_state_file(&state)?;
-        self.semantic_v2_enabled
-            .store(enabled, Ordering::Release);
+        self.semantic_v2_enabled.store(false, Ordering::Release);
         Ok(())
-    }
-
-    fn semantic_v2_active(&self) -> bool {
-        self.enabled() && self.semantic_v2_enabled()
     }
 
     pub fn get(&self, request: &CacheRequest<'_>) -> Option<CacheHit> {
         if !self.enabled() || !request.cacheable() {
             return None;
         }
-        let semantic_v2 = self.semantic_v2_active();
         let lookup = {
             let cache = self.cache.lock();
-            cache.get(request, semantic_v2)
+            cache.get(request)
         };
         match lookup {
             Ok(Some(hit)) => {
                 self.hits.fetch_add(1, Ordering::Relaxed);
-                if let Err(err) = self
-                    .cache
-                    .lock()
-                    .record_namespace_hit(&request.namespace)
-                {
-                    log::warn!("semantic cache namespace hit accounting failed: {err}");
+                if let Err(err) = self.cache.lock().record_namespace_hit(&request.namespace) {
+                    log::warn!("response cache namespace hit accounting failed: {err}");
                 }
                 Some(hit)
             }
             Ok(None) => {
                 self.misses.fetch_add(1, Ordering::Relaxed);
-                if let Err(err) = self
-                    .cache
-                    .lock()
-                    .record_namespace_miss(&request.namespace)
-                {
-                    log::warn!("semantic cache namespace miss accounting failed: {err}");
+                if let Err(err) = self.cache.lock().record_namespace_miss(&request.namespace) {
+                    log::warn!("response cache namespace miss accounting failed: {err}");
                 }
                 None
             }
             Err(err) => {
                 self.read_failures.fetch_add(1, Ordering::Relaxed);
                 self.storage_available.store(false, Ordering::Release);
-                log::warn!("semantic cache read failed: {err}");
+                log::warn!("response cache read failed: {err}");
                 None
             }
         }
@@ -517,16 +572,19 @@ impl SemanticCacheService {
         if !self.enabled() || !request.cacheable() {
             return;
         }
-        let semantic_v2 = self.semantic_v2_active();
-        if let Err(err) = self.cache.lock().put(request, response, semantic_v2) {
+        if let Err(err) = self.cache.lock().put(request, response) {
             self.write_failures.fetch_add(1, Ordering::Relaxed);
             self.storage_available.store(false, Ordering::Release);
-            log::warn!("semantic cache write failed: {err}");
+            log::warn!("response cache write failed: {err}");
         }
     }
 
     pub fn clear(&self) -> rusqlite::Result<usize> {
         self.cache.lock().clear()
+    }
+
+    pub fn clear_with_receipt(&self) -> rusqlite::Result<ResponseCacheClearReceipt> {
+        self.cache.lock().clear_with_receipt()
     }
 
     pub fn clear_namespace(&self, namespace: &CacheNamespace) -> rusqlite::Result<usize> {
@@ -539,7 +597,7 @@ impl SemanticCacheService {
             Err(err) => {
                 self.read_failures.fetch_add(1, Ordering::Relaxed);
                 self.storage_available.store(false, Ordering::Release);
-                log::warn!("semantic cache stats read failed: {err}");
+                log::warn!("response cache stats read failed: {err}");
                 Vec::new()
             }
         };
@@ -552,25 +610,12 @@ impl SemanticCacheService {
             Err(err) => {
                 self.read_failures.fetch_add(1, Ordering::Relaxed);
                 self.storage_available.store(false, Ordering::Release);
-                log::warn!("semantic cache status read failed: {err}");
+                log::warn!("response cache status read failed: {err}");
                 0
             }
         };
         let storage_available = self.storage_available.load(Ordering::Acquire);
         let semantic_v2_enabled = self.semantic_v2_enabled();
-        let (policy, evidence, disclosure) = if semantic_v2_enabled {
-            (
-                "semantic-v2",
-                "local-estimated-similarity-replay",
-                "Semantic v2 similarity replay is opt-in and labels hits estimated until a provider-billed counterfactual pair exists. Streaming, tools/MCP, sensitive markers, and open tool calls bypass.",
-            )
-        } else {
-            (
-                "exact-v1",
-                "local-observed-exact-replay",
-                "Local exact replay only; response bodies remain in local app storage until TTL or clear. Streaming, tools/MCP, image content, sensitive markers in requests or responses, high temperature, and no-cache requests bypass. Marker screening is conservative, not a guarantee of secrecy.",
-            )
-        };
         SemanticCacheStatus {
             enabled: self.enabled(),
             semantic_v2_enabled,
@@ -581,15 +626,84 @@ impl SemanticCacheService {
             read_failures: self.read_failures.load(Ordering::Relaxed),
             write_failures: self.write_failures.load(Ordering::Relaxed),
             evidence: if storage_available {
-                evidence
+                "local-observed-exact-replay"
             } else {
                 "unavailable-storage-error"
             },
             database_path: self.database_path.display().to_string(),
-            policy,
-            disclosure,
+            policy: "exact-v1",
+            disclosure: "Local exact replay only; response bodies remain in local app storage until TTL or clear. Streaming, tools/MCP, image content, sensitive markers in requests or responses, high temperature, and no-cache requests bypass. Marker screening is conservative, not a guarantee of secrecy.",
         }
     }
+
+    /// Secret/content-free product diagnostics for the current response cache.
+    /// Raw prompts, responses, keys, account names, and workspace paths are
+    /// never serialized by this contract.
+    pub fn diagnostics(&self) -> ResponseCacheDiagnostics {
+        let legacy_status = self.status();
+        let namespaces = self
+            .stats()
+            .namespaces
+            .into_iter()
+            .map(|namespace| ResponseCacheNamespaceDiagnostics {
+                namespace_id: namespace_diagnostic_id(&namespace),
+                entries: namespace.entries,
+                hits: namespace.hits,
+                misses: namespace.misses,
+            })
+            .collect();
+        ResponseCacheDiagnostics {
+            product_name: "Exact Response Cache",
+            enabled: legacy_status.enabled,
+            exact_match_only: true,
+            matching_strategy: "sha256-exact-request-identity",
+            entries: legacy_status.entries,
+            hits: legacy_status.hits,
+            misses: legacy_status.misses,
+            namespaces,
+            storage_path: legacy_status.database_path,
+            bypass_rules: vec![
+                "streaming",
+                "tools_or_mcp",
+                "sensitive_data_marker",
+                "high_temperature",
+                "rapid_repo_state",
+                "open_tool_calls",
+                "no_cache_marker",
+                "unscoped_namespace",
+            ],
+            safety_rules: vec![
+                "local_app_storage_only",
+                "sha256_request_key",
+                "provider_model_account_workspace_policy_isolation",
+                "ttl_and_explicit_invalidation",
+                "fail_open_on_storage_error",
+                "marker_screening_is_not_a_secrecy_guarantee",
+            ],
+            clear_action: ResponseCacheClearAction {
+                command: "clear_response_cache",
+                confirmation_phrase: CLEAR_RESPONSE_CACHE_CONFIRMATION,
+                restore_command: None,
+                restore_available: false,
+                retains_local_restore_copy: false,
+            },
+        }
+    }
+}
+
+fn namespace_diagnostic_id(namespace: &SemanticCacheNamespaceStat) -> String {
+    let mut hasher = Sha256::new();
+    for value in [
+        &namespace.provider,
+        &namespace.model,
+        &namespace.account,
+        &namespace.workspace,
+        &namespace.policy,
+    ] {
+        hasher.update((value.len() as u64).to_be_bytes());
+        hasher.update(value.as_bytes());
+    }
+    format!("sha256:{:x}", hasher.finalize())
 }
 
 #[tauri::command]
@@ -597,6 +711,35 @@ pub fn get_semantic_cache_status(
     state: tauri::State<'_, crate::state::AppState>,
 ) -> SemanticCacheStatus {
     state.semantic_cache.status()
+}
+
+const CLEAR_RESPONSE_CACHE_CONFIRMATION: &str = "clear exact response cache";
+
+#[tauri::command]
+pub fn get_response_cache_diagnostics(
+    state: tauri::State<'_, crate::state::AppState>,
+) -> ResponseCacheDiagnostics {
+    state.semantic_cache.diagnostics()
+}
+
+#[tauri::command]
+pub fn clear_response_cache(
+    state: tauri::State<'_, crate::state::AppState>,
+    confirmation_phrase: String,
+) -> Result<ResponseCacheClearResult, String> {
+    if confirmation_phrase != CLEAR_RESPONSE_CACHE_CONFIRMATION {
+        return Err(format!(
+            "Type \"{CLEAR_RESPONSE_CACHE_CONFIRMATION}\" to clear the Exact Response Cache."
+        ));
+    }
+    let receipt = state
+        .semantic_cache
+        .clear_with_receipt()
+        .map_err(|err| err.to_string())?;
+    Ok(ResponseCacheClearResult {
+        receipt,
+        diagnostics: state.semantic_cache.diagnostics(),
+    })
 }
 
 #[tauri::command]
@@ -611,7 +754,7 @@ pub fn set_semantic_cache_enabled(
         )
     {
         return Err(
-            "Semantic Cache requires Full or Headroom mode; Off and RTK-only modes do not serve cached provider responses."
+            "Exact Response Cache requires Full or Headroom mode; Off and RTK-only modes do not serve cached provider responses."
                 .into(),
         );
     }
@@ -683,9 +826,9 @@ pub fn set_semantic_cache_v2_enabled(
     state: tauri::State<'_, crate::state::AppState>,
     enabled: bool,
 ) -> Result<SemanticCacheStatus, String> {
-    if enabled && !state.semantic_cache.enabled() {
+    if enabled {
         return Err(
-            "Enable exact cache before turning on semantic v2 similarity replay.".into(),
+            "Legacy normalized-prefix v2 replay is unavailable because it is not semantic similarity. A true semantic-cache experiment uses a separate gated contract.".into(),
         );
     }
     state
@@ -733,8 +876,8 @@ mod tests {
     fn round_trip_stores_only_hashed_key() {
         let c = SemanticCache::open_in_memory().unwrap();
         let r = request();
-        assert!(c.put(&r, &response(), false).unwrap());
-        assert_eq!(c.get(&r, false).unwrap().unwrap().body, "world");
+        assert!(c.put(&r, &response()).unwrap());
+        assert_eq!(c.get(&r).unwrap().unwrap().body, "world");
         let stored: String = c
             .connection
             .query_row("SELECT key_hash FROM semantic_cache", [], |row| row.get(0))
@@ -742,15 +885,44 @@ mod tests {
         assert!(!stored.contains("hello"));
     }
     #[test]
+    fn exact_identity_does_not_normalize_case_or_truncate_prompt_suffixes() {
+        let mut upper = request();
+        upper.prompt = "Hello";
+        let mut lower = request();
+        lower.prompt = "hello";
+        assert_ne!(
+            ExactResponseCache::key_hash(&upper),
+            ExactResponseCache::key_hash(&lower)
+        );
+
+        let prefix = "x".repeat(240);
+        let left_prompt = format!("{prefix}left");
+        let right_prompt = format!("{prefix}right");
+        let left = CacheRequest {
+            namespace: request().namespace,
+            prompt: &left_prompt,
+            ..Default::default()
+        };
+        let right = CacheRequest {
+            namespace: request().namespace,
+            prompt: &right_prompt,
+            ..Default::default()
+        };
+        assert_ne!(
+            ExactResponseCache::key_hash(&left),
+            ExactResponseCache::key_hash(&right)
+        );
+    }
+    #[test]
     fn ttl_and_invalidation_are_enforced() {
         let c = SemanticCache::open_in_memory().unwrap();
         let r = request();
         let mut v = response();
         v.ttl_seconds = 0;
-        assert!(!c.put(&r, &v, false).unwrap());
-        assert!(c.put(&r, &response(), false).unwrap());
-        assert!(c.invalidate(&r, false).unwrap());
-        assert!(c.get(&r, false).unwrap().is_none());
+        assert!(!c.put(&r, &v).unwrap());
+        assert!(c.put(&r, &response()).unwrap());
+        assert!(c.invalidate(&r).unwrap());
+        assert!(c.get(&r).unwrap().is_none());
     }
 
     #[test]
@@ -761,14 +933,14 @@ mod tests {
         variant.namespace.request_variant = "sha256:variant".into();
         let mut other = request();
         other.namespace.workspace = "other-workspace".into();
-        assert!(c.put(&r, &response(), false).unwrap());
-        assert!(c.put(&variant, &response(), false).unwrap());
-        assert!(c.put(&other, &response(), false).unwrap());
+        assert!(c.put(&r, &response()).unwrap());
+        assert!(c.put(&variant, &response()).unwrap());
+        assert!(c.put(&other, &response()).unwrap());
 
         assert_eq!(c.invalidate_namespace(&r.namespace).unwrap(), 2);
-        assert!(c.get(&r, false).unwrap().is_none());
-        assert!(c.get(&variant, false).unwrap().is_none());
-        assert!(c.get(&other, false).unwrap().is_some());
+        assert!(c.get(&r).unwrap().is_none());
+        assert!(c.get(&variant).unwrap().is_none());
+        assert!(c.get(&other).unwrap().is_some());
     }
 
     #[test]
@@ -778,8 +950,8 @@ mod tests {
         assert!(!r.namespace.is_scoped());
         assert!(!r.cacheable());
         let c = SemanticCache::open_in_memory().unwrap();
-        assert!(!c.put(&r, &response(), false).unwrap());
-        assert!(c.get(&r, false).unwrap().is_none());
+        assert!(!c.put(&r, &response()).unwrap());
+        assert!(c.get(&r).unwrap().is_none());
     }
 
     #[test]
@@ -788,8 +960,8 @@ mod tests {
         let mut response = response();
         response.no_cache = true;
         let r = request();
-        assert!(!c.put(&r, &response, false).unwrap());
-        assert!(c.get(&r, false).unwrap().is_none());
+        assert!(!c.put(&r, &response).unwrap());
+        assert!(c.get(&r).unwrap().is_none());
         assert_eq!(c.entry_count().unwrap(), 0);
     }
 
@@ -799,7 +971,7 @@ mod tests {
         let r = request();
         let mut v = response();
         v.ttl_seconds = 1;
-        assert!(c.put(&r, &v, false).unwrap());
+        assert!(c.put(&r, &v).unwrap());
         c.connection
             .execute(
                 "UPDATE semantic_cache SET expires_at=?1",
@@ -853,6 +1025,114 @@ mod tests {
         service.clear().unwrap();
         assert_eq!(service.status().entries, 0);
         service.set_enabled(false).unwrap();
+        let _ = std::fs::remove_file(state_path);
+    }
+
+    #[test]
+    fn response_cache_diagnostics_are_content_and_secret_free() {
+        let state_path = std::env::temp_dir().join(format!(
+            "ai-switchboard-response-cache-diagnostics-{}-{}.json",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let service = ExactResponseCacheService::open(":memory:", &state_path).unwrap();
+        service.set_enabled(true).unwrap();
+        let mut request = request();
+        request.namespace.account = "secret-account@example.test".into();
+        request.namespace.workspace = "/private/customer/repository".into();
+        request.prompt = "proprietary prompt content";
+        let mut response = response();
+        response.body = "private model response".into();
+        service.put(&request, &response);
+        assert!(service.get(&request).is_some());
+
+        let diagnostics = service.diagnostics();
+        let serialized = serde_json::to_string(&diagnostics).unwrap();
+        assert_eq!(diagnostics.product_name, "Exact Response Cache");
+        assert!(diagnostics.exact_match_only);
+        assert_eq!(diagnostics.entries, 1);
+        assert_eq!(diagnostics.hits, 1);
+        assert_eq!(diagnostics.namespaces.len(), 1);
+        assert!(diagnostics.namespaces[0]
+            .namespace_id
+            .starts_with("sha256:"));
+        for forbidden in [
+            "secret-account@example.test",
+            "/private/customer/repository",
+            "proprietary prompt content",
+            "private model response",
+        ] {
+            assert!(!serialized.contains(forbidden));
+        }
+        assert!(diagnostics.bypass_rules.contains(&"tools_or_mcp"));
+        assert_eq!(
+            diagnostics.clear_action.confirmation_phrase,
+            CLEAR_RESPONSE_CACHE_CONFIRMATION
+        );
+        let _ = std::fs::remove_file(state_path);
+    }
+
+    #[test]
+    fn confirmed_clear_deletes_response_bodies_without_changing_enabled_state() {
+        let state_path = std::env::temp_dir().join(format!(
+            "ai-switchboard-response-cache-clear-{}-{}.json",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let service = ExactResponseCacheService::open(":memory:", &state_path).unwrap();
+        service.set_enabled(true).unwrap();
+        service.put(&request(), &response());
+
+        let receipt = service.clear_with_receipt().unwrap();
+        assert_eq!(receipt.entries_cleared, 1);
+        assert!(!receipt.restore_available);
+        assert_eq!(service.diagnostics().entries, 0);
+        assert!(!service.diagnostics().clear_action.restore_available);
+        assert!(
+            !service
+                .diagnostics()
+                .clear_action
+                .retains_local_restore_copy
+        );
+        assert_eq!(service.diagnostics().clear_action.restore_command, None);
+        assert!(service.enabled());
+        assert!(service.get(&request()).is_none());
+        let _ = std::fs::remove_file(state_path);
+    }
+
+    #[test]
+    fn legacy_v2_state_is_migrated_off_and_cannot_be_reenabled() {
+        let state_path = std::env::temp_dir().join(format!(
+            "ai-switchboard-response-cache-legacy-v2-{}-{}.json",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::write(
+            &state_path,
+            r#"{"version":1,"enabled":true,"semanticV2Enabled":true}"#,
+        )
+        .unwrap();
+        let service = ExactResponseCacheService::open(":memory:", &state_path).unwrap();
+        assert!(!service.semantic_v2_enabled());
+        assert!(service.set_semantic_v2_enabled(true).is_err());
+        let diagnostics = service.diagnostics();
+        assert!(diagnostics.exact_match_only);
+        assert_eq!(
+            diagnostics.matching_strategy,
+            "sha256-exact-request-identity"
+        );
+        let migrated: SemanticCacheStateFile =
+            serde_json::from_str(&fs::read_to_string(&state_path).unwrap()).unwrap();
+        assert!(!migrated.semantic_v2_enabled);
         let _ = std::fs::remove_file(state_path);
     }
 }

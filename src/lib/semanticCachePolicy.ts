@@ -43,7 +43,8 @@ export interface CacheDecision {
     | "no-cache-marker"
     | "high-temperature"
     | "rapid-repo-state"
-    | "open-tool-calls";
+    | "open-tool-calls"
+    | "not-exact-match";
 }
 
 export interface CacheReceipt {
@@ -54,7 +55,7 @@ export interface CacheReceipt {
 }
 
 const DEFAULT_POLICY: SemanticCachePolicy = {
-  policyVersion: "semantic-cache-v1",
+  policyVersion: "exact-response-cache-v1",
   semanticTemperatureMax: 0.2,
 };
 
@@ -79,11 +80,11 @@ export const semanticCacheBypassReasons = [
 ] as const;
 
 export function describeSemanticCachePolicy(): string {
-  return "Separate cache savings: exact first, semantic opt-in; bypass streaming, tools/MCP, sensitive or no-cache requests, high temperature, rapid repo changes, and open tool calls.";
+  return "Exact response replay only. Bypass non-identical requests, streaming, tools/MCP, sensitive or no-cache requests, high temperature, rapid repo changes, and open tool calls.";
 }
 
 export function describeSemanticCacheV2Policy(): string {
-  return "Semantic v2 similarity replay is opt-in, local-only, and labels hits estimated until a provider-billed counterfactual pair exists. Streaming, tools/MCP, sensitive markers, and open tool calls always bypass.";
+  return "True semantic reuse is experimental and unavailable for live replay until representation, similarity, isolation, stale-code, task-safety, and quality gates all pass.";
 }
 
 export function canEnableSemanticCacheV2(input: {
@@ -112,7 +113,9 @@ export function classifySemanticCacheRequest(
   if ((request.openToolCalls ?? 0) > 0) {
     return { classification: "bypass", reason: "open-tool-calls" };
   }
-  return { classification: request.exactCacheEligible ? "exact" : "semantic" };
+  return request.exactCacheEligible
+    ? { classification: "exact" }
+    : { classification: "bypass", reason: "not-exact-match" };
 }
 
 export function buildSemanticCacheNamespaceKey(

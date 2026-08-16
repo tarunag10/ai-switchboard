@@ -66,6 +66,7 @@ mod inference_endpoint_commands;
 mod keychain;
 mod learning_commands;
 mod live_benchmark;
+mod lmcache_promotion_gate;
 mod local_mode;
 mod logging;
 mod managed_files;
@@ -99,6 +100,7 @@ mod runtime_failure_reporting;
 mod runtime_probe;
 mod runtime_watchdog;
 mod semantic_cache;
+mod semantic_cache_experiment;
 mod startup_error;
 mod state;
 mod storage;
@@ -788,8 +790,10 @@ pub fn run() {
             addon_commands::uninstall_addon,
             addon_commands::get_leanctx_sidecar_status,
             semantic_cache::get_semantic_cache_status,
+            semantic_cache::get_response_cache_diagnostics,
             semantic_cache::set_semantic_cache_enabled,
             semantic_cache::clear_semantic_cache,
+            semantic_cache::clear_response_cache,
             semantic_cache::get_semantic_cache_stats,
             semantic_cache::clear_semantic_cache_namespace,
             semantic_cache::set_semantic_cache_v2_enabled,

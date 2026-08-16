@@ -88,6 +88,39 @@ impl NormalizedRuntimeCapabilities {
         let source = "sgl-project/sglang@d3589a7251e4df6710e14ac55071585e80ae62c7";
         runtime_profile(endpoint, source)
     }
+
+    pub(crate) fn llama_cpp(endpoint: &dyn InferenceEndpoint, quantization: Option<&str>) -> Self {
+        let source = "ggml-org/llama.cpp@4df29be4f4c3673f428170fda944a5b19f743bb8";
+        Self {
+            prefix_cache: supported(source),
+            speculative_decoding: supported(source),
+            continuous_batching: unknown("not established by the endpoint profile"),
+            disaggregated_prefill_decode: unknown("not established by the endpoint profile"),
+            quantization: match quantization {
+                Some(value) => configured(format!("user endpoint configuration: {value}")),
+                None => supported(source),
+            },
+            parallelism: supported(source),
+            max_context: NormalizedCapability::configured_value(
+                endpoint.capabilities().max_context,
+                "user endpoint configuration",
+            ),
+            tool_calling: unknown("model and chat-template dependent"),
+        }
+    }
+
+    pub(crate) fn litellm(endpoint: &dyn InferenceEndpoint) -> Self {
+        let mut profile = Self::unknown(endpoint);
+        let evidence = "LiteLLM gateway capability is downstream-model dependent";
+        profile.prefix_cache = unknown(evidence);
+        profile.speculative_decoding = unknown(evidence);
+        profile.continuous_batching = unknown(evidence);
+        profile.disaggregated_prefill_decode = unknown(evidence);
+        profile.quantization = unknown(evidence);
+        profile.parallelism = unknown(evidence);
+        profile.tool_calling = unknown(evidence);
+        profile
+    }
 }
 
 fn runtime_profile(
@@ -138,6 +171,10 @@ fn configured_bool(configured: bool, evidence: impl Into<String>) -> NormalizedC
 
 fn supported(evidence: impl Into<String>) -> NormalizedCapability {
     NormalizedCapability::new(CapabilityState::Supported, evidence)
+}
+
+fn configured(evidence: impl Into<String>) -> NormalizedCapability {
+    NormalizedCapability::new(CapabilityState::Configured, evidence)
 }
 
 fn unknown(evidence: impl Into<String>) -> NormalizedCapability {
@@ -197,5 +234,28 @@ mod tests {
         assert_eq!(capabilities.prefix_cache.state, CapabilityState::Unknown);
         assert_eq!(capabilities.max_context.state, CapabilityState::Unknown);
         assert_eq!(capabilities.tool_calling.state, CapabilityState::Configured);
+    }
+
+    #[test]
+    fn llama_cpp_keeps_configured_quantization_distinct_from_runtime_support() {
+        let endpoint = endpoint(Some(8_192));
+        let capabilities = NormalizedRuntimeCapabilities::llama_cpp(&endpoint, Some("Q4_K_M"));
+
+        assert_eq!(capabilities.quantization.state, CapabilityState::Configured);
+        assert_eq!(
+            capabilities.disaggregated_prefill_decode.state,
+            CapabilityState::Unknown
+        );
+        assert_eq!(capabilities.tool_calling.state, CapabilityState::Unknown);
+    }
+
+    #[test]
+    fn litellm_does_not_inherit_downstream_runtime_capabilities() {
+        let endpoint = endpoint(Some(32_768));
+        let capabilities = NormalizedRuntimeCapabilities::litellm(&endpoint);
+
+        assert_eq!(capabilities.prefix_cache.state, CapabilityState::Unknown);
+        assert_eq!(capabilities.quantization.state, CapabilityState::Unknown);
+        assert_eq!(capabilities.max_context.state, CapabilityState::Configured);
     }
 }

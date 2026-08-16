@@ -10,6 +10,12 @@
 //! SGLang is pinned to upstream commit
 //! `d3589a7251e4df6710e14ac55071585e80ae62c7` (2026-08-16). Its bounded
 //! verification paths are `/health`, `/server_info`, and `/v1/models`.
+//!
+//! llama.cpp is pinned to `ggml-org/llama.cpp` commit
+//! `4df29be4f4c3673f428170fda944a5b19f743bb8` (2026-08-16). LiteLLM is
+//! pinned to `BerriAI/litellm` commit
+//! `bc6e7df05b018eefe6c7293790ca3f4de38709ac` (2026-08-16). Both remain
+//! externally owned; Switchboard only enrolls and verifies their endpoints.
 
 use super::{
     validate_profile, CredentialStrategy, EndpointCapabilities, EndpointProfile, HealthPolicy,
@@ -29,6 +35,11 @@ const VLLM_MODELS_PATH: &str = "/v1/models";
 const SGLANG_HEALTH_PATH: &str = "/health";
 const SGLANG_SERVER_INFO_PATH: &str = "/server_info";
 const SGLANG_MODELS_PATH: &str = "/v1/models";
+const LLAMA_CPP_HEALTH_PATH: &str = "/health";
+const LLAMA_CPP_PROPS_PATH: &str = "/props";
+const LLAMA_CPP_MODELS_PATH: &str = "/v1/models";
+const LITELLM_LIVELINESS_PATH: &str = "/health/liveliness";
+const LITELLM_MODELS_PATH: &str = "/v1/models";
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -225,6 +236,207 @@ impl InferenceEndpoint for SglangEndpoint {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LlamaCppEndpoint {
+    profile: EndpointProfile,
+    pub quantization: Option<String>,
+    pub compatibility_source: String,
+}
+
+impl LlamaCppEndpoint {
+    pub(crate) fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        base_url: impl Into<String>,
+        model_id: impl Into<String>,
+        max_context: Option<u64>,
+        quantization: Option<String>,
+    ) -> Result<Self, String> {
+        let endpoint = OpenAiCompatibleEndpoint::new(
+            id,
+            label,
+            base_url,
+            HealthPolicy::Active,
+            model_id,
+            EndpointCapabilities {
+                protocol: InferenceProtocol::OpenAiCompatible,
+                streaming: true,
+                tools: false,
+                structured_output: true,
+                max_context,
+                prefix_cache_evidence: PrefixCacheEvidence::Unknown,
+                health_endpoint: Some(LLAMA_CPP_HEALTH_PATH.to_string()),
+                model_discovery: ModelDiscovery::Endpoint {
+                    path: LLAMA_CPP_MODELS_PATH.to_string(),
+                },
+            },
+            CredentialStrategy::None,
+            false,
+        )?;
+        if endpoint.security_classification() == SecurityClassification::UserConfiguredRemote {
+            return Err("llama.cpp endpoint must be loopback or local-network hosted".to_string());
+        }
+        let quantization = validate_quantization(quantization)?;
+        Ok(Self {
+            profile: endpoint.profile,
+            quantization,
+            compatibility_source: "ggml-org/llama.cpp@4df29be4f4c3673f428170fda944a5b19f743bb8"
+                .to_string(),
+        })
+    }
+
+    fn validate_local_policy(&self) -> Result<(), String> {
+        if self.security_classification() == SecurityClassification::UserConfiguredRemote {
+            return Err(
+                "llama.cpp endpoint must remain loopback or local-network hosted".to_string(),
+            );
+        }
+        if self.credential_strategy() != &CredentialStrategy::None {
+            return Err("llama.cpp endpoint credential policy is invalid".to_string());
+        }
+        if validate_quantization(self.quantization.clone())? != self.quantization {
+            return Err("llama.cpp quantization metadata is not normalized".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LiteLlmEndpoint {
+    profile: EndpointProfile,
+    pub remote_connectivity_opt_in: bool,
+    pub externally_owned: bool,
+    pub compatibility_source: String,
+}
+
+impl LiteLlmEndpoint {
+    pub(crate) fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        base_url: impl Into<String>,
+        model_id: impl Into<String>,
+        max_context: Option<u64>,
+        remote_connectivity_opt_in: bool,
+    ) -> Result<Self, String> {
+        let endpoint = OpenAiCompatibleEndpoint::new(
+            id,
+            label,
+            base_url,
+            HealthPolicy::Active,
+            model_id,
+            EndpointCapabilities {
+                protocol: InferenceProtocol::OpenAiCompatible,
+                streaming: true,
+                tools: false,
+                structured_output: false,
+                max_context,
+                prefix_cache_evidence: PrefixCacheEvidence::Unknown,
+                health_endpoint: Some(LITELLM_LIVELINESS_PATH.to_string()),
+                model_discovery: ModelDiscovery::Endpoint {
+                    path: LITELLM_MODELS_PATH.to_string(),
+                },
+            },
+            CredentialStrategy::EnvironmentVariable {
+                variable: "LITELLM_API_KEY".to_string(),
+            },
+            false,
+        )?;
+        let requires_remote_opt_in =
+            endpoint.security_classification() != SecurityClassification::LocalLoopback;
+        if requires_remote_opt_in && !remote_connectivity_opt_in {
+            return Err("remote LiteLLM connectivity requires explicit opt-in".to_string());
+        }
+        Ok(Self {
+            profile: endpoint.profile,
+            remote_connectivity_opt_in: requires_remote_opt_in && remote_connectivity_opt_in,
+            externally_owned: true,
+            compatibility_source: "BerriAI/litellm@bc6e7df05b018eefe6c7293790ca3f4de38709ac"
+                .to_string(),
+        })
+    }
+
+    fn validate_external_policy(&self) -> Result<(), String> {
+        if !self.externally_owned {
+            return Err("LiteLLM endpoint must remain externally owned".to_string());
+        }
+        let requires_remote_opt_in =
+            self.security_classification() != SecurityClassification::LocalLoopback;
+        if requires_remote_opt_in && !self.remote_connectivity_opt_in {
+            return Err(
+                "remote LiteLLM endpoint is missing explicit connectivity opt-in".to_string(),
+            );
+        }
+        if self.credential_strategy()
+            != &(CredentialStrategy::EnvironmentVariable {
+                variable: "LITELLM_API_KEY".to_string(),
+            })
+        {
+            return Err("LiteLLM endpoint credential policy is invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
+macro_rules! impl_profile_endpoint {
+    ($endpoint:ty) => {
+        impl InferenceEndpoint for $endpoint {
+            fn id(&self) -> &str {
+                &self.profile.id
+            }
+            fn label(&self) -> &str {
+                &self.profile.label
+            }
+            fn base_url(&self) -> &str {
+                &self.profile.base_url
+            }
+            fn protocol(&self) -> InferenceProtocol {
+                self.profile.protocol
+            }
+            fn health_policy(&self) -> HealthPolicy {
+                self.profile.health_policy
+            }
+            fn model_id(&self) -> &str {
+                &self.profile.model_id
+            }
+            fn capabilities(&self) -> &EndpointCapabilities {
+                &self.profile.capabilities
+            }
+            fn credential_strategy(&self) -> &CredentialStrategy {
+                &self.profile.credential_strategy
+            }
+            fn security_classification(&self) -> SecurityClassification {
+                self.profile.security_classification
+            }
+            fn enabled(&self) -> bool {
+                self.profile.enabled
+            }
+        }
+    };
+}
+
+impl_profile_endpoint!(LlamaCppEndpoint);
+impl_profile_endpoint!(LiteLlmEndpoint);
+
+fn validate_quantization(value: Option<String>) -> Result<Option<String>, String> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if trimmed.len() > 32
+        || !trimmed
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "_-.".contains(character))
+    {
+        return Err("quantization metadata must be a short safe label".to_string());
+    }
+    Ok(Some(trimmed.to_string()))
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ProbePurpose {
     Health,
@@ -238,6 +450,9 @@ pub(crate) struct ProbeRequest {
     pub base_url: String,
     pub path: String,
     pub purpose: ProbePurpose,
+    /// Environment variable name only. Secret values never enter registry
+    /// state, diagnostics, or probe observations.
+    pub credential_environment_variable: Option<String>,
 }
 
 /// Sanitized observation only: implementations must not return raw bodies,
@@ -281,6 +496,8 @@ enum ManagedEndpoint {
     OpenAi(OpenAiCompatibleEndpoint),
     Vllm(VllmEndpoint),
     Sglang(SglangEndpoint),
+    LlamaCpp(LlamaCppEndpoint),
+    LiteLlm(LiteLlmEndpoint),
 }
 
 impl ManagedEndpoint {
@@ -289,6 +506,8 @@ impl ManagedEndpoint {
             Self::OpenAi(value) => value,
             Self::Vllm(value) => value,
             Self::Sglang(value) => value,
+            Self::LlamaCpp(value) => value,
+            Self::LiteLlm(value) => value,
         }
     }
 
@@ -297,6 +516,8 @@ impl ManagedEndpoint {
             Self::OpenAi(value) => &mut value.profile,
             Self::Vllm(value) => &mut value.profile,
             Self::Sglang(value) => &mut value.profile,
+            Self::LlamaCpp(value) => &mut value.profile,
+            Self::LiteLlm(value) => &mut value.profile,
         }
     }
 
@@ -305,6 +526,35 @@ impl ManagedEndpoint {
             Self::OpenAi(value) => NormalizedRuntimeCapabilities::unknown(value),
             Self::Vllm(value) => NormalizedRuntimeCapabilities::vllm(value),
             Self::Sglang(value) => NormalizedRuntimeCapabilities::sglang(value),
+            Self::LlamaCpp(value) => {
+                NormalizedRuntimeCapabilities::llama_cpp(value, value.quantization.as_deref())
+            }
+            Self::LiteLlm(value) => NormalizedRuntimeCapabilities::litellm(value),
+        }
+    }
+
+    fn externally_owned(&self) -> bool {
+        true
+    }
+
+    fn remote_connectivity_opt_in(&self) -> bool {
+        matches!(self, Self::LiteLlm(value) if value.remote_connectivity_opt_in)
+    }
+
+    fn quantization(&self) -> Option<String> {
+        match self {
+            Self::LlamaCpp(value) => value.quantization.clone(),
+            _ => None,
+        }
+    }
+
+    fn runtime_kind(&self) -> &'static str {
+        match self {
+            Self::OpenAi(_) => "open_ai_compatible",
+            Self::Vllm(_) => "vllm",
+            Self::Sglang(_) => "sglang",
+            Self::LlamaCpp(_) => "llama_cpp",
+            Self::LiteLlm(_) => "litellm",
         }
     }
 }
@@ -346,6 +596,15 @@ pub(crate) struct EndpointDiagnostic {
     pub selected: bool,
     pub verification: EndpointVerification,
     pub normalized_capabilities: NormalizedRuntimeCapabilities,
+    pub externally_owned: bool,
+    pub remote_connectivity_opt_in: bool,
+    pub quantization: Option<String>,
+    pub base_url: String,
+    pub host: String,
+    pub model_id: String,
+    pub max_context: Option<u64>,
+    pub endpoint_kind: String,
+    pub runtime_kind: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -454,6 +713,18 @@ impl EndpointRegistry {
                     selected: self.selected_endpoint_id.as_deref() == Some(id),
                     verification: record.verification.clone(),
                     normalized_capabilities: record.endpoint.normalized_capabilities(),
+                    externally_owned: record.endpoint.externally_owned(),
+                    remote_connectivity_opt_in: record.endpoint.remote_connectivity_opt_in(),
+                    quantization: record.endpoint.quantization(),
+                    base_url: endpoint.base_url().to_string(),
+                    host: url::Url::parse(endpoint.base_url())
+                        .ok()
+                        .and_then(|url| url.host_str().map(ToOwned::to_owned))
+                        .unwrap_or_else(|| "invalid-host".to_string()),
+                    model_id: endpoint.model_id().to_string(),
+                    max_context: endpoint.capabilities().max_context,
+                    endpoint_kind: "external_inference".to_string(),
+                    runtime_kind: record.endpoint.runtime_kind().to_string(),
                 }
             })
             .collect()
@@ -485,6 +756,14 @@ impl EndpointRegistry {
                 ManagedEndpoint::OpenAi(value) => validate_profile(&value.profile)?,
                 ManagedEndpoint::Vllm(value) => validate_profile(&value.profile)?,
                 ManagedEndpoint::Sglang(value) => validate_profile(&value.profile)?,
+                ManagedEndpoint::LlamaCpp(value) => {
+                    validate_profile(&value.profile)?;
+                    value.validate_local_policy()?;
+                }
+                ManagedEndpoint::LiteLlm(value) => {
+                    validate_profile(&value.profile)?;
+                    value.validate_external_policy()?;
+                }
             }
         }
         if let Some(selected) = &self.selected_endpoint_id {
@@ -510,6 +789,14 @@ fn verify_record(
         base_url: endpoint.base_url().to_string(),
         path: path.to_string(),
         purpose,
+        credential_environment_variable: if purpose == ProbePurpose::Models {
+            match endpoint.credential_strategy() {
+                CredentialStrategy::EnvironmentVariable { variable } => Some(variable.clone()),
+                _ => None,
+            }
+        } else {
+            None
+        },
     };
     let successful = |observation: &ProbeObservation| (200..300).contains(&observation.status);
 
@@ -599,6 +886,22 @@ fn verify_record(
                 benchmark_profile_id: None,
             })
         }
+        ManagedEndpoint::LlamaCpp(_) => verified_runtime_identity(
+            probe,
+            &request,
+            LLAMA_CPP_PROPS_PATH,
+            "llama.cpp",
+            true,
+            models,
+        ),
+        ManagedEndpoint::LiteLlm(_) => verified_runtime_identity(
+            probe,
+            &request,
+            LITELLM_LIVELINESS_PATH,
+            "litellm",
+            false,
+            models,
+        ),
         ManagedEndpoint::OpenAi(_) => Ok(EndpointVerification::Verified {
             runtime_id: None,
             runtime_version: None,
@@ -606,6 +909,39 @@ fn verify_record(
             benchmark_profile_id: None,
         }),
     }
+}
+
+fn verified_runtime_identity(
+    probe: &dyn EndpointProbe,
+    request: &impl Fn(&str, ProbePurpose) -> ProbeRequest,
+    path: &str,
+    expected_runtime: &str,
+    require_version: bool,
+    models: Vec<String>,
+) -> Result<EndpointVerification, String> {
+    let identity = probe
+        .probe(&request(path, ProbePurpose::RuntimeIdentity))
+        .map_err(|_| "runtime identity probe failed".to_string())?;
+    let runtime_matches = identity
+        .runtime_implementation
+        .as_deref()
+        .is_some_and(|value| value.eq_ignore_ascii_case(expected_runtime));
+    let version_valid = !require_version
+        || identity
+            .runtime_version
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
+    if !(200..300).contains(&identity.status) || !runtime_matches || !version_valid {
+        return Err(format!(
+            "runtime identity did not provide verified {expected_runtime} evidence"
+        ));
+    }
+    Ok(EndpointVerification::Verified {
+        runtime_id: Some(expected_runtime.to_string()),
+        runtime_version: identity.runtime_version,
+        model_ids: models,
+        benchmark_profile_id: None,
+    })
 }
 
 pub(crate) struct EndpointRegistryService {
@@ -661,6 +997,22 @@ impl EndpointRegistryService {
         approval: UserEndpointApproval,
     ) -> Result<(), String> {
         self.mutate(|registry| registry.add(ManagedEndpoint::Sglang(endpoint), approval))
+    }
+
+    pub(crate) fn add_llama_cpp(
+        &mut self,
+        endpoint: LlamaCppEndpoint,
+        approval: UserEndpointApproval,
+    ) -> Result<(), String> {
+        self.mutate(|registry| registry.add(ManagedEndpoint::LlamaCpp(endpoint), approval))
+    }
+
+    pub(crate) fn add_litellm(
+        &mut self,
+        endpoint: LiteLlmEndpoint,
+        approval: UserEndpointApproval,
+    ) -> Result<(), String> {
+        self.mutate(|registry| registry.add(ManagedEndpoint::LiteLlm(endpoint), approval))
     }
 
     pub(crate) fn verify(
@@ -752,12 +1104,17 @@ mod tests {
                             "unknown"
                         } else if request.path == SGLANG_SERVER_INFO_PATH {
                             "sglang"
+                        } else if request.path == LLAMA_CPP_PROPS_PATH {
+                            "llama.cpp"
+                        } else if request.path == LITELLM_LIVELINESS_PATH {
+                            "litellm"
                         } else {
                             "vllm"
                         }
                         .into(),
                     ),
-                    runtime_version: Some("0.10.test".into()),
+                    runtime_version: (request.path != LITELLM_LIVELINESS_PATH)
+                        .then(|| "0.10.test".into()),
                     model_ids: vec![],
                 },
             })
@@ -819,6 +1176,29 @@ mod tests {
             Some(65_536),
         )
         .unwrap()
+    }
+
+    fn llama_cpp() -> LlamaCppEndpoint {
+        LlamaCppEndpoint::new(
+            "local-llama-cpp",
+            "Local llama.cpp",
+            "http://127.0.0.1:8080/v1",
+            "test-model",
+            Some(8_192),
+            Some("Q4_K_M".to_string()),
+        )
+        .unwrap()
+    }
+
+    fn remote_litellm(opt_in: bool) -> Result<LiteLlmEndpoint, String> {
+        LiteLlmEndpoint::new(
+            "remote-litellm",
+            "External LiteLLM",
+            "https://gateway.example.test/v1",
+            "test-model",
+            Some(32_768),
+            opt_in,
+        )
     }
 
     #[test]
@@ -931,7 +1311,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_runtime_identity_is_redacted_and_persisted_fail_closed() {
+    fn failed_runtime_identity_is_secret_free_and_persisted_fail_closed() {
         let dir = temp_dir("failure");
         let mut service = EndpointRegistryService::load(&dir).unwrap();
         let endpoint = vllm();
@@ -950,9 +1330,10 @@ mod tests {
         assert!(service.select(endpoint.id()).is_err());
         let loaded = EndpointRegistryService::load(&dir).unwrap();
         let diagnostic = &loaded.list_diagnostics()[0];
-        assert!(!serde_json::to_string(diagnostic)
-            .unwrap()
-            .contains(endpoint.base_url()));
+        assert_eq!(diagnostic.base_url, endpoint.base_url());
+        let serialized = serde_json::to_string(diagnostic).unwrap();
+        assert!(!serialized.contains("Authorization"));
+        assert!(!serialized.contains("Bearer"));
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -1037,6 +1418,131 @@ mod tests {
         ));
         assert!(service.select(endpoint.id()).is_err());
         assert!(service.selected_route_target().is_none());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn llama_cpp_is_local_only_and_exposes_safe_runtime_diagnostics() {
+        assert!(LlamaCppEndpoint::new(
+            "public-llama",
+            "Public llama.cpp",
+            "https://llama.example.test/v1",
+            "test-model",
+            None,
+            None,
+        )
+        .is_err());
+        assert!(LlamaCppEndpoint::new(
+            "bad-quant",
+            "Bad quantization",
+            "http://127.0.0.1:8080/v1",
+            "test-model",
+            None,
+            Some("Q4 secret=value".to_string()),
+        )
+        .is_err());
+
+        let dir = temp_dir("llama-cpp");
+        let mut service = EndpointRegistryService::load(&dir).unwrap();
+        let endpoint = llama_cpp();
+        service
+            .add_llama_cpp(
+                endpoint.clone(),
+                UserEndpointApproval::explicit(endpoint.base_url()).unwrap(),
+            )
+            .unwrap();
+        let probe = MockProbe {
+            requests: Mutex::new(vec![]),
+            fail_identity: false,
+        };
+        assert!(matches!(
+            service.verify(endpoint.id(), &probe).unwrap(),
+            EndpointVerification::Verified {
+                runtime_id: Some(ref value),
+                runtime_version: Some(_),
+                ..
+            } if value == "llama.cpp"
+        ));
+        let paths: BTreeSet<_> = probe
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|request| request.path.clone())
+            .collect();
+        assert_eq!(
+            paths,
+            BTreeSet::from([
+                LLAMA_CPP_HEALTH_PATH.to_string(),
+                LLAMA_CPP_MODELS_PATH.to_string(),
+                LLAMA_CPP_PROPS_PATH.to_string(),
+            ])
+        );
+        let diagnostic = &service.list_diagnostics()[0];
+        assert_eq!(diagnostic.host, "127.0.0.1");
+        assert_eq!(diagnostic.model_id, "test-model");
+        assert_eq!(diagnostic.max_context, Some(8_192));
+        assert_eq!(diagnostic.quantization.as_deref(), Some("Q4_K_M"));
+        assert_eq!(diagnostic.runtime_kind, "llama_cpp");
+        assert!(diagnostic.externally_owned);
+        assert!(!diagnostic.remote_connectivity_opt_in);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn litellm_remote_connectivity_requires_opt_in_and_keeps_secrets_out_of_state() {
+        assert!(remote_litellm(false).is_err());
+        let endpoint = remote_litellm(true).unwrap();
+        let dir = temp_dir("litellm");
+        let mut service = EndpointRegistryService::load(&dir).unwrap();
+        service
+            .add_litellm(
+                endpoint.clone(),
+                UserEndpointApproval::explicit(endpoint.base_url()).unwrap(),
+            )
+            .unwrap();
+        let probe = MockProbe {
+            requests: Mutex::new(vec![]),
+            fail_identity: false,
+        };
+        assert!(matches!(
+            service.verify(endpoint.id(), &probe).unwrap(),
+            EndpointVerification::Verified {
+                runtime_id: Some(ref value),
+                runtime_version: None,
+                ..
+            } if value == "litellm"
+        ));
+        let requests = probe.requests.lock().unwrap();
+        assert_eq!(
+            requests
+                .iter()
+                .find(|request| request.purpose == ProbePurpose::Models)
+                .unwrap()
+                .credential_environment_variable
+                .as_deref(),
+            Some("LITELLM_API_KEY")
+        );
+        assert!(requests
+            .iter()
+            .filter(|request| request.purpose != ProbePurpose::Models)
+            .all(|request| request.credential_environment_variable.is_none()));
+        drop(requests);
+
+        let diagnostic = &service.list_diagnostics()[0];
+        assert_eq!(diagnostic.runtime_kind, "litellm");
+        assert_eq!(
+            diagnostic.location_class,
+            SecurityClassification::UserConfiguredRemote
+        );
+        assert!(diagnostic.externally_owned);
+        assert!(diagnostic.remote_connectivity_opt_in);
+        let serialized = serde_json::to_string(diagnostic).unwrap();
+        assert!(!serialized.contains("Authorization"));
+        assert!(!serialized.contains("Bearer"));
+        let persisted = fs::read_to_string(service.registry_path()).unwrap();
+        assert!(!persisted.contains("Bearer"));
+        assert!(!persisted.contains("sk-"));
         let _ = fs::remove_dir_all(dir);
     }
 

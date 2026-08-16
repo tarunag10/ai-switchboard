@@ -8,9 +8,10 @@ use url::Url;
 
 use crate::inference_endpoint::{
     CredentialStrategy, EndpointCapabilities, EndpointDiagnostic, EndpointProbe,
-    EndpointRegistryService, EndpointVerification, HealthPolicy, InferenceProtocol, ModelDiscovery,
-    OpenAiCompatibleEndpoint, PrefixCacheEvidence, ProbeObservation, ProbePurpose, ProbeRequest,
-    SglangEndpoint, UserEndpointApproval, VllmEndpoint,
+    EndpointRegistryService, EndpointVerification, HealthPolicy, InferenceProtocol,
+    LiteLlmEndpoint, LlamaCppEndpoint, ModelDiscovery, OpenAiCompatibleEndpoint,
+    PrefixCacheEvidence, ProbeObservation, ProbePurpose, ProbeRequest, SglangEndpoint,
+    UserEndpointApproval, VllmEndpoint,
 };
 use crate::state::AppState;
 
@@ -24,6 +25,9 @@ pub(crate) struct AddEndpointInput {
     pub base_url: String,
     pub model_id: String,
     pub max_context: Option<u64>,
+    pub quantization: Option<String>,
+    #[serde(default)]
+    pub remote_connectivity_opt_in: bool,
     pub kind: EndpointKind,
 }
 
@@ -33,6 +37,8 @@ pub(crate) enum EndpointKind {
     OpenAiCompatible,
     Vllm,
     Sglang,
+    LlamaCpp,
+    LiteLlm,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -95,6 +101,28 @@ pub(crate) fn add_inference_endpoint(
                 input.base_url,
                 input.model_id,
                 input.max_context,
+            )?,
+            approval,
+        )?,
+        EndpointKind::LlamaCpp => service.add_llama_cpp(
+            LlamaCppEndpoint::new(
+                input.id,
+                input.label,
+                input.base_url,
+                input.model_id,
+                input.max_context,
+                input.quantization,
+            )?,
+            approval,
+        )?,
+        EndpointKind::LiteLlm => service.add_litellm(
+            LiteLlmEndpoint::new(
+                input.id,
+                input.label,
+                input.base_url,
+                input.model_id,
+                input.max_context,
+                input.remote_connectivity_opt_in,
             )?,
             approval,
         )?,
@@ -191,20 +219,50 @@ impl HttpEndpointProbe {
         Ok(url)
     }
 
-    fn runtime_implementation(request: &ProbeRequest) -> &'static str {
-        if request.path == "/server_info" {
-            "sglang"
-        } else {
-            "vllm"
+    fn runtime_identity(request: &ProbeRequest, value: &Value) -> (Option<String>, Option<String>) {
+        match request.path.as_str() {
+            "/version" => (
+                Some("vllm".to_string()),
+                value
+                    .get("version")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned),
+            ),
+            "/server_info" => (
+                Some("sglang".to_string()),
+                value
+                    .get("version")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned),
+            ),
+            "/props" => (
+                Some("llama.cpp".to_string()),
+                value
+                    .get("build_info")
+                    .and_then(Value::as_str)
+                    .filter(|version| !version.trim().is_empty())
+                    .map(ToOwned::to_owned),
+            ),
+            "/health/liveliness" if value.as_str() == Some("I'm alive!") => {
+                (Some("litellm".to_string()), None)
+            }
+            _ => (Some("unknown".to_string()), None),
         }
     }
 }
 
 impl EndpointProbe for HttpEndpointProbe {
     fn probe(&self, request: &ProbeRequest) -> Result<ProbeObservation, String> {
-        let response = self
-            .client
-            .get(Self::probe_url(request)?)
+        let mut outbound = self.client.get(Self::probe_url(request)?);
+        if let Some(variable) = &request.credential_environment_variable {
+            let secret = std::env::var(variable)
+                .map_err(|_| "Endpoint probe credential is unavailable.".to_string())?;
+            if secret.trim().is_empty() {
+                return Err("Endpoint probe credential is unavailable.".to_string());
+            }
+            outbound = outbound.bearer_auth(secret);
+        }
+        let response = outbound
             .send()
             .map_err(|_| "Endpoint probe failed.".to_string())?;
         let status = response.status().as_u16();
@@ -233,14 +291,10 @@ impl EndpointProbe for HttpEndpointProbe {
         let value: Value = serde_json::from_slice(&body)
             .map_err(|_| "Endpoint probe returned malformed JSON.".to_string())?;
         let (runtime_implementation, runtime_version, model_ids) = match request.purpose {
-            ProbePurpose::RuntimeIdentity => (
-                Some(Self::runtime_implementation(request).to_string()),
-                value
-                    .get("version")
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned),
-                Vec::new(),
-            ),
+            ProbePurpose::RuntimeIdentity => {
+                let (runtime, version) = Self::runtime_identity(request, &value);
+                (runtime, version, Vec::new())
+            }
             ProbePurpose::Models => (
                 None,
                 None,
@@ -275,6 +329,7 @@ mod tests {
             base_url: "http://192.168.1.5:8000/v1".to_string(),
             path: "/health".to_string(),
             purpose: ProbePurpose::Health,
+            credential_environment_variable: None,
         };
         assert_eq!(
             HttpEndpointProbe::probe_url(&request).unwrap().as_str(),
@@ -289,14 +344,35 @@ mod tests {
             base_url: "http://127.0.0.1:8000/v1".to_string(),
             path: path.to_string(),
             purpose: ProbePurpose::RuntimeIdentity,
+            credential_environment_variable: None,
         };
         assert_eq!(
-            HttpEndpointProbe::runtime_implementation(&request("/version")),
-            "vllm"
+            HttpEndpointProbe::runtime_identity(
+                &request("/version"),
+                &serde_json::json!({ "version": "0.8" }),
+            ),
+            (Some("vllm".to_string()), Some("0.8".to_string()))
         );
         assert_eq!(
-            HttpEndpointProbe::runtime_implementation(&request("/server_info")),
-            "sglang"
+            HttpEndpointProbe::runtime_identity(
+                &request("/server_info"),
+                &serde_json::json!({ "version": "0.5" }),
+            ),
+            (Some("sglang".to_string()), Some("0.5".to_string()))
+        );
+        assert_eq!(
+            HttpEndpointProbe::runtime_identity(
+                &request("/props"),
+                &serde_json::json!({ "build_info": "b123" }),
+            ),
+            (Some("llama.cpp".to_string()), Some("b123".to_string()))
+        );
+        assert_eq!(
+            HttpEndpointProbe::runtime_identity(
+                &request("/health/liveliness"),
+                &serde_json::json!("I'm alive!"),
+            ),
+            (Some("litellm".to_string()), None)
         );
     }
 }

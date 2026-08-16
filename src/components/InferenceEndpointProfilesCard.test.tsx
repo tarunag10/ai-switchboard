@@ -10,6 +10,8 @@ describe("InferenceEndpointProfilesCard", () => {
     expect(markup).toContain("Add to allowlist");
     expect(markup).toContain("Selection stays manual");
     expect(markup).toContain("never rewrites coding-client config");
+    expect(markup).toContain("llama.cpp local profile");
+    expect(markup).toContain("LiteLLM externally owned profile");
     expect(markup).toContain("No user-managed endpoints configured");
   });
 });
