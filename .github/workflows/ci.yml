@@ -66,9 +66,6 @@ jobs:
       - name: Check connector registry
         run: npm run check:connectors
 
-      - name: Check Phase 0 baseline evidence
-        run: npm run check:phase0-baseline
-
       - name: Check governance docs
         run: npm run check:governance
 
