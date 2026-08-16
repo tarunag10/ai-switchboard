@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+
+use crate::storage::{app_data_dir, config_file};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,47 +14,447 @@ pub(crate) struct ModelRouteInput {
     pub(crate) enabled: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum ModelRoutingStage {
+    #[default]
+    Observe,
+    UserApproved,
+    AutomaticAllowlisted,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingThresholds {
+    pub(crate) minimum_sample_size: u64,
+    pub(crate) maximum_success_regression_bps: u32,
+    pub(crate) minimum_cost_improvement_bps: u32,
+    pub(crate) maximum_rework_rate_bps: u32,
+}
+
+impl Default for ModelRoutingThresholds {
+    fn default() -> Self {
+        Self {
+            minimum_sample_size: 50,
+            maximum_success_regression_bps: 100,
+            minimum_cost_improvement_bps: 1_000,
+            maximum_rework_rate_bps: 500,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingExperimentPolicy {
+    pub(crate) global_enabled: bool,
+    pub(crate) stage: ModelRoutingStage,
+    pub(crate) disabled_clients: Vec<String>,
+    pub(crate) automatic_task_allowlist: Vec<String>,
+    pub(crate) thresholds: ModelRoutingThresholds,
+}
+
+impl Default for ModelRoutingExperimentPolicy {
+    fn default() -> Self {
+        Self {
+            global_enabled: true,
+            stage: ModelRoutingStage::Observe,
+            disabled_clients: Vec::new(),
+            automatic_task_allowlist: Vec::new(),
+            thresholds: ModelRoutingThresholds::default(),
+        }
+    }
+}
+
+pub(crate) fn load_model_routing_experiment_policy() -> ModelRoutingExperimentPolicy {
+    let path = config_file(&app_data_dir(), "model-routing-experiment-policy.json");
+    let Ok(raw) = std::fs::read(&path) else {
+        return ModelRoutingExperimentPolicy::default();
+    };
+    serde_json::from_slice::<ModelRoutingExperimentPolicy>(&raw)
+        .ok()
+        .filter(|policy| validate_experiment_policy(policy).is_ok())
+        .unwrap_or_default()
+}
+
+pub(crate) fn save_model_routing_experiment_policy(
+    policy: &ModelRoutingExperimentPolicy,
+) -> Result<ModelRoutingExperimentPolicy, String> {
+    validate_experiment_policy(policy)?;
+    let path = config_file(&app_data_dir(), "model-routing-experiment-policy.json");
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("create model-routing policy directory: {error}"))?;
+    }
+    let bytes = serde_json::to_vec_pretty(policy)
+        .map_err(|error| format!("serialize model-routing policy: {error}"))?;
+    let temporary = path.with_extension("json.tmp");
+    std::fs::write(&temporary, bytes)
+        .map_err(|error| format!("write model-routing policy: {error}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&temporary, std::fs::Permissions::from_mode(0o600))
+            .map_err(|error| format!("secure model-routing policy: {error}"))?;
+    }
+    std::fs::rename(&temporary, &path)
+        .map_err(|error| format!("replace model-routing policy: {error}"))?;
+    Ok(policy.clone())
+}
+
+fn validate_experiment_policy(policy: &ModelRoutingExperimentPolicy) -> Result<(), String> {
+    let thresholds = &policy.thresholds;
+    if thresholds.maximum_success_regression_bps > 10_000
+        || thresholds.minimum_cost_improvement_bps > 10_000
+        || thresholds.maximum_rework_rate_bps > 10_000
+        || thresholds.minimum_sample_size == 0
+    {
+        return Err("model-routing thresholds must use a positive sample size and basis points from 0 to 10000".to_string());
+    }
+    for (label, values) in [
+        ("disabled client", &policy.disabled_clients),
+        ("automatic task class", &policy.automatic_task_allowlist),
+    ] {
+        if values.len() > 64
+            || values
+                .iter()
+                .any(|value| value.trim().is_empty() || value.len() > 64)
+        {
+            return Err(format!(
+                "{label} entries must contain 1 to 64 short identifiers"
+            ));
+        }
+        let unique = values
+            .iter()
+            .map(|value| value.to_ascii_lowercase())
+            .collect::<BTreeSet<_>>();
+        if unique.len() != values.len() {
+            return Err(format!("{label} entries must be unique"));
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingBenchmarkEvidence {
+    pub(crate) sample_size: u64,
+    pub(crate) baseline_successes: u64,
+    pub(crate) candidate_successes: u64,
+    pub(crate) baseline_average_success_cost_microunits: u64,
+    pub(crate) candidate_average_success_cost_microunits: u64,
+    pub(crate) follow_up_rework_rate_bps: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingEvidenceAssessment {
+    pub(crate) success_regression_bps: i32,
+    pub(crate) cost_improvement_bps: i32,
+    pub(crate) follow_up_rework_rate_bps: u32,
+    pub(crate) passed: bool,
+    pub(crate) explanation: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ModelRouteDecision {
+    /// Proposed model. `actual_model` remains requested during observation.
     pub(crate) selected_model: String,
+    pub(crate) actual_model: String,
     pub(crate) observe_only: bool,
     pub(crate) reason: String,
+    pub(crate) reasons: Vec<String>,
+    pub(crate) stage: ModelRoutingStage,
+    pub(crate) task_class: String,
+    pub(crate) evidence: Option<ModelRoutingEvidenceAssessment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingTaskOutcome {
+    pub(crate) succeeded: bool,
+    pub(crate) successful_task_cost_microunits: Option<u64>,
+    pub(crate) follow_up_rework: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingExperimentRecord {
+    pub(crate) task_class: String,
+    pub(crate) proposed_model: String,
+    pub(crate) actual_model: String,
+    pub(crate) reason: String,
+    pub(crate) observe_only: bool,
+    pub(crate) outcome: ModelRoutingTaskOutcome,
+}
+
+pub(crate) fn record_model_routing_outcome(
+    decision: &ModelRouteDecision,
+    outcome: ModelRoutingTaskOutcome,
+) -> ModelRoutingExperimentRecord {
+    ModelRoutingExperimentRecord {
+        task_class: decision.task_class.clone(),
+        proposed_model: decision.selected_model.clone(),
+        actual_model: decision.actual_model.clone(),
+        reason: decision.reason.clone(),
+        observe_only: decision.observe_only,
+        outcome,
+    }
 }
 
 pub(crate) fn decide_model_route(input: &ModelRouteInput) -> ModelRouteDecision {
-    if !input.enabled {
-        return ModelRouteDecision {
-            selected_model: input.requested_model.clone(),
-            observe_only: true,
-            reason: "routing_disabled".to_string(),
-        };
+    decide_model_route_experiment(input, &ModelRoutingExperimentPolicy::default(), false, None)
+}
+
+/// Deterministic routing promotion gate. It consumes no request content, model
+/// output, or learned classifier: task classes and thresholds stay auditable.
+pub(crate) fn decide_model_route_experiment(
+    input: &ModelRouteInput,
+    policy: &ModelRoutingExperimentPolicy,
+    user_approved: bool,
+    evidence: Option<&ModelRoutingBenchmarkEvidence>,
+) -> ModelRouteDecision {
+    let task_class = classify_task(&input.task).to_string();
+    let proposed_model = if is_low_risk_task_class(&task_class) {
+        input.cheap_model.clone()
+    } else {
+        input.capable_model.clone()
+    };
+    let mut reasons = vec![format!("task_class={task_class}")];
+
+    if !input.enabled || !policy.global_enabled {
+        reasons.push("routing_disabled_globally".to_string());
+        return decision(
+            input,
+            input.requested_model.clone(),
+            true,
+            "routing_disabled",
+            reasons,
+            policy,
+            task_class,
+            None,
+        );
+    }
+    if policy
+        .disabled_clients
+        .iter()
+        .any(|client| client.eq_ignore_ascii_case(&input.client))
+    {
+        reasons.push(format!("routing_disabled_for_client={}", input.client));
+        return decision(
+            input,
+            input.requested_model.clone(),
+            true,
+            "client_routing_disabled",
+            reasons,
+            policy,
+            task_class,
+            None,
+        );
     }
 
-    let task = input.task.to_ascii_lowercase();
-    let trivial = [
-        "commit message",
-        "lint",
-        "format",
-        "typo",
-        "rename",
-        "summarize diff",
-    ]
-    .iter()
-    .any(|needle| task.contains(needle));
+    match policy.stage {
+        ModelRoutingStage::Observe => {
+            reasons.push(format!("proposed_model={proposed_model}"));
+            reasons.push(format!("actual_model={}", input.requested_model));
+            decision(
+                input,
+                proposed_model,
+                true,
+                candidate_reason(&task_class),
+                reasons,
+                policy,
+                task_class,
+                None,
+            )
+        }
+        ModelRoutingStage::UserApproved => {
+            if !user_approved {
+                reasons.push("user_approval_required".to_string());
+                return decision(
+                    input,
+                    proposed_model,
+                    true,
+                    "awaiting_user_approval",
+                    reasons,
+                    policy,
+                    task_class,
+                    None,
+                );
+            }
+            reasons.push("user_approved_route".to_string());
+            decision(
+                input,
+                proposed_model,
+                false,
+                "user_approved",
+                reasons,
+                policy,
+                task_class,
+                None,
+            )
+        }
+        ModelRoutingStage::AutomaticAllowlisted => {
+            if !policy
+                .automatic_task_allowlist
+                .iter()
+                .any(|allowed| allowed == &task_class)
+            {
+                reasons.push("task_class_not_allowlisted".to_string());
+                return decision(
+                    input,
+                    proposed_model,
+                    true,
+                    "automatic_task_not_allowlisted",
+                    reasons,
+                    policy,
+                    task_class,
+                    None,
+                );
+            }
+            let Some(evidence) = evidence else {
+                reasons.push("benchmark_evidence_missing".to_string());
+                return decision(
+                    input,
+                    proposed_model,
+                    true,
+                    "automatic_evidence_missing",
+                    reasons,
+                    policy,
+                    task_class,
+                    None,
+                );
+            };
+            let assessment = assess_evidence(evidence, &policy.thresholds);
+            reasons.push(assessment.explanation.clone());
+            if !assessment.passed {
+                return decision(
+                    input,
+                    proposed_model,
+                    true,
+                    "automatic_thresholds_failed",
+                    reasons,
+                    policy,
+                    task_class,
+                    Some(assessment),
+                );
+            }
+            reasons.push("automatic_route_benchmark_gate_passed".to_string());
+            decision(
+                input,
+                proposed_model,
+                false,
+                "automatic_allowlisted",
+                reasons,
+                policy,
+                task_class,
+                Some(assessment),
+            )
+        }
+    }
+}
 
-    if trivial {
-        ModelRouteDecision {
-            selected_model: input.cheap_model.clone(),
-            observe_only: true,
-            reason: "trivial_task_candidate".to_string(),
-        }
+fn decision(
+    input: &ModelRouteInput,
+    proposed_model: String,
+    observe_only: bool,
+    reason: &str,
+    reasons: Vec<String>,
+    policy: &ModelRoutingExperimentPolicy,
+    task_class: String,
+    evidence: Option<ModelRoutingEvidenceAssessment>,
+) -> ModelRouteDecision {
+    ModelRouteDecision {
+        actual_model: if observe_only {
+            input.requested_model.clone()
+        } else {
+            proposed_model.clone()
+        },
+        selected_model: proposed_model,
+        observe_only,
+        reason: reason.to_string(),
+        reasons,
+        stage: policy.stage,
+        task_class,
+        evidence,
+    }
+}
+
+fn classify_task(task: &str) -> &'static str {
+    let task = task.to_ascii_lowercase();
+    if task.contains("format") || task.contains("lint") {
+        "formatting"
+    } else if task.contains("commit message") {
+        "commit_message"
+    } else if task.contains("rename") || task.contains("typo") {
+        "rename"
+    } else if task.contains("summarize diff") || task.contains("diff summary") {
+        "diff_summary"
     } else {
-        ModelRouteDecision {
-            selected_model: input.capable_model.clone(),
-            observe_only: true,
-            reason: "capable_model_candidate".to_string(),
-        }
+        "general"
+    }
+}
+
+fn is_low_risk_task_class(task_class: &str) -> bool {
+    matches!(
+        task_class,
+        "formatting" | "commit_message" | "rename" | "diff_summary"
+    )
+}
+
+fn candidate_reason(task_class: &str) -> &'static str {
+    if is_low_risk_task_class(task_class) {
+        "trivial_task_candidate"
+    } else {
+        "capable_model_candidate"
+    }
+}
+
+pub(crate) fn assess_evidence(
+    evidence: &ModelRoutingBenchmarkEvidence,
+    thresholds: &ModelRoutingThresholds,
+) -> ModelRoutingEvidenceAssessment {
+    let baseline_success_bps = rate_bps(evidence.baseline_successes, evidence.sample_size);
+    let candidate_success_bps = rate_bps(evidence.candidate_successes, evidence.sample_size);
+    let success_regression_bps = baseline_success_bps.saturating_sub(candidate_success_bps);
+    let cost_improvement_bps = if evidence.baseline_average_success_cost_microunits == 0 {
+        0
+    } else {
+        let delta = evidence.baseline_average_success_cost_microunits as i128
+            - evidence.candidate_average_success_cost_microunits as i128;
+        ((delta * 10_000) / evidence.baseline_average_success_cost_microunits as i128)
+            .clamp(i32::MIN as i128, i32::MAX as i128) as i32
+    };
+    let enough_samples = evidence.sample_size >= thresholds.minimum_sample_size;
+    let success_ok = success_regression_bps <= thresholds.maximum_success_regression_bps as i32;
+    let cost_ok = cost_improvement_bps >= thresholds.minimum_cost_improvement_bps as i32;
+    let rework_ok = evidence.follow_up_rework_rate_bps <= thresholds.maximum_rework_rate_bps;
+    let passed = enough_samples && success_ok && cost_ok && rework_ok;
+    let explanation = format!(
+        "benchmark_gate: samples={}/{} success_regression_bps={}/{} cost_improvement_bps={}/{} rework_bps={}/{} passed={passed}",
+        evidence.sample_size,
+        thresholds.minimum_sample_size,
+        success_regression_bps,
+        thresholds.maximum_success_regression_bps,
+        cost_improvement_bps,
+        thresholds.minimum_cost_improvement_bps,
+        evidence.follow_up_rework_rate_bps,
+        thresholds.maximum_rework_rate_bps,
+    );
+    ModelRoutingEvidenceAssessment {
+        success_regression_bps,
+        cost_improvement_bps,
+        follow_up_rework_rate_bps: evidence.follow_up_rework_rate_bps,
+        passed,
+        explanation,
+    }
+}
+
+fn rate_bps(successes: u64, sample_size: u64) -> i32 {
+    if sample_size == 0 {
+        0
+    } else {
+        ((successes.min(sample_size) as u128 * 10_000) / sample_size as u128) as i32
     }
 }
 
@@ -59,18 +462,155 @@ pub(crate) fn decide_model_route(input: &ModelRouteInput) -> ModelRouteDecision 
 mod tests {
     use super::*;
 
-    #[test]
-    fn routes_trivial_tasks_to_cheaper_model_in_observe_mode() {
-        let decision = decide_model_route(&ModelRouteInput {
+    fn input() -> ModelRouteInput {
+        ModelRouteInput {
             client: "codex".to_string(),
-            task: "write commit message for staged diff".to_string(),
-            requested_model: "gpt-5.5".to_string(),
-            cheap_model: "gpt-5.4-mini".to_string(),
-            capable_model: "gpt-5.5".to_string(),
+            task: "format imports and lint".to_string(),
+            requested_model: "frontier".to_string(),
+            cheap_model: "fast/local".to_string(),
+            capable_model: "frontier".to_string(),
             enabled: true,
-        });
+        }
+    }
 
-        assert_eq!(decision.selected_model, "gpt-5.4-mini");
+    #[test]
+    fn defaults_to_observation_and_records_proposal_separately_from_actual() {
+        let decision = decide_model_route(&input());
+        assert_eq!(decision.selected_model, "fast/local");
+        assert_eq!(decision.actual_model, "frontier");
         assert!(decision.observe_only);
+        assert_eq!(decision.stage, ModelRoutingStage::Observe);
+        assert!(decision
+            .reasons
+            .iter()
+            .any(|reason| reason == "task_class=formatting"));
+    }
+
+    #[test]
+    fn user_approved_stage_never_routes_without_current_approval() {
+        let policy = ModelRoutingExperimentPolicy {
+            stage: ModelRoutingStage::UserApproved,
+            ..Default::default()
+        };
+        assert!(decide_model_route_experiment(&input(), &policy, false, None).observe_only);
+        let approved = decide_model_route_experiment(&input(), &policy, true, None);
+        assert!(!approved.observe_only);
+        assert_eq!(approved.actual_model, "fast/local");
+    }
+
+    #[test]
+    fn automatic_stage_requires_allowlist_and_all_benchmark_thresholds() {
+        let policy = ModelRoutingExperimentPolicy {
+            stage: ModelRoutingStage::AutomaticAllowlisted,
+            automatic_task_allowlist: vec!["formatting".to_string()],
+            ..Default::default()
+        };
+        let passing = ModelRoutingBenchmarkEvidence {
+            sample_size: 100,
+            baseline_successes: 98,
+            candidate_successes: 98,
+            baseline_average_success_cost_microunits: 1_000,
+            candidate_average_success_cost_microunits: 700,
+            follow_up_rework_rate_bps: 300,
+        };
+        let decision = decide_model_route_experiment(&input(), &policy, false, Some(&passing));
+        assert!(!decision.observe_only);
+        assert!(decision.evidence.as_ref().unwrap().passed);
+
+        let failing = ModelRoutingBenchmarkEvidence {
+            candidate_successes: 80,
+            ..passing
+        };
+        let decision = decide_model_route_experiment(&input(), &policy, false, Some(&failing));
+        assert!(decision.observe_only);
+        assert_eq!(decision.reason, "automatic_thresholds_failed");
+    }
+
+    #[test]
+    fn global_and_per_client_kill_switches_preserve_requested_model() {
+        let global = ModelRoutingExperimentPolicy {
+            global_enabled: false,
+            stage: ModelRoutingStage::AutomaticAllowlisted,
+            ..Default::default()
+        };
+        assert_eq!(
+            decide_model_route_experiment(&input(), &global, true, None).actual_model,
+            "frontier"
+        );
+        let client = ModelRoutingExperimentPolicy {
+            disabled_clients: vec!["CODEX".to_string()],
+            stage: ModelRoutingStage::UserApproved,
+            ..Default::default()
+        };
+        assert_eq!(
+            decide_model_route_experiment(&input(), &client, true, None).reason,
+            "client_routing_disabled"
+        );
+    }
+
+    #[test]
+    fn rework_can_erase_savings_and_block_automatic_routing() {
+        let evidence = ModelRoutingBenchmarkEvidence {
+            sample_size: 100,
+            baseline_successes: 98,
+            candidate_successes: 98,
+            baseline_average_success_cost_microunits: 1_000,
+            candidate_average_success_cost_microunits: 500,
+            follow_up_rework_rate_bps: 900,
+        };
+        let assessment = assess_evidence(&evidence, &ModelRoutingThresholds::default());
+        assert_eq!(assessment.cost_improvement_bps, 5_000);
+        assert!(!assessment.passed);
+        assert!(assessment.explanation.contains("rework_bps=900/500"));
+    }
+
+    #[test]
+    fn observation_record_keeps_proposal_actual_model_and_task_outcome() {
+        let decision = decide_model_route(&input());
+        let record = record_model_routing_outcome(
+            &decision,
+            ModelRoutingTaskOutcome {
+                succeeded: true,
+                successful_task_cost_microunits: Some(725),
+                follow_up_rework: false,
+            },
+        );
+        assert_eq!(record.proposed_model, "fast/local");
+        assert_eq!(record.actual_model, "frontier");
+        assert!(record.outcome.succeeded);
+        assert_eq!(record.outcome.successful_task_cost_microunits, Some(725));
+    }
+
+    #[test]
+    fn extreme_candidate_cost_fails_closed_instead_of_wrapping_positive() {
+        let evidence = ModelRoutingBenchmarkEvidence {
+            sample_size: 100,
+            baseline_successes: 100,
+            candidate_successes: 100,
+            baseline_average_success_cost_microunits: 1,
+            candidate_average_success_cost_microunits: u64::MAX,
+            follow_up_rework_rate_bps: 0,
+        };
+        let assessment = assess_evidence(&evidence, &ModelRoutingThresholds::default());
+        assert_eq!(assessment.cost_improvement_bps, i32::MIN);
+        assert!(!assessment.passed);
+    }
+
+    #[test]
+    fn persisted_policy_validation_rejects_invalid_thresholds_and_duplicate_clients() {
+        let invalid_threshold = ModelRoutingExperimentPolicy {
+            thresholds: ModelRoutingThresholds {
+                maximum_success_regression_bps: 10_001,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(validate_experiment_policy(&invalid_threshold).is_err());
+
+        let duplicate_client = ModelRoutingExperimentPolicy {
+            disabled_clients: vec!["codex".to_string(), "CODEX".to_string()],
+            ..Default::default()
+        };
+        assert!(validate_experiment_policy(&duplicate_client).is_err());
     }
 }

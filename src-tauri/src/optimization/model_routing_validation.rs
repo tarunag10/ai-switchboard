@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use crate::storage::app_data_dir;
 
 use super::action_policy::load_action_policy;
-use super::model_routing::{decide_model_route, ModelRouteInput};
+use super::model_routing::{
+    decide_model_route_experiment, load_model_routing_experiment_policy, ModelRouteInput,
+};
 
 const RECEIPT_FILE: &str = "model-routing-validation-receipt.json";
 
@@ -31,10 +33,13 @@ pub(crate) struct ModelRoutingValidationCheck {
 
 pub(crate) fn validate_model_routing() -> Result<ModelRoutingValidationReceipt, String> {
     let policy = load_action_policy();
+    let experiment_policy = load_model_routing_experiment_policy();
     let checks = validation_inputs(policy.model_routing_enabled)
         .into_iter()
         .map(|input| {
-            let decision = decide_model_route(&input);
+            // Validation never supplies approval or benchmark evidence, so
+            // persisted promotion stages remain fail-closed during this check.
+            let decision = decide_model_route_experiment(&input, &experiment_policy, false, None);
             let status = if decision.observe_only {
                 "observed"
             } else if decision.selected_model == input.cheap_model {
@@ -57,7 +62,7 @@ pub(crate) fn validate_model_routing() -> Result<ModelRoutingValidationReceipt, 
 
     let receipt = ModelRoutingValidationReceipt {
         generated_at: Utc::now().to_rfc3339(),
-        policy_enabled: policy.model_routing_enabled,
+        policy_enabled: policy.model_routing_enabled && experiment_policy.global_enabled,
         checks,
     };
     save_receipt(&receipt)?;
@@ -105,7 +110,6 @@ fn save_receipt(receipt: &ModelRoutingValidationReceipt) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::validation_inputs;
-    use super::*;
 
     #[test]
     fn validation_matrix_covers_managed_clients() {
@@ -119,7 +123,7 @@ mod tests {
     fn disabled_policy_returns_observed_checks() {
         let checks: Vec<_> = validation_inputs(false)
             .into_iter()
-            .map(|input| decide_model_route(&input))
+            .map(|input| super::super::model_routing::decide_model_route(&input))
             .collect();
         assert!(checks.iter().all(|decision| decision.observe_only));
     }

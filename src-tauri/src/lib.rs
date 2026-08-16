@@ -12,6 +12,7 @@ mod app_services_commands;
 mod app_update_commands;
 mod backend_port;
 mod bearer;
+mod cache_compression_policy;
 mod claude_cli;
 mod claude_sessions;
 mod cli_discovery;
@@ -53,6 +54,7 @@ mod dedicated_cleanup_rollback;
 mod deepseek_harness;
 mod device;
 mod doctor;
+mod endpoint_routing;
 mod external_open;
 mod gateway_readiness;
 mod goose_provider_configs;
@@ -818,6 +820,8 @@ pub fn run() {
             optimization_commands::run_preemptive_compaction,
             optimization_commands::get_optimization_action_policy,
             optimization_commands::set_optimization_action_policy,
+            optimization_commands::get_model_routing_experiment_policy,
+            optimization_commands::set_model_routing_experiment_policy,
             optimization_commands::validate_model_routing,
             activity_commands::get_rtk_activity,
             activity_commands::get_tool_logs,

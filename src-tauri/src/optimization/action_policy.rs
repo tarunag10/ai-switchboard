@@ -42,6 +42,73 @@ pub(crate) struct RequestFacts {
     pub(crate) requested_model: String,
     pub(crate) cheap_model: String,
     pub(crate) capable_model: String,
+    #[serde(default)]
+    pub(crate) value: ActionScoreInput,
+}
+
+/// Deterministic, content-free value estimates for one optimization action.
+///
+/// Values use the caller's chosen common unit (for example micro-dollars or
+/// benchmark points). Mixing units is invalid; keeping them integral makes the
+/// policy reproducible and easy to audit.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActionScoreInput {
+    pub(crate) input_cost_saved: u64,
+    pub(crate) prefill_compute_saved: u64,
+    pub(crate) context_headroom_value: u64,
+    pub(crate) optimization_latency_cost: u64,
+    pub(crate) cache_break_cost: u64,
+    pub(crate) quality_risk: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ActionScore {
+    pub(crate) input_cost_saved: u64,
+    pub(crate) prefill_compute_saved: u64,
+    pub(crate) context_headroom_value: u64,
+    pub(crate) optimization_latency_cost: u64,
+    pub(crate) cache_break_cost: u64,
+    pub(crate) quality_risk: u64,
+    pub(crate) net_value: i64,
+    pub(crate) favorable: bool,
+    pub(crate) explanation: String,
+}
+
+pub(crate) fn score_action(input: ActionScoreInput) -> ActionScore {
+    let benefits = input
+        .input_cost_saved
+        .saturating_add(input.prefill_compute_saved)
+        .saturating_add(input.context_headroom_value);
+    let costs = input
+        .optimization_latency_cost
+        .saturating_add(input.cache_break_cost)
+        .saturating_add(input.quality_risk);
+    let net_value = if benefits >= costs {
+        benefits.saturating_sub(costs).min(i64::MAX as u64) as i64
+    } else {
+        -(costs.saturating_sub(benefits).min(i64::MAX as u64) as i64)
+    };
+    ActionScore {
+        input_cost_saved: input.input_cost_saved,
+        prefill_compute_saved: input.prefill_compute_saved,
+        context_headroom_value: input.context_headroom_value,
+        optimization_latency_cost: input.optimization_latency_cost,
+        cache_break_cost: input.cache_break_cost,
+        quality_risk: input.quality_risk,
+        net_value,
+        favorable: net_value > 0,
+        explanation: format!(
+            "net_value={net_value}: input_saved={} + prefill_saved={} + headroom={} - latency={} - cache_break={} - quality_risk={}",
+            input.input_cost_saved,
+            input.prefill_compute_saved,
+            input.context_headroom_value,
+            input.optimization_latency_cost,
+            input.cache_break_cost,
+            input.quality_risk
+        ),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,6 +168,7 @@ pub(crate) struct RouteDecision {
     pub(crate) prompt_segment_order: Vec<String>,
     pub(crate) compaction_action: CompactionDecision,
     pub(crate) model_route_observation: ModelRouteDecision,
+    pub(crate) action_score: ActionScore,
     pub(crate) reasons: Vec<String>,
     pub(crate) observe_only: bool,
 }
@@ -113,6 +181,7 @@ pub(crate) fn decide_route(
     endpoint: &EndpointFacts,
     policy: &UserPolicy,
 ) -> RouteDecision {
+    let action_score = score_action(request.value);
     let prompt_segment_order = plan_prompt_cache_order(&policy.actions, &cache.prompt_segments);
     let compaction_action = actionable_compaction_decision(
         &policy.actions,
@@ -135,6 +204,7 @@ pub(crate) fn decide_route(
         },
     );
     let mut reasons = vec![
+        action_score.explanation.clone(),
         compaction_action.reason.clone(),
         model_route_observation.reason.clone(),
     ];
@@ -151,6 +221,7 @@ pub(crate) fn decide_route(
         prompt_segment_order,
         compaction_action,
         model_route_observation,
+        action_score,
         reasons,
         observe_only: true,
     }
@@ -302,6 +373,14 @@ mod tests {
             requested_model: "capable".to_string(),
             cheap_model: "cheap".to_string(),
             capable_model: "capable".to_string(),
+            value: ActionScoreInput {
+                input_cost_saved: 40,
+                prefill_compute_saved: 20,
+                context_headroom_value: 10,
+                optimization_latency_cost: 5,
+                cache_break_cost: 10,
+                quality_risk: 15,
+            },
         };
         let decision = decide_route(
             &request,
@@ -344,6 +423,8 @@ mod tests {
         assert!(decision.compaction_action.should_compact);
         assert_eq!(decision.prompt_segment_order, vec!["system", "user"]);
         assert!(decision.observe_only);
+        assert_eq!(decision.action_score.net_value, 40);
+        assert!(decision.action_score.favorable);
     }
 
     #[test]
@@ -354,6 +435,7 @@ mod tests {
                 requested_model: "requested".to_string(),
                 cheap_model: "cheap".to_string(),
                 capable_model: "capable".to_string(),
+                value: ActionScoreInput::default(),
             },
             &ClientFacts {
                 client: "codex".to_string(),
@@ -402,5 +484,35 @@ mod tests {
             .reasons
             .contains(&"endpoint_disabled_no_automatic_fallback".to_string()));
         assert_eq!(decision.selected_model, "requested");
+    }
+
+    #[test]
+    fn policy_score_explains_every_benefit_and_cost_without_ml() {
+        let score = score_action(ActionScoreInput {
+            input_cost_saved: 100,
+            prefill_compute_saved: 40,
+            context_headroom_value: 30,
+            optimization_latency_cost: 20,
+            cache_break_cost: 50,
+            quality_risk: 110,
+        });
+
+        assert_eq!(score.net_value, -10);
+        assert!(!score.favorable);
+        assert!(score.explanation.contains("input_saved=100"));
+        assert!(score.explanation.contains("quality_risk=110"));
+    }
+
+    #[test]
+    fn policy_score_rejects_negative_costs_during_deserialization() {
+        let raw = r#"{
+            "inputCostSaved": 1,
+            "prefillComputeSaved": 1,
+            "contextHeadroomValue": 1,
+            "optimizationLatencyCost": -1,
+            "cacheBreakCost": 1,
+            "qualityRisk": 1
+        }"#;
+        assert!(serde_json::from_str::<ActionScoreInput>(raw).is_err());
     }
 }

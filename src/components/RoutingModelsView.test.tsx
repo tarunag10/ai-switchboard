@@ -8,8 +8,9 @@ describe("RoutingModelsView", () => {
     const markup = renderToStaticMarkup(<RoutingModelsView hidden={false} />);
 
     expect(markup).toContain("Routing &amp; Models");
-    expect(markup).toContain("Manual only");
-    expect(markup).toContain("never scans your network or installs vLLM");
+    expect(markup).toContain("Evidence gated");
+    expect(markup).toContain("never scans your network or installs vLLM or SGLang");
     expect(markup).toContain("explicitly enable it");
+    expect(markup).toContain("Model-routing experiment");
   });
 });

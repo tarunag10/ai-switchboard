@@ -96,7 +96,7 @@ export function OptimizationActionPanel() {
           type="button"
           onClick={() => void toggle("modelRoutingEnabled")}
         >
-          Model routing: {policy.modelRoutingEnabled ? "on" : "off"}
+          Model route evaluation: {policy.modelRoutingEnabled ? "on" : "off"}
         </button>
       </div>
     </section>

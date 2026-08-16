@@ -1,5 +1,6 @@
 import { SettingsProviderUpstreamCard } from "./SettingsProviderUpstreamCard";
 import { InferenceEndpointProfilesCard } from "./InferenceEndpointProfilesCard";
+import { ModelRoutingExperimentCard } from "./ModelRoutingExperimentCard";
 
 interface RoutingModelsViewProps {
   hidden: boolean;
@@ -17,7 +18,7 @@ export function RoutingModelsView({ hidden }: RoutingModelsViewProps) {
               upstream used by the local Switchboard intercept.
             </p>
           </div>
-          <span className="repo-intelligence-view__badge">Manual only</span>
+          <span className="repo-intelligence-view__badge">Evidence gated</span>
         </header>
 
         <article className="soft-card panel-card">
@@ -25,7 +26,7 @@ export function RoutingModelsView({ hidden }: RoutingModelsViewProps) {
             <div>
               <h3>External runtime safety</h3>
               <p>
-                AI Switchboard never scans your network or installs vLLM. An
+                AI Switchboard never scans your network or installs vLLM or SGLang. An
                 endpoint is used only after you enter it, verify it, and
                 explicitly enable it. Credential values stay outside
                 diagnostics.
@@ -33,6 +34,8 @@ export function RoutingModelsView({ hidden }: RoutingModelsViewProps) {
             </div>
           </div>
         </article>
+
+        <ModelRoutingExperimentCard />
 
         <InferenceEndpointProfilesCard />
 

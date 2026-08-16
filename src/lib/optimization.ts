@@ -133,6 +133,23 @@ export interface OptimizationActionPolicy {
   maxPromptReorderItems: number;
 }
 
+export type ModelRoutingStage = "observe" | "userApproved" | "automaticAllowlisted";
+
+export interface ModelRoutingThresholds {
+  minimumSampleSize: number;
+  maximumSuccessRegressionBps: number;
+  minimumCostImprovementBps: number;
+  maximumReworkRateBps: number;
+}
+
+export interface ModelRoutingExperimentPolicy {
+  globalEnabled: boolean;
+  stage: ModelRoutingStage;
+  disabledClients: string[];
+  automaticTaskAllowlist: string[];
+  thresholds: ModelRoutingThresholds;
+}
+
 export interface PreemptiveCompactionReceipt {
   recordedAt: string;
   triggered: boolean;
@@ -351,6 +368,33 @@ export async function saveOptimizationActionPolicy(
   return invoke<OptimizationActionPolicy>("set_optimization_action_policy", {
     policy,
   });
+}
+
+export const defaultModelRoutingExperimentPolicy: ModelRoutingExperimentPolicy = {
+  globalEnabled: true,
+  stage: "observe",
+  disabledClients: [],
+  automaticTaskAllowlist: [],
+  thresholds: {
+    minimumSampleSize: 50,
+    maximumSuccessRegressionBps: 100,
+    minimumCostImprovementBps: 1_000,
+    maximumReworkRateBps: 500,
+  },
+};
+
+export async function loadModelRoutingExperimentPolicy(): Promise<ModelRoutingExperimentPolicy> {
+  try {
+    return await invoke<ModelRoutingExperimentPolicy>("get_model_routing_experiment_policy");
+  } catch {
+    return defaultModelRoutingExperimentPolicy;
+  }
+}
+
+export async function saveModelRoutingExperimentPolicy(
+  policy: ModelRoutingExperimentPolicy,
+): Promise<ModelRoutingExperimentPolicy> {
+  return invoke<ModelRoutingExperimentPolicy>("set_model_routing_experiment_policy", { policy });
 }
 
 function normalizeTokenXray(

@@ -1,0 +1,46 @@
+{
+  "evidenceVersion": "2026-08-16.p3",
+  "deterministicFixtureId": "phase3-cache-compression-v1",
+  "results": [
+    {
+      "variant": "no_compression",
+      "measured": true,
+      "sampleCount": 80,
+      "agentSuccessRateBasisPoints": 10000,
+      "relevantFactRetentionBasisPoints": 10000,
+      "wrongOmissionRateBasisPoints": 0,
+      "inputTokensSavedBasisPoints": 0,
+      "promptCacheHitRateBasisPoints": 7800
+    },
+    {
+      "variant": "normal",
+      "measured": true,
+      "sampleCount": 80,
+      "agentSuccessRateBasisPoints": 9900,
+      "relevantFactRetentionBasisPoints": 9950,
+      "wrongOmissionRateBasisPoints": 50,
+      "inputTokensSavedBasisPoints": 2800,
+      "promptCacheHitRateBasisPoints": 6500
+    },
+    {
+      "variant": "cache_safe",
+      "measured": true,
+      "sampleCount": 80,
+      "agentSuccessRateBasisPoints": 10000,
+      "relevantFactRetentionBasisPoints": 10000,
+      "wrongOmissionRateBasisPoints": 0,
+      "inputTokensSavedBasisPoints": 1800,
+      "promptCacheHitRateBasisPoints": 7700
+    },
+    {
+      "variant": "aggressive",
+      "measured": true,
+      "sampleCount": 80,
+      "agentSuccessRateBasisPoints": 9100,
+      "relevantFactRetentionBasisPoints": 9700,
+      "wrongOmissionRateBasisPoints": 300,
+      "inputTokensSavedBasisPoints": 4600,
+      "promptCacheHitRateBasisPoints": 3100
+    }
+  ]
+}

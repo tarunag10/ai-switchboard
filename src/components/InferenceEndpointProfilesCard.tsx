@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 
-type EndpointKind = "vllm" | "open_ai_compatible";
+type EndpointKind = "vllm" | "sglang" | "open_ai_compatible";
 
 interface EndpointVerification {
   status: "unverified" | "verified" | "failed";
@@ -125,6 +125,7 @@ export function InferenceEndpointProfilesCard() {
             value={form.kind}
           >
             <option value="vllm">vLLM verified profile</option>
+            <option value="sglang">SGLang verified profile</option>
             <option value="open_ai_compatible">Generic OpenAI-compatible</option>
           </select>
         </label>

@@ -10,7 +10,7 @@ use crate::inference_endpoint::{
     CredentialStrategy, EndpointCapabilities, EndpointDiagnostic, EndpointProbe,
     EndpointRegistryService, EndpointVerification, HealthPolicy, InferenceProtocol, ModelDiscovery,
     OpenAiCompatibleEndpoint, PrefixCacheEvidence, ProbeObservation, ProbePurpose, ProbeRequest,
-    UserEndpointApproval, VllmEndpoint,
+    SglangEndpoint, UserEndpointApproval, VllmEndpoint,
 };
 use crate::state::AppState;
 
@@ -32,6 +32,7 @@ pub(crate) struct AddEndpointInput {
 pub(crate) enum EndpointKind {
     OpenAiCompatible,
     Vllm,
+    Sglang,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -84,6 +85,16 @@ pub(crate) fn add_inference_endpoint(
                 input.model_id,
                 input.max_context,
                 "vllm-aiperf-v1",
+            )?,
+            approval,
+        )?,
+        EndpointKind::Sglang => service.add_sglang(
+            SglangEndpoint::new(
+                input.id,
+                input.label,
+                input.base_url,
+                input.model_id,
+                input.max_context,
             )?,
             approval,
         )?,
@@ -179,6 +190,14 @@ impl HttpEndpointProbe {
         url.set_fragment(None);
         Ok(url)
     }
+
+    fn runtime_implementation(request: &ProbeRequest) -> &'static str {
+        if request.path == "/server_info" {
+            "sglang"
+        } else {
+            "vllm"
+        }
+    }
 }
 
 impl EndpointProbe for HttpEndpointProbe {
@@ -215,7 +234,7 @@ impl EndpointProbe for HttpEndpointProbe {
             .map_err(|_| "Endpoint probe returned malformed JSON.".to_string())?;
         let (runtime_implementation, runtime_version, model_ids) = match request.purpose {
             ProbePurpose::RuntimeIdentity => (
-                Some("vllm".to_string()),
+                Some(Self::runtime_implementation(request).to_string()),
                 value
                     .get("version")
                     .and_then(Value::as_str)
@@ -260,6 +279,24 @@ mod tests {
         assert_eq!(
             HttpEndpointProbe::probe_url(&request).unwrap().as_str(),
             "http://192.168.1.5:8000/health"
+        );
+    }
+
+    #[test]
+    fn runtime_identity_is_derived_only_from_the_pinned_probe_path() {
+        let request = |path: &str| ProbeRequest {
+            endpoint_id: "runtime".to_string(),
+            base_url: "http://127.0.0.1:8000/v1".to_string(),
+            path: path.to_string(),
+            purpose: ProbePurpose::RuntimeIdentity,
+        };
+        assert_eq!(
+            HttpEndpointProbe::runtime_implementation(&request("/version")),
+            "vllm"
+        );
+        assert_eq!(
+            HttpEndpointProbe::runtime_implementation(&request("/server_info")),
+            "sglang"
         );
     }
 }

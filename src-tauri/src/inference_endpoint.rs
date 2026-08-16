@@ -8,12 +8,15 @@ use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use url::Url;
 
+mod capabilities;
 mod registry;
+
+pub(crate) use capabilities::{CapabilityState, NormalizedRuntimeCapabilities};
 
 pub(crate) use registry::{
     EndpointAllowlist, EndpointDiagnostic, EndpointProbe, EndpointRegistry,
     EndpointRegistryService, EndpointVerification, ProbeObservation, ProbePurpose, ProbeRequest,
-    RouteTarget, UserEndpointApproval, VllmEndpoint,
+    RouteTarget, SglangEndpoint, UserEndpointApproval, VllmEndpoint,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

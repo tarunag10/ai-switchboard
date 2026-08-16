@@ -6,11 +6,15 @@
 //! commit `fe1c317157d4478fdc0e02096447e61305b871e9` (2026-08-16): `/health`,
 //! `/version`, and `/v1/models`. A runtime response is evidence, not proof of
 //! that source revision, so its reported version is retained separately.
+//!
+//! SGLang is pinned to upstream commit
+//! `d3589a7251e4df6710e14ac55071585e80ae62c7` (2026-08-16). Its bounded
+//! verification paths are `/health`, `/server_info`, and `/v1/models`.
 
 use super::{
     validate_profile, CredentialStrategy, EndpointCapabilities, EndpointProfile, HealthPolicy,
-    InferenceEndpoint, InferenceProtocol, ModelDiscovery, OpenAiCompatibleEndpoint,
-    PrefixCacheEvidence, SecurityClassification,
+    InferenceEndpoint, InferenceProtocol, ModelDiscovery, NormalizedRuntimeCapabilities,
+    OpenAiCompatibleEndpoint, PrefixCacheEvidence, SecurityClassification,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -22,6 +26,9 @@ const REGISTRY_SCHEMA_VERSION: u32 = 1;
 const VLLM_HEALTH_PATH: &str = "/health";
 const VLLM_VERSION_PATH: &str = "/version";
 const VLLM_MODELS_PATH: &str = "/v1/models";
+const SGLANG_HEALTH_PATH: &str = "/health";
+const SGLANG_SERVER_INFO_PATH: &str = "/server_info";
+const SGLANG_MODELS_PATH: &str = "/v1/models";
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -141,6 +148,83 @@ impl InferenceEndpoint for VllmEndpoint {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SglangEndpoint {
+    profile: EndpointProfile,
+    pub compatibility_source: String,
+}
+
+impl SglangEndpoint {
+    pub(crate) fn new(
+        id: impl Into<String>,
+        label: impl Into<String>,
+        base_url: impl Into<String>,
+        model_id: impl Into<String>,
+        max_context: Option<u64>,
+    ) -> Result<Self, String> {
+        let endpoint = OpenAiCompatibleEndpoint::new(
+            id,
+            label,
+            base_url,
+            HealthPolicy::Active,
+            model_id,
+            EndpointCapabilities {
+                protocol: InferenceProtocol::OpenAiCompatible,
+                streaming: true,
+                tools: true,
+                structured_output: true,
+                max_context,
+                prefix_cache_evidence: PrefixCacheEvidence::Unknown,
+                health_endpoint: Some(SGLANG_HEALTH_PATH.to_string()),
+                model_discovery: ModelDiscovery::Endpoint {
+                    path: SGLANG_MODELS_PATH.to_string(),
+                },
+            },
+            CredentialStrategy::None,
+            false,
+        )?;
+        Ok(Self {
+            profile: endpoint.profile,
+            compatibility_source: "sgl-project/sglang@d3589a7251e4df6710e14ac55071585e80ae62c7"
+                .to_string(),
+        })
+    }
+}
+
+impl InferenceEndpoint for SglangEndpoint {
+    fn id(&self) -> &str {
+        &self.profile.id
+    }
+    fn label(&self) -> &str {
+        &self.profile.label
+    }
+    fn base_url(&self) -> &str {
+        &self.profile.base_url
+    }
+    fn protocol(&self) -> InferenceProtocol {
+        self.profile.protocol
+    }
+    fn health_policy(&self) -> HealthPolicy {
+        self.profile.health_policy
+    }
+    fn model_id(&self) -> &str {
+        &self.profile.model_id
+    }
+    fn capabilities(&self) -> &EndpointCapabilities {
+        &self.profile.capabilities
+    }
+    fn credential_strategy(&self) -> &CredentialStrategy {
+        &self.profile.credential_strategy
+    }
+    fn security_classification(&self) -> SecurityClassification {
+        self.profile.security_classification
+    }
+    fn enabled(&self) -> bool {
+        self.profile.enabled
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ProbePurpose {
     Health,
@@ -196,6 +280,7 @@ impl EndpointVerification {
 enum ManagedEndpoint {
     OpenAi(OpenAiCompatibleEndpoint),
     Vllm(VllmEndpoint),
+    Sglang(SglangEndpoint),
 }
 
 impl ManagedEndpoint {
@@ -203,6 +288,7 @@ impl ManagedEndpoint {
         match self {
             Self::OpenAi(value) => value,
             Self::Vllm(value) => value,
+            Self::Sglang(value) => value,
         }
     }
 
@@ -210,6 +296,15 @@ impl ManagedEndpoint {
         match self {
             Self::OpenAi(value) => &mut value.profile,
             Self::Vllm(value) => &mut value.profile,
+            Self::Sglang(value) => &mut value.profile,
+        }
+    }
+
+    fn normalized_capabilities(&self) -> NormalizedRuntimeCapabilities {
+        match self {
+            Self::OpenAi(value) => NormalizedRuntimeCapabilities::unknown(value),
+            Self::Vllm(value) => NormalizedRuntimeCapabilities::vllm(value),
+            Self::Sglang(value) => NormalizedRuntimeCapabilities::sglang(value),
         }
     }
 }
@@ -250,6 +345,7 @@ pub(crate) struct EndpointDiagnostic {
     pub enabled: bool,
     pub selected: bool,
     pub verification: EndpointVerification,
+    pub normalized_capabilities: NormalizedRuntimeCapabilities,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -357,6 +453,7 @@ impl EndpointRegistry {
                     enabled: endpoint.enabled(),
                     selected: self.selected_endpoint_id.as_deref() == Some(id),
                     verification: record.verification.clone(),
+                    normalized_capabilities: record.endpoint.normalized_capabilities(),
                 }
             })
             .collect()
@@ -387,6 +484,7 @@ impl EndpointRegistry {
             match &record.endpoint {
                 ManagedEndpoint::OpenAi(value) => validate_profile(&value.profile)?,
                 ManagedEndpoint::Vllm(value) => validate_profile(&value.profile)?,
+                ManagedEndpoint::Sglang(value) => validate_profile(&value.profile)?,
             }
         }
         if let Some(selected) = &self.selected_endpoint_id {
@@ -473,6 +571,34 @@ fn verify_record(
                 benchmark_profile_id: Some(vllm.benchmark_profile_id.clone()),
             })
         }
+        ManagedEndpoint::Sglang(_) => {
+            let identity = probe
+                .probe(&request(
+                    SGLANG_SERVER_INFO_PATH,
+                    ProbePurpose::RuntimeIdentity,
+                ))
+                .map_err(|_| "runtime identity probe failed".to_string())?;
+            if !successful(&identity)
+                || identity
+                    .runtime_implementation
+                    .as_deref()
+                    .map(str::to_ascii_lowercase)
+                    .as_deref()
+                    != Some("sglang")
+                || identity
+                    .runtime_version
+                    .as_deref()
+                    .is_none_or(|value| value.trim().is_empty())
+            {
+                return Err("runtime identity did not provide verified SGLang evidence".to_string());
+            }
+            Ok(EndpointVerification::Verified {
+                runtime_id: Some("sglang".to_string()),
+                runtime_version: identity.runtime_version,
+                model_ids: models,
+                benchmark_profile_id: None,
+            })
+        }
         ManagedEndpoint::OpenAi(_) => Ok(EndpointVerification::Verified {
             runtime_id: None,
             runtime_version: None,
@@ -527,6 +653,14 @@ impl EndpointRegistryService {
         approval: UserEndpointApproval,
     ) -> Result<(), String> {
         self.mutate(|registry| registry.add(ManagedEndpoint::Vllm(endpoint), approval))
+    }
+
+    pub(crate) fn add_sglang(
+        &mut self,
+        endpoint: SglangEndpoint,
+        approval: UserEndpointApproval,
+    ) -> Result<(), String> {
+        self.mutate(|registry| registry.add(ManagedEndpoint::Sglang(endpoint), approval))
     }
 
     pub(crate) fn verify(
@@ -588,6 +722,7 @@ fn persist(path: &Path, registry: &EndpointRegistry) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::inference_endpoint::CapabilityState;
     use std::sync::Mutex;
 
     struct MockProbe {
@@ -615,6 +750,8 @@ mod tests {
                     runtime_implementation: Some(
                         if self.fail_identity {
                             "unknown"
+                        } else if request.path == SGLANG_SERVER_INFO_PATH {
+                            "sglang"
                         } else {
                             "vllm"
                         }
@@ -669,6 +806,17 @@ mod tests {
                 variable: "PRIVATE_ENDPOINT_KEY".to_string(),
             },
             false,
+        )
+        .unwrap()
+    }
+
+    fn sglang() -> SglangEndpoint {
+        SglangEndpoint::new(
+            "local-sglang",
+            "Local SGLang",
+            "http://192.168.1.21:30000/v1",
+            "test-model",
+            Some(65_536),
         )
         .unwrap()
     }
@@ -805,6 +953,90 @@ mod tests {
         assert!(!serde_json::to_string(diagnostic)
             .unwrap()
             .contains(endpoint.base_url()));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sglang_uses_only_pinned_paths_and_switches_through_the_shared_route_target() {
+        let dir = temp_dir("sglang");
+        let mut service = EndpointRegistryService::load(&dir).unwrap();
+        let endpoint = sglang();
+        service
+            .add_sglang(
+                endpoint.clone(),
+                UserEndpointApproval::explicit(endpoint.base_url()).unwrap(),
+            )
+            .unwrap();
+        let probe = MockProbe {
+            requests: Mutex::new(vec![]),
+            fail_identity: false,
+        };
+
+        assert!(matches!(
+            service.verify(endpoint.id(), &probe).unwrap(),
+            EndpointVerification::Verified {
+                runtime_id: Some(ref value),
+                runtime_version: Some(_),
+                ..
+            } if value == "sglang"
+        ));
+        let paths: BTreeSet<String> = probe
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|request| request.path.clone())
+            .collect();
+        assert_eq!(
+            paths,
+            BTreeSet::from([
+                SGLANG_HEALTH_PATH.to_string(),
+                SGLANG_MODELS_PATH.to_string(),
+                SGLANG_SERVER_INFO_PATH.to_string(),
+            ])
+        );
+
+        let diagnostic = &service.list_diagnostics()[0];
+        assert_eq!(
+            diagnostic.normalized_capabilities.prefix_cache.state,
+            CapabilityState::Supported
+        );
+        assert_eq!(
+            diagnostic.normalized_capabilities.max_context.state,
+            CapabilityState::Configured
+        );
+        service.select(endpoint.id()).unwrap();
+        let route = service.selected_route_target().unwrap();
+        assert_eq!(route.endpoint_id, endpoint.id());
+        assert_eq!(route.protocol, InferenceProtocol::OpenAiCompatible);
+
+        let loaded = EndpointRegistryService::load(&dir).unwrap();
+        assert_eq!(loaded.selected_route_target(), Some(route));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sglang_rejects_spoofed_runtime_identity_fail_closed() {
+        let dir = temp_dir("sglang-spoof");
+        let mut service = EndpointRegistryService::load(&dir).unwrap();
+        let endpoint = sglang();
+        service
+            .add_sglang(
+                endpoint.clone(),
+                UserEndpointApproval::explicit(endpoint.base_url()).unwrap(),
+            )
+            .unwrap();
+        let probe = MockProbe {
+            requests: Mutex::new(vec![]),
+            fail_identity: true,
+        };
+
+        assert!(matches!(
+            service.verify(endpoint.id(), &probe).unwrap(),
+            EndpointVerification::Failed { .. }
+        ));
+        assert!(service.select(endpoint.id()).is_err());
+        assert!(service.selected_route_target().is_none());
         let _ = fs::remove_dir_all(dir);
     }
 

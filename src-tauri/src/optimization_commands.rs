@@ -23,6 +23,19 @@ pub fn set_optimization_action_policy(
 }
 
 #[tauri::command]
+pub fn get_model_routing_experiment_policy(
+) -> optimization::model_routing::ModelRoutingExperimentPolicy {
+    optimization::model_routing::load_model_routing_experiment_policy()
+}
+
+#[tauri::command]
+pub fn set_model_routing_experiment_policy(
+    policy: optimization::model_routing::ModelRoutingExperimentPolicy,
+) -> Result<optimization::model_routing::ModelRoutingExperimentPolicy, String> {
+    optimization::model_routing::save_model_routing_experiment_policy(&policy)
+}
+
+#[tauri::command]
 pub fn validate_model_routing(
 ) -> Result<optimization::model_routing_validation::ModelRoutingValidationReceipt, String> {
     optimization::model_routing_validation::validate_model_routing()
