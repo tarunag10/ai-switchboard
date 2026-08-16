@@ -51,6 +51,7 @@ mod cursor_native_commands;
 mod daily_briefing;
 mod dashboard_commands;
 mod dsh_context_prototype;
+mod dsh_plugin_maturity;
 mod dedicated_cleanup_rollback;
 mod deepseek_harness;
 mod device;
@@ -80,6 +81,7 @@ mod optimization;
 mod optimization_engine;
 mod optimization_addons_readiness;
 mod optimization_commands;
+mod plugin_promotion_gate;
 mod port_conflict;
 mod pricing;
 mod provider_upstream_profiles;
@@ -1533,8 +1535,11 @@ mod tests {
             self.metadata.clone()
         }
 
-        fn install(self, _progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture {
-            Box::pin(async move { self.install_result })
+        fn install(
+            &mut self,
+            _progress: AppUpdateProgressEmitter,
+        ) -> InstallPendingUpdateFuture<'_> {
+            Box::pin(async move { self.install_result.clone() })
         }
     }
 
@@ -2504,9 +2509,12 @@ mod tests {
                 self.metadata.clone()
             }
 
-            fn install(self, progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture {
+            fn install(
+                &mut self,
+                progress: AppUpdateProgressEmitter,
+            ) -> InstallPendingUpdateFuture<'_> {
                 Box::pin(async move {
-                    for event in self.events {
+                    for event in self.events.clone() {
                         progress(event);
                     }
                     Ok(())
@@ -2596,7 +2604,7 @@ mod tests {
     }
 
     #[test]
-    fn install_pending_update_returns_install_failures_after_taking_the_slot() {
+    fn install_pending_update_failure_restores_retryable_pending_update() {
         let pending = Mutex::new(Some(FakePendingUpdate {
             metadata: sample_available_update("0.3.0"),
             install_result: Err("signature mismatch".into()),
@@ -2614,6 +2622,67 @@ mod tests {
             .expect_err("install failure");
 
         assert_eq!(error, "signature mismatch");
+        assert_eq!(
+            pending
+                .lock()
+                .as_ref()
+                .expect("failed update remains retryable")
+                .metadata()
+                .version,
+            "0.3.0"
+        );
+    }
+
+    #[test]
+    fn install_pending_update_retries_same_update_after_transient_failure() {
+        struct RetryOnceUpdate {
+            metadata: AvailableAppUpdate,
+            attempts: usize,
+        }
+
+        impl InstallableAppUpdate for RetryOnceUpdate {
+            fn metadata(&self) -> AvailableAppUpdate {
+                self.metadata.clone()
+            }
+
+            fn install(
+                &mut self,
+                _progress: AppUpdateProgressEmitter,
+            ) -> InstallPendingUpdateFuture<'_> {
+                Box::pin(async move {
+                    self.attempts += 1;
+                    if self.attempts == 1 {
+                        Err("transient install failure".to_string())
+                    } else {
+                        Ok(())
+                    }
+                })
+            }
+        }
+
+        let pending = Mutex::new(Some(RetryOnceUpdate {
+            metadata: sample_available_update("0.3.0"),
+            attempts: 0,
+        }));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("tokio runtime");
+
+        runtime
+            .block_on(install_pending_update(
+                &pending,
+                noop_app_update_progress_emitter(),
+            ))
+            .expect_err("first install attempt fails");
+        assert_eq!(pending.lock().as_ref().unwrap().attempts, 1);
+
+        runtime
+            .block_on(install_pending_update(
+                &pending,
+                noop_app_update_progress_emitter(),
+            ))
+            .expect("same pending update succeeds on retry");
         assert!(pending.lock().is_none());
     }
 

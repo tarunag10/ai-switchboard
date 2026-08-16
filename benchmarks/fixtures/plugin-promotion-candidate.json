@@ -1,0 +1,42 @@
+{
+  "category": "CodingClientAdapter",
+  "contract": {
+    "manifest": {
+      "id": "fixture-client-adapter",
+      "versionPin": "1.4.2",
+      "provenance": {
+        "sourceUrl": "https://example.invalid/source",
+        "sourceRevision": "0123456789abcdef",
+        "artifactSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "license": {
+        "spdxId": "Apache-2.0",
+        "licenseSourceUrl": "https://example.invalid/license"
+      },
+      "network": {
+        "kind": "no_network",
+        "deterministic_verification_fixture": "fixtures/no-network.json"
+      },
+      "deterministicFixtures": {
+        "fixtureCount": 12,
+        "deterministicReplay": true,
+        "fixtureBundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "quality": {
+        "measured": true,
+        "sampleCount": 100,
+        "successfulTaskRateBasisPoints": 9900,
+        "wrongOmissionRateBasisPoints": 50
+      },
+      "stateEffect": {
+        "kind": "writes_state",
+        "rollback_contract": "restore fixture sibling backup",
+        "uninstall_contract": "remove only fixture-owned marker",
+        "deterministic_write_verification_fixture": "fixtures/write-verification.json"
+      },
+      "updateSource": "https://example.invalid/releases"
+    },
+    "clientId": "fixture-client",
+    "detectPlanApplyVerifyContract": true
+  }
+}

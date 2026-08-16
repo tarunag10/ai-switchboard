@@ -20,8 +20,8 @@ const BETA_CHANNEL_ENV: &str = "HEADROOM_BETA_CHANNEL";
 const BETA_CHANNEL_SENTINEL: &str = "beta_channel";
 const APP_UPDATE_PROGRESS_EVENT: &str = "app-update://progress";
 
-pub(crate) type InstallPendingUpdateFuture =
-    Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
+pub(crate) type InstallPendingUpdateFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>>;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", tag = "phase")]
@@ -41,7 +41,7 @@ pub(crate) fn noop_app_update_progress_emitter() -> AppUpdateProgressEmitter {
 
 pub(crate) trait InstallableAppUpdate: Send {
     fn metadata(&self) -> AvailableAppUpdate;
-    fn install(self, progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture;
+    fn install(&mut self, progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture<'_>;
 }
 
 pub(crate) struct TauriPendingUpdate(Update);
@@ -61,7 +61,7 @@ impl InstallableAppUpdate for TauriPendingUpdate {
         }
     }
 
-    fn install(self, progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture {
+    fn install(&mut self, progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture<'_> {
         Box::pin(async move {
             let downloaded = Arc::new(AtomicU64::new(0));
             let on_chunk_downloaded = Arc::clone(&downloaded);
@@ -274,14 +274,27 @@ pub(crate) async fn install_pending_update<U>(
 where
     U: InstallableAppUpdate,
 {
-    let update = {
+    let mut update = {
         let mut pending = pending_update.lock();
         pending
             .take()
             .ok_or_else(|| "No downloaded update is ready to install.".to_string())?
     };
 
-    update.install(progress).await
+    let install_result = update.install(progress).await;
+    match install_result {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            // The updater object remains retryable because installation only
+            // borrows it. Do not overwrite a newer feed check if one completed
+            // while this install attempt was awaiting I/O.
+            let mut pending = pending_update.lock();
+            if pending.is_none() {
+                *pending = Some(update);
+            }
+            Err(error)
+        }
+    }
 }
 
 pub(crate) fn app_update_notification_body(version: &str) -> String {
