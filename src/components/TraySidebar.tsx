@@ -22,12 +22,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: "home", label: "Overview & Connectors", icon: House },
-  { id: "optimization", label: "Optimization", icon: Sliders },
+  { id: "home", label: "Overview", icon: House },
+  { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
-  { id: "routingModels", label: "Routing & Models", icon: Graph },
-  { id: "usage", label: "Activity & Savings", icon: Calculator },
-  { id: "doctor", label: "Doctor & Rollback", icon: FirstAidKit },
+  { id: "routingModels", label: "Routing", icon: Graph },
+  { id: "usage", label: "Savings", icon: Calculator },
+  { id: "doctor", label: "Doctor", icon: FirstAidKit },
   { id: "xray", label: "Token X-Ray", icon: Eye },
   { id: "briefing", label: "Daily Briefing", icon: Graph },
   { id: "agentMemory", label: "Agent Memory", icon: Brain },
@@ -51,9 +51,12 @@ export function TraySidebar({ activeView, localOnlyMode, onSelectView }: TraySid
       <nav className="tray-nav" aria-label="AI Switchboard navigation">
         {navItems.map((item) => (
           <button
+            aria-current={activeView === item.id ? "page" : undefined}
+            aria-label={item.label}
             key={item.id}
             className={`tray-nav__item${activeView === item.id ? " is-active" : ""}`}
             onClick={() => onSelectView(item.id)}
+            title={item.label}
             type="button"
           >
             <span className="tray-nav__icon" aria-hidden="true">
@@ -72,18 +75,24 @@ export function TraySidebar({ activeView, localOnlyMode, onSelectView }: TraySid
       <div className="tray-sidebar__footer">
         {!localOnlyMode ? (
           <button
+            aria-current={activeView === "upgrade" || activeView === "upgradeAuth" ? "page" : undefined}
+            aria-label="Upgrade"
             className={`upgrade-pill${
               activeView === "upgrade" || activeView === "upgradeAuth" ? " is-active" : ""
             }`}
             onClick={() => onSelectView("upgrade")}
+            title="Upgrade"
             type="button"
           >
             Upgrade
           </button>
         ) : null}
         <button
+          aria-current={activeView === "settings" ? "page" : undefined}
+          aria-label="Settings"
           className={`tray-nav__item${activeView === "settings" ? " is-active" : ""}`}
           onClick={() => onSelectView("settings")}
+          title="Settings"
           type="button"
         >
           <span className="tray-nav__icon" aria-hidden="true">

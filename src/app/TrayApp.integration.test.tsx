@@ -93,18 +93,18 @@ describe("TrayApp integrated shell", () => {
     });
 
     const destinations = [
-      "Optimization",
+      "Optimize",
       "Repo Intelligence",
-      "Routing & Models",
-      "Activity & Savings",
-      "Doctor & Rollback",
+      "Routing",
+      "Savings",
+      "Doctor",
       "Token X-Ray",
       "Daily Briefing",
       "Agent Memory",
       "Event Log",
       "Repo Map",
       "Addons",
-      "Overview & Connectors",
+      "Overview",
     ];
 
     for (const label of destinations) {

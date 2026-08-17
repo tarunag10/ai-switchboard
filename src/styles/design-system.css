@@ -1,0 +1,489 @@
+/*
+ * AI Switchboard interface contract
+ *
+ * This is the final stylesheet in the application. It converts the historical
+ * light/dark component layers into one explicit control-room theme and supplies
+ * every semantic token used by production components. Keep component layout in
+ * its owning stylesheet; keep cross-screen color, type, focus and control rules
+ * here. See docs/design-system.md.
+ */
+
+:root {
+  --surface: #211914;
+  --surface-app: #17100d;
+  --surface-muted: rgba(20, 14, 11, 0.72);
+  --surface-elevated: rgba(54, 38, 28, 0.96);
+  --surface-raised: rgba(54, 38, 28, 0.96);
+  --surface-card: rgba(54, 38, 28, 0.96);
+  --surface-overlay: rgba(41, 29, 22, 0.98);
+  --surface-sidebar: rgba(32, 23, 17, 0.96);
+  --surface-sunken: rgba(13, 9, 7, 0.62);
+  --surface-tint-warm: rgba(62, 42, 29, 0.96);
+  --border-muted: rgba(224, 169, 68, 0.18);
+  --border-subtle: rgba(224, 169, 68, 0.16);
+  --border-default: rgba(224, 169, 68, 0.26);
+  --border-strong: rgba(242, 207, 115, 0.44);
+  --text-primary: #f8ead0;
+  --text-secondary: #d9c3a0;
+  --text-tertiary: #c3a982;
+  --text-muted: #b99f77;
+  --text-inverse: #241509;
+  --control-accent-start: #f2cf73;
+  --control-accent-end: #c96f43;
+  --control-accent-ink: #241509;
+  --control-secondary-start: rgba(88, 62, 43, 0.98);
+  --control-secondary-end: rgba(41, 29, 22, 0.98);
+  --control-disabled-bg: rgba(76, 55, 41, 0.72);
+  --control-disabled-text: rgba(248, 234, 208, 0.58);
+  --focus-ring: #6aa7d8;
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --space-control-x: 14px;
+  --space-control-y: 9px;
+}
+
+/* Shared control language: brass means primary, dark copper means secondary. */
+.primary-button,
+.switchboard-panel__action--primary,
+.master-activation-card__primary,
+.switchboard-doctor__repair {
+  min-height: 38px;
+  border: 1px solid rgba(255, 233, 170, 0.76);
+  border-radius: var(--radius-control);
+  background: linear-gradient(
+    180deg,
+    var(--control-accent-start),
+    #e0a944 56%,
+    var(--control-accent-end)
+  );
+  color: var(--control-accent-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 7px 18px rgba(0, 0, 0, 0.25);
+  font: inherit;
+  font-weight: 760;
+  text-shadow: none;
+}
+
+.secondary-button,
+.switchboard-panel__action:not(.switchboard-panel__action--primary),
+.master-activation-card__secondary,
+.master-activation-card__action {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: linear-gradient(
+    180deg,
+    var(--control-secondary-start),
+    var(--control-secondary-end)
+  );
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 680;
+}
+
+.primary-button:hover:not(:disabled),
+.switchboard-panel__action--primary:hover:not(:disabled),
+.master-activation-card__primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffe393, #eab64e 52%, #d57a45);
+  color: var(--control-accent-ink);
+  transform: translateY(-1px);
+}
+
+.secondary-button:hover:not(:disabled),
+.master-activation-card__secondary:hover:not(:disabled),
+.master-activation-card__action:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: linear-gradient(180deg, rgba(110, 76, 48, 0.98), rgba(52, 36, 26, 0.98));
+  color: var(--text-primary);
+}
+
+button:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.master-activation-card button:disabled {
+  background: var(--control-disabled-bg);
+  color: var(--control-disabled-text);
+  cursor: not-allowed;
+  opacity: 1;
+  filter: none;
+  box-shadow: none;
+}
+
+button:focus-visible,
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.master-activation-card button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+/* Unconditional surface normalization. The product theme is explicit and must
+   not change with the host Mac's light/dark appearance. */
+.soft-card,
+.panel-card,
+.activity-card,
+.activity-feed__item,
+.optimize-card,
+.optimize-card__body,
+.optimize-minimal,
+.compression-overview,
+.install-progress__step,
+.optimize-learn-setup,
+.settings-card,
+.release-readiness-card,
+.repo-map-card,
+.upgrade-plan-card {
+  border-color: var(--border-default);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+.activity-card__head,
+.optimize-card__head {
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-tint-warm);
+  color: var(--text-primary);
+}
+
+.activity-feed__item,
+.compression-overview__row,
+.install-progress__step,
+.optimize-learn-setup {
+  background: var(--surface-muted);
+}
+
+.activity-card__blurb,
+.activity-card__privacy-note,
+.activity-feed__row--meta,
+.optimize-card__blurb,
+.optimize-minimal__meta,
+.compression-overview__totals span,
+.compression-overview__row-confidence,
+.compression-overview__caveat,
+.compression-overview__caveats,
+.loading-copy {
+  color: var(--text-secondary);
+}
+
+.activity-card h1,
+.activity-feed__item strong,
+.optimize-card h1,
+.optimize-card h2,
+.optimize-minimal h2,
+.compression-overview strong {
+  color: var(--text-primary);
+}
+
+/* Launcher/onboarding is part of the same product, not a light-themed island. */
+.intro-shell,
+.intro-shell--summary,
+.intro-shell--post-install {
+  background:
+    radial-gradient(circle at top right, rgba(58, 184, 165, 0.14), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(224, 169, 68, 0.1), transparent 32%),
+    linear-gradient(145deg, rgba(41, 29, 22, 0.98), rgba(18, 15, 14, 0.99));
+  color: var(--text-primary);
+}
+
+.intro-shell__copy h1,
+.intro-shell__copy h2,
+.intro-shell__copy p,
+.post-install__lead > p {
+  color: var(--text-primary);
+}
+
+.intro-shell__copy > p,
+.post-install__lead > p,
+.intro-shell__hint {
+  color: var(--text-secondary);
+}
+
+.intro-shell .stat-card,
+.intro-shell__checklist article {
+  border-color: var(--border-default);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+
+/* Master activation: external CSS is required because native CSP rejects the
+   component's former runtime <style> element. */
+.master-activation-card {
+  --master-ink: var(--text-primary);
+  --master-muted: var(--text-secondary);
+  --master-line: var(--border-default);
+  --master-accent: var(--switchboard-brass-2);
+  --master-green: var(--switchboard-teal);
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(180deg, rgba(54, 38, 28, 0.97), rgba(28, 20, 16, 0.97)),
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(255, 255, 255, 0.02) 18px 19px);
+  box-shadow: 0 16px 36px rgba(9, 6, 4, 0.45);
+  color: var(--master-ink);
+}
+
+.master-activation-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--switchboard-brass), var(--switchboard-copper), var(--switchboard-teal));
+}
+
+.master-activation-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.master-activation-card__eyebrow {
+  margin: 0 0 7px;
+  color: var(--switchboard-brass-2);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.master-activation-card h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.master-activation-card__description {
+  max-width: 680px;
+  margin: 9px 0 0;
+  color: var(--master-muted);
+  line-height: 1.5;
+}
+
+.master-activation-card__primary,
+.master-activation-card__secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.master-activation-card__secondary {
+  margin-left: 8px;
+}
+
+.master-activation-card__summary {
+  flex: 0 0 auto;
+  min-width: 98px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  text-align: right;
+}
+
+.master-activation-card__summary strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.master-activation-card__summary span,
+.master-activation-card__progress-label,
+.master-activation-card__state {
+  color: var(--master-muted);
+  font-size: var(--text-xs);
+}
+
+.master-activation-card__progress {
+  margin-top: 18px;
+}
+
+.master-activation-card__progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+
+.master-activation-card__progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+}
+
+.master-activation-card__progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--switchboard-brass), var(--switchboard-teal));
+  transition: width 180ms ease;
+}
+
+.master-activation-card__state {
+  margin: 11px 0 0;
+}
+
+.master-activation-card__state strong {
+  color: var(--master-ink);
+}
+
+.master-activation-card__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.master-activation-card__row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--master-line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.master-activation-card__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: rgba(58, 184, 165, 0.12);
+  color: var(--master-green);
+}
+
+.master-activation-card__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.master-activation-card__copy strong {
+  display: block;
+  color: var(--master-ink);
+  font-size: var(--text-sm);
+}
+
+.master-activation-card__copy p {
+  margin: 3px 0 0;
+  color: var(--master-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.master-activation-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xxs);
+}
+
+.master-activation-card__meta svg {
+  width: 14px;
+  color: var(--master-green);
+}
+
+.master-activation-card__status-dot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.master-activation-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: none;
+}
+
+.master-activation-card__action {
+  min-height: 30px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: var(--text-xxs);
+}
+
+.master-activation-card__disclosure {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 16px 0 0;
+  padding: 11px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  color: var(--master-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.master-activation-card__disclosure svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--switchboard-brass-2);
+}
+
+.master-activation-card__spin {
+  animation: master-spin 0.9s linear infinite;
+}
+
+@keyframes master-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  .master-activation-card__head {
+    display: block;
+  }
+
+  .master-activation-card__summary {
+    width: fit-content;
+    margin-top: 14px;
+    text-align: left;
+  }
+
+  .master-activation-card__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .master-activation-card {
+    padding: 16px;
+  }
+
+  .master-activation-card__primary,
+  .master-activation-card__secondary {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .master-activation-card__spin {
+    animation: none;
+  }
+
+  .master-activation-card__progress-fill,
+  .primary-button,
+  .master-activation-card__primary {
+    transition: none;
+  }
+}

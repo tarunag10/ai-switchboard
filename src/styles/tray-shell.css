@@ -1,6 +1,6 @@
 .tray-shell {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: clamp(168px, 16vw, 196px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   background: transparent;
@@ -10,11 +10,12 @@
 .tray-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px 8px 14px;
+  gap: 14px;
+  padding: 18px 12px 14px;
   background: var(--legacy-color-027);
   border-right: 1px solid var(--border-subtle);
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
   z-index: 2;
 }
 
@@ -23,7 +24,7 @@
   width: 100%;
   display: grid;
   gap: 4px;
-  justify-items: center;
+  justify-items: stretch;
 }
 
 .tray-sidebar__logo {
@@ -39,21 +40,24 @@
 
 .tray-nav {
   display: grid;
-  gap: 0px;
+  gap: 3px;
 }
 
 .tray-nav__item {
   display: grid;
-  justify-items: center;
-  gap: 1px;
-  border: 0;
-  border-radius: 0;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
   color: var(--legacy-color-028);
-  padding: 2px 4px;
-  text-align: center;
+  padding: 5px 9px;
+  text-align: left;
   width: 100%;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .tray-sidebar__footer .tray-nav__item {
@@ -65,8 +69,9 @@
   border-radius: 999px;
   background: var(--legacy-color-029);
   color: var(--legacy-color-030);
-  padding: 4px 8px;
-  font-size: 0.6rem;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: none;
@@ -83,6 +88,18 @@
   opacity: 0.85;
 }
 
+.upgrade-pill:focus-visible,
+.tray-nav__item:focus-visible {
+  outline: 2px solid var(--legacy-color-035);
+  outline-offset: 2px;
+}
+
+.upgrade-pill:disabled,
+.tray-nav__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .upgrade-pill.is-active {
   background: var(--legacy-color-032);
   color: var(--legacy-color-033);
@@ -90,17 +107,18 @@
   box-shadow: inset 0 0 0 1px rgba(79, 158, 145, 0.12);
 }
 
-/* No full-item highlight — icon handles active/hover state */
 .tray-nav__item.is-active {
   color: var(--legacy-color-035);
+  background: var(--legacy-color-006);
+  border-color: rgba(79, 158, 145, 0.28);
 }
 
 .tray-nav__icon {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   background: transparent;
   transition:
     background 120ms ease,
@@ -108,22 +126,27 @@
 }
 
 .tray-nav__item:hover .tray-nav__icon {
+  background: transparent;
+  box-shadow: none;
+}
+
+.tray-nav__item:hover:not(:disabled) {
   background: var(--fill-hover);
-  box-shadow: inset 0 0 0 1.5px rgba(36, 31, 29, 0.2);
+  border-color: var(--border-subtle);
 }
 
 .tray-nav__item.is-active .tray-nav__icon {
-  background: var(--legacy-color-006);
+  background: transparent;
   box-shadow: none;
 }
 
 .tray-nav__item:hover.is-active .tray-nav__icon {
-  background: var(--legacy-color-036);
+  background: transparent;
 }
 
 .tray-nav__icon-svg {
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
 }
 
 .tray-nav__text {
@@ -131,12 +154,41 @@
 }
 
 .tray-nav__text strong {
-  font-size: 0.58rem;
-  font-weight: 500;
-  line-height: 1;
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 550;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 760px) {
+  .tray-shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .tray-sidebar {
+    padding-inline: 10px;
+  }
+
+  .tray-nav__item {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding-inline: 6px;
+  }
+
+  .tray-nav__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 .tray-panel {
@@ -1276,4 +1328,3 @@
   font-size: var(--text-xs);
   color: var(--danger);
 }
-

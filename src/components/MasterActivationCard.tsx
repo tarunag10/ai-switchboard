@@ -119,7 +119,9 @@ export function MasterActivationCard({
   const completed = Math.min(progress?.completed ?? FEATURES.filter((feature) => featureStates[feature.id]?.status === "complete").length, total);
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
   const isRunning = activationState === "running";
-  const isWorkspaceActive = isActive ?? activationState === "complete";
+  const isWorkspaceActive =
+    activationState === "complete" ||
+    (isActive === true && activationState !== "partial" && activationState !== "error");
   const isDeactivating = operation === "deactivate" || (isWorkspaceActive && isRunning);
   const isPartial = activationState === "partial" || activationState === "gated" || activationState === "manual";
   const primaryAction = isWorkspaceActive ? onDeactivateAll : onActivateAll;
@@ -129,28 +131,32 @@ export function MasterActivationCard({
       ? "Deactivate local workspace"
       : isRunning
         ? "Activating workspace…"
+        : activationState === "error" || isPartial
+          ? "Retry activation"
         : "Activate everything";
+  const firstProblem = FEATURES.map(
+    (feature) => featureStates[feature.id],
+  ).find((state) => state?.status === "error" || state?.status === "gated");
+  const statusMessage = isRunning
+    ? isDeactivating
+      ? "Reversing Switchboard-owned local changes. Controls stay disabled until the operation finishes."
+      : "Activation started. Local capabilities are being prepared and verified."
+    : activationState === "error"
+      ? `${firstProblem?.detail ?? "Activation did not complete."} Review the failed step below, then retry activation.`
+      : isPartial
+        ? `${firstProblem?.detail ?? "Some steps need follow-up."} Completed steps remain available; retry after resolving the blocked step.`
+        : activationState === "complete"
+          ? "Activation completed. All available local capabilities were refreshed."
+          : "Each feature can also be run independently below.";
 
   return (
     <section className={`master-activation-card ${className}`.trim()} aria-labelledby={`${statusId}-title`}>
-      <style>{`
-        .master-activation-card{--master-ink:#18212b;--master-muted:#66717d;--master-line:#dce3e8;--master-accent:#e35b36;--master-green:#287a5a;position:relative;overflow:hidden;border:1px solid #cad5dc;border-radius:18px;background:linear-gradient(135deg,#fffdf8 0%,#f4f7f5 100%);box-shadow:0 12px 28px rgba(24,33,43,.09);color:var(--master-ink);padding:24px}
-        .master-activation-card:before{content:"";position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,var(--master-accent),#e6a43a,var(--master-green))}
-        .master-activation-card__head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.master-activation-card__eyebrow{margin:0 0 8px;color:var(--master-accent);font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}.master-activation-card h2{margin:0;font-size:clamp(20px,2.5vw,30px);letter-spacing:-.03em}.master-activation-card__description{max-width:590px;margin:8px 0 0;color:var(--master-muted);line-height:1.5}.master-activation-card__summary{flex:0 0 auto;text-align:right}.master-activation-card__summary strong{display:block;font-size:25px;line-height:1}.master-activation-card__summary span{color:var(--master-muted);font-size:12px}
-        .master-activation-card__primary{display:inline-flex;align-items:center;justify-content:center;gap:9px;margin-top:20px;border:0;border-radius:10px;background:var(--master-ink);color:#fff;padding:13px 18px;font:inherit;font-weight:750;cursor:pointer;transition:transform .16s ease,background .16s ease}.master-activation-card__primary:hover:not(:disabled){background:#263746;transform:translateY(-1px)}.master-activation-card__primary:focus-visible,.master-activation-card button:focus-visible{outline:3px solid #e6a43a;outline-offset:3px}.master-activation-card__primary:disabled{cursor:wait;opacity:.65}
-        .master-activation-card__secondary{display:inline-flex;align-items:center;justify-content:center;gap:9px;margin-top:10px;margin-left:0;border:1px solid var(--master-line);border-radius:10px;background:#fff;color:var(--master-ink);padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.master-activation-card__secondary:hover:not(:disabled){background:#f7faf8}.master-activation-card__secondary:disabled{cursor:wait;opacity:.65}
-        .master-activation-card__progress{margin-top:20px}.master-activation-card__progress-label{display:flex;justify-content:space-between;gap:12px;color:var(--master-muted);font-size:12px;margin-bottom:7px}.master-activation-card__progress-track{height:7px;border-radius:99px;background:#e6ece8;overflow:hidden}.master-activation-card__progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--master-accent),var(--master-green));transition:width .25s ease}.master-activation-card__state{margin:12px 0 0;color:var(--master-muted);font-size:13px}.master-activation-card__state strong{color:var(--master-ink)}
-        .master-activation-card__list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0 0;padding:0;list-style:none}.master-activation-card__row{display:flex;align-items:center;gap:12px;min-width:0;border:1px solid var(--master-line);border-radius:12px;background:rgba(255,255,255,.7);padding:12px}.master-activation-card__icon{display:grid;place-items:center;flex:none;width:31px;height:31px;border-radius:9px;background:#edf2ef;color:var(--master-green)}.master-activation-card__copy{min-width:0;flex:1}.master-activation-card__copy strong{display:block;font-size:13px}.master-activation-card__copy p{margin:3px 0 0;color:var(--master-muted);font-size:11px;line-height:1.35}.master-activation-card__meta{display:flex;align-items:center;gap:5px;margin-top:5px;color:var(--master-muted);font-size:10px}.master-activation-card__meta svg{width:14px;color:var(--master-green)}.master-activation-card__row[data-status="gated"] .master-activation-card__meta,.master-activation-card__row[data-status="manual"] .master-activation-card__meta,.master-activation-card__row[data-status="error"] .master-activation-card__meta{color:#a2492f}.master-activation-card__row[data-status="complete"] .master-activation-card__icon{background:#dff1e8;color:var(--master-green)}.master-activation-card__status-dot{display:block;width:8px;height:8px;border-radius:50%;background:#aebbc2}.master-activation-card__actions{display:flex;flex-direction:column;gap:5px;flex:none}.master-activation-card__action{border:0;background:transparent;color:var(--master-ink);font:inherit;font-size:11px;font-weight:700;cursor:pointer;padding:4px}.master-activation-card__action:hover{text-decoration:underline}.master-activation-card__action:disabled{cursor:not-allowed;opacity:.45;text-decoration:none}
-        .master-activation-card__disclosure{display:flex;gap:8px;align-items:flex-start;margin:18px 0 0;padding:11px 12px;border-radius:10px;background:#eef2f2;color:var(--master-muted);font-size:11px;line-height:1.45}.master-activation-card__disclosure svg{flex:none;color:#65777e;margin-top:1px}.master-activation-card__spin{animation:master-spin .9s linear infinite}@keyframes master-spin{to{transform:rotate(360deg)}}
-        @media (max-width:650px){.master-activation-card{padding:18px}.master-activation-card__head{display:block}.master-activation-card__summary{text-align:left;margin-top:16px}.master-activation-card__list{grid-template-columns:1fr}.master-activation-card__primary{width:100%}}
-        @media (prefers-reduced-motion:reduce){.master-activation-card__spin{animation:none}.master-activation-card__primary,.master-activation-card__progress-fill{transition:none}}
-      `}</style>
       <div className="master-activation-card__head">
         <div>
           <p className="master-activation-card__eyebrow">Switchboard control center</p>
           <h2 id={`${statusId}-title`}>{title}</h2>
           <p className="master-activation-card__description">{description}</p>
-          <button className="master-activation-card__primary" type="button" onClick={primaryAction} disabled={isRunning || (isWorkspaceActive && !onDeactivateAll)} aria-busy={isRunning} aria-describedby={`${statusId}-status`} aria-label={primaryActionLabel}>
+          <button className="master-activation-card__primary" type="button" onClick={() => void primaryAction?.()} disabled={isRunning || (isWorkspaceActive && !onDeactivateAll)} aria-busy={isRunning} aria-describedby={`${statusId}-status`} aria-label={primaryActionLabel}>
             {isRunning ? <CircleNotch className="master-activation-card__spin" weight="bold" aria-hidden="true" /> : <Play weight="fill" aria-hidden="true" />}
             {primaryActionLabel}
           </button>
@@ -160,6 +166,7 @@ export function MasterActivationCard({
               type="button"
               onClick={() => void onActivateMaxCompression()}
               disabled={isRunning || maxCompressionBusy || isWorkspaceActive}
+              aria-busy={maxCompressionBusy}
               aria-label="Enable max compression"
             >
               <Lightning weight="fill" aria-hidden="true" />
@@ -175,7 +182,7 @@ export function MasterActivationCard({
         <div className="master-activation-card__progress-label"><span>{isWorkspaceActive ? "All local features activated" : isPartial ? "Activation needs a follow-up" : isRunning ? (isDeactivating ? "Reversing local activation plan" : "Applying local activation plan") : "Activation coverage"}</span><span>{percent}%</span></div>
         <div className="master-activation-card__progress-track"><div className="master-activation-card__progress-fill" style={{ width: `${percent}%` }} /></div>
       </div>
-      <p className="master-activation-card__state" id={`${statusId}-status`} aria-live="polite"><strong>{statusLabel(activationState)}.</strong>{" "}{isPartial ? "Some steps require credentials, infrastructure, or an explicit manual confirmation." : "Each feature can also be run independently below."}</p>
+      <p className="master-activation-card__state" id={`${statusId}-status`} role="status" aria-live={activationState === "error" ? "assertive" : "polite"}><strong>{statusLabel(activationState)}.</strong>{" "}{statusMessage}</p>
       <ul className="master-activation-card__list" aria-label="Workspace features">
         {FEATURES.map((feature) => {
           const state = featureStates[feature.id] ?? {};
@@ -189,8 +196,8 @@ export function MasterActivationCard({
               const featureIsActive = isWorkspaceActive && status === "complete";
               const actionText = featureIsActive ? "Deactivate" : state.actionLabel ?? (status === "complete" ? "Run again" : "Activate");
               const action = featureIsActive ? onDeactivateFeature : onActivateFeature;
-              return <button className="master-activation-card__action" type="button" onClick={() => action?.(feature.id)} disabled={Boolean(state.disabled) || status === "running" || (featureIsActive && !onDeactivateFeature)} aria-label={`${actionText} ${feature.label}`}>{actionText}</button>;
-            })()}{canOpen ? <button className="master-activation-card__action" type="button" onClick={() => onOpenFeature?.(feature.id)} aria-label={`Open ${feature.label}`}>Open</button> : null}</div>
+              return <button className="master-activation-card__action" type="button" onClick={() => void action?.(feature.id)} disabled={isRunning || Boolean(state.disabled) || status === "running" || (featureIsActive && !onDeactivateFeature)} aria-label={`${actionText} ${feature.label}`}>{actionText}</button>;
+            })()}{canOpen ? <button className="master-activation-card__action" type="button" onClick={() => onOpenFeature?.(feature.id)} disabled={isRunning} aria-label={`Open ${feature.label}`}>Open</button> : null}</div>
           </li>;
         })}
       </ul>

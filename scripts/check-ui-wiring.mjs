@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   collectLiteralFrontendInvokes,
+  collectDeadFrontendButtons,
   extractMountedRouteIds,
   extractRegisteredTauriCommands,
   extractSidebarRouteIds,
@@ -45,7 +46,13 @@ if (unregisteredCommands.length > 0) {
   fail(`frontend invoke commands absent from the Tauri handler: ${unregisteredCommands.join(", ")}`);
 }
 
+const deadButtons = collectDeadFrontendButtons(root);
+if (deadButtons.length > 0) {
+  fail(`enabled buttons without an action handler: ${deadButtons.join(", ")}`);
+}
+
 console.log(
   `UI wiring OK: ${sidebarRoutes.size} sidebar routes mounted; ` +
-    `${frontendCommands.size} literal frontend invoke commands registered.`,
+    `${frontendCommands.size} literal frontend invoke commands registered; ` +
+    "all enabled buttons have handlers.",
 );

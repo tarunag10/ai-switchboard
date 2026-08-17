@@ -254,6 +254,78 @@ describe("useMasterActivationController", () => {
     );
   });
 
+  it("publishes immediate progress and suppresses duplicate activation clicks", async () => {
+    let releaseMode!: () => void;
+    const modePending = new Promise<undefined>((resolve) => {
+      releaseMode = () => resolve(undefined);
+    });
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === "get_runtime_status") return healthyRuntime;
+      if (command === "get_leanctx_sidecar_status") return null;
+      return undefined;
+    });
+    mocks.executeActivation.mockResolvedValue({
+      completed: [],
+      failed: [],
+      receipt: { ownedActions: [] },
+    });
+    const setupResult = setup();
+    setupResult.handleSetSwitchboardMode.mockImplementationOnce(
+      async () => modePending,
+    );
+
+    let first!: Promise<void>;
+    let duplicate!: Promise<void>;
+    act(() => {
+      first = setupResult.result.current.activateEverything();
+      duplicate = setupResult.result.current.activateEverything();
+    });
+    expect(setupResult.result.current.masterActivationState).toBe("running");
+    expect(setupResult.result.current.masterFeatureStates["agent-memory"]).toMatchObject({
+      status: "running",
+      actionLabel: "Working…",
+      detail: "Waiting for activation evidence.",
+    });
+    expect(setupResult.handleSetSwitchboardMode).toHaveBeenCalledTimes(1);
+
+    releaseMode();
+    await act(async () => {
+      await Promise.all([first, duplicate]);
+    });
+    expect(mocks.executeActivation).toHaveBeenCalledTimes(1);
+    expect(setupResult.result.current.masterActivationState).toBe("complete");
+  });
+
+  it("maps failed activation callbacks to retryable visible feature errors", async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === "get_runtime_status") return healthyRuntime;
+      return null;
+    });
+    mocks.executeActivation.mockResolvedValue({
+      completed: [],
+      failed: [
+        { id: "repo-memory-mcp", detail: "MCP preparation failed" },
+        { id: "local-optimizations", detail: "Cache activation failed" },
+      ],
+      receipt: { ownedActions: [] },
+    });
+    const setupResult = setup();
+    await act(() => setupResult.result.current.activateEverything());
+    expect(setupResult.result.current.masterActivationState).toBe("partial");
+    expect(
+      setupResult.result.current.masterFeatureStates["gateway-mcp"],
+    ).toMatchObject({
+      status: "error",
+      actionLabel: "Retry",
+      detail: "MCP preparation failed",
+    });
+    expect(setupResult.result.current.masterFeatureStates.addons).toMatchObject({
+      status: "error",
+      actionLabel: "Retry",
+      detail: "Cache activation failed",
+    });
+  });
+
   it("fails closed when Full mode does not produce a reachable runtime", async () => {
     mocks.invoke.mockResolvedValueOnce({ running: true, proxyReachable: false });
     const { result } = setup();

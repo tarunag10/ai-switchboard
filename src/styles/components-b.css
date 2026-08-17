@@ -605,6 +605,20 @@
     grid-template-columns: 1fr;
   }
 
+  .repo-intelligence-preview__topline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .repo-intelligence-session__heading {
+    grid-template-columns: 1fr;
+  }
+
+  .repo-intelligence-session__status {
+    justify-self: start;
+  }
+
   .runtime-status__grid--4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     overflow-x: visible;

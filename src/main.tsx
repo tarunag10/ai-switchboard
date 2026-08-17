@@ -16,6 +16,7 @@ import "./styles/components-a.css";
 import "./styles/components-b.css";
 import "./styles.css";
 import "./switchboard-theme.css";
+import "./styles/design-system.css";
 
 const telemetryEnabled = remoteTelemetryEnabled();
 const isEEA = Intl.DateTimeFormat().resolvedOptions().timeZone.startsWith("Europe/");

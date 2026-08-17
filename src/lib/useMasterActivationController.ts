@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type {
   MasterFeatureId,
@@ -83,6 +83,8 @@ export function useMasterActivationController({
     "activate" | "deactivate"
   >("activate");
   const [maxCompressionBusy, setMaxCompressionBusy] = useState(false);
+  const masterOperationInFlightRef = useRef(false);
+  const featureOperationsInFlightRef = useRef(new Set<MasterFeatureId>());
 
   function setMasterFeature(id: MasterFeatureId, state: MasterFeatureState) {
     setMasterFeatureStates((current) => ({ ...current, [id]: state }));
@@ -131,6 +133,13 @@ export function useMasterActivationController({
   }
 
   async function activateMasterFeature(id: MasterFeatureId) {
+    if (
+      masterOperationInFlightRef.current ||
+      featureOperationsInFlightRef.current.has(id)
+    ) {
+      return;
+    }
+    featureOperationsInFlightRef.current.add(id);
     setMasterFeature(id, { status: "running", actionLabel: "Working…" });
     try {
       switch (id) {
@@ -186,11 +195,14 @@ export function useMasterActivationController({
         actionLabel: "Retry",
         detail: error instanceof Error ? error.message : "Action failed.",
       });
+    } finally {
+      featureOperationsInFlightRef.current.delete(id);
     }
   }
 
   async function activateEverything() {
-    if (masterActivationState === "running") return;
+    if (masterOperationInFlightRef.current) return;
+    masterOperationInFlightRef.current = true;
     const enabledSwitchboardConnectors = connectors.filter(
       (connector) => connector.enabled,
     );
@@ -200,7 +212,28 @@ export function useMasterActivationController({
     const mcpWasActive = runtimeStatus?.repoMemoryMcpActive === true;
     setMasterOperation("activate");
     setMasterActivationState("running");
-    setMasterFeatureStates({});
+    setMasterFeatureStates(
+      Object.fromEntries(
+        [
+          "agent-memory",
+          "token-xray",
+          "daily-briefing",
+          "agent-session",
+          "repo-intelligence",
+          "addons",
+          "gateway-mcp",
+          "doctor",
+          "rollback",
+        ].map((id) => [
+          id,
+          {
+            status: "running",
+            actionLabel: "Working…",
+            detail: "Waiting for activation evidence.",
+          },
+        ]),
+      ) as Partial<Record<MasterFeatureId, MasterFeatureState>>,
+    );
     setMasterActivationProgress({ completed: 0, total: 9 });
     try {
       await handleSetSwitchboardMode("full");
@@ -321,6 +354,20 @@ export function useMasterActivationController({
         actionLabel: "Open",
         detail: "Prepare and copy a payload before launch.",
       });
+      setMasterFeatureStates((current) =>
+        Object.fromEntries(
+          Object.entries(current).map(([id, state]) => [
+            id,
+            state?.status === "running"
+              ? {
+                  status: "complete",
+                  actionLabel: "Run again",
+                  detail: "Activation plan completed for this feature.",
+                }
+              : state,
+          ]),
+        ),
+      );
       const completed = new Set(result.completed.map((item) => item.id));
       if (result.receipt.ownedActions.length > 0) {
         setMasterActivationReceipt({
@@ -334,6 +381,19 @@ export function useMasterActivationController({
         total: 9,
       });
       setMasterActivationState(result.failed.length ? "partial" : "complete");
+      for (const item of result.failed) {
+        const featureId: MasterFeatureId =
+          item.id === "repo-memory-mcp"
+            ? "gateway-mcp"
+            : item.id === "local-optimizations"
+              ? "addons"
+              : (item.id as MasterFeatureId);
+        setMasterFeature(featureId, {
+          status: "error",
+          actionLabel: "Retry",
+          detail: item.detail,
+        });
+      }
     } catch (error) {
       setMasterActivationState("error");
       setMasterFeature("doctor", {
@@ -342,6 +402,8 @@ export function useMasterActivationController({
         detail:
           error instanceof Error ? error.message : "Master activation failed.",
       });
+    } finally {
+      masterOperationInFlightRef.current = false;
     }
   }
 
@@ -369,7 +431,8 @@ export function useMasterActivationController({
   }
 
   async function activateMaxCompression() {
-    if (masterActivationState === "running" || maxCompressionBusy) return;
+    if (masterOperationInFlightRef.current || maxCompressionBusy) return;
+    masterOperationInFlightRef.current = true;
     setMaxCompressionBusy(true);
     try {
       const plan = createMaxCompressionActivationPlan({
@@ -420,6 +483,7 @@ export function useMasterActivationController({
       });
     } finally {
       setMaxCompressionBusy(false);
+      masterOperationInFlightRef.current = false;
     }
   }
 
@@ -460,8 +524,15 @@ export function useMasterActivationController({
   }
 
   async function deactivateMasterFeature(id: MasterFeatureId) {
+    if (
+      masterOperationInFlightRef.current ||
+      featureOperationsInFlightRef.current.has(id)
+    ) {
+      return;
+    }
     const receipt = masterActivationReceipt;
     if (!receipt) return;
+    featureOperationsInFlightRef.current.add(id);
     setMasterFeature(id, { status: "running", actionLabel: "Working…" });
     const ownedActionId = masterFeatureToOwnedActionId(id);
 
@@ -471,6 +542,7 @@ export function useMasterActivationController({
         actionLabel: "Activate",
         detail: "No master-owned backend state remains active for this feature.",
       });
+      featureOperationsInFlightRef.current.delete(id);
       return;
     }
 
@@ -484,6 +556,7 @@ export function useMasterActivationController({
         detail:
           "This feature was refreshed during activation but left no reversible master-owned state.",
       });
+      featureOperationsInFlightRef.current.delete(id);
       return;
     }
 
@@ -513,12 +586,15 @@ export function useMasterActivationController({
         actionLabel: "Retry deactivation",
         detail: error instanceof Error ? error.message : "Deactivation failed.",
       });
+    } finally {
+      featureOperationsInFlightRef.current.delete(id);
     }
   }
 
   async function deactivateEverything() {
     const receipt = masterActivationReceipt;
-    if (!receipt || masterActivationState === "running") return;
+    if (!receipt || masterOperationInFlightRef.current) return;
+    masterOperationInFlightRef.current = true;
     setMasterOperation("deactivate");
     setMasterActivationState("running");
     try {
@@ -566,6 +642,8 @@ export function useMasterActivationController({
         detail:
           error instanceof Error ? error.message : "Master deactivation failed.",
       });
+    } finally {
+      masterOperationInFlightRef.current = false;
     }
   }
 

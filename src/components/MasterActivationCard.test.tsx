@@ -56,10 +56,83 @@ describe("MasterActivationCard", () => {
 
     rerender(<MasterActivationCard activationState="partial" progress={{ completed: 7, total: 9 }} featureStates={{ "gateway-mcp": { status: "gated", detail: "Requires a user-owned gateway" } }} onActivateAll={vi.fn()} onActivateFeature={vi.fn()} />);
     expect(screen.getByText(/Activation needs a follow-up/)).toBeInTheDocument();
-    expect(screen.getByText(/Requires a user-owned gateway/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Requires a user-owned gateway/)).toHaveLength(2);
 
     rerender(<MasterActivationCard activationState="complete" progress={{ completed: 9, total: 9 }} onActivateAll={vi.fn()} onActivateFeature={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Deactivate local workspace" })).toBeDisabled();
     expect(screen.getByText("All local features activated")).toBeInTheDocument();
+  });
+
+  it("disables conflicting controls and announces immediate activation progress", () => {
+    render(
+      <MasterActivationCard
+        activationState="running"
+        operation="activate"
+        featureStates={{
+          "agent-memory": {
+            status: "running",
+            detail: "Waiting for activation evidence.",
+          },
+        }}
+        onActivateAll={vi.fn()}
+        onActivateFeature={vi.fn()}
+        onOpenFeature={vi.fn()}
+        onActivateMaxCompression={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Activation started");
+    expect(
+      screen.getByRole("button", { name: "Activating workspace…" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Activate Agent Memory" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open Agent Memory" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Enable max compression" })).toBeDisabled();
+  });
+
+  it("surfaces the failed step and offers an accessible activation retry", async () => {
+    const user = userEvent.setup();
+    const onActivateAll = vi.fn(async () => undefined);
+    render(
+      <MasterActivationCard
+        activationState="error"
+        featureStates={{
+          doctor: {
+            status: "error",
+            detail: "The local runtime did not start.",
+            actionLabel: "Retry",
+          },
+        }}
+        onActivateAll={onActivateAll}
+        onActivateFeature={vi.fn()}
+      />,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "assertive");
+    expect(status).toHaveTextContent("The local runtime did not start");
+    const retry = screen.getByRole("button", { name: "Retry activation" });
+    expect(retry).toBeEnabled();
+    await user.click(retry);
+    expect(onActivateAll).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Retry Doctor" })).toBeEnabled();
+  });
+
+  it("treats completed activation as active even without an ownership receipt", () => {
+    render(
+      <MasterActivationCard
+        activationState="complete"
+        isActive={false}
+        onActivateAll={vi.fn()}
+        onDeactivateAll={vi.fn()}
+        onActivateFeature={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Deactivate local workspace" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Activation completed",
+    );
   });
 });

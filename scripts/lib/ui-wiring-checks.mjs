@@ -52,6 +52,32 @@ export function findUnregisteredInvokes(frontendCommands, registeredCommands) {
     .sort();
 }
 
+export function findDeadButtonsInSource(source) {
+  const issues = [];
+  const openingButtonPattern = /<button\b([\s\S]*?)>/g;
+  for (const match of source.matchAll(openingButtonPattern)) {
+    const attributes = match[1];
+    const actionable = /\bonClick\s*=/.test(attributes);
+    const submitsForm = /\btype\s*=\s*["']submit["']/.test(attributes);
+    const intentionallyDisabled = /\bdisabled(?:\s|=|$)/.test(attributes);
+    if (!actionable && !submitsForm && !intentionallyDisabled) {
+      issues.push(source.slice(0, match.index).split("\n").length);
+    }
+  }
+  return issues;
+}
+
+export function collectDeadFrontendButtons(root) {
+  const issues = [];
+  for (const file of listFrontendSourceFiles(root)) {
+    const source = fs.readFileSync(file, "utf8");
+    for (const line of findDeadButtonsInSource(source)) {
+      issues.push(`${path.relative(root, file)}:${line}`);
+    }
+  }
+  return issues;
+}
+
 export function extractSidebarRouteIds(source) {
   const routes = new Set();
   const navItemPattern = /\{\s*id:\s*["']([A-Za-z0-9_]+)["']\s*,\s*label:/g;

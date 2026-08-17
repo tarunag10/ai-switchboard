@@ -5,6 +5,7 @@ import {
   extractMountedRouteIds,
   extractRegisteredTauriCommands,
   extractSidebarRouteIds,
+  findDeadButtonsInSource,
   findUnmountedSidebarRoutes,
   findUnregisteredInvokes,
   validateRepoMapMount,
@@ -62,4 +63,14 @@ test("literal frontend invokes must exist in the Tauri handler registry", () => 
     ]);
   `);
   assert.deepEqual(findUnregisteredInvokes(frontendCommands, registeredCommands), ["missing_command"]);
+});
+
+test("enabled buttons require a click handler or form-submit contract", () => {
+  const source = `
+    <button onClick={() => run()}>Run</button>
+    <button type="submit">Save</button>
+    <button disabled>Status only</button>
+    <button className="dead">Dead action</button>
+  `;
+  assert.deepEqual(findDeadButtonsInSource(source), [5]);
 });

@@ -320,8 +320,8 @@
 }
 
 .activity-feed__item {
-  background: var(--legacy-color-250);
-  border: 1px solid var(--legacy-color-251);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 10px 12px;
   display: flex;
@@ -352,7 +352,7 @@
 
 .activity-feed__row--meta {
   font-size: var(--text-xs);
-  color: var(--legacy-color-252);
+  color: var(--text-muted);
 }
 
 .activity-feed__provider {
@@ -370,11 +370,11 @@
 }
 
 .activity-feed__savings {
-  color: var(--legacy-color-253);
+  color: var(--success);
 }
 
 .activity-feed__delta {
-  color: var(--legacy-color-252);
+  color: var(--text-muted);
   font-family: ui-monospace, "SF Mono", monospace;
 }
 
@@ -389,8 +389,8 @@
 
 .activity-feed__transform {
   font-size: var(--text-xxs);
-  background: var(--legacy-color-254);
-  color: var(--legacy-color-255);
+  background: var(--chip-bg);
+  color: var(--chip-text);
   padding: 2px 6px;
   border-radius: 999px;
   font-family: ui-monospace, "SF Mono", monospace;
@@ -439,18 +439,18 @@
 }
 
 .activity-feed__badge--transformation {
-  background: var(--legacy-color-256);
-  color: var(--legacy-color-253);
+  background: var(--success-tint);
+  color: var(--success);
 }
 
 .activity-feed__badge--rtk {
-  background: var(--legacy-color-257);
-  color: var(--legacy-color-258);
+  background: var(--danger-tint);
+  color: var(--danger);
 }
 
 .activity-feed__badge--milestone {
-  background: var(--legacy-color-259);
-  color: var(--legacy-color-260);
+  background: var(--warning-tint);
+  color: var(--warning);
 }
 
 .activity-feed__badge--record {
@@ -478,13 +478,13 @@
 }
 
 .activity-feed__badge--new-model {
-  background: var(--legacy-color-261);
-  color: var(--legacy-color-262);
+  background: var(--accent-tint);
+  color: var(--accent);
 }
 
 .activity-feed__badge--weekly-recap {
-  background: var(--legacy-color-263);
-  color: var(--legacy-color-264);
+  background: var(--activity-train-tint);
+  color: var(--activity-train-strong);
 }
 
 .activity-feed__week-range {
@@ -497,7 +497,7 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text-muted);
-  background: var(--legacy-color-265);
+  background: var(--chip-bg);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -520,14 +520,14 @@
 
 .activity-feed__importance {
   font-family: ui-monospace, "SF Mono", monospace;
-  color: var(--legacy-color-252);
+  color: var(--text-muted);
 }
 
 .activity-feed__content {
   margin: 0;
   font-size: var(--text-sm);
   line-height: 1.4;
-  color: var(--legacy-color-123);
+  color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -556,8 +556,8 @@
 }
 
 .activity-feed__item--clickable:hover {
-  background: var(--legacy-color-266);
-  border-color: var(--legacy-color-267);
+  background: var(--fill-hover);
+  border-color: var(--border-strong);
 }
 
 .activity-feed__item--clickable:focus-visible {
@@ -566,7 +566,7 @@
 }
 
 .activity-feed__item--clickable.is-expanded {
-  background: var(--legacy-color-268);
+  background: var(--fill-hover);
 }
 
 .activity-feed__detail {
@@ -819,8 +819,8 @@
 }
 
 .install-prompt__cmd-copy:hover {
-  background: #fff;
-  border-color: var(--legacy-color-281);
+  background: var(--fill-hover);
+  border-color: var(--border-strong);
 }
 
 .install-prompt__foot {
@@ -884,8 +884,8 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--legacy-color-283);
-  color: var(--legacy-color-284);
+  background: var(--accent-tint);
+  color: var(--accent);
   margin-bottom: 2px;
 }
 
@@ -895,22 +895,22 @@
 }
 
 .activity-feed__empty-icon--waiting {
-  background: var(--legacy-color-285);
-  color: var(--legacy-color-273);
+  background: var(--warning-tint);
+  color: var(--warning);
 }
 
 .activity-feed__empty-title {
   margin: 0;
   font-size: var(--text-md);
   font-weight: 500;
-  color: var(--legacy-color-038);
+  color: var(--text-primary);
 }
 
 .activity-feed__empty-body {
   margin: 0;
   max-width: 320px;
   font-size: var(--text-sm);
-  color: var(--legacy-color-252);
+  color: var(--text-muted);
   line-height: 1.45;
 }
 
@@ -927,9 +927,9 @@
   border-radius: 8px;
   background: linear-gradient(
     90deg,
-    rgba(248, 246, 242, 0.55) 0%,
-    rgba(235, 230, 223, 0.85) 50%,
-    rgba(248, 246, 242, 0.55) 100%
+    var(--surface-overlay) 0%,
+    var(--surface-raised) 50%,
+    var(--surface-overlay) 100%
   );
   background-size: 200% 100%;
   animation: activity-feed-skeleton-shimmer 1.4s ease-in-out infinite;

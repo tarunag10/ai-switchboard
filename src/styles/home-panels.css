@@ -1467,7 +1467,7 @@
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--legacy-color-092);
+  color: var(--text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1476,7 +1476,7 @@
 }
 
 .stat-card__info-button:hover {
-  color: var(--legacy-color-093);
+  color: var(--text-primary);
 }
 
 .stat-card--clickable {
@@ -1485,11 +1485,11 @@
 }
 
 .stat-card--clickable:hover {
-  border-color: var(--legacy-color-094);
+  border-color: var(--accent);
 }
 
 .stat-card--clickable.is-active {
-  border-color: var(--legacy-color-095);
+  border-color: var(--accent-strong);
 }
 
 .panel-card {
@@ -1501,20 +1501,21 @@
   align-items: center;
   gap: 5px;
   font-size: var(--text-base);
-  color: var(--legacy-color-096);
+  color: var(--text-secondary);
 }
 
 .stat-card__icon {
   flex-shrink: 0;
   width: 15px;
   height: 15px;
-  color: var(--legacy-color-096);
+  color: var(--text-secondary);
 }
 
 .stat-card strong {
   display: block;
   margin: 0;
   line-height: 1;
+  color: var(--text-primary);
 }
 
 .stat-label-sep {
