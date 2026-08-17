@@ -42,6 +42,72 @@
   --space-control-y: 9px;
 }
 
+/* The desktop window has enough room for readable navigation. Keep labels
+   visible at the standard 1180px window instead of letting the legacy dark
+   palette and ellipsis rules collapse them to single letters. */
+.tray-shell {
+  grid-template-columns: clamp(208px, 22vw, 248px) minmax(0, 1fr);
+}
+
+.tray-sidebar {
+  background: var(--surface-sidebar);
+  border-right-color: var(--border-subtle);
+}
+
+.tray-nav__item {
+  color: var(--text-secondary);
+  min-height: 42px;
+}
+
+.tray-nav__item.is-active {
+  color: var(--text-primary);
+  background: var(--surface-tint-warm);
+  border-color: var(--border-strong);
+}
+
+.tray-nav__item:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--fill-hover);
+  border-color: var(--border-default);
+}
+
+.tray-nav__text strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.15;
+}
+
+.switchboard-panel__inspector {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 980px) {
+  .switchboard-panel__inspector {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .tray-shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .tray-nav__item {
+    min-height: 36px;
+  }
+
+  .switchboard-panel__inspector {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .switchboard-panel__inspector {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Shared control language: brass means primary, dark copper means secondary. */
 .primary-button,
 .switchboard-panel__action--primary,
