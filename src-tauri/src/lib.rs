@@ -3,6 +3,10 @@ mod activity_facts;
 mod addon_commands;
 mod agent_memory;
 mod agent_memory_commands;
+#[cfg(headroom_remote_services)]
+mod analytics;
+#[cfg(not(headroom_remote_services))]
+#[path = "analytics_local.rs"]
 mod analytics;
 mod analytics_commands;
 mod analytics_models;

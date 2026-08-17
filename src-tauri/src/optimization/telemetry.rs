@@ -288,26 +288,28 @@ mod tests {
     #[test]
     fn aggregates_cache_metrics() {
         let _guard = test_guard();
-        reset_for_tests();
+        with_isolated_home(|| {
+            reset_for_tests();
 
-        record_prompt_cache_metrics(CacheTokenMetrics {
-            prompt_tokens: 10,
-            completion_tokens: 2,
-            cache_creation_tokens: 3,
-            cache_read_tokens: 4,
-        });
-        record_prompt_cache_metrics(CacheTokenMetrics {
-            prompt_tokens: 7,
-            completion_tokens: 1,
-            cache_creation_tokens: 0,
-            cache_read_tokens: 6,
-        });
+            record_prompt_cache_metrics(CacheTokenMetrics {
+                prompt_tokens: 10,
+                completion_tokens: 2,
+                cache_creation_tokens: 3,
+                cache_read_tokens: 4,
+            });
+            record_prompt_cache_metrics(CacheTokenMetrics {
+                prompt_tokens: 7,
+                completion_tokens: 1,
+                cache_creation_tokens: 0,
+                cache_read_tokens: 6,
+            });
 
-        let metrics = snapshot().cache_metrics;
-        assert_eq!(metrics.prompt_tokens, 17);
-        assert_eq!(metrics.completion_tokens, 3);
-        assert_eq!(metrics.cache_creation_tokens, 3);
-        assert_eq!(metrics.cache_read_tokens, 10);
+            let metrics = snapshot().cache_metrics;
+            assert_eq!(metrics.prompt_tokens, 17);
+            assert_eq!(metrics.completion_tokens, 3);
+            assert_eq!(metrics.cache_creation_tokens, 3);
+            assert_eq!(metrics.cache_read_tokens, 10);
+        });
     }
     #[test]
     fn snapshot_restores_routing_decisions_from_sqlite() {

@@ -26,11 +26,14 @@ if (buildFlavor !== "local-free" || remoteServices) {
   process.exit(0);
 }
 
-const scanRoots = [
-  "dist",
-  "src-tauri/target/release/bundle",
-  "src-tauri/target/release/Mac AI Switchboard.app",
-];
+const frontendOnly = process.argv.includes("--frontend-only");
+const scanRoots = frontendOnly
+  ? ["dist"]
+  : [
+      "dist",
+      "src-tauri/target/release/bundle",
+      "src-tauri/target/release/Mac AI Switchboard.app",
+    ];
 
 const forbiddenStrings = [
   "clarity.ms",
@@ -100,5 +103,5 @@ const skipped =
     ? ` Skipped missing roots: ${skippedRoots.join(", ")}.`
     : "";
 console.log(
-  `Local-free privacy scan passed for ${files.length} files.${skipped}`,
+  `Local-free ${frontendOnly ? "frontend " : ""}privacy scan passed for ${files.length} files.${skipped}`,
 );

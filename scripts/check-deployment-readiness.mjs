@@ -120,7 +120,7 @@ const requiredScripts = {
     "npm run check:local-only-network",
     "npm run build",
     "npm run check:local-build-privacy",
-    "npm run test:frontend",
+    "npm run test:coverage",
     "npm run fmt:desktop",
     "npm run test:desktop",
   ],
@@ -412,8 +412,8 @@ const requiredSourceSignals = {
     "Delete managed hook scripts",
     "repo-intelligence-latest.json",
     "User repositories are not modified",
-    "headroom:claude_code",
-    "headroom:codex_cli",
+    'switchboardManagedMarkerId("claude_code")',
+    'switchboardManagedMarkerId("codex_cli")',
     "*.headroom-backup-*",
   ],
   "src/lib/managedChanges.test.ts": [
@@ -460,9 +460,11 @@ const requiredSourceSignals = {
     "automation_gates",
     "manual_workflow",
   ],
-  "src-tauri/src/client_adapters.rs": [
+  "src-tauri/src/client_adapters_tests.rs": [
     "detection_evidence",
     "planned_connector_registry_includes_backend_detection_metadata",
+  ],
+  "src-tauri/src/client_setup_apply.rs": [
     "Automatic setup is not supported yet for {other}",
   ],
   "src-tauri/src/state/runtime_lifecycle.rs": [
@@ -485,11 +487,11 @@ const requiredSourceSignals = {
     "ClientSavingsTrend",
   ],
   "src/lib/types.ts": ["automationGates", "manualWorkflow"],
-  "src/App.tsx": [
+  "src/components/SettingsConnectorPanel.tsx": [
     "connector.automationGates",
     "connector.manualWorkflow",
-    "Gates",
-    "Manual",
+    "Safety checks needed",
+    "Approval needed",
   ],
   "src/lib/doctorRepairCopy.ts": [
     "doctorIssueGuidance",
@@ -549,13 +551,15 @@ const requiredSourceSignals = {
     "Shareable DMG gates",
     "Release readiness",
   ],
-  "src/App.tsx": [
-    "detectionEvidence",
-    "Evidence",
+  "src/components/SettingsTransferCard.tsx": [
     "Settings import/export",
     "Settings migration actions",
     "Copy settings export",
     "Apply safe preferences",
+  ],
+  "src/components/SettingsConnectorPanel.tsx": [
+    "detectionEvidence",
+    "Evidence",
   ],
   "src/components/AddonsView.tsx": ["AddonHealthStrip"],
   "src/components/RepoIntelligencePreview.tsx": [
@@ -667,10 +671,15 @@ const requiredSourceSignals = {
     "symbolCount",
     "Symbol edges",
   ],
-  "src/styles.css": [
+  "src/styles/home-panels.css": [
     ".switchboard-panel__footprint",
     ".switchboard-doctor__action-kind--verification",
+    "grid-template-columns: repeat(4, minmax(0, 1fr))",
+  ],
+  "src/styles/optimize.css": [
     ".release-readiness-card",
+  ],
+  "src/styles/components-b.css": [
     ".repo-intelligence-graph",
     "grid-template-columns: repeat(4, minmax(0, 1fr))",
   ],
@@ -868,7 +877,7 @@ const requiredSourceSignals = {
     "npm run check:governance",
     "npm run build",
     "npm run check:local-build-privacy",
-    "npm run test:frontend",
+    "npm run test:coverage",
     "cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1",
   ],
   ".github/workflows/security.yml": [

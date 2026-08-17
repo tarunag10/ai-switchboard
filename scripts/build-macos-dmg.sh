@@ -95,6 +95,9 @@ else
   npx tauri build --bundles dmg --ci
 fi
 
+echo "Checking built local-free application privacy..."
+npm run check:local-build-privacy
+
 rename_built_dmg() {
   local version="$1"
   local bundle_dir="${REPO_ROOT}/src-tauri/target"

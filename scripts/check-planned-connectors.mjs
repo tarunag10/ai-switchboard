@@ -7,6 +7,7 @@ const settingsConnectorCopyPath = "src/lib/settingsConnectorCopy.ts";
 const backendPath = "src-tauri/src/client_adapters.rs";
 const backendRegistryPath = "src-tauri/src/client_connectors.rs";
 const backendConnectorListPath = "src-tauri/src/client_connector_list.rs";
+const backendDetectionPath = "src-tauri/src/client_detection.rs";
 const backendLifecyclePaths = [
   "src-tauri/src/client_setup_apply.rs",
   "src-tauri/src/client_setup_verify.rs",
@@ -295,11 +296,9 @@ function validateCursorDryRunContract({
       errors.push(`cursor frontend contract missing "${snippet}"`);
     }
   }
-  for (const [label, source] of [["backend", backendSource]]) {
-    for (const snippet of ["Cursor/User/settings.json", "Cursor/User/profiles/*/settings.json"]) {
-      if (!source.includes(snippet)) {
-        errors.push(`cursor ${label} contract missing "${snippet}"`);
-      }
+  for (const snippet of ["manifest_config_locations", "Cursor/User/settings.json"]) {
+    if (!backendSource.includes(snippet)) {
+      errors.push(`cursor backend contract missing "${snippet}"`);
     }
   }
 
@@ -307,7 +306,7 @@ function validateCursorDryRunContract({
     ["repo intelligence", repoIntelligenceSource],
     ["doctor copy", doctorCopySource],
   ]) {
-    for (const snippet of ["Dry-run target", "ai-switchboard:${"]) {
+    for (const snippet of ["Dry-run target", "switchboardManagedMarkerId"]) {
       if (!source.includes(snippet)) {
         errors.push(`cursor ${label} evidence missing "${snippet}"`);
       }
@@ -665,8 +664,9 @@ const connectorUiSource = `${appSource}\n${settingsConnectorCopySource}`;
 const backendSource = readFile(backendPath);
 const backendRegistrySource = readFile(backendRegistryPath);
 const backendConnectorListSource = readFile(backendConnectorListPath);
+const backendDetectionSource = readFile(backendDetectionPath);
 const backendLifecycleSource = backendLifecyclePaths.map(readFile).join("\n");
-const backendContractSource = `${backendSource}\n${backendRegistrySource}\n${backendConnectorListSource}`;
+const backendContractSource = `${backendSource}\n${backendRegistrySource}\n${backendConnectorListSource}\n${backendDetectionSource}`;
 const cliSource = readFile(cliPath);
 const repoApiSource = readFile(repoApiPath);
 const repoIntelligenceUiSource = readFile(repoIntelligenceUiPath);
