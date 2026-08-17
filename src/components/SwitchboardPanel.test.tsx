@@ -585,6 +585,86 @@ describe("SwitchboardPanel", () => {
     expect(onManageRtk).toHaveBeenCalledOnce();
   });
 
+  it("exercises every actionable control shown on the Home status panel", async () => {
+    const user = userEvent.setup();
+    const onSetMode = vi.fn();
+    const onSetSavingsMode = vi.fn();
+    const onResume = vi.fn();
+    const onAutoFixSetup = vi.fn();
+    const onManageClients = vi.fn();
+    const onManageRtk = vi.fn();
+    const onOpenCompressionPlaybook = vi.fn();
+    const onInspectorAction = vi.fn();
+
+    renderPanel({
+      mode: "full",
+      effectiveMode: "rtk",
+      needsAttention: true,
+      modeBusy: null,
+      savingsMode: "balanced",
+      savingsModeBusy: null,
+      runtimeActionVisible: true,
+      runtimeActionLabel: "Start runtime",
+      connectors: [
+        {
+          clientId: "codex",
+          name: "Codex",
+          installed: true,
+          enabled: true,
+          verified: true,
+        },
+      ],
+      inspectorRows: [
+        {
+          label: "Proxy listener",
+          status: "Needs attention",
+          detail: "Restart the local listener.",
+          actionLabel: "Repair listener",
+          onAction: onInspectorAction,
+        },
+      ],
+      onSetMode,
+      onSetSavingsMode,
+      onResume,
+      onAutoFixSetup,
+      onManageClients,
+      onManageRtk,
+      onOpenCompressionPlaybook,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Copy state" }));
+    await user.click(
+      screen.getByRole("button", { name: /Headroom only:/ }),
+    );
+    await user.click(screen.getByRole("button", { name: /RTK only:/ }));
+    await user.click(screen.getByRole("button", { name: /Off:/ }));
+    await user.click(screen.getByRole("button", { name: "Auto-fix setup" }));
+    await user.click(screen.getByRole("button", { name: "Manage" }));
+    await user.click(screen.getByRole("button", { name: "Aggressive" }));
+    await user.click(screen.getByRole("button", { name: "Details" }));
+    await user.click(
+      screen.getByRole("button", { name: "Repair listener" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Open compression playbook" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Switch to RTK only" }));
+    await user.click(screen.getByRole("button", { name: "Start runtime" }));
+    await user.click(screen.getByRole("button", { name: "Manage clients" }));
+    await user.click(screen.getByRole("button", { name: "Manage RTK" }));
+
+    expect(onSetMode).toHaveBeenCalledWith("headroom");
+    expect(onSetMode).toHaveBeenCalledWith("rtk");
+    expect(onSetMode).toHaveBeenCalledWith("off");
+    expect(onSetSavingsMode).toHaveBeenCalledWith("aggressive");
+    expect(onResume).toHaveBeenCalledOnce();
+    expect(onAutoFixSetup).toHaveBeenCalledOnce();
+    expect(onManageClients).toHaveBeenCalledTimes(2);
+    expect(onManageRtk).toHaveBeenCalledOnce();
+    expect(onOpenCompressionPlaybook).toHaveBeenCalledOnce();
+    expect(onInspectorAction).toHaveBeenCalledOnce();
+  });
+
   it("shows busy and error states for mode changes", () => {
     renderPanel({
       modeBusy: "headroom",
