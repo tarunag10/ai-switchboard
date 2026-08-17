@@ -1,12 +1,10 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { SettingsUninstallCard } from "./SettingsUninstallCard";
 
 describe("SettingsUninstallCard", () => {
-  it("renders uninstall copy and opens the uninstall dialog", async () => {
-    const user = userEvent.setup();
+  it("renders uninstall copy and opens the uninstall dialog", () => {
     const onOpenUninstallDialog = vi.fn();
 
     render(
@@ -18,7 +16,7 @@ describe("SettingsUninstallCard", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/runtime storage/i)).toBeInTheDocument();
 
-    await user.click(
+    fireEvent.click(
       screen.getByRole("button", { name: /uninstall ai switchboard/i }),
     );
 

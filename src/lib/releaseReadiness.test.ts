@@ -404,6 +404,70 @@ describe("release readiness checklist", () => {
     expect(releaseLocalEvidenceRowsFromReport(undefined)).toEqual([]);
   });
 
+  it("uses safe defaults and unproven detail for incomplete local evidence", () => {
+    const rows = releaseLocalEvidenceRowsFromReport({
+      status: "blocked",
+      localValidation: {
+        localInstalled: { runtimeHealthChecked: true, appListenerReady: false },
+        modeRelaunch: { modeCount: 1, offModeProxyDown: true },
+        rollback: { stepCount: 1 },
+        doctorRepair: {},
+        uninstall: { destructive: true },
+        repoIntelligence: { readOnly: false, modifiesRepository: true },
+        repoMemoryMcp: { readOnly: true, expectedToolsPresent: false },
+        localOnlyNetwork: {
+          localOnly: true,
+          appOwnedRemoteCallsBlocked: true,
+        },
+      },
+    });
+    expect(rows).toHaveLength(8);
+    expect(rows.every((row) => !row.passed && row.statusLabel === "Missing")).toBe(
+      true,
+    );
+    expect(rows.find((row) => row.id === "local-installed")?.detail).toContain(
+      "one listener was not ready",
+    );
+    expect(rows.find((row) => row.id === "mode-relaunch")?.detail).toContain(
+      "1 mode. Summary missing",
+    );
+    expect(rows.find((row) => row.id === "uninstall")?.detail).toContain(
+      "Destructive status unproven",
+    );
+    expect(rows.find((row) => row.id === "repo-intelligence")?.detail).toContain(
+      "Read-only boundary unproven",
+    );
+    expect(rows.find((row) => row.id === "repo-memory-mcp")?.detail).toContain(
+      "MCP read-only or bridge evidence unproven",
+    );
+    expect(rows.find((row) => row.id === "local-only-network")?.detail).toContain(
+      "Local-only guards and remote-service scan passed.",
+    );
+    expect(rows.map((row) => row.command)).toContain(
+      "npm run smoke:rollback:local",
+    );
+  });
+
+  it("describes absent runtime checks and local network boundary failures", () => {
+    const rows = releaseLocalEvidenceRowsFromReport({
+      status: "blocked",
+      localValidation: {
+        localInstalled: { runtimeHealthChecked: false },
+        localOnlyNetwork: {
+          localOnly: false,
+          appOwnedRemoteCallsBlocked: false,
+          coverage: {},
+        },
+      },
+    });
+    expect(rows.find((row) => row.id === "local-installed")?.detail).toContain(
+      "app was not running",
+    );
+    expect(rows.find((row) => row.id === "local-only-network")?.detail).toContain(
+      "boundary unproven",
+    );
+  });
+
   it("selects the next blocked release action from scripted rows", () => {
     const action = releaseReadinessNextAction();
 
@@ -548,6 +612,45 @@ describe("release readiness checklist", () => {
     );
     expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
       "must include the managed connector config creation plan and connector readiness payload",
+    );
+  });
+
+  it("uses report fallbacks when optional evidence arrays are absent", () => {
+    const rows = releaseReadinessRowsFromReport({
+      status: "blocked",
+      staticSmokePreflight: { ready: false },
+      installedSmoke: { installedAppPresent: false, evidenceReady: false },
+      localValidation: {
+        ready: false,
+        localInstalled: { passed: false },
+        rollback: { passed: false },
+        doctorRepair: { passed: false },
+        uninstall: { passed: false },
+        repoIntelligence: { passed: false },
+        repoMemoryMcp: { passed: false },
+        localOnlyNetwork: { passed: false },
+      },
+      shareableDmgGate: {
+        ready: false,
+        signedAndNotarized: false,
+        updaterFeedReady: false,
+      },
+      releaseEnv: { blockers: [{ label: undefined }] },
+    });
+    expect(rows.find((row) => row.id === "frontend-build")?.detail).toContain(
+      "Run the frontend build",
+    );
+    expect(rows.find((row) => row.id === "installed-smoke")?.detail).toContain(
+      "installed smoke summary",
+    );
+    expect(rows.find((row) => row.id === "signing-env")?.detail).toContain(
+      "release blocker",
+    );
+    expect(rows.find((row) => row.id === "local-doctor-rollback")?.detail).toContain(
+      "local-only network not passed",
+    );
+    expect(rows.find((row) => row.id === "final-gate")?.detail).toContain(
+      "signed/notarized DMG",
     );
   });
 

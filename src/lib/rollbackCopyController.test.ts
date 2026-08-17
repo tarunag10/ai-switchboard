@@ -153,5 +153,18 @@ describe("rollbackCopyController", () => {
       1,
       "Copy failed. Rollback rows remain visible.",
     );
+    expect(setup.setTimeout).toHaveBeenCalledWith(expect.any(Function), 3000);
+  });
+
+  it("uses the execution-preview failure copy and timeout", async () => {
+    const setup = options({ writeText: undefined });
+
+    await copyManagedRollbackExecutionPreview(record, 0, setup);
+
+    expect(setup.setNotice).toHaveBeenNthCalledWith(
+      1,
+      "Copy failed. Rollback row remains visible.",
+    );
+    expect(setup.setTimeout).toHaveBeenCalledWith(expect.any(Function), 3000);
   });
 });

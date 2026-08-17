@@ -91,7 +91,7 @@ jobs:
         run: npm run check:local-build-privacy
 
       - name: Run frontend tests
-        run: npm run test:frontend
+        run: npm run test:coverage
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1

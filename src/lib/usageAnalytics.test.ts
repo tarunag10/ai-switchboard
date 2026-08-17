@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { normalizeBriefing, normalizeXray } from "./usageAnalytics";
+import {
+  clearUsageAnalytics,
+  exportDailyUsageBriefing,
+  formatMetric,
+  loadDailyUsageBriefing,
+  loadDailyUsageBriefingHistory,
+  loadTokenXraySnapshot,
+  metricLabel,
+  normalizeBriefing,
+  normalizeXray,
+} from "./usageAnalytics";
 
 const invokeMock = vi.fn();
 
@@ -29,6 +39,126 @@ describe("usage analytics contract normalization", () => {
     expect(briefing.totals.spentTokens.confidence).toBe("estimated");
     expect(briefing.recommendations).toHaveLength(3);
     expect(briefing.totals.savedTokens.value).toBeNull();
+  });
+
+  it.each([
+    [null, "unavailable"],
+    [{ context_pressure: { used_tokens: 60, limit_tokens: 100 } }, "medium"],
+    [{ context_pressure: { used_tokens: 80, limit_tokens: 100 } }, "high"],
+    [{ context_pressure: { used_tokens: 95, limit_tokens: 100 } }, "critical"],
+    [{ context_pressure: { percent: 10, band: "normal" } }, "low"],
+    [{ context_pressure: { percent: 65, band: "elevated" } }, "medium"],
+  ])("normalizes pressure alternate %j", (raw, expectedBand) => {
+    expect(normalizeXray(raw).contextPressure.band).toBe(expectedBand);
+  });
+
+  it("normalizes rich snake-case xray collections and fallback labels", () => {
+    const snapshot = normalizeXray({
+      schema_version: 3,
+      generated_at: "2026-01-01T00:00:00.000Z",
+      session_id: "s1",
+      metrics: {
+        saved_tokens: 12,
+        input_tokens: { value: "bad", observed_at: 42 },
+      },
+      context_pressure: {
+        used_tokens: "bad",
+        limit_tokens: 0,
+        projected_percent: 75,
+      },
+      sources: [
+        { source: "cache", tokens_saved: 5, evidence: ["hit", "exact"] },
+        {},
+      ],
+      timeline: [
+        { occurred_at: "2026-01-01T00:00:00.000Z", kind: "cache" },
+        {},
+      ],
+      anomalies: [{ message: "Spike", evidence: ["large"] }, {}],
+    });
+    expect(snapshot.schemaVersion).toBe(3);
+    expect(snapshot.generatedAt).toBeGreaterThan(0);
+    expect(snapshot.metrics.savedTokens).toMatchObject({
+      value: 12,
+      confidence: "inferred",
+    });
+    expect(snapshot.metrics.inputTokens).toMatchObject({
+      value: null,
+      confidence: "unavailable",
+      observedAt: 42,
+    });
+    expect(snapshot.sources[0]).toMatchObject({
+      id: "cache",
+      label: "cache",
+      detail: "hit · exact",
+    });
+    expect(snapshot.sources[1]).toMatchObject({
+      id: "source",
+      label: "Optimization source",
+    });
+    expect(snapshot.timeline[0]).toMatchObject({ title: "cache", confidence: "inferred" });
+    expect(snapshot.timeline[1]).toMatchObject({ id: "1", title: "Usage event" });
+    expect(snapshot.anomalies[0]).toMatchObject({ title: "Spike", detail: "large" });
+    expect(snapshot.anomalies[1]).toMatchObject({ id: "1", severity: "warning" });
+  });
+
+  it("normalizes rich briefing fallbacks and evidence coverage spellings", () => {
+    const briefing = normalizeBriefing({
+      schema_version: 2,
+      generated_at: "invalid",
+      agents: [
+        {
+          provider: "openai",
+          requests: "3",
+          input_tokens: 100,
+          saved_tokens: 10,
+          cache_read_tokens: 5,
+          estimated_cost_usd: 1.25,
+          highest_context_percent: 80,
+          failures: 2,
+        },
+        {},
+      ],
+      attention_items: [{ evidence: ["one", "two"] }, {}],
+      recommendations: [
+        { ruleId: "r1", actionLabel: "Act", evidence: ["proof"], priorityScore: 9 },
+        { reason: "because" },
+      ],
+      evidence_coverage: {
+        measured_sources: 1,
+        estimated_sources: 2,
+        inferred_sources: 3,
+        unavailable_metrics: 4,
+        notes: ["partial", "local"],
+      },
+    });
+    expect(briefing.generatedAt).toBe(0);
+    expect(briefing.agents[0]).toMatchObject({
+      id: "0",
+      label: "openai",
+      requests: 3,
+      detail: "2 failures",
+      highestContextPercent: 80,
+    });
+    expect(briefing.agents[1].label).toBe("Unattributed agent");
+    expect(briefing.attentionItems[0]).toMatchObject({
+      title: "Needs attention",
+      detail: "one · two",
+    });
+    expect(briefing.recommendations[0]).toMatchObject({
+      id: "r1",
+      title: "Act",
+      evidence: "proof",
+      priority: 9,
+    });
+    expect(briefing.recommendations[1].evidence).toBe("because");
+    expect(briefing.evidenceCoverage).toMatchObject({
+      measured: 1,
+      estimated: 2,
+      inferred: 3,
+      unavailable: 4,
+      detail: "partial · local",
+    });
   });
 });
 
@@ -65,5 +195,65 @@ describe("usage analytics retention contract", () => {
     expect(preview.dayKeys).toEqual(["2026-07-11"]);
     expect(preview.scope).toBe("daily_usage_briefing_snapshots_only");
     expect(preview.detail).toContain("savings ledger");
+  });
+
+  it("invokes and normalizes all analytics loaders", async () => {
+    invokeMock
+      .mockResolvedValueOnce({ generated_at: 5 })
+      .mockResolvedValueOnce({ day_key: "2026-01-01" })
+      .mockResolvedValueOnce([{ day_key: "2026-01-02" }, null]);
+    await expect(loadTokenXraySnapshot()).resolves.toMatchObject({ generatedAt: 5 });
+    await expect(loadDailyUsageBriefing()).resolves.toMatchObject({
+      dayKey: "2026-01-01",
+    });
+    await expect(loadDailyUsageBriefingHistory()).resolves.toHaveLength(2);
+    expect(invokeMock.mock.calls).toEqual([
+      ["get_token_xray_snapshot"],
+      ["get_daily_usage_briefing"],
+      ["list_daily_usage_briefings"],
+    ]);
+  });
+
+  it("returns an empty history for malformed native history", async () => {
+    invokeMock.mockResolvedValueOnce({ not: "a list" });
+    await expect(loadDailyUsageBriefingHistory()).resolves.toEqual([]);
+  });
+
+  it("normalizes clear aliases, summary fallback, and exact command", async () => {
+    invokeMock.mockResolvedValueOnce({
+      affectedBriefings: "4",
+      deletedEvents: "2",
+      dayKeys: "invalid",
+      scope: 42,
+      summary: "Done",
+    });
+    await expect(clearUsageAnalytics()).resolves.toEqual({
+      briefingCount: 4,
+      eventCount: 2,
+      dayKeys: [],
+      scope: "daily_usage_briefing_snapshots_only",
+      detail: "Done",
+    });
+    expect(invokeMock).toHaveBeenCalledWith("clear_usage_analytics");
+  });
+
+  it("exports markdown, json, briefing fallback, and empty values", async () => {
+    invokeMock
+      .mockResolvedValueOnce({ markdown: "# Briefing" })
+      .mockResolvedValueOnce({ json: "{\"ok\":true}" })
+      .mockResolvedValueOnce({ briefing: { day: "today" } })
+      .mockResolvedValueOnce({});
+    await expect(exportDailyUsageBriefing("markdown")).resolves.toBe("# Briefing");
+    await expect(exportDailyUsageBriefing("json")).resolves.toBe('{"ok":true}');
+    await expect(exportDailyUsageBriefing("json")).resolves.toContain('"day"');
+    await expect(exportDailyUsageBriefing("markdown")).resolves.toBe("");
+  });
+
+  it("formats unavailable, currency, compact, and standard metrics", () => {
+    expect(metricLabel({ value: 1, confidence: "measured", source: "x", observedAt: null, caveat: null })).toBe("measured");
+    expect(formatMetric({ value: null, confidence: "unavailable", source: "x", observedAt: null, caveat: null })).toBe("Unavailable");
+    expect(formatMetric({ value: 12.3, confidence: "measured", source: "x", observedAt: null, caveat: null }, true)).toContain("$12.30");
+    expect(formatMetric({ value: 1200, confidence: "measured", source: "x", observedAt: null, caveat: null })).toMatch(/1\.2K/i);
+    expect(formatMetric({ value: 12.34, confidence: "measured", source: "x", observedAt: null, caveat: null })).toBe("12.3");
   });
 });

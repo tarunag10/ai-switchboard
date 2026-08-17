@@ -91,7 +91,12 @@ export function useMasterActivationController({
   function removeMasterOwnedFeature(id: MasterFeatureId) {
     setMasterActivationReceipt((current) => {
       if (!current) return current;
-      const ownedId = id === "gateway-mcp" ? "repo-memory-mcp" : id;
+      const ownedId =
+        id === "gateway-mcp"
+          ? "repo-memory-mcp"
+          : id === "addons"
+            ? "local-optimizations"
+            : id;
       const ownedActions = current.activation.ownedActions.filter(
         (action) => action.id !== ownedId,
       );

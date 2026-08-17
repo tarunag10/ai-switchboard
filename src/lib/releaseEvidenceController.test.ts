@@ -78,6 +78,20 @@ describe("releaseEvidenceController", () => {
     expect(setup.setReport).not.toHaveBeenCalled();
   });
 
+  it("uses the fallback error for non-descriptive failures", async () => {
+    const invoke = vi.fn(async () => {
+      throw {};
+    }) as ReleaseEvidenceInvoke;
+    const setup = options(invoke);
+
+    await runReleaseEvidenceCommand("install-smoke", setup);
+
+    expect(setup.setError).toHaveBeenCalledWith(
+      "Could not run release evidence command.",
+    );
+    expect(setup.setBusyId).toHaveBeenLastCalledWith(null);
+  });
+
   it("runs the local evidence sequence and refreshes once at the end", async () => {
     const commandIds: string[] = [];
     const invoke = vi.fn(async (command: string, args?: Record<string, unknown>) => {
@@ -96,6 +110,26 @@ describe("releaseEvidenceController", () => {
     expect(commandIds).toEqual(localReleaseEvidenceCommandIds);
     expect(setup.setReport).toHaveBeenCalledWith(reportPayload);
     expect(setup.setCopyNotice).toHaveBeenLastCalledWith(null);
+    expect(setup.setBusyId).toHaveBeenLastCalledWith(null);
+  });
+
+  it("stops the local sequence on failure and preserves the completed result", async () => {
+    let calls = 0;
+    const invoke = vi.fn(async (command: string) => {
+      if (command !== "run_release_evidence_command") {
+        throw new Error("report must not refresh");
+      }
+      calls += 1;
+      if (calls === 2) throw "evidence runner unavailable";
+      return commandResult;
+    }) as ReleaseEvidenceInvoke;
+    const setup = options(invoke);
+
+    await runLocalReleaseEvidenceSequence(setup);
+
+    expect(setup.setResult).toHaveBeenCalledTimes(1);
+    expect(setup.setError).toHaveBeenCalledWith("evidence runner unavailable");
+    expect(setup.setReport).not.toHaveBeenCalled();
     expect(setup.setBusyId).toHaveBeenLastCalledWith(null);
   });
 });

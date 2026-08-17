@@ -1,45 +1,20 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { validateRepoMapMount } from "./lib/ui-wiring-checks.mjs";
 
 function fail(message) {
   console.error(`repo map mount check failed: ${message}`);
   process.exit(1);
 }
 
-const appSource = fs.readFileSync("src/App.tsx", "utf8");
-const traySidebarSource = fs.readFileSync("src/components/TraySidebar.tsx", "utf8");
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(scriptDirectory, "..");
+const shellSource = fs.readFileSync(path.join(root, "src/components/TrayAppShell.tsx"), "utf8");
+const sidebarSource = fs.readFileSync(path.join(root, "src/components/TraySidebar.tsx"), "utf8");
+const failures = validateRepoMapMount({ shellSource, sidebarSource });
 
-const requiredSnippets = [
-  {
-    label: "RepoMapView import",
-    snippet: 'RepoMapView } from "./components/RepoMapView";',
-  },
-  {
-    label: "TraySidebar import",
-    snippet: 'TraySidebar } from "./components/TraySidebar";',
-  },
-  {
-    label: "Repo Map content pane",
-    snippet: 'hidden={activeView !== "repoMap"}',
-  },
-  {
-    label: "RepoMapView render",
-    snippet: "<RepoMapView",
-  },
-];
-
-for (const { label, snippet } of requiredSnippets) {
-  if (!appSource.includes(snippet)) {
-    fail(`missing ${label}`);
-  }
-}
-
-if (!appSource.includes("<TraySidebar")) {
-  fail("missing TraySidebar render");
-}
-
-if (!traySidebarSource.includes('{ id: "repoMap", label: "Repo Map"')) {
-  fail("missing Repo Map nav item");
-}
+if (failures.length > 0) fail(failures.join("; "));
 
 console.log("Repo Map mount OK: sidebar route renders RepoMapView.");

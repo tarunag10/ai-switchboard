@@ -290,4 +290,116 @@ describe("planned add-ons", () => {
       tone: "offline",
     });
   });
+
+  it("shows checking and no-history cards before runtime status loads", () => {
+    const cards = buildAddonHealthCards(null);
+    expect(cards.find((card) => card.id === "headroom_engine")).toMatchObject({
+      statusLabel: "Checking",
+      trend: { value: "No traffic yet", points: [] },
+    });
+    expect(cards.find((card) => card.id === "rtk")).toMatchObject({
+      statusLabel: "Not installed",
+      trend: { value: "No commands yet", points: [] },
+    });
+    expect(getPlannedAddon("unknown")).toBeNull();
+  });
+
+  it("derives Headroom daily savings history when request evidence is absent", () => {
+    const cards = buildAddonHealthCards(runtimeFixture(), [], {
+      dailySavings: [
+        { date: "invalid", estimatedTokensSaved: -1 } as never,
+        { date: "2026-06-29", estimatedTokensSaved: 100 } as never,
+        { date: "2026-06-30", estimatedTokensSaved: 200 } as never,
+      ],
+    });
+    expect(cards.find((card) => card.id === "headroom_engine")?.trend).toMatchObject({
+      label: "Saved history trend",
+      value: "300 tokens",
+      detail: "2 saved local history days include optimization savings.",
+    });
+  });
+
+  it("reports paused and uninstalled runtime states distinctly", () => {
+    const paused = buildAddonHealthCards(
+      runtimeFixture({ paused: true, autoPaused: true }),
+    );
+    expect(paused.find((card) => card.id === "headroom_engine")).toMatchObject({
+      statusLabel: "Paused",
+      detail: "The runtime is not in a healthy running state.",
+    });
+
+    const missing = buildAddonHealthCards(
+      runtimeFixture({ installed: false, running: false, proxyReachable: false }),
+    );
+    expect(missing.find((card) => card.id === "headroom_engine")?.detail).toBe(
+      "The local runtime is not installed.",
+    );
+  });
+
+  it("covers degraded, disabled, and versionless managed tools", () => {
+    const cards = buildAddonHealthCards(runtimeFixture(), [
+      toolFixture({ id: "markitdown", status: "degraded", version: "" }),
+      toolFixture({
+        id: "ponytail",
+        name: "Ponytail",
+        runtime: "plugin",
+        enabled: false,
+        version: "",
+      }),
+    ]);
+    expect(cards.find((card) => card.id === "markitdown")).toMatchObject({
+      statusLabel: "Needs attention",
+      tone: "warning",
+      evidence: expect.arrayContaining(["Version is not reported."]),
+    });
+    expect(cards.find((card) => card.id === "ponytail")).toMatchObject({
+      statusLabel: "Disabled",
+      tone: "warning",
+      nextAction: expect.stringContaining("Enable it"),
+    });
+  });
+
+  it("sorts and limits RTK command-family and daily evidence", () => {
+    const days = Array.from({ length: 9 }, (_, index) => ({
+      date: index === 0 ? "invalid" : `2026-06-${String(index + 1).padStart(2, "0")}`,
+      commands: index === 0 ? -1 : index,
+      savedTokens: index * 100,
+    }));
+    const cards = buildAddonHealthCards(
+      runtimeFixture({
+        rtk: {
+          installed: true,
+          enabled: true,
+          pathConfigured: true,
+          hookConfigured: true,
+          totalCommands: -1,
+          totalSaved: -1,
+          daily: days,
+          commandFamilies: [
+            {
+              family: "zero",
+              commands: 0,
+              inputTokens: 999,
+              outputTokens: 0,
+              savedTokens: 999,
+              totalTimeMs: 0,
+            },
+            ...Array.from({ length: 6 }, (_, index) => ({
+              family: `f${index}`,
+              commands: index + 1,
+              inputTokens: index * 20,
+              outputTokens: index * 10,
+              savedTokens: index * 10,
+              totalTimeMs: index * 5,
+            })),
+          ],
+        },
+      }),
+    );
+    const rtk = cards.find((card) => card.id === "rtk");
+    expect(rtk?.trend.points).toHaveLength(7);
+    expect(rtk?.evidence.join(" ")).not.toContain("zero");
+    expect(rtk?.evidence.join(" ")).toContain("f5");
+    expect(rtk?.evidence).toContain("Commands recorded: 0.");
+  });
 });
