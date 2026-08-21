@@ -98,6 +98,9 @@ const requiredReleaseReportPaths = [
   "shareableDmgGate.updaterFeedReady",
   "artifactTrust.ready",
   "artifactTrust.artifactPresent",
+  "artifactTrust.artifactSelectionReason",
+  "artifactTrust.artifactMtimeMs",
+  "artifactTrust.artifactSha256",
   "artifactTrust.hdiutilVerifyOk",
   "artifactTrust.appPresent",
   "artifactTrust.codesignVerifyOk",
@@ -841,6 +844,18 @@ requireBooleanFields(report, "artifactTrust", [
   "gatekeeperAccepted",
   "notarizationTicketValid",
 ]);
+for (const field of ["artifactSelectionReason", "artifactSha256"]) {
+  const value = report.artifactTrust[field];
+  if (value !== null && typeof value !== "string") {
+    fail(`artifactTrust.${field} must be string or null`);
+  }
+}
+if (
+  report.artifactTrust.artifactMtimeMs !== null &&
+  typeof report.artifactTrust.artifactMtimeMs !== "number"
+) {
+  fail("artifactTrust.artifactMtimeMs must be number or null");
+}
 
 requireObject(report, "shareableDmgGate");
 requireBooleanFields(report, "shareableDmgGate", [

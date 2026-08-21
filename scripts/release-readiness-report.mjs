@@ -9,6 +9,7 @@ import {
   readCanonicalAppIdentity,
   validateAppIdentity,
 } from "./app-identity-contract.mjs";
+import { selectReleaseArtifact } from "./release-artifact-contract.mjs";
 
 const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
@@ -262,14 +263,19 @@ function localEvidenceFreshness(summary, json, passed, label) {
 
 function buildArtifactTrustEvidence() {
   const dmgDirectory = "src-tauri/target/release/bundle/dmg";
-  const dmgPath = fs.existsSync(dmgDirectory)
-    ? fs
-        .readdirSync(dmgDirectory)
+  const dmgCandidates = fs.existsSync(dmgDirectory)
+    ? fs.readdirSync(dmgDirectory)
         .filter((name) => name.endsWith(".dmg"))
-        .map((name) => path.join(dmgDirectory, name))
-        .sort()
-        .at(-1) ?? null
-    : null;
+        .map((name) => {
+          const candidatePath = path.join(dmgDirectory, name);
+          const stats = fs.statSync(candidatePath);
+          return { name, path: candidatePath, mtimeMs: stats.mtimeMs };
+        })
+    : [];
+  const artifactSelection = selectReleaseArtifact(dmgCandidates, {
+    expectedVersion: canonicalAppIdentity.version,
+  });
+  const dmgPath = artifactSelection.candidate?.path ?? null;
   const artifactPresent = Boolean(dmgPath && fs.existsSync(dmgPath));
   const appPresent = fs.existsSync(appPath);
   const dmgVerify = artifactPresent
@@ -288,6 +294,9 @@ function buildArtifactTrustEvidence() {
   return {
     artifactPath: dmgPath,
     artifactPresent,
+    artifactSelectionReason: artifactSelection.reason,
+    artifactMtimeMs: artifactSelection.candidate?.mtimeMs ?? null,
+    artifactSha256: artifactPresent ? currentFileSha256(dmgPath) : null,
     hdiutilVerifyOk: dmgVerify.ok,
     appPath,
     appPresent,

@@ -36,7 +36,7 @@
     "release:report": "node scripts/release-readiness-report.mjs",
     "release:summary:selftest": "node --test scripts/release-summary-contract.node-test.mjs",
     "release:report:time:selftest": "node --test scripts/release-evidence-time.node-test.mjs",
-    "release:report:check": "node --test scripts/release-report-consistency.node-test.mjs && node scripts/check-release-report-schema.mjs",
+    "release:report:check": "node --test scripts/release-report-consistency.node-test.mjs scripts/release-artifact-contract.node-test.mjs && node scripts/check-release-report-schema.mjs",
     "savings:benchmark": "node scripts/measured-savings-benchmark.mjs",
     "optimization:report": "node scripts/optimization-report.mjs",
     "optimization:report:json": "node scripts/optimization-report.mjs --json",
