@@ -67,6 +67,9 @@ the current checkout.
   argument of `require(...)`, preventing later unrelated string literals from
   becoming false dependency edges; CommonJS symbol binding remains
   intentionally unresolved.
+- Connector inventory refreshes now use a monotonic generation guard so
+  out-of-order frontend responses cannot restore stale enabled state or stale
+  errors; the same guard covers launcher verification refreshes.
 
 ### Done — prepared and shipped
 

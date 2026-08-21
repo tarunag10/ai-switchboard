@@ -63,6 +63,7 @@ import {
   loadDashboard,
   loadSavingsAttributionEvents,
 } from "../lib/trayLoaders";
+import { isCurrentConnectorRefresh } from "../lib/connectorRefresh";
 import { useMasterActivationController } from "../lib/useMasterActivationController";
 import { useTrayPricingController } from "../lib/useTrayPricingController";
 import {
@@ -716,6 +717,7 @@ export default function TrayApp() {
   const connectorsSignatureRef = useRef(
     serializeState([] as ClientConnectorStatus[]),
   );
+  const connectorsRefreshGenerationRef = useRef(0);
   const runtimeStatusSignatureRef = useRef(
     serializeState(null as RuntimeStatus | null),
   );
@@ -2045,13 +2047,22 @@ export default function TrayApp() {
   }
 
   async function refreshConnectors() {
+    const generation = ++connectorsRefreshGenerationRef.current;
     try {
-      setConnectorsError(null);
+      if (isCurrentConnectorRefresh(generation, connectorsRefreshGenerationRef.current)) {
+        setConnectorsError(null);
+      }
       const items = await invoke<ClientConnectorStatus[]>(
         "get_client_connectors",
       );
+      if (!isCurrentConnectorRefresh(generation, connectorsRefreshGenerationRef.current)) {
+        return;
+      }
       applyConnectorsIfChanged(items);
     } catch (error) {
+      if (!isCurrentConnectorRefresh(generation, connectorsRefreshGenerationRef.current)) {
+        return;
+      }
       setConnectorsError(
         error instanceof Error
           ? error.message
@@ -2061,11 +2072,14 @@ export default function TrayApp() {
   }
 
   async function refreshSwitchboardState() {
+    const generation = ++connectorsRefreshGenerationRef.current;
     try {
       const state = await invoke<SwitchboardState>("get_switchboard_state");
       applySwitchboardStateIfChanged(state);
       applyRuntimeStatusIfChanged(state.runtime);
-      applyConnectorsIfChanged(state.clients);
+      if (isCurrentConnectorRefresh(generation, connectorsRefreshGenerationRef.current)) {
+        applyConnectorsIfChanged(state.clients);
+      }
     } catch {
       applySwitchboardStateIfChanged(null);
     }
@@ -2580,11 +2594,15 @@ export default function TrayApp() {
   }
 
   async function beginProxyVerificationStep() {
+    const generation = ++connectorsRefreshGenerationRef.current;
     proxyVerificationSessionRef.current += 1;
     let fresh = connectors;
     try {
-      fresh = await invoke<ClientConnectorStatus[]>("get_client_connectors");
-      applyConnectorsIfChanged(fresh);
+      const items = await invoke<ClientConnectorStatus[]>("get_client_connectors");
+      if (isCurrentConnectorRefresh(generation, connectorsRefreshGenerationRef.current)) {
+        fresh = items;
+        applyConnectorsIfChanged(items);
+      }
     } catch {
       // fall back to cached state
     }
