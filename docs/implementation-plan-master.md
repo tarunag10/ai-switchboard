@@ -160,6 +160,9 @@ the current checkout.
 - Native Repo Intelligence re-export scanning now uses Tree-sitter export
   nodes, handles semicolonless declarations, and continues after unresolved
   external exports; focused native coverage is 41 tests.
+- CLI and frontend Repo Intelligence now resolve bounded one-hop named and
+  wildcard local re-exports for static imported calls; dynamic, namespace,
+  default, and multi-hop inference remain intentionally unresolved.
 
 ### Remaining build work
 

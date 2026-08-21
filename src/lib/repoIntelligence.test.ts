@@ -688,6 +688,20 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("resolves one-hop named and wildcard local re-exports", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
+      { path: "src/named.ts", bytes: 100, content: "export { runTask as execute } from './worker';" },
+      { path: "src/star.ts", bytes: 100, content: "export * from './worker';" },
+      { path: "src/consumer.ts", bytes: 140, content: "import { execute } from './named'; import { runTask } from './star'; export function start() { execute(); runTask(); }" },
+    ]);
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+  });
+
   it("formats bounded context packs for agent handoff", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },

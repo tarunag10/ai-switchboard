@@ -2492,6 +2492,7 @@ function buildRepoGraphSummary(
   const symbolEdges = [
     ...buildSymbolEdges(included, symbols, contentByPath),
     ...buildCallReferenceEdges(included, symbols, contentByPath),
+    ...buildImportCallReferenceEdges(included, symbols, contentByPath),
   ];
   return {
     topDirectories: summarizeGraphNodes(
@@ -2957,6 +2958,96 @@ function buildCallReferenceEdges(
   }
 
   return edges;
+}
+
+function buildImportCallReferenceEdges(
+  files: RepoFileSignal[],
+  symbols: RepoSymbol[],
+  contentByPath: Map<string, string>,
+): RepoGraphEdge[] {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const callableSymbols = symbols.filter(
+    (symbol) => symbol.kind === "function" || symbol.kind === "const",
+  );
+  const edges: RepoGraphEdge[] = [];
+  for (const file of files.filter((candidate) =>
+    ["TypeScript", "JavaScript", "React"].includes(candidate.language),
+  )) {
+    const content = contentByPath.get(file.path);
+    if (!content) continue;
+    for (const binding of extractStaticNamedImportBindings(content)) {
+      const importedFile = resolveImportSpecifier(file.path, binding.specifier, byPath);
+      if (!importedFile) continue;
+      let target = callableSymbols.find(
+        (symbol) => symbol.file === importedFile.path && symbol.name === binding.imported,
+      );
+      if (!target) {
+        const reexport = resolveLocalReexportBinding(
+          importedFile,
+          binding.imported,
+          byPath,
+          contentByPath,
+        );
+        if (reexport) {
+          target = callableSymbols.find(
+            (symbol) => symbol.file === reexport.file && symbol.name === reexport.name,
+          );
+        }
+      }
+      if (!target) continue;
+      if (!new RegExp(`\\b${escapeRegExp(binding.local)}\\s*\\(`).test(content)) continue;
+      pushUniqueGraphEdge(edges, {
+        from: file.path,
+        to: `${target.file}#${target.name}`,
+        kind: "call_reference",
+        reason: "source call resolves through local import/re-export binding",
+      });
+    }
+  }
+  return edges;
+}
+
+function extractStaticNamedImportBindings(content: string): Array<{ local: string; imported: string; specifier: string }> {
+  const bindings: Array<{ local: string; imported: string; specifier: string }> = [];
+  const joined = content.replace(/[\r\n]/g, " ");
+  for (const match of joined.matchAll(/\bimport\s+\{([^}]*)\}\s+from\s+["']([^"']+)["']/g)) {
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) continue;
+      bindings.push({
+        imported: parts[0],
+        local: parts[1] === "as" ? parts[2] : parts[0],
+        specifier: match[2],
+      });
+    }
+  }
+  return bindings.filter((binding) => Boolean(binding.local && binding.imported));
+}
+
+function resolveLocalReexportBinding(
+  barrel: RepoFileSignal,
+  imported: string,
+  byPath: Map<string, RepoFileSignal>,
+  contentByPath: Map<string, string>,
+): { file: string; name: string } | null {
+  const content = contentByPath.get(barrel.path);
+  if (!content) return null;
+  for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g)) {
+    const target = resolveImportSpecifier(barrel.path, match[2], byPath);
+    if (!target) continue;
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) continue;
+      const original = parts[0];
+      const exported = parts[1] === "as" ? parts[2] : original;
+      if (exported === imported) return { file: target.path, name: original };
+    }
+  }
+  for (const match of content.matchAll(/\bexport\s*\*\s*from\s*["']([^"']+)["']/g)) {
+    const target = resolveImportSpecifier(barrel.path, match[1], byPath);
+    if (target) return { file: target.path, name: imported };
+  }
+  return null;
 }
 
 function hasUnqualifiedCallReference(content: string, name: string): boolean {

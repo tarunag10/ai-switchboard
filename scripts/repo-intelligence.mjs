@@ -1573,9 +1573,22 @@ function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
             ),
           )].map((match) => match[1]);
       for (const name of new Set(targetNames)) {
-        const target = callableSymbols.find(
+        let target = callableSymbols.find(
           (symbol) => symbol.file === targetFile.path && symbol.name === name,
         );
+        if (!target && binding.imported) {
+          const reexport = resolveLocalReexportBinding(
+            repoRoot,
+            targetFile,
+            binding.imported,
+            files,
+          );
+          if (reexport) {
+            target = callableSymbols.find(
+              (symbol) => symbol.file === reexport.file && symbol.name === reexport.name,
+            );
+          }
+        }
         if (!target) continue;
         const callPattern = binding.imported
           ? new RegExp(`\\b${escapeRegExp(binding.local)}\\s*\\(`)
@@ -1594,6 +1607,34 @@ function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
     }
   }
   return edges;
+}
+
+function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
+  let content = "";
+  try {
+    content = fs.readFileSync(path.join(repoRoot, barrel.path), "utf8");
+  } catch {
+    return null;
+  }
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const namedPattern = /\bexport\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+  for (const match of content.matchAll(namedPattern)) {
+    const target = resolveImportSpecifier(barrel.path, match[2], byPath);
+    if (!target) continue;
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) continue;
+      const original = parts[0];
+      const exported = parts[1] === "as" ? parts[2] : original;
+      if (exported === imported) return { file: target.path, name: original };
+    }
+  }
+  const wildcardPattern = /\bexport\s*\*\s*from\s*["']([^"']+)["']/g;
+  for (const match of content.matchAll(wildcardPattern)) {
+    const target = resolveImportSpecifier(barrel.path, match[1], byPath);
+    if (target) return { file: target.path, name: imported };
+  }
+  return null;
 }
 
 function extractStaticImportBindings(content, language) {

@@ -28,3 +28,18 @@ test("CLI graph suppresses ambiguous and receiver-qualified fallback calls", () 
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("CLI graph resolves one-hop named and wildcard re-exports", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-reexport-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/worker.ts"), "export function runTask() {}\n");
+    fs.writeFileSync(path.join(repo, "src/named.ts"), "export { runTask as execute } from './worker';\n");
+    fs.writeFileSync(path.join(repo, "src/star.ts"), "export * from './worker';\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import { execute } from './named'; import { runTask } from './star'; export function start() { execute(); runTask(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.ok(summary.graph.symbolEdges.some((edge) => edge.to.endsWith("#runTask") && edge.kind === "call_reference"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
