@@ -1489,6 +1489,18 @@ function buildCallReferenceEdges(repoRoot, files, symbols) {
   const callableSymbols = symbols
     .filter((symbol) => symbol.kind === "function" || symbol.kind === "const")
     .slice(0, 120);
+  const callableFilesByName = new Map();
+  for (const symbol of symbols) {
+    if (symbol.kind !== "function" && symbol.kind !== "const") continue;
+    const filesForName = callableFilesByName.get(symbol.name) ?? new Set();
+    filesForName.add(symbol.file);
+    callableFilesByName.set(symbol.name, filesForName);
+  }
+  const ambiguousNames = new Set(
+    [...callableFilesByName.entries()]
+      .filter(([, filesForName]) => filesForName.size > 1)
+      .map(([name]) => name),
+  );
   const edges = [];
   for (const file of files.filter(
     (candidate) => candidate.role === "source" || candidate.role === "test",
@@ -1501,7 +1513,8 @@ function buildCallReferenceEdges(repoRoot, files, symbols) {
     }
     for (const symbol of callableSymbols) {
       if (file.path === symbol.file) continue;
-      if (!new RegExp(`\\b${escapeRegExp(symbol.name)}\\s*\\(`).test(content)) {
+      if (ambiguousNames.has(symbol.name)) continue;
+      if (!hasUnqualifiedCallReference(content, symbol.name)) {
         continue;
       }
       pushUniqueGraphEdge(edges, {
@@ -1514,6 +1527,15 @@ function buildCallReferenceEdges(repoRoot, files, symbols) {
     }
   }
   return edges;
+}
+
+function hasUnqualifiedCallReference(content, name) {
+  const pattern = new RegExp(`\\b${escapeRegExp(name)}\\s*\\(`, "g");
+  for (const match of content.matchAll(pattern)) {
+    const before = content.slice(0, match.index).trimEnd();
+    if (!before.endsWith(".") && !before.endsWith("?.")) return true;
+  }
+  return false;
 }
 
 // Resolve static import aliases for the CLI graph as well as the native

@@ -76,6 +76,7 @@
     "repo:intelligence": "node scripts/repo-intelligence.mjs",
     "check:repo-memory-mcp": "node scripts/check-repo-memory-mcp.mjs",
     "check:repo-intelligence-map": "node scripts/check-repo-intelligence-map-context.mjs",
+    "check:repo-intelligence-parity": "node --test scripts/repo-intelligence-parity.node-test.mjs",
     "check:switchboard-cli": "node scripts/check-switchboard-cli.mjs",
     "benchmarks": "node scripts/run-benchmarks.mjs",
     "benchmarks:check": "node --test scripts/run-benchmarks.node-test.mjs && node scripts/run-benchmarks.mjs --check --no-write",

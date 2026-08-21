@@ -660,6 +660,34 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("suppresses ambiguous and receiver-qualified fallback call edges", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/one.ts", bytes: 100, content: "export function run() {}" },
+      { path: "src/two.ts", bytes: 100, content: "export function run() {}" },
+      { path: "src/caller.ts", bytes: 120, content: "run(); client.run();" },
+      { path: "src/unique.ts", bytes: 100, content: "export function unique() {}" },
+      { path: "src/unique-caller.ts", bytes: 120, content: "unique();" },
+    ]);
+
+    expect(summary.graph?.symbolEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "call_reference",
+          to: expect.stringMatching(/#run$/),
+        }),
+      ]),
+    );
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src/unique-caller.ts",
+          to: "src/unique.ts#unique",
+          kind: "call_reference",
+        }),
+      ]),
+    );
+  });
+
   it("formats bounded context packs for agent handoff", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },

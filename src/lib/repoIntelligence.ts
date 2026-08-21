@@ -2924,6 +2924,17 @@ function buildCallReferenceEdges(
   const callableSymbols = symbols.filter(
     (symbol) => symbol.kind === "function" || symbol.kind === "const",
   );
+  const callableFilesByName = new Map<string, Set<string>>();
+  for (const symbol of callableSymbols) {
+    const filesForName = callableFilesByName.get(symbol.name) ?? new Set<string>();
+    filesForName.add(symbol.file);
+    callableFilesByName.set(symbol.name, filesForName);
+  }
+  const ambiguousNames = new Set(
+    [...callableFilesByName.entries()]
+      .filter(([, filesForName]) => filesForName.size > 1)
+      .map(([name]) => name),
+  );
   const edges: RepoGraphEdge[] = [];
 
   for (const file of sourceFiles) {
@@ -2931,7 +2942,8 @@ function buildCallReferenceEdges(
     if (!content) continue;
     for (const symbol of callableSymbols.slice(0, 120)) {
       if (file.path === symbol.file) continue;
-      if (!new RegExp(`\\b${escapeRegExp(symbol.name)}\\s*\\(`).test(content)) {
+      if (ambiguousNames.has(symbol.name)) continue;
+      if (!hasUnqualifiedCallReference(content, symbol.name)) {
         continue;
       }
       pushUniqueGraphEdge(edges, {
@@ -2945,6 +2957,15 @@ function buildCallReferenceEdges(
   }
 
   return edges;
+}
+
+function hasUnqualifiedCallReference(content: string, name: string): boolean {
+  const pattern = new RegExp(`\\b${escapeRegExp(name)}\\s*\\(`, "g");
+  for (const match of content.matchAll(pattern)) {
+    const before = content.slice(0, match.index ?? 0).trimEnd();
+    if (!before.endsWith(".") && !before.endsWith("?.")) return true;
+  }
+  return false;
 }
 
 function extractImportSpecifiers(content: string, language: string): string[] {

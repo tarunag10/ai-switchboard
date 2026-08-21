@@ -151,6 +151,9 @@ the current checkout.
 - Local readiness status now fails closed when JSON and Markdown source
   timestamps are missing, stale, future-dated, or inconsistent; freshness
   details are emitted in the report for operator diagnosis.
+- CLI and frontend Repo Intelligence fallback call matching now suppresses
+  duplicate cross-file callable names and receiver-qualified calls while
+  retaining unique direct-call edges; parity fixtures cover both surfaces.
 
 ### Remaining build work
 
