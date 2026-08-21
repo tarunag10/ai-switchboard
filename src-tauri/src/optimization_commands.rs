@@ -47,8 +47,7 @@ pub fn validate_model_routing(
 pub fn record_model_routing_evidence(
     observation: optimization::model_routing::ModelRoutingEvidenceObservation,
 ) -> Result<(), String> {
-    optimization::telemetry_store::record_model_routing_evidence(&observation);
-    Ok(())
+    optimization::telemetry_store::record_model_routing_evidence(&observation)
 }
 
 #[tauri::command]
@@ -57,4 +56,32 @@ pub fn export_model_routing_evidence(
     task_class: String,
 ) -> Result<optimization::telemetry_store::ModelRoutingEvidenceArtifact, String> {
     optimization::telemetry_store::export_model_routing_evidence(&run_id, &task_class)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::record_model_routing_evidence;
+    use crate::optimization::model_routing::{
+        ModelRoutingEvidenceArm, ModelRoutingEvidenceObservation,
+    };
+
+    #[test]
+    fn record_model_routing_evidence_propagates_validation_errors() {
+        let result = record_model_routing_evidence(ModelRoutingEvidenceObservation {
+            run_id: String::new(),
+            captured_at: "2026-08-21T00:00:00Z".to_string(),
+            task_class: "formatting".to_string(),
+            arm: ModelRoutingEvidenceArm::Baseline,
+            baseline_model: "baseline".to_string(),
+            candidate_model: "candidate".to_string(),
+            succeeded: false,
+            successful_task_cost_microunits: None,
+            quality_score_bps: 0,
+            latency_ms: 1,
+            follow_up_rework: false,
+        });
+
+        let error = result.expect_err("invalid evidence must not report success");
+        assert!(error.contains("invalid redacted model-routing evidence"));
+    }
 }
