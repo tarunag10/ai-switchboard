@@ -294,6 +294,15 @@ test("CLI matches the shared golden bounded JavaScript graph contract", () => {
     const summary = JSON.parse(
       execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }),
     );
+    assert.deepEqual(
+      {
+        totalFiles: summary.totalFiles,
+        indexedFiles: summary.indexedFiles,
+        skippedFiles: summary.skippedFiles,
+      },
+      goldenFixture.expected.counts,
+      "unexpected golden indexing counts",
+    );
     const callEdgeProjections = summary.graph.symbolEdges
       .filter((edge) => edge.kind === "call_reference")
       .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`);
@@ -307,6 +316,8 @@ test("CLI matches the shared golden bounded JavaScript graph contract", () => {
       assert.ok(!callEdges.has(forbidden), `unexpected golden edge ${forbidden}`);
     }
     const symbols = new Set(summary.graph.symbols.map((symbol) => `${symbol.file}#${symbol.name}`));
+    assert.equal(symbols.size, summary.graph.symbols.length, "golden symbols must be unique");
+    assert.deepEqual([...symbols].sort(), [...goldenFixture.expected.exactSymbols].sort(), "unexpected golden symbol projection");
     for (const expected of goldenFixture.expected.symbols) {
       assert.ok(symbols.has(expected), `missing golden symbol ${expected}`);
     }

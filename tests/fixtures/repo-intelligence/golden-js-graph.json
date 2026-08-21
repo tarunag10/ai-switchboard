@@ -52,9 +52,25 @@
     }
   ],
   "expected": {
+    "counts": {
+      "totalFiles": 12,
+      "indexedFiles": 12,
+      "skippedFiles": 0
+    },
     "exactCallEdges": [
       "src/consumer.ts->src/utils.ts#normalize",
       "src/consumer.ts->src/worker.ts#runTask"
+    ],
+    "exactSymbols": [
+      "src/a.ts#hidden",
+      "src/a.ts#runTask",
+      "src/b.ts#runTask",
+      "src/consumer.ts#start",
+      "src/dynamic.ts#target",
+      "src/negative.ts#check",
+      "src/utils.ts#hidden",
+      "src/utils.ts#normalize",
+      "src/worker.ts#runTask"
     ],
     "positiveCallEdges": [
       "src/consumer.ts->src/utils.ts#normalize",

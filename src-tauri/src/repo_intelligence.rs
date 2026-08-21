@@ -5782,10 +5782,11 @@ export const mapValues = <T>(items: T[]) => items;
             .expect("write golden file");
         }
 
-        let graph = summarize_repo(root.path())
-            .expect("summarize golden repo")
-            .graph
-            .expect("golden graph");
+        let summary = summarize_repo(root.path()).expect("summarize golden repo");
+        assert_eq!(summary.total_files, fixture["expected"]["counts"]["totalFiles"]);
+        assert_eq!(summary.indexed_files, fixture["expected"]["counts"]["indexedFiles"]);
+        assert_eq!(summary.skipped_files, fixture["expected"]["counts"]["skippedFiles"]);
+        let graph = summary.graph.expect("golden graph");
         let call_edge_projections = graph
             .symbol_edges
             .iter()
@@ -5823,6 +5824,14 @@ export const mapValues = <T>(items: T[]) => items;
             .iter()
             .map(|symbol| format!("{}#{}", symbol.file, symbol.name))
             .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(symbols.len(), graph.symbols.len(), "golden symbols must be unique");
+        let expected_symbols = fixture["expected"]["exactSymbols"]
+            .as_array()
+            .expect("exact golden symbols")
+            .iter()
+            .map(|symbol| symbol.as_str().expect("exact symbol string").to_string())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(symbols, expected_symbols, "unexpected golden symbol projection");
         for expected in fixture["expected"]["symbols"].as_array().expect("golden symbols") {
             let expected = expected.as_str().expect("golden symbol string");
             assert!(symbols.contains(expected), "missing golden symbol {expected}");

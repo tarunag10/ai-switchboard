@@ -30,6 +30,11 @@ import goldenFixture from "../../tests/fixtures/repo-intelligence/golden-js-grap
 describe("repoIntelligence", () => {
   it("matches the shared golden bounded JavaScript graph contract", () => {
     const summary = buildRepoIntelligenceSummary(goldenFixture.files);
+    expect({
+      totalFiles: summary.totalFiles,
+      indexedFiles: summary.indexedFiles,
+      skippedFiles: summary.indexMetadata?.skippedFileCount ?? 0,
+    }).toEqual(goldenFixture.expected.counts);
     const callEdgeProjections = (summary.graph?.symbolEdges ?? [])
       .filter((edge) => edge.kind === "call_reference")
       .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`);
@@ -45,6 +50,8 @@ describe("repoIntelligence", () => {
     const symbols = new Set(
       (summary.graph?.symbols ?? []).map((symbol) => `${symbol.file}#${symbol.name}`),
     );
+    expect(symbols.size).toBe((summary.graph?.symbols ?? []).length);
+    expect([...symbols].sort()).toEqual([...goldenFixture.expected.exactSymbols].sort());
     for (const expected of goldenFixture.expected.symbols) {
       expect(symbols, `missing golden symbol ${expected}`).toContain(expected);
     }

@@ -126,6 +126,9 @@ the current checkout.
 - The shared Repo Intelligence golden graph now requires an exact, sorted,
   duplicate-free normalized call-edge projection across CLI, frontend, and
   native implementations; unexpected or repeated edges fail the parity gate.
+- The same golden contract now requires exact symbol projections and matching
+  total/indexed/skipped file counts across CLI, frontend metadata, and native
+  summaries, closing indexing-drift gaps in the parity harness.
 - Release operator action validation now rejects null, array, empty-label,
   and non-string blocker entries before action mapping, preserving the
   no-refresh report without rewriting it.
