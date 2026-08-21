@@ -50,6 +50,21 @@ pub fn record_model_routing_evidence(
     optimization::telemetry_store::record_model_routing_evidence(&observation)
 }
 
+/// Converts content-free completion metrics into validated redacted evidence
+/// and persists it through the same telemetry boundary as imported evidence.
+/// This does not change the routing decision or enable automatic routing.
+#[tauri::command]
+pub fn record_model_routing_completion(
+    decision: optimization::model_routing::ModelRouteDecision,
+    completion: optimization::model_routing::ModelRoutingCompletionEvidence,
+) -> Result<(), String> {
+    let observation = optimization::model_routing::observation_from_completed_route(
+        &decision,
+        completion,
+    )?;
+    optimization::telemetry_store::record_model_routing_evidence(&observation)
+}
+
 #[tauri::command]
 pub fn export_model_routing_evidence(
     run_id: String,
@@ -60,8 +75,9 @@ pub fn export_model_routing_evidence(
 
 #[cfg(test)]
 mod tests {
-    use super::record_model_routing_evidence;
+    use super::{record_model_routing_completion, record_model_routing_evidence};
     use crate::optimization::model_routing::{
+        decide_model_route, ModelRouteInput, ModelRoutingCompletionEvidence,
         ModelRoutingEvidenceArm, ModelRoutingEvidenceObservation,
     };
 
@@ -83,5 +99,31 @@ mod tests {
 
         let error = result.expect_err("invalid evidence must not report success");
         assert!(error.contains("invalid redacted model-routing evidence"));
+    }
+
+    #[test]
+    fn record_model_routing_completion_rejects_missing_quality_before_persistence() {
+        let decision = decide_model_route(&ModelRouteInput {
+            client: "claude_code".to_string(),
+            task: "format this file".to_string(),
+            requested_model: "frontier".to_string(),
+            cheap_model: "fast/local".to_string(),
+            capable_model: "frontier".to_string(),
+            enabled: true,
+        });
+        let error = record_model_routing_completion(
+            decision,
+            ModelRoutingCompletionEvidence {
+                run_id: "run-completion-1".to_string(),
+                captured_at: "2026-08-21T00:00:00Z".to_string(),
+                succeeded: true,
+                successful_task_cost_microunits: Some(100),
+                quality_score_bps: None,
+                latency_ms: 10,
+                follow_up_rework: Some(false),
+            },
+        )
+        .expect_err("completion bridge must require explicit quality evidence");
+        assert!(error.contains("explicit quality score"));
     }
 }

@@ -168,6 +168,37 @@ export interface ModelRoutingEvidenceObservation {
   followUpRework: boolean;
 }
 
+export interface ModelRoutingRouteDecision {
+  selectedModel: string;
+  actualModel: string;
+  observeOnly: boolean;
+  reason: string;
+  reasons: string[];
+  stage: ModelRoutingStage;
+  taskClass: string;
+  baselineModel: string;
+  candidateModel: string;
+  evidence?: {
+    successRegressionBps: number;
+    qualityRegressionBps: number;
+    costImprovementBps: number;
+    latencyRegressionMs: number;
+    followUpReworkRateBps: number;
+    passed: boolean;
+    explanation: string;
+  } | null;
+}
+
+export interface ModelRoutingCompletionEvidence {
+  runId: string;
+  capturedAt: string;
+  succeeded: boolean;
+  successfulTaskCostMicrounits?: number | null;
+  qualityScoreBps?: number | null;
+  latencyMs: number;
+  followUpRework?: boolean | null;
+}
+
 export interface ModelRoutingEvidenceArtifact {
   schemaVersion: number;
   evidenceClass: "local_runtime_observation";
@@ -446,6 +477,13 @@ export function recordModelRoutingEvidence(
   observation: ModelRoutingEvidenceObservation,
 ): Promise<void> {
   return invoke<void>("record_model_routing_evidence", { observation });
+}
+
+export function recordModelRoutingCompletion(
+  decision: ModelRoutingRouteDecision,
+  completion: ModelRoutingCompletionEvidence,
+): Promise<void> {
+  return invoke<void>("record_model_routing_completion", { decision, completion });
 }
 
 export function exportModelRoutingEvidence(

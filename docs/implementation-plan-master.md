@@ -111,6 +111,9 @@ the current checkout.
 - Managed connector listings now expose read-only config previews for the
   already-tested sidecar/native lifecycle adapters; preview writes remain empty
   and explicit backup/apply/verify/rollback/Off actions remain required.
+- Model-routing completion metrics now have a typed content-free Tauri bridge
+  through validation and redacted persistence; automatic routing remains
+  observe-only and raw proxy completion is not treated as benchmark evidence.
 
 ### Done — prepared and shipped
 
@@ -345,8 +348,9 @@ the current checkout.
    remains pending; the local runtime exporter is ready but automatic routing
    stays observe-only until that evidence and approval exists. A content-free
    completed-route adapter now enforces explicit quality, rework, and
-   successful-task cost inputs before producing a store-ready observation;
-   wiring it into a central production completion hook remains pending.
+   successful-task cost inputs before producing a store-ready observation; the
+   typed persistence bridge is shipped, while wiring it into a central
+   production completion hook remains pending.
    Native and TypeScript defaults now align with the 100-sample evidence
    contract; transport-only proxy completion still lacks arm, task-class,
    quality, rework, and provider-billed cost context.

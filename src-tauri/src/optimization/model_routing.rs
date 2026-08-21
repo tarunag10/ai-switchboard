@@ -243,7 +243,8 @@ pub(crate) struct ModelRoutingEvidenceObservation {
 /// Content-free metrics supplied by a completed route. Quality, rework, and
 /// successful-task cost are intentionally caller-provided: routing code must
 /// never infer them from prompts, responses, token counts, or latency alone.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ModelRoutingCompletionEvidence {
     pub(crate) run_id: String,
     pub(crate) captured_at: String,

@@ -13,6 +13,7 @@ import {
   normalizeOptimizationSnapshot,
   runPreemptiveCompaction,
   recordModelRoutingEvidence,
+  recordModelRoutingCompletion,
   saveModelRoutingExperimentPolicy,
   saveOptimizationActionPolicy,
   validateModelRouting,
@@ -328,6 +329,36 @@ describe("optimization helpers", () => {
       ["record_model_routing_evidence", { observation }],
       ["export_model_routing_evidence", { runId: "run-1", taskClass: "formatting" }],
     ]);
+  });
+
+  it("routes completion metrics through the validated native bridge", async () => {
+    const decision = {
+      selectedModel: "fast/local",
+      actualModel: "frontier",
+      observeOnly: true,
+      reason: "observe",
+      reasons: ["task_class=formatting"],
+      stage: "observe" as const,
+      taskClass: "formatting",
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      evidence: null,
+    };
+    const completion = {
+      runId: "run-completion-1",
+      capturedAt: "2026-08-21T10:00:00Z",
+      succeeded: true,
+      successfulTaskCostMicrounits: 900,
+      qualityScoreBps: 9800,
+      latencyMs: 700,
+      followUpRework: false,
+    };
+    invokeMock.mockResolvedValueOnce(undefined);
+    await expect(recordModelRoutingCompletion(decision, completion)).resolves.toBeUndefined();
+    expect(invokeMock).toHaveBeenCalledWith("record_model_routing_completion", {
+      decision,
+      completion,
+    });
   });
 
   it("returns a safe local compaction preview on native failure", async () => {
