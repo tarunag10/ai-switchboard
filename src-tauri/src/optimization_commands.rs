@@ -75,11 +75,16 @@ pub fn export_model_routing_evidence(
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
+    use tempfile::tempdir;
+
     use super::{record_model_routing_completion, record_model_routing_evidence};
     use crate::optimization::model_routing::{
         decide_model_route, ModelRouteInput, ModelRoutingCompletionEvidence,
         ModelRoutingEvidenceArm, ModelRoutingEvidenceObservation,
     };
+    use crate::optimization::telemetry_store::export_model_routing_evidence;
 
     #[test]
     fn record_model_routing_evidence_propagates_validation_errors() {
@@ -125,5 +130,84 @@ mod tests {
         )
         .expect_err("completion bridge must require explicit quality evidence");
         assert!(error.contains("explicit quality score"));
+    }
+
+    #[test]
+    fn completion_harness_exports_one_pair_and_stays_observe_only() {
+        let _guard = crate::optimization::telemetry::test_guard();
+        let home = tempdir().expect("temp home");
+        let previous_home = env::var_os("HOME");
+        env::set_var("HOME", home.path());
+
+        let baseline = decide_model_route(&ModelRouteInput {
+            client: "claude_code".to_string(),
+            task: "format this file".to_string(),
+            requested_model: "frontier".to_string(),
+            cheap_model: "fast/local".to_string(),
+            capable_model: "frontier".to_string(),
+            enabled: true,
+        });
+        // The production facade remains observe-only, so the harness uses a
+        // redacted candidate arm decision without invoking an automatic route.
+        let mut candidate = baseline.clone();
+        candidate.actual_model = "fast/local".to_string();
+        candidate.baseline_model = "frontier".to_string();
+        candidate.candidate_model = "fast/local".to_string();
+        assert!(baseline.observe_only && candidate.observe_only);
+
+        let run_id = "completion-harness-run";
+        let baseline_time = chrono::Utc::now().to_rfc3339();
+        record_model_routing_completion(
+            baseline.clone(),
+            ModelRoutingCompletionEvidence {
+                run_id: run_id.to_string(),
+                captured_at: baseline_time.clone(),
+                succeeded: true,
+                successful_task_cost_microunits: Some(1_000),
+                quality_score_bps: Some(9_800),
+                latency_ms: 800,
+                follow_up_rework: Some(false),
+            },
+        )
+        .expect("baseline completion should persist");
+        record_model_routing_completion(
+            candidate,
+            ModelRoutingCompletionEvidence {
+                run_id: run_id.to_string(),
+                captured_at: (chrono::Utc::now() + chrono::Duration::milliseconds(1)).to_rfc3339(),
+                succeeded: true,
+                successful_task_cost_microunits: Some(700),
+                quality_score_bps: Some(9_800),
+                latency_ms: 820,
+                follow_up_rework: Some(false),
+            },
+        )
+        .expect("candidate completion should persist");
+
+        let artifact = export_model_routing_evidence(run_id, "formatting")
+            .expect("completion harness should export evidence");
+        assert_eq!(artifact.baseline.sample_count, 1);
+        assert_eq!(artifact.candidate.sample_count, 1);
+        assert!(!artifact.promotion_eligible);
+
+        let duplicate_error = record_model_routing_completion(
+            baseline,
+            ModelRoutingCompletionEvidence {
+                run_id: run_id.to_string(),
+                captured_at: baseline_time,
+                succeeded: true,
+                successful_task_cost_microunits: Some(1_000),
+                quality_score_bps: Some(9_800),
+                latency_ms: 800,
+                follow_up_rework: Some(false),
+            },
+        )
+        .expect_err("duplicate completion must fail closed");
+        assert!(duplicate_error.contains("duplicate"));
+
+        match previous_home {
+            Some(value) => env::set_var("HOME", value),
+            None => env::remove_var("HOME"),
+        }
     }
 }

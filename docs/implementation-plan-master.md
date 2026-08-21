@@ -114,6 +114,9 @@ the current checkout.
 - Model-routing completion metrics now have a typed content-free Tauri bridge
   through validation and redacted persistence; automatic routing remains
   observe-only and raw proxy completion is not treated as benchmark evidence.
+- A deterministic completion harness now exercises one baseline/candidate pair,
+  export reconciliation, duplicate rejection, and the permanently observe-only
+  local-runtime result without network or provider traffic.
 - Repo Intelligence frontend, CLI, and native traversal now treat case-variant
   dependency/generated directories as ignored, with parity fixtures for
   `Node_modules`, `Vendor`, and `DIST`.
