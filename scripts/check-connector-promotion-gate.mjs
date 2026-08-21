@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { validateConnectorPromotionFixture } from "./connector-promotion-contract.mjs";
 
 const root = process.cwd();
 const fixturePath = path.join(root, "fixtures/connector-promotion-evidence.json");
@@ -41,12 +42,7 @@ if (!fs.existsSync(fixturePath)) {
 }
 
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
-if (!Array.isArray(fixture.requiredSidecarStages) || fixture.requiredSidecarStages.length < 7) {
-  fail("connector promotion fixture must define required sidecar stages");
-}
-if (!fixture.gatedNativeConnectorIds?.includes("cursor")) {
-  fail("connector promotion fixture must keep cursor native writes gated");
-}
+for (const error of validateConnectorPromotionFixture(fixture)) fail(error);
 
 console.log(
   JSON.stringify(

@@ -101,7 +101,7 @@
     "check:comprehensive-compression-success": "node scripts/check-comprehensive-compression-success.mjs",
     "check:p1-savings-supremacy": "node scripts/check-p1-savings-supremacy.mjs",
     "check:p2-universal-agent-coverage": "node scripts/check-p2-universal-agent-coverage.mjs",
-    "check:connector-promotion-gate": "node scripts/check-connector-promotion-gate.mjs",
+    "check:connector-promotion-gate": "node --test scripts/connector-promotion-contract.node-test.mjs && node scripts/check-connector-promotion-gate.mjs",
     "check:repo-memory-mcp-supervision-gate": "node scripts/check-repo-memory-mcp-supervision-gate.mjs",
     "check:cursor-native-gate": "node scripts/check-cursor-native-gate.mjs",
     "check:phase3-maintainability": "node scripts/check-phase3-maintainability.mjs",
