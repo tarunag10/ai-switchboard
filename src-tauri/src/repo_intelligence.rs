@@ -1272,7 +1272,8 @@ fn should_skip_dir(name: &OsStr) -> bool {
     let Some(name) = name.to_str() else {
         return true;
     };
-    IGNORED_DIRS.iter().any(|ignored| ignored == &name)
+    let normalized = name.to_ascii_lowercase();
+    IGNORED_DIRS.iter().any(|ignored| *ignored == normalized)
 }
 
 fn metadata_modified_unix_ms(metadata: &std::fs::Metadata) -> u64 {
@@ -1571,7 +1572,10 @@ fn classify_file(path: &str, bytes: u64) -> RepoFileSignal {
 fn is_ignored_path(path: &str) -> bool {
     path.replace('\\', "/")
         .split('/')
-        .any(|segment| IGNORED_DIRS.iter().any(|ignored| ignored == &segment))
+        .any(|segment| {
+            let normalized = segment.to_ascii_lowercase();
+            IGNORED_DIRS.iter().any(|ignored| *ignored == normalized)
+        })
 }
 
 fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoGraphSummary {
@@ -3923,6 +3927,10 @@ mod tests {
         ));
         assert!(matches!(
             classify_file("dist/assets/index.js", 100).role,
+            RepoFileRole::Generated
+        ));
+        assert!(matches!(
+            classify_file("DIST/assets/index.js", 100).role,
             RepoFileRole::Generated
         ));
         assert!(matches!(

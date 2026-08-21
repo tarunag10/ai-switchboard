@@ -186,13 +186,32 @@ test("CLI skips oversized source files and ignored dependency directories determ
   try {
     fs.mkdirSync(path.join(repo, "src"), { recursive: true });
     fs.mkdirSync(path.join(repo, "vendor", "nested"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "Node_modules", "nested"), { recursive: true });
     fs.writeFileSync(path.join(repo, "src/small.ts"), "export const ok = true;\n");
     fs.writeFileSync(path.join(repo, "src/large.ts"), "x".repeat(1_000_001));
     fs.writeFileSync(path.join(repo, "vendor", "nested", "ignored.ts"), "export const no = true;\n");
+    fs.writeFileSync(path.join(repo, "Node_modules", "nested", "ignored-too.ts"), "export const no = true;\n");
     const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
     assert.equal(summary.indexedFiles, 1);
     assert.equal(summary.skippedFiles, 1);
     assert.equal(summary.roleCounts.generated, 1);
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("CLI ignores case-variant generated directories", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-case-ignored-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "DIST", "assets"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "Vendor", "nested"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/app.ts"), "export const ok = true;\n");
+    fs.writeFileSync(path.join(repo, "DIST", "assets/app.js"), "export const no = true;\n");
+    fs.writeFileSync(path.join(repo, "Vendor", "nested/ignored.ts"), "export const no = true;\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.equal(summary.indexedFiles, 1);
+    assert.equal(summary.skippedFiles, 0);
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }

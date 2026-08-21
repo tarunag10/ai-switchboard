@@ -894,7 +894,7 @@ function isIgnoredRepoTraversalPath(filePath: string): boolean {
   return filePath
     .replace(/\\/g, "/")
     .split("/")
-    .some((segment) => ignoredRepoDirectoryNames.has(segment));
+    .some((segment) => ignoredRepoDirectoryNames.has(segment.toLowerCase()));
 }
 export const repoIntelligenceIndexerVersion = "path-graph-v11";
 export const MAX_REPO_SCAN_FILES = 2_500;
@@ -985,7 +985,7 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
   const secretLike = isSecretLikeRepoPath(normalized);
 
   if (
-    generatedPathPatterns.some((pattern) => pattern.test(normalized)) ||
+    generatedPathPatterns.some((pattern) => pattern.test(lower)) ||
     secretLike ||
     bytes > MAX_INDEXED_REPO_FILE_BYTES
   ) {

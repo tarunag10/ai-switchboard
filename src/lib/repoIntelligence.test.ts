@@ -56,7 +56,18 @@ describe("repoIntelligence", () => {
     expect(classifyRepoFile("docs/install.md", 100).role).toBe("docs");
     expect(classifyRepoFile("package-lock.json", 100).role).toBe("lockfile");
     expect(classifyRepoFile("dist/assets/app.js", 100).role).toBe("generated");
+    expect(classifyRepoFile("DIST/assets/app.js", 100).role).toBe("generated");
     expect(classifyRepoFile("src/assets/logo.svg", 100).role).toBe("asset");
+  });
+
+  it("ignores case-variant dependency directories during traversal", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/app.ts", bytes: 100 },
+      { path: "Node_modules/pkg/index.ts", bytes: 100 },
+      { path: "Vendor/generated.ts", bytes: 100 },
+    ]);
+    expect(summary.totalFiles).toBe(1);
+    expect(summary.indexedFiles).toBe(1);
   });
 
   it("uses the shared precedence for secrets, shell files, nested docs, and large files", () => {

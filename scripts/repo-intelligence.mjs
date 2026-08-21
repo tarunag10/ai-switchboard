@@ -726,7 +726,7 @@ function walk(repoRoot, dir = repoRoot, files = []) {
     .readdirSync(dir, { withFileTypes: true })
     .sort((left, right) => left.name.localeCompare(right.name));
   for (const entry of entries) {
-    if (ignoredSegments.has(entry.name)) continue;
+    if (ignoredSegments.has(entry.name.toLowerCase())) continue;
     const absolute = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       walk(repoRoot, absolute, files);

@@ -114,6 +114,9 @@ the current checkout.
 - Model-routing completion metrics now have a typed content-free Tauri bridge
   through validation and redacted persistence; automatic routing remains
   observe-only and raw proxy completion is not treated as benchmark evidence.
+- Repo Intelligence frontend, CLI, and native traversal now treat case-variant
+  dependency/generated directories as ignored, with parity fixtures for
+  `Node_modules`, `Vendor`, and `DIST`.
 
 ### Done — prepared and shipped
 
@@ -362,8 +365,9 @@ the current checkout.
    fields, and the shared public-proof/shareable-DMG gate consistency contract
    are shipped; executing the external checklist still requires signing
    credentials, a current public artifact, and a real reboot.
-3. **Repo Intelligence depth:** ambiguity handling, indexer versioning, and
-   bounded named default-import/default-re-export resolution are shipped;
+3. **Repo Intelligence depth:** ambiguity handling, indexer versioning,
+   case-insensitive generated-directory exclusion, and bounded named
+   default-import/default-re-export resolution are shipped;
    remaining work is deeper bounded semantic resolution only where it remains
    deterministic. Whole-program type inference and dynamic dispatch stay out
    of scope unless a separate evidence-backed design is approved.
