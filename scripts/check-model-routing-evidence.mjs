@@ -65,15 +65,31 @@ function validateFixture(value) {
       throw new Error(`provenance.${field} is required`);
     }
   }
+  if (!["local_estimate", "provider_declared"].includes(provenance.costAttribution)) {
+    throw new Error("provenance.costAttribution must be local_estimate or provider_declared");
+  }
+  if (provenance.costAttribution === "provider_declared") {
+    if (typeof provenance.providerId !== "string" || provenance.providerId.trim() === "") {
+      throw new Error("provider-declared cost attribution requires provenance.providerId");
+    }
+  } else if (provenance.providerId !== undefined) {
+    throw new Error("local-estimate cost attribution must not include provenance.providerId");
+  }
   if (provenance.baselineModel.trim() === provenance.candidateModel.trim()) {
     throw new Error("provenance baselineModel and candidateModel must differ");
   }
   if (value.evidenceClass === "offline_static_fixture" && provenance.source !== "offline_fixture") {
     throw new Error("offline evidence provenance.source must be offline_fixture");
   }
+  if (value.evidenceClass === "offline_static_fixture" && provenance.costAttribution !== "local_estimate") {
+    throw new Error("offline evidence cost attribution must remain local_estimate");
+  }
   if (value.evidenceClass === "local_runtime_observation") {
     if (provenance.source !== "local_runtime_observation") {
       throw new Error("local evidence provenance.source must be local_runtime_observation");
+    }
+    if (provenance.costAttribution !== "local_estimate") {
+      throw new Error("local runtime evidence cost attribution must remain local_estimate");
     }
     for (const field of ["runId", "capturedAt"]) {
       if (typeof value.provenance[field] !== "string" || value.provenance[field].trim() === "") {
@@ -92,6 +108,9 @@ function validateFixture(value) {
     throw new Error("offline evidence must never be promotion eligible");
   }
   if (value.evidenceClass === "approved_live_run") {
+    if (provenance.costAttribution !== "provider_declared") {
+      throw new Error("approved live runs require provider_declared cost attribution");
+    }
     if (value.baseline.sampleCount < value.minimumSamples) {
       throw new Error(`approved live runs require at least ${value.minimumSamples} samples per arm`);
     }

@@ -125,6 +125,8 @@ fn model_routing_evidence_round_trips_and_exports_observe_only_artifact() {
     assert_eq!(artifact.candidate.successful_task_cost_micros, 700);
     assert!(!artifact.promotion_eligible);
     assert_eq!(artifact.provenance.task_class, "formatting");
+    assert_eq!(artifact.provenance.cost_attribution, "local_estimate");
+    assert_eq!(artifact.provenance.provider_id, None);
     let serialized = serde_json::to_value(&artifact).expect("serialized evidence");
     assert_eq!(serialized["evidenceClass"], "local_runtime_observation");
     assert_eq!(serialized["promotionEligible"], false);

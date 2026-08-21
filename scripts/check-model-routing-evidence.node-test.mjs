@@ -54,12 +54,31 @@ test("rejects missing or non-distinct evidence provenance", () => {
   }
 });
 
+test("requires explicit provider identity for provider-declared costs", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-cost-provenance-"));
+  try {
+    const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
+    const fixturePath = path.join(tempDir, "invalid-cost-provenance.json");
+    fixture.provenance.costAttribution = "provider_declared";
+    fs.writeFileSync(fixturePath, JSON.stringify(fixture));
+    assert.throws(() => execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], { encoding: "utf8" }));
+    fixture.provenance.costAttribution = "local_estimate";
+    fixture.provenance.providerId = "unexpected-provider";
+    fs.writeFileSync(fixturePath, JSON.stringify(fixture));
+    assert.throws(() => execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], { encoding: "utf8" }));
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("rejects unequal arms and future live-run timestamps", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-evidence-"));
   try {
     const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
     fixture.evidenceClass = "approved_live_run";
     fixture.provenance.source = "approved_live_run";
+    fixture.provenance.costAttribution = "provider_declared";
+    fixture.provenance.providerId = "test-provider";
     fixture.promotionEligible = true;
     fixture.minimumSamples = 1;
     fixture.baseline.sampleCount = 2;
@@ -81,6 +100,8 @@ test("rejects stale or timezone-free live-run timestamps", () => {
     const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
     fixture.evidenceClass = "approved_live_run";
     fixture.provenance.source = "approved_live_run";
+    fixture.provenance.costAttribution = "provider_declared";
+    fixture.provenance.providerId = "test-provider";
     fixture.promotionEligible = false;
     fixture.minimumSamples = 1;
     fixture.baseline.sampleCount = 1;
@@ -104,6 +125,8 @@ test("recomputes a passing live run instead of trusting promotionEligible", () =
     const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
     fixture.evidenceClass = "approved_live_run";
     fixture.provenance.source = "approved_live_run";
+    fixture.provenance.costAttribution = "provider_declared";
+    fixture.provenance.providerId = "test-provider";
     fixture.promotionEligible = true;
     fixture.minimumSamples = 100;
     fixture.baseline.sampleCount = 100;
@@ -138,6 +161,8 @@ test("keeps large cost-improvement arithmetic bounded and exact enough for the g
     const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
     fixture.evidenceClass = "approved_live_run";
     fixture.provenance.source = "approved_live_run";
+    fixture.provenance.costAttribution = "provider_declared";
+    fixture.provenance.providerId = "test-provider";
     fixture.promotionEligible = true;
     fixture.minimumSamples = 1;
     fixture.baseline.sampleCount = 100;
@@ -169,6 +194,8 @@ test("rejects a live fixture that claims eligibility while failing thresholds", 
     const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
     fixture.evidenceClass = "approved_live_run";
     fixture.provenance.source = "approved_live_run";
+    fixture.provenance.costAttribution = "provider_declared";
+    fixture.provenance.providerId = "test-provider";
     fixture.promotionEligible = true;
     fixture.minimumSamples = 100;
     fixture.baseline.sampleCount = 100;
@@ -192,6 +219,8 @@ test("rejects approved live evidence with zero successful tasks", () => {
     const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
     fixture.evidenceClass = "approved_live_run";
     fixture.provenance.source = "approved_live_run";
+    fixture.provenance.costAttribution = "provider_declared";
+    fixture.provenance.providerId = "test-provider";
     fixture.promotionEligible = false;
     fixture.minimumSamples = 100;
     fixture.runId = "zero-success-run";
@@ -217,6 +246,8 @@ test("rejects success rates inconsistent with successful task counts", () => {
     const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
     fixture.evidenceClass = "approved_live_run";
     fixture.provenance.source = "approved_live_run";
+    fixture.provenance.costAttribution = "provider_declared";
+    fixture.provenance.providerId = "test-provider";
     fixture.promotionEligible = false;
     fixture.minimumSamples = 1;
     fixture.runId = "inconsistent-rate-run";

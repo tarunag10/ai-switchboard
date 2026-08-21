@@ -122,6 +122,8 @@ pub(crate) struct ModelRoutingEvidenceProvenance {
     pub(crate) baseline_model: String,
     pub(crate) candidate_model: String,
     pub(crate) source: &'static str,
+    pub(crate) cost_attribution: &'static str,
+    pub(crate) provider_id: Option<String>,
     pub(crate) run_id: String,
     pub(crate) captured_at: String,
 }
@@ -341,6 +343,8 @@ pub(crate) fn export_model_routing_evidence(
             baseline_model,
             candidate_model,
             source: "local_runtime_observation",
+            cost_attribution: "local_estimate",
+            provider_id: None,
             run_id: run_id.to_string(),
             captured_at,
         },

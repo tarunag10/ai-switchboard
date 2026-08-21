@@ -7,7 +7,8 @@
     "taskClass": "formatting",
     "baselineModel": "frontier",
     "candidateModel": "fast/local",
-    "source": "offline_fixture"
+    "source": "offline_fixture",
+    "costAttribution": "local_estimate"
   },
   "baseline": {
     "sampleCount": 0,

@@ -135,6 +135,10 @@ the current checkout.
 - Connector dry-run preview tests now require non-empty target, marker,
   backup, rollback, and confirmation fields while retaining the zero-write
   invariant for gated previews.
+- Model-routing evidence now carries explicit `costAttribution`: offline and
+  local-runtime artifacts are permanently `local_estimate`, while approved
+  live runs require `provider_declared` attribution plus a provider identity;
+  the eligibility thresholds are unchanged.
 
 ### Done — prepared and shipped
 
