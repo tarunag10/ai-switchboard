@@ -225,6 +225,11 @@ the current checkout.
   candidate paths before applying the 2,500-file cap, preventing directory
   traversal or caller input order from changing indexed membership; boundary
   tests cover all three surfaces.
+- Installed-app evidence scripts now select only the canonical
+  `/Applications/AI Switchboard.app` path, with a shared bundle identity
+  contract rejecting legacy-name or wrong-bundle metadata; this preserves the
+  external signed/notarized/reboot proof boundary while removing app-selection
+  ambiguity.
 
 ### Remaining build work
 
@@ -237,9 +242,9 @@ the current checkout.
    quality, and latency observations from real approved runs remains pending;
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
-   report freshness contract, and local source-lineage fields are shipped;
-   executing the external checklist still requires signing credentials, a
-   current public artifact, and a real reboot.
+   canonical app identity, report freshness contract, and local source-lineage
+   fields are shipped; executing the external checklist still requires signing
+   credentials, a current public artifact, and a real reboot.
 3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
    shipped; remaining work is deterministic cross-surface parity for the
    frontend/native ignored-directory and role-precedence matrices. Whole-

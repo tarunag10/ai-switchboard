@@ -2,21 +2,14 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
 
 const summaryPath = "dist/reboot-level-installed-proof-summary.md";
 const jsonPath = "dist/reboot-level-installed-proof-summary.json";
 const defaultMarkerPath = "dist/reboot-level-installed-proof-marker.json";
 const markerPath =
   process.env.MAC_AI_SWITCHBOARD_REBOOT_MARKER_PATH || defaultMarkerPath;
-const appPathCandidates = [
-  "/Applications/AI Switchboard for Mac.app",
-  "/Applications/AI Switchboard.app",
-  "/Applications/Mac AI Switchboard.app",
-  "/Applications/Mac Switchboard.app",
-];
-const appPath =
-  appPathCandidates.find((candidate) => fs.existsSync(candidate)) ??
-  appPathCandidates[0];
+const appPath = canonicalInstalledAppPath;
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 
 const supportingArtifacts = [

@@ -2,14 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
 
-const appCandidates = [
-  { path: "/Applications/AI Switchboard.app", name: "AI Switchboard" },
-  { path: "/Applications/AI Switchboard for Mac.app", name: "AI Switchboard for Mac" },
-  { path: "/Applications/Mac AI Switchboard.app", name: "Mac AI Switchboard" },
-  { path: "/Applications/Mac Switchboard.app", name: "Mac Switchboard" },
-];
-const installedApp = appCandidates.find((candidate) => fs.existsSync(candidate.path)) ?? appCandidates[0];
+const installedApp = { path: canonicalInstalledAppPath, name: "AI Switchboard" };
 const appPath = installedApp.path;
 const appName = installedApp.name;
 const appProcess = "mac-ai-switchboard";

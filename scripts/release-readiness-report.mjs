@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { assessSummaryFreshness, extractGeneratedAt } from "./release-summary-contract.mjs";
 import { validateModeRelaunchSummary } from "./local-mode-relaunch-contract.mjs";
+import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
 
 const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
@@ -44,15 +45,7 @@ const localOnlyNetworkSummaryPath =
 const localOnlyNetworkJsonPath =
   "dist/local-only-network-validation-summary.json";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
-const appPathCandidates = [
-  "/Applications/AI Switchboard for Mac.app",
-  "/Applications/AI Switchboard.app",
-  "/Applications/Mac AI Switchboard.app",
-  "/Applications/Mac Switchboard.app",
-];
-const appPath =
-  appPathCandidates.find((candidate) => fs.existsSync(candidate)) ??
-  appPathCandidates[0];
+const appPath = canonicalInstalledAppPath;
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const staticSmokeRequiredEvidence = [
   "Switchboard modes",
