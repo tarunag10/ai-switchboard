@@ -126,7 +126,7 @@ describe("launcher helpers", () => {
       {
         clientId: "claude_code",
         name: "Claude Code",
-        state: "processing",
+        state: "waiting",
         message: "Ready to send a Claude Code test prompt.",
         oneClickSupported: true
       }

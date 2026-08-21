@@ -1288,6 +1288,14 @@ export default function TrayApp() {
               if (row.state === "verified") {
                 return row;
               }
+              // One-click rows are verified only after the connector smoke
+              // command returned the exact expected response. A request
+              // counter tick alone can be unrelated traffic or a mismatched
+              // model response, so it must not turn a failed smoke attempt
+              // green.
+              if (row.oneClickSupported && row.state !== "processing") {
+                return row;
+              }
               const agentKey = row.clientId.replace(/_/g, "-");
               const now = counts[agentKey] ?? 0;
               const base = anchor[agentKey] ?? 0;

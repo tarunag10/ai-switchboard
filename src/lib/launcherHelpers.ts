@@ -153,7 +153,9 @@ export function buildInitialProxyVerificationRows(
     .map((connector) => ({
       clientId: connector.clientId,
       name: connector.name,
-      state: "processing",
+      state: connectorSupportsAutomaticSetup(connector)
+        ? "waiting"
+        : "processing",
       message: ["claude_code", "codex"].includes(connector.clientId)
         ? `Ready to send a ${connector.name} test prompt.`
         : `Open ${connector.name} and send one tiny prompt to verify routing.`,
