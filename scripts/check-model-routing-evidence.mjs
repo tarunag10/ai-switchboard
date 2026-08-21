@@ -46,6 +46,21 @@ function validateFixture(value) {
   if (value.baseline.sampleCount !== value.candidate.sampleCount) {
     throw new Error("baseline and candidate sampleCount must match");
   }
+  const provenance = value.provenance;
+  if (!provenance || typeof provenance !== "object") {
+    throw new Error("provenance is required");
+  }
+  for (const field of ["taskClass", "baselineModel", "candidateModel", "source"]) {
+    if (typeof provenance[field] !== "string" || provenance[field].trim() === "") {
+      throw new Error(`provenance.${field} is required`);
+    }
+  }
+  if (provenance.baselineModel.trim() === provenance.candidateModel.trim()) {
+    throw new Error("provenance baselineModel and candidateModel must differ");
+  }
+  if (value.evidenceClass === "offline_static_fixture" && provenance.source !== "offline_fixture") {
+    throw new Error("offline evidence provenance.source must be offline_fixture");
+  }
   if (value.evidenceClass !== "approved_live_run" && value.promotionEligible !== false) {
     throw new Error("offline evidence must never be promotion eligible");
   }
@@ -54,6 +69,9 @@ function validateFixture(value) {
       throw new Error(`approved live runs require at least ${value.minimumSamples} samples per arm`);
     }
     if (value.promotionEligible !== true) throw new Error("approved live run must state promotionEligible explicitly");
+    if (provenance.source !== "approved_live_run") {
+      throw new Error("approved live run provenance.source must be approved_live_run");
+    }
     for (const field of ["runId", "capturedAt", "approvalReceipt"]) {
       if (typeof value[field] !== "string" || value[field].trim() === "") throw new Error(`approved live run requires ${field}`);
     }
@@ -116,4 +134,5 @@ console.log(JSON.stringify({
   },
   eligibility,
   automaticRouting: fixture.promotionEligible ? "eligible_for_threshold_evaluation" : "observe_only",
+  provenance: fixture.provenance,
 }, null, 2));

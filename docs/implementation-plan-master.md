@@ -186,6 +186,9 @@ the current checkout.
 - Automatic model-routing task allowlists now trim surrounding whitespace and
   compare case-insensitively, with a regression fixture for persisted policy
   formatting drift.
+- Model-routing evidence now requires explicit task-class, baseline-model,
+  candidate-model, and source provenance; approved live evidence must identify
+  itself separately from the offline fixture class.
 
 ### Remaining build work
 

@@ -3,6 +3,12 @@
   "evidenceClass": "offline_static_fixture",
   "promotionEligible": false,
   "minimumSamples": 100,
+  "provenance": {
+    "taskClass": "formatting",
+    "baselineModel": "frontier",
+    "candidateModel": "fast/local",
+    "source": "offline_fixture"
+  },
   "baseline": {
     "sampleCount": 0,
     "successRateBps": 10000,
