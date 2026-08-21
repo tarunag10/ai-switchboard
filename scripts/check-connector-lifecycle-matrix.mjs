@@ -4,9 +4,17 @@ import path from "node:path";
 const root = process.cwd();
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "connectors/manifest.json"), "utf8"));
 const fixtures = JSON.parse(fs.readFileSync(path.join(root, "connectors/lifecycle-fixtures.json"), "utf8"));
+const approvedTestFile = "src-tauri/src/client_adapters_tests.rs";
+const approvedTestSource = fs.readFileSync(path.join(root, approvedTestFile), "utf8");
 const requiredStages = fixtures.requiredStages;
 const fixtureById = new Map(fixtures.connectors.map((connector) => [connector.id, connector]));
 const failures = [];
+const evidenceLinks = [];
+
+function isRustTest(name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`#\\[test\\][\\s\\S]{0,160}\\bfn\\s+${escaped}\\s*\\(`).test(approvedTestSource);
+}
 
 for (const connector of manifest) {
   const fixture = fixtureById.get(connector.id);
@@ -23,6 +31,12 @@ for (const connector of manifest) {
     if (connector.support_status !== "managed" && evidence !== null && typeof evidence !== "string") {
       failures.push(`${connector.id}: ${stage} must be a string or explicit null`);
     }
+    if (typeof evidence === "string") {
+      evidenceLinks.push({ connector: connector.id, stage, test: evidence });
+      if (!isRustTest(evidence)) {
+        failures.push(`${connector.id}: ${stage} evidence '${evidence}' is not a #[test] in ${approvedTestFile}`);
+      }
+    }
   }
 }
 
@@ -35,5 +49,11 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   const managed = manifest.filter((connector) => connector.support_status === "managed").length;
-  console.log(`connector lifecycle matrix ok: ${managed} managed connectors, stages=${requiredStages.join(",")}`);
+  console.log(JSON.stringify({
+    ok: true,
+    managedConnectors: managed,
+    requiredStages,
+    approvedTestFile,
+    evidenceLinks,
+  }, null, 2));
 }

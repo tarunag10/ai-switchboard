@@ -25,7 +25,7 @@
     "release:check": "./scripts/verify-release.sh",
     "check:release-truth": "node scripts/check-release-truth.mjs",
     "check:release-documentation-drift": "node --test scripts/check-release-documentation-drift.node-test.mjs && node scripts/check-release-documentation-drift.mjs",
-    "check:connector-lifecycle": "node scripts/check-connector-lifecycle-matrix.mjs",
+    "check:connector-lifecycle": "node --test scripts/check-connector-lifecycle-matrix.node-test.mjs && node scripts/check-connector-lifecycle-matrix.mjs",
     "check:connector-behavior": "npm run check:connector-lifecycle && cargo test --manifest-path src-tauri/Cargo.toml --lib client_adapters::tests -- --test-threads=1",
     "check:compression-proof": "node scripts/check-compression-proof.mjs",
     "check:model-routing-evidence": "node --test scripts/check-model-routing-evidence.node-test.mjs && node scripts/check-model-routing-evidence.mjs",
