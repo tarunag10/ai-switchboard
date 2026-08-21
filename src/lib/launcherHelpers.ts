@@ -37,6 +37,15 @@ export interface ProxyVerificationRowState {
   oneClickSupported: boolean;
 }
 
+export function shouldApplyConnectorSmokeResult(
+  currentSessionId: number,
+  resultSessionId: number,
+  currentClientId: string,
+  resultClientId: string,
+) {
+  return currentSessionId === resultSessionId && currentClientId === resultClientId;
+}
+
 export function isValidEmailAddress(email: string) {
   return EMAIL_ADDRESS_PATTERN.test(email.trim());
 }

@@ -143,6 +143,7 @@ import {
   needsTermsAcceptance,
   nextAutoConfigureStep,
   nextAutoConfigureStepAfterApply,
+  shouldApplyConnectorSmokeResult,
   type LauncherStage,
 } from "../lib/launcherHelpers";
 import { mockDashboard } from "../lib/mockData";
@@ -435,6 +436,7 @@ export default function TrayApp() {
     string,
     number
   > | null>(null);
+  const proxyVerificationSessionRef = useRef(0);
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
     null,
   );
@@ -2578,6 +2580,7 @@ export default function TrayApp() {
   }
 
   async function beginProxyVerificationStep() {
+    proxyVerificationSessionRef.current += 1;
     let fresh = connectors;
     try {
       fresh = await invoke<ClientConnectorStatus[]>("get_client_connectors");
@@ -2599,6 +2602,7 @@ export default function TrayApp() {
     if (connectorSmokeBusyId !== null || row.state === "verified") {
       return;
     }
+    const sessionId = proxyVerificationSessionRef.current;
     setConnectorSmokeBusyId(row.clientId);
     setProxyVerificationHint(null);
     setProxyVerificationRows((current) =>
@@ -2614,6 +2618,16 @@ export default function TrayApp() {
         "run_connector_smoke_test",
         { clientId: row.clientId },
       );
+      if (
+        !shouldApplyConnectorSmokeResult(
+          proxyVerificationSessionRef.current,
+          sessionId,
+          row.clientId,
+          result.clientId,
+        )
+      ) {
+        return;
+      }
       setProxyVerificationRows((current) =>
         current.map((item) =>
           item.clientId === row.clientId
@@ -2641,6 +2655,9 @@ export default function TrayApp() {
         );
       }
     } catch (error) {
+      if (sessionId !== proxyVerificationSessionRef.current) {
+        return;
+      }
       const message =
         error instanceof Error
           ? error.message
@@ -2656,7 +2673,9 @@ export default function TrayApp() {
       );
       setProxyVerificationHint(message);
     } finally {
-      setConnectorSmokeBusyId(null);
+      if (sessionId === proxyVerificationSessionRef.current) {
+        setConnectorSmokeBusyId(null);
+      }
     }
   }
 

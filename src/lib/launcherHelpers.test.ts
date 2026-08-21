@@ -7,6 +7,7 @@ import {
   getInitialLauncherStage,
   getLauncherAutoConfigureDecision,
   hasPendingOneClickProxyVerification,
+  shouldApplyConnectorSmokeResult,
   isValidEmailAddress,
   needsTermsAcceptance,
   nextAutoConfigureStep,
@@ -163,6 +164,12 @@ describe("launcher helpers", () => {
         }
       ])
     ).toBe(false);
+  });
+
+  it("rejects stale or cross-client smoke results", () => {
+    expect(shouldApplyConnectorSmokeResult(3, 3, "codex", "codex")).toBe(true);
+    expect(shouldApplyConnectorSmokeResult(4, 3, "codex", "codex")).toBe(false);
+    expect(shouldApplyConnectorSmokeResult(3, 3, "codex", "claude_code")).toBe(false);
   });
 
   describe("getInitialLauncherStage", () => {
