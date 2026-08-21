@@ -228,8 +228,7 @@ the current checkout.
   contract instead of trusting `passed` alone.
 - CLI Repo Intelligence now matches native scan safety for sorted traversal,
   dependency-directory exclusions, the 1 MB default-index boundary, and
-  secret/size role precedence; the remaining parity work is the native/UI
-  contract matrix and cap-membership coverage.
+  secret/size role precedence.
 - Native, CLI, and frontend Repo Intelligence now normalize and globally sort
   candidate paths before applying the 2,500-file cap, preventing directory
   traversal or caller input order from changing indexed membership; boundary
