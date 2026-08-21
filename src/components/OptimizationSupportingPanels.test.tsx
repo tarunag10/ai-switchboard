@@ -34,8 +34,10 @@ const routingPolicy = {
   thresholds: {
     minimumSampleSize: 100,
     maximumSuccessRegressionBps: 50,
+    maximumQualityRegressionBps: 50,
     minimumCostImprovementBps: 1_000,
     maximumReworkRateBps: 500,
+    maximumLatencyRegressionMs: 50,
   },
 };
 

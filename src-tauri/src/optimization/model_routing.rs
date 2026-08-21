@@ -28,8 +28,10 @@ pub(crate) enum ModelRoutingStage {
 pub(crate) struct ModelRoutingThresholds {
     pub(crate) minimum_sample_size: u64,
     pub(crate) maximum_success_regression_bps: u32,
+    pub(crate) maximum_quality_regression_bps: u32,
     pub(crate) minimum_cost_improvement_bps: u32,
     pub(crate) maximum_rework_rate_bps: u32,
+    pub(crate) maximum_latency_regression_ms: u64,
 }
 
 impl Default for ModelRoutingThresholds {
@@ -37,8 +39,10 @@ impl Default for ModelRoutingThresholds {
         Self {
             minimum_sample_size: 50,
             maximum_success_regression_bps: 100,
+            maximum_quality_regression_bps: 100,
             minimum_cost_improvement_bps: 1_000,
             maximum_rework_rate_bps: 500,
+            maximum_latency_regression_ms: 50,
         }
     }
 }
@@ -104,6 +108,7 @@ pub(crate) fn save_model_routing_experiment_policy(
 fn validate_experiment_policy(policy: &ModelRoutingExperimentPolicy) -> Result<(), String> {
     let thresholds = &policy.thresholds;
     if thresholds.maximum_success_regression_bps > 10_000
+        || thresholds.maximum_quality_regression_bps > 10_000
         || thresholds.minimum_cost_improvement_bps > 10_000
         || thresholds.maximum_rework_rate_bps > 10_000
         || thresholds.minimum_sample_size == 0
@@ -142,6 +147,10 @@ pub(crate) struct ModelRoutingBenchmarkEvidence {
     pub(crate) candidate_successes: u64,
     pub(crate) baseline_average_success_cost_microunits: u64,
     pub(crate) candidate_average_success_cost_microunits: u64,
+    pub(crate) baseline_quality_score_bps: u32,
+    pub(crate) candidate_quality_score_bps: u32,
+    pub(crate) baseline_p95_latency_ms: u64,
+    pub(crate) candidate_p95_latency_ms: u64,
     pub(crate) follow_up_rework_rate_bps: u32,
 }
 
@@ -149,7 +158,9 @@ pub(crate) struct ModelRoutingBenchmarkEvidence {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ModelRoutingEvidenceAssessment {
     pub(crate) success_regression_bps: i32,
+    pub(crate) quality_regression_bps: i32,
     pub(crate) cost_improvement_bps: i32,
+    pub(crate) latency_regression_ms: i64,
     pub(crate) follow_up_rework_rate_bps: u32,
     pub(crate) passed: bool,
     pub(crate) explanation: String,
@@ -417,6 +428,9 @@ pub(crate) fn assess_evidence(
     let baseline_success_bps = rate_bps(evidence.baseline_successes, evidence.sample_size);
     let candidate_success_bps = rate_bps(evidence.candidate_successes, evidence.sample_size);
     let success_regression_bps = baseline_success_bps.saturating_sub(candidate_success_bps);
+    let quality_regression_bps = evidence
+        .baseline_quality_score_bps
+        .saturating_sub(evidence.candidate_quality_score_bps) as i32;
     let cost_improvement_bps = if evidence.baseline_average_success_cost_microunits == 0 {
         0
     } else {
@@ -427,23 +441,33 @@ pub(crate) fn assess_evidence(
     };
     let enough_samples = evidence.sample_size >= thresholds.minimum_sample_size;
     let success_ok = success_regression_bps <= thresholds.maximum_success_regression_bps as i32;
+    let quality_ok = quality_regression_bps <= thresholds.maximum_quality_regression_bps as i32;
     let cost_ok = cost_improvement_bps >= thresholds.minimum_cost_improvement_bps as i32;
+    let latency_regression_ms = evidence.candidate_p95_latency_ms as i64
+        - evidence.baseline_p95_latency_ms as i64;
+    let latency_ok = latency_regression_ms <= thresholds.maximum_latency_regression_ms as i64;
     let rework_ok = evidence.follow_up_rework_rate_bps <= thresholds.maximum_rework_rate_bps;
-    let passed = enough_samples && success_ok && cost_ok && rework_ok;
+    let passed = enough_samples && success_ok && quality_ok && cost_ok && latency_ok && rework_ok;
     let explanation = format!(
-        "benchmark_gate: samples={}/{} success_regression_bps={}/{} cost_improvement_bps={}/{} rework_bps={}/{} passed={passed}",
+        "benchmark_gate: samples={}/{} success_regression_bps={}/{} quality_regression_bps={}/{} cost_improvement_bps={}/{} latency_regression_ms={}/{} rework_bps={}/{} passed={passed}",
         evidence.sample_size,
         thresholds.minimum_sample_size,
         success_regression_bps,
         thresholds.maximum_success_regression_bps,
+        quality_regression_bps,
+        thresholds.maximum_quality_regression_bps,
         cost_improvement_bps,
         thresholds.minimum_cost_improvement_bps,
+        latency_regression_ms,
+        thresholds.maximum_latency_regression_ms,
         evidence.follow_up_rework_rate_bps,
         thresholds.maximum_rework_rate_bps,
     );
     ModelRoutingEvidenceAssessment {
         success_regression_bps,
+        quality_regression_bps,
         cost_improvement_bps,
+        latency_regression_ms,
         follow_up_rework_rate_bps: evidence.follow_up_rework_rate_bps,
         passed,
         explanation,
@@ -511,6 +535,10 @@ mod tests {
             candidate_successes: 98,
             baseline_average_success_cost_microunits: 1_000,
             candidate_average_success_cost_microunits: 700,
+            baseline_quality_score_bps: 9_800,
+            candidate_quality_score_bps: 9_800,
+            baseline_p95_latency_ms: 800,
+            candidate_p95_latency_ms: 820,
             follow_up_rework_rate_bps: 300,
         };
         let decision = decide_model_route_experiment(&input(), &policy, false, Some(&passing));
@@ -556,12 +584,38 @@ mod tests {
             candidate_successes: 98,
             baseline_average_success_cost_microunits: 1_000,
             candidate_average_success_cost_microunits: 500,
+            baseline_quality_score_bps: 9_800,
+            candidate_quality_score_bps: 9_800,
+            baseline_p95_latency_ms: 800,
+            candidate_p95_latency_ms: 820,
             follow_up_rework_rate_bps: 900,
         };
         let assessment = assess_evidence(&evidence, &ModelRoutingThresholds::default());
         assert_eq!(assessment.cost_improvement_bps, 5_000);
         assert!(!assessment.passed);
         assert!(assessment.explanation.contains("rework_bps=900/500"));
+    }
+
+    #[test]
+    fn quality_and_latency_regressions_block_automatic_routing() {
+        let evidence = ModelRoutingBenchmarkEvidence {
+            sample_size: 100,
+            baseline_successes: 100,
+            candidate_successes: 100,
+            baseline_average_success_cost_microunits: 1_000,
+            candidate_average_success_cost_microunits: 500,
+            baseline_quality_score_bps: 10_000,
+            candidate_quality_score_bps: 9_700,
+            baseline_p95_latency_ms: 800,
+            candidate_p95_latency_ms: 900,
+            follow_up_rework_rate_bps: 0,
+        };
+        let assessment = assess_evidence(&evidence, &ModelRoutingThresholds::default());
+        assert_eq!(assessment.quality_regression_bps, 300);
+        assert_eq!(assessment.latency_regression_ms, 100);
+        assert!(!assessment.passed);
+        assert!(assessment.explanation.contains("quality_regression_bps=300/100"));
+        assert!(assessment.explanation.contains("latency_regression_ms=100/50"));
     }
 
     #[test]
@@ -589,6 +643,10 @@ mod tests {
             candidate_successes: 100,
             baseline_average_success_cost_microunits: 1,
             candidate_average_success_cost_microunits: u64::MAX,
+            baseline_quality_score_bps: 10_000,
+            candidate_quality_score_bps: 10_000,
+            baseline_p95_latency_ms: 1,
+            candidate_p95_latency_ms: 1,
             follow_up_rework_rate_bps: 0,
         };
         let assessment = assess_evidence(&evidence, &ModelRoutingThresholds::default());

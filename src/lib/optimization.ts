@@ -138,8 +138,10 @@ export type ModelRoutingStage = "observe" | "userApproved" | "automaticAllowlist
 export interface ModelRoutingThresholds {
   minimumSampleSize: number;
   maximumSuccessRegressionBps: number;
+  maximumQualityRegressionBps: number;
   minimumCostImprovementBps: number;
   maximumReworkRateBps: number;
+  maximumLatencyRegressionMs: number;
 }
 
 export interface ModelRoutingExperimentPolicy {
@@ -378,8 +380,10 @@ export const defaultModelRoutingExperimentPolicy: ModelRoutingExperimentPolicy =
   thresholds: {
     minimumSampleSize: 50,
     maximumSuccessRegressionBps: 100,
+    maximumQualityRegressionBps: 100,
     minimumCostImprovementBps: 1_000,
     maximumReworkRateBps: 500,
+    maximumLatencyRegressionMs: 50,
   },
 };
 

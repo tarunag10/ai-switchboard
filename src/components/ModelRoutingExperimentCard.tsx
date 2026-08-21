@@ -64,7 +64,7 @@ export function ModelRoutingExperimentCard() {
           <p>
             Observe is the default. User-approved routes require approval for
             that request; automatic routes also require an allowlisted task
-            class and passing success, cost, and rework evidence.
+            class and passing success, quality, cost, latency, and rework evidence.
           </p>
         </div>
       </div>
@@ -130,7 +130,9 @@ export function ModelRoutingExperimentCard() {
       <p>
         Gate: at least {policy.thresholds.minimumSampleSize} samples, no more than{" "}
         {policy.thresholds.maximumSuccessRegressionBps / 100}% success regression, at least{" "}
+        {policy.thresholds.maximumQualityRegressionBps / 100}% quality regression, at least{" "}
         {policy.thresholds.minimumCostImprovementBps / 100}% successful-task cost improvement,
+        no more than {policy.thresholds.maximumLatencyRegressionMs}ms p95 latency regression,
         and no more than {policy.thresholds.maximumReworkRateBps / 100}% follow-up rework.
       </p>
       <button

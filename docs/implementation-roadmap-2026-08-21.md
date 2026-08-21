@@ -19,7 +19,7 @@ context packs, and evidence remain on the Mac.
 | 2 | Session Ready overview path | Shipped | `SessionReadyCard` tests, Home integration tests, production build |
 | 3 | Safe app-owned Headroom dashboard action | Shipped | 3 focused Rust tests; public-link SSRF policy unchanged |
 | 4 | Connector lifecycle behavioral matrix | Shipped | `npm run check:connector-behavior` runs the static matrix plus the temporary-home Rust adapter lifecycle suite |
-| 5 | Benchmark-backed proof loop | In progress | Four-variant compression evidence is now validated and explicitly observe-only; successful-task latency/rework evidence remains |
+| 5 | Benchmark-backed proof loop | In progress | Four-variant compression evidence and routing quality/latency thresholds are implemented; fresh successful-task evidence remains |
 | 6 | One bounded endpoint/runtime expansion | Planned | Generic OpenAI-compatible endpoint first; explicit approval, health check, streaming/tools/cancellation tests, rollback fixtures |
 
 ## Phase 4 — Connector lifecycle behavioral matrix
@@ -56,6 +56,10 @@ Automatic routing remains observe-only until successful-task quality, latency,
 rework, and economics meet explicit thresholds. RTK, Headroom, Repo
 Intelligence, add-ons, response cache, provider prompt cache, and runtime KV
 cache remain separate attribution layers.
+
+The model-routing gate now evaluates sample size, success regression, quality
+regression, successful-task cost improvement, p95 latency regression, and
+follow-up rework. Evidence that lacks those dimensions cannot promote a route.
 
 ## Phase 6 — Bounded expansion wedge
 
