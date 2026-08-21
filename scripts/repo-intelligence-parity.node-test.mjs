@@ -60,3 +60,19 @@ test("CLI graph leaves dynamic, unresolved, and two-hop re-exports unresolved", 
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("CLI graph rejects ambiguous wildcards and private named re-exports", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-reexport-visibility-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/a.ts"), "export function runTask() {}\nfunction hidden() {}\n");
+    fs.writeFileSync(path.join(repo, "src/b.ts"), "export function runTask() {}\n");
+    fs.writeFileSync(path.join(repo, "src/duplicate-hidden.ts"), "function hidden() {}\n");
+    fs.writeFileSync(path.join(repo, "src/barrel.ts"), "export * from './a'; export * from './b'; export { hidden } from './a';\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import { runTask, hidden } from './barrel'; export function start() { runTask(); hidden(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.ok(!summary.graph.symbolEdges.some((edge) => edge.kind === "call_reference" && (edge.to === "src/a.ts#runTask" || edge.to === "src/b.ts#runTask" || edge.to === "src/a.ts#hidden")));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});

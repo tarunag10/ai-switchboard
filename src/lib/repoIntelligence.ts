@@ -3040,14 +3040,39 @@ function resolveLocalReexportBinding(
       if (!parts.length) continue;
       const original = parts[0];
       const exported = parts[1] === "as" ? parts[2] : original;
-      if (exported === imported) return { file: target.path, name: original };
+      if (exported === imported && isExplicitlyExportedSymbol(target, original, contentByPath)) {
+        return { file: target.path, name: original };
+      }
     }
   }
+  const candidates: Array<{ file: string; name: string }> = [];
   for (const match of content.matchAll(/\bexport\s*\*\s*from\s*["']([^"']+)["']/g)) {
     const target = resolveImportSpecifier(barrel.path, match[1], byPath);
-    if (target) return { file: target.path, name: imported };
+    if (target && imported !== "default" && isExplicitlyExportedSymbol(target, imported, contentByPath)) {
+      candidates.push({ file: target.path, name: imported });
+    }
   }
-  return null;
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function isExplicitlyExportedSymbol(
+  file: RepoFileSignal,
+  name: string,
+  contentByPath: Map<string, string>,
+): boolean {
+  if (name === "default") return false;
+  const content = contentByPath.get(file.path);
+  if (!content) return false;
+  const declaration = new RegExp(`\\bexport\\s+(?:default\\s+)?(?:async\\s+)?(?:function|class|const|let|var)\\s+${escapeRegExp(name)}\\b`);
+  if (declaration.test(content)) return true;
+  for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}(?!\s*from\b)/g)) {
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      const exported = parts[1] === "as" ? parts[2] : parts[0];
+      if (exported === name) return true;
+    }
+  }
+  return false;
 }
 
 function hasUnqualifiedCallReference(content: string, name: string): boolean {

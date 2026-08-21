@@ -1619,22 +1619,47 @@ function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
   const byPath = new Map(files.map((file) => [file.path, file]));
   const namedPattern = /\bexport\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
   for (const match of content.matchAll(namedPattern)) {
-    const target = resolveImportSpecifier(barrel.path, match[2], byPath);
-    if (!target) continue;
+      const target = resolveImportSpecifier(barrel.path, match[2], byPath);
+      if (!target) continue;
     for (const item of match[1].split(",")) {
       const parts = item.trim().split(/\s+/).filter(Boolean);
       if (!parts.length) continue;
       const original = parts[0];
       const exported = parts[1] === "as" ? parts[2] : original;
-      if (exported === imported) return { file: target.path, name: original };
+      if (exported === imported && isExplicitlyExportedSymbol(repoRoot, target, original)) {
+        return { file: target.path, name: original };
+      }
     }
   }
+  const candidates = [];
   const wildcardPattern = /\bexport\s*\*\s*from\s*["']([^"']+)["']/g;
   for (const match of content.matchAll(wildcardPattern)) {
     const target = resolveImportSpecifier(barrel.path, match[1], byPath);
-    if (target) return { file: target.path, name: imported };
+    if (target && imported !== "default" && isExplicitlyExportedSymbol(repoRoot, target, imported)) {
+      candidates.push({ file: target.path, name: imported });
+    }
   }
-  return null;
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function isExplicitlyExportedSymbol(repoRoot, file, name) {
+  if (name === "default") return false;
+  let content = "";
+  try {
+    content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+  } catch {
+    return false;
+  }
+  const declaration = new RegExp(`\\bexport\\s+(?:default\\s+)?(?:async\\s+)?(?:function|class|const|let|var)\\s+${escapeRegExp(name)}\\b`);
+  if (declaration.test(content)) return true;
+  for (const match of content.matchAll(/\\bexport\\s*\\{([^}]*)\\}(?!\\s*from\\b)/g)) {
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\\s+/).filter(Boolean);
+      const exported = parts[1] === "as" ? parts[2] : parts[0];
+      if (exported === name) return true;
+    }
+  }
+  return false;
 }
 
 function extractStaticImportBindings(content, language) {

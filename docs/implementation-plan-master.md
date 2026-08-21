@@ -177,6 +177,9 @@ the current checkout.
 - Public checksum blockers now depend on verified digest content, not merely
   an uploaded asset name; an uploaded-but-mismatched checksum is covered by a
   fail-closed regression.
+- CLI and frontend re-export resolution now rejects ambiguous wildcard targets,
+  private named targets, and default wildcard names instead of choosing the
+  first matching symbol.
 
 ### Remaining build work
 

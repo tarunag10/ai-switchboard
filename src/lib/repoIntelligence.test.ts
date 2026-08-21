@@ -718,6 +718,24 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("rejects ambiguous wildcards and private named re-exports", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/a.ts", bytes: 100, content: "export function runTask() {}\nfunction hidden() {}" },
+      { path: "src/b.ts", bytes: 100, content: "export function runTask() {}" },
+      { path: "src/duplicate-hidden.ts", bytes: 100, content: "function hidden() {}" },
+      { path: "src/barrel.ts", bytes: 120, content: "export * from './a'; export * from './b'; export { hidden } from './a';" },
+      { path: "src/consumer.ts", bytes: 160, content: "import { runTask, hidden } from './barrel'; export function start() { runTask(); hidden(); }" },
+    ]);
+    const callEdges = summary.graph?.symbolEdges?.filter((edge) => edge.kind === "call_reference") ?? [];
+    expect(callEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/a.ts#runTask", kind: "call_reference" }),
+        expect.objectContaining({ to: "src/b.ts#runTask", kind: "call_reference" }),
+        expect.objectContaining({ to: "src/a.ts#hidden", kind: "call_reference" }),
+      ]),
+    );
+  });
+
   it("formats bounded context packs for agent handoff", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
