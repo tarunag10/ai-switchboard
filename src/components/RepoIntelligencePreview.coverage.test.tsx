@@ -8,8 +8,12 @@ import {
 } from "./RepoIntelligencePreview";
 import type { RepoIntelligenceSummary } from "../lib/repoIntelligence";
 
-const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
+const { invokeMock, openMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  openMock: vi.fn(),
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: openMock }));
 
 function realSummary(
   overrides: Partial<RepoIntelligenceSummary> = {},
@@ -36,6 +40,8 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue(null);
+    openMock.mockReset();
+    openMock.mockResolvedValue(null);
     clipboardWrite.mockReset();
     clipboardWrite.mockResolvedValue(undefined);
     installClipboard();
@@ -90,6 +96,33 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
     });
     expect(screen.getByRole("textbox", { name: "Repository folder path" })).toHaveValue("  /trimmed/repo  ");
     expect(onSummaryChange).toHaveBeenCalledWith(summary);
+  });
+
+  it("uses the native folder chooser without changing the manual path flow", async () => {
+    const user = userEvent.setup({ writeToClipboard: false });
+    openMock.mockResolvedValue("/picked/repo");
+    render(<RepoIntelligencePreview />);
+    await waitFor(() => expect(screen.queryByText("Loading saved index…")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Choose folder" }));
+    expect(openMock).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+      title: "Choose repository folder",
+    });
+    expect(screen.getByRole("textbox", { name: "Repository folder path" })).toHaveValue("/picked/repo");
+  });
+
+  it("preserves the path and reports folder chooser failures", async () => {
+    const user = userEvent.setup({ writeToClipboard: false });
+    openMock.mockRejectedValue(new Error("dialog unavailable"));
+    render(<RepoIntelligencePreview />);
+    await waitFor(() => expect(screen.queryByText("Loading saved index…")).not.toBeInTheDocument());
+    await user.type(screen.getByRole("textbox", { name: "Repository folder path" }), "/manual/repo");
+    await user.click(screen.getByRole("button", { name: "Choose folder" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("dialog unavailable");
+    expect(screen.getByRole("textbox", { name: "Repository folder path" })).toHaveValue("/manual/repo");
   });
 
   it("reports index failures without discarding the editable path", async () => {

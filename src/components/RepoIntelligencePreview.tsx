@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   buildAgentSessionPreparation,
   buildAgentSessionDisplayState,
@@ -192,6 +193,26 @@ export function RepoIntelligencePreview({
       );
     } finally {
       setIndexing(false);
+    }
+  }
+
+  async function chooseRepoFolder() {
+    setIndexError(null);
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Choose repository folder",
+      });
+      if (typeof selected === "string") {
+        setRepoPath(selected);
+      }
+    } catch (error) {
+      setIndexError(
+        error instanceof Error
+          ? error.message
+          : "Repo Intelligence could not choose that folder.",
+      );
     }
   }
 
@@ -456,6 +477,14 @@ export function RepoIntelligencePreview({
           type="text"
           value={repoPath}
         />
+        <button
+          className="addon-card__action"
+          disabled={indexing}
+          onClick={() => void chooseRepoFolder()}
+          type="button"
+        >
+          Choose folder
+        </button>
         <button
           className="addon-card__action addon-card__action--primary"
           disabled={indexing}

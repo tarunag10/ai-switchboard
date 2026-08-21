@@ -97,6 +97,8 @@ the current checkout.
   persistence test modules in addition to the JavaScript evidence checker.
 - Native evidence aggregation now rejects empty, identical, or mixed baseline/
   candidate model identities before producing benchmark metrics.
+- Repo Intelligence now offers a native folder chooser while preserving manual
+  path entry, cancellation, and read-only indexing behavior.
 
 ### Done — prepared and shipped
 
