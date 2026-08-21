@@ -277,6 +277,9 @@ the current checkout.
 - Evidence capture invalidates a displayed export whenever run/task inputs
   change, preventing stale artifact JSON from being mistaken for the current
   capture session.
+- Release report schema validation now enforces cross-field consistency for
+  summary presence, freshness, identity, checklist hashes, and readiness
+  booleans, with adversarial blocked/contradictory fixtures.
 
 ### Remaining build work
 

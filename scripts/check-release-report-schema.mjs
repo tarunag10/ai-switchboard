@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { validateReleaseEvidenceTimestamp } from "./release-evidence-time.mjs";
 import { validateSummaryGeneratedAt } from "./release-summary-contract.mjs";
+import { validateReleaseReportConsistency } from "./release-report-consistency.mjs";
 
 const reportPath = "dist/release-readiness-report.json";
 const markdownReportPath = "dist/release-readiness-report.md";
@@ -181,6 +182,7 @@ try {
   process.exit();
 }
 const markdownReport = fs.readFileSync(markdownReportPath, "utf8");
+for (const error of validateReleaseReportConsistency(report)) fail(error);
 if (!markdownReport.includes("Managed connector config creation plan")) {
   fail(`${markdownReportPath} must include managed connector config creation plan evidence`);
 }
