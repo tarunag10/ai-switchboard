@@ -47,3 +47,38 @@ export function assessSummaryFreshness(
   }
   return { fresh: true, generatedAt: timestamps[0], ageMs: checks[0].ageMs, reason: null };
 }
+
+export function assessEvidencePairFreshness(
+  {
+    summaryGeneratedAt = null,
+    jsonGeneratedAt = null,
+    summaryPresent = false,
+    jsonPresent = false,
+    passed = false,
+  } = {},
+  { now = Date.now(), label = "evidence" } = {},
+) {
+  if (summaryPresent !== jsonPresent) {
+    return {
+      fresh: false,
+      generatedAt: jsonGeneratedAt ?? summaryGeneratedAt,
+      reason: `${label} requires both Markdown and JSON evidence`,
+    };
+  }
+  if (!summaryPresent) {
+    return {
+      fresh: false,
+      generatedAt: null,
+      reason: `${label} evidence is missing`,
+    };
+  }
+  return assessSummaryFreshness(
+    {
+      summaryGeneratedAt,
+      jsonGeneratedAt,
+      present: true,
+      passed,
+    },
+    { now, label },
+  );
+}

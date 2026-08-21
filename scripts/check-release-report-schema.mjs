@@ -389,6 +389,9 @@ const localEvidenceTimestampPaths = [
 ];
 for (const [label, prefix] of localEvidenceTimestampPaths) {
   const evidence = readPath(report, prefix);
+  if (evidence?.summaryPresent !== evidence?.jsonPresent) {
+    fail(`${prefix} requires both Markdown and JSON evidence artifacts`);
+  }
   const timestampCheck = validateSummaryGeneratedAt(evidence?.generatedAt, {
     present: evidence?.summaryPresent === true,
     passed: evidence?.passed === true,

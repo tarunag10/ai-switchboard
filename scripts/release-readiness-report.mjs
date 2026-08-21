@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { assessSummaryFreshness, extractGeneratedAt } from "./release-summary-contract.mjs";
+import { assessEvidencePairFreshness, assessSummaryFreshness, extractGeneratedAt } from "./release-summary-contract.mjs";
 import { validateModeRelaunchSummary } from "./local-mode-relaunch-contract.mjs";
 import {
   canonicalInstalledAppPath,
@@ -247,6 +247,19 @@ function presentEvidenceFreshness(summary, label) {
     : { ...assessed, fresh: false, reason: `${label} summary is missing` };
 }
 
+function localEvidenceFreshness(summary, json, passed, label) {
+  return assessEvidencePairFreshness(
+    {
+      summaryGeneratedAt: summary.generatedAt,
+      jsonGeneratedAt: json.body?.generatedAt,
+      summaryPresent: summary.present,
+      jsonPresent: json.present,
+      passed,
+    },
+    { label },
+  );
+}
+
 function buildArtifactTrustEvidence() {
   const dmgDirectory = "src-tauri/target/release/bundle/dmg";
   const dmgPath = fs.existsSync(dmgDirectory)
@@ -462,33 +475,16 @@ function buildLocalValidationEvidence() {
   );
   const localOnlyNetworkSummary = readSummaryStatus(localOnlyNetworkSummaryPath);
   const localOnlyNetworkJson = readJsonStatus(localOnlyNetworkJsonPath);
-  const localInstalledFreshness = assessSummaryFreshness({ summaryGeneratedAt: localInstalledSummary.generatedAt, jsonGeneratedAt: localInstalledJson.body?.generatedAt, present: localInstalledSummary.present || localInstalledJson.present, passed: localInstalledJson.body?.passed === true }, { label: "localInstalled.generatedAt" });
-  const modeRelaunchFreshness = assessSummaryFreshness({ summaryGeneratedAt: modeRelaunchSummary.generatedAt, jsonGeneratedAt: modeRelaunchJson.body?.generatedAt, present: modeRelaunchSummary.present || modeRelaunchJson.present, passed: modeRelaunchJson.body?.passed === true }, { label: "modeRelaunch.generatedAt" });
-  const rollbackFreshness = assessSummaryFreshness({ summaryGeneratedAt: rollbackSummary.generatedAt, jsonGeneratedAt: rollbackJson.body?.generatedAt, present: rollbackSummary.present || rollbackJson.present, passed: rollbackJson.body?.passed === true }, { label: "rollback.generatedAt" });
-  const doctorRepairFreshness = assessSummaryFreshness({ summaryGeneratedAt: doctorSummary.generatedAt, jsonGeneratedAt: doctorJson.body?.generatedAt, present: doctorSummary.present || doctorJson.present, passed: doctorJson.body?.passed === true }, { label: "doctorRepair.generatedAt" });
-  const uninstallFreshness = assessSummaryFreshness({ summaryGeneratedAt: uninstallSummary.generatedAt, jsonGeneratedAt: uninstallJson.body?.generatedAt, present: uninstallSummary.present || uninstallJson.present, passed: uninstallJson.body?.passed === true }, { label: "uninstall.generatedAt" });
-  const repoIntelligenceFreshness = assessSummaryFreshness({ summaryGeneratedAt: repoIntelligenceSummary.generatedAt, jsonGeneratedAt: repoIntelligenceJson.body?.generatedAt, present: repoIntelligenceSummary.present || repoIntelligenceJson.present, passed: repoIntelligenceJson.body?.passed === true }, { label: "repoIntelligence.generatedAt" });
-  const repoMemoryMcpFreshness = assessSummaryFreshness({ summaryGeneratedAt: repoMemoryMcpSummary.generatedAt, jsonGeneratedAt: repoMemoryMcpJson.body?.generatedAt, present: repoMemoryMcpSummary.present || repoMemoryMcpJson.present, passed: repoMemoryMcpJson.body?.passed === true }, { label: "repoMemoryMcp.generatedAt" });
-  const measuredSavingsBenchmarkPresent =
-    measuredSavingsBenchmarkSummary.present || measuredSavingsBenchmarkJson.present;
-  const measuredSavingsBenchmarkFreshnessAssessment = assessSummaryFreshness(
-    {
-      summaryGeneratedAt: measuredSavingsBenchmarkSummary.generatedAt,
-      jsonGeneratedAt: measuredSavingsBenchmarkJson.body?.generatedAt,
-      present: measuredSavingsBenchmarkPresent,
-      passed: Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0,
-    },
-    { label: "measuredSavingsBenchmark.generatedAt" },
-  );
-  const measuredSavingsBenchmarkFreshness = measuredSavingsBenchmarkPresent
-    ? measuredSavingsBenchmarkFreshnessAssessment
-    : {
-        ...measuredSavingsBenchmarkFreshnessAssessment,
-        fresh: false,
-        reason: "measuredSavingsBenchmark.generatedAt summary is missing",
-      };
-  const localConnectorReadinessFreshness = assessSummaryFreshness({ summaryGeneratedAt: localConnectorReadinessSummary.generatedAt, jsonGeneratedAt: localConnectorReadinessJson.body?.generatedAt, present: localConnectorReadinessSummary.present || localConnectorReadinessJson.present, passed: localConnectorReadinessJson.body?.passed === true }, { label: "connectorReadiness.generatedAt" });
-  const localOnlyNetworkFreshness = assessSummaryFreshness({ summaryGeneratedAt: localOnlyNetworkSummary.generatedAt, jsonGeneratedAt: localOnlyNetworkJson.body?.generatedAt, present: localOnlyNetworkSummary.present || localOnlyNetworkJson.present, passed: localOnlyNetworkJson.body?.passed === true }, { label: "localOnlyNetwork.generatedAt" });
+  const localInstalledFreshness = localEvidenceFreshness(localInstalledSummary, localInstalledJson, localInstalledJson.body?.passed === true, "localInstalled.generatedAt");
+  const modeRelaunchFreshness = localEvidenceFreshness(modeRelaunchSummary, modeRelaunchJson, modeRelaunchJson.body?.passed === true, "modeRelaunch.generatedAt");
+  const rollbackFreshness = localEvidenceFreshness(rollbackSummary, rollbackJson, rollbackJson.body?.passed === true, "rollback.generatedAt");
+  const doctorRepairFreshness = localEvidenceFreshness(doctorSummary, doctorJson, doctorJson.body?.passed === true, "doctorRepair.generatedAt");
+  const uninstallFreshness = localEvidenceFreshness(uninstallSummary, uninstallJson, uninstallJson.body?.passed === true, "uninstall.generatedAt");
+  const repoIntelligenceFreshness = localEvidenceFreshness(repoIntelligenceSummary, repoIntelligenceJson, repoIntelligenceJson.body?.passed === true, "repoIntelligence.generatedAt");
+  const repoMemoryMcpFreshness = localEvidenceFreshness(repoMemoryMcpSummary, repoMemoryMcpJson, repoMemoryMcpJson.body?.passed === true, "repoMemoryMcp.generatedAt");
+  const measuredSavingsBenchmarkFreshness = localEvidenceFreshness(measuredSavingsBenchmarkSummary, measuredSavingsBenchmarkJson, Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0, "measuredSavingsBenchmark.generatedAt");
+  const localConnectorReadinessFreshness = localEvidenceFreshness(localConnectorReadinessSummary, localConnectorReadinessJson, localConnectorReadinessJson.body?.passed === true, "connectorReadiness.generatedAt");
+  const localOnlyNetworkFreshness = localEvidenceFreshness(localOnlyNetworkSummary, localOnlyNetworkJson, localOnlyNetworkJson.body?.passed === true, "localOnlyNetwork.generatedAt");
   const modeRelaunchContractFailures = validateModeRelaunchSummary(
     modeRelaunchJson.body,
   );

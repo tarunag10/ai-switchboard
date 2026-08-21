@@ -87,6 +87,8 @@ the current checkout.
   tokens and fresh evidence; consistency tests reject stale passing reports.
 - Model-routing evidence persistence now rejects successful observations that
   omit successful-task cost instead of silently dropping them.
+- Local release readiness now requires complete Markdown/JSON evidence pairs;
+  one-sided or missing pairs cannot be fresh or passing.
 
 ### Done — prepared and shipped
 

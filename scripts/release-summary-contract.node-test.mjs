@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assessSummaryFreshness, extractGeneratedAt, validateSummaryGeneratedAt } from "./release-summary-contract.mjs";
+import { assessEvidencePairFreshness, assessSummaryFreshness, extractGeneratedAt, validateSummaryGeneratedAt } from "./release-summary-contract.mjs";
 
 const now = Date.parse("2026-08-21T12:00:00.000Z");
 
@@ -44,4 +44,27 @@ test("requires matching fresh JSON and Markdown lineage", () => {
   }, { now });
   assert.equal(mismatch.fresh, false);
   assert.match(mismatch.reason, /differs/);
+});
+
+test("requires a complete JSON and Markdown evidence pair", () => {
+  const missing = assessEvidencePairFreshness({}, { now, label: "fixture" });
+  assert.equal(missing.fresh, false);
+  assert.match(missing.reason, /missing/);
+
+  const oneSided = assessEvidencePairFreshness({
+    summaryPresent: false,
+    jsonPresent: true,
+    jsonGeneratedAt: "2026-08-21T11:00:00.000Z",
+  }, { now, label: "fixture" });
+  assert.equal(oneSided.fresh, false);
+  assert.match(oneSided.reason, /both Markdown and JSON/);
+
+  const complete = assessEvidencePairFreshness({
+    summaryPresent: true,
+    jsonPresent: true,
+    summaryGeneratedAt: "2026-08-21T11:00:00.000Z",
+    jsonGeneratedAt: "2026-08-21T11:00:00.000Z",
+    passed: true,
+  }, { now, label: "fixture" });
+  assert.equal(complete.fresh, true);
 });
