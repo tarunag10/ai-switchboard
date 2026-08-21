@@ -253,6 +253,9 @@ the current checkout.
 - Static smoke preflight now uses the same presence-and-freshness contract,
   and public installed-smoke evidence is bound to canonical installed-app
   metadata before it can be considered ready.
+- Local connector readiness now reads the canonical promoted native-config
+  inventory name and rejects an empty or duplicate promoted-ID report, avoiding
+  silent drift from a stale extractor regex.
 
 ### Remaining build work
 

@@ -44,7 +44,7 @@ function sharedPlanIncludesStage(stage) {
 }
 
 function promotedNativeAutomationIds() {
-  const match = connectorSource.match(/promotedManagedConfigConnectorIds\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  const match = connectorSource.match(/promotedNativeConfigConnectorIds\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
   if (!match) return [];
   return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
 }

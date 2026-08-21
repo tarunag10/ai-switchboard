@@ -43,6 +43,14 @@ if (report.inventoryComparison?.matches !== true || !inventoryComparison.matches
 if (report.ready !== true) {
   fail("report.ready must be true");
 }
+if (
+  !Array.isArray(report.promotedNativeAutomationIds) ||
+  report.promotedNativeAutomationIds.length === 0 ||
+  new Set(report.promotedNativeAutomationIds).size !==
+    report.promotedNativeAutomationIds.length
+) {
+  fail("promotedNativeAutomationIds must be a non-empty unique array");
+}
 for (const stage of requiredStages) {
   if (!report.requiredLifecycleStages?.includes(stage)) {
     fail(`requiredLifecycleStages missing ${stage}`);
