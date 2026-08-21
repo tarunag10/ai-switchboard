@@ -274,6 +274,9 @@ the current checkout.
 - The model-routing experiment card now provides an operator-facing redacted
   capture/export path wired to the native evidence store; it exposes outcome
   metrics only and labels every local export observe-only.
+- Evidence capture invalidates a displayed export whenever run/task inputs
+  change, preventing stale artifact JSON from being mistaken for the current
+  capture session.
 
 ### Remaining build work
 

@@ -142,5 +142,7 @@ describe("optimization supporting panels", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export run evidence" }));
     await waitFor(() => expect(mocks.exportEvidence).toHaveBeenCalledWith("run-1", "formatting"));
     expect(await screen.findByLabelText("Exported routing evidence")).toHaveTextContent("local_runtime_observation");
+    fireEvent.change(screen.getByLabelText("Routing evidence run ID"), { target: { value: "run-2" } });
+    expect(screen.queryByLabelText("Exported routing evidence")).not.toBeInTheDocument();
   });
 });

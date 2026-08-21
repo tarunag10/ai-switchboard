@@ -49,11 +49,13 @@ export function ModelRoutingEvidenceCapture() {
 
   const update = <K extends keyof CaptureState>(key: K, value: CaptureState[K]) => {
     setState((current) => ({ ...current, [key]: value }));
+    setArtifact(null);
   };
 
   const record = async () => {
     setWorking(true);
     setNotice(null);
+    setArtifact(null);
     try {
       await recordModelRoutingEvidence({
         runId: state.runId.trim(),
