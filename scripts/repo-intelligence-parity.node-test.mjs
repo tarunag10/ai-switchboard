@@ -91,3 +91,18 @@ test("CLI graph resolves exported namespace members and rejects private members"
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("CLI default indexing excludes unknown files like the native and frontend indexers", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-classification-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/app.ts"), "export function app() {}\n");
+    fs.writeFileSync(path.join(repo, "notes.weird"), "unknown file\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.equal(summary.indexedFiles, 1);
+    assert.equal(summary.skippedFiles, 1);
+    assert.equal(summary.indexerVersion, "path-graph-v11");
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});

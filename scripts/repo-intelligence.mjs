@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chonkifyPackFiles } from "./chonkify-adapter.mjs";
 
-const INDEXER_VERSION = "path-graph-v10";
+const INDEXER_VERSION = "path-graph-v11";
 
 function readRepoMapContext(repoRoot) {
   const mapPath = path.join(repoRoot, "docs/repo-map/repo-map.json");
@@ -790,7 +790,8 @@ function classify(filePath, bytes) {
     reasons.push("secret-like path excluded");
   }
   const includeByDefault =
-    role !== "asset" && role !== "lockfile" && !secretLike;
+    !secretLike &&
+    ["source", "test", "config", "docs"].includes(role);
 
   return {
     path: filePath,

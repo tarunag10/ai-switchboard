@@ -198,6 +198,9 @@ the current checkout.
 - Connector lifecycle fixtures now fail closed when any canonical stage is
   omitted or reordered; explicit `null` remains the only valid gated-stage
   declaration.
+- CLI Repo Intelligence now excludes unknown files from default indexing like
+  the native and frontend implementations, with an indexer-version bump and
+  classification parity coverage.
 
 ### Remaining build work
 
