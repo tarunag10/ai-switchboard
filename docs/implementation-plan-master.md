@@ -70,6 +70,10 @@ the current checkout.
 - Connector inventory refreshes now use a monotonic generation guard so
   out-of-order frontend responses cannot restore stale enabled state or stale
   errors; the same guard covers launcher verification refreshes.
+- Add-on attribution writes now suppress exact duplicate estimated evidence
+  events while retaining changed evidence and leaving measured Headroom/RTK
+  events unaffected, preventing repeated local setup callbacks from inflating
+  savings history.
 
 ### Done — prepared and shipped
 

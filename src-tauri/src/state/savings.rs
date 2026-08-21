@@ -1115,6 +1115,27 @@ impl SavingsTracker {
     }
 
     pub(super) fn append_attribution_event(&self, event: &SavingsAttributionEvent) -> Result<()> {
+        let is_addon_source = matches!(
+            &event.source,
+            &SavingsAttributionSource::Caveman
+                | &SavingsAttributionSource::CompactChinese
+                | &SavingsAttributionSource::Ponytail
+                | &SavingsAttributionSource::Markitdown
+        );
+        if is_addon_source
+            && self.attribution_events().iter().any(|existing| {
+                existing.source == event.source
+                    && existing.scope == event.scope
+                    && existing.confidence == event.confidence
+                    && existing.delta_tokens_saved == event.delta_tokens_saved
+                    && existing.delta_usd == event.delta_usd
+                    && existing.total_tokens_sent == event.total_tokens_sent
+                    && existing.request_delta == event.request_delta
+                    && existing.evidence == event.evidence
+            })
+        {
+            return Ok(());
+        }
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -2914,6 +2935,46 @@ mod tests {
     fn addon_attribution_event_skips_markitdown_without_changed_artifacts() {
         assert!(build_addon_attribution_event("markitdown", None, None, None, None).is_none());
         assert!(build_addon_attribution_event("markitdown", None, Some(&[]), None, None).is_none());
+    }
+
+    #[test]
+    fn addon_attribution_appends_are_idempotent_but_changed_evidence_is_retained() {
+        let changed_files = vec!["/tmp/CLAUDE.md".to_string()];
+        let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let first = build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("first attribution");
+        let mut tracker = make_tracker();
+        tracker
+            .append_attribution_event(&first)
+            .expect("append first attribution");
+        tracker
+            .append_attribution_event(&first)
+            .expect("ignore duplicate attribution");
+
+        let changed_files = vec!["/tmp/AGENTS.md".to_string()];
+        let changed = build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("changed attribution");
+        tracker
+            .append_attribution_event(&changed)
+            .expect("append changed attribution");
+
+        let events = tracker.attribution_events();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].source, SavingsAttributionSource::Markitdown);
+        assert_ne!(events[0].evidence, events[1].evidence);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
     }
 
     #[test]
