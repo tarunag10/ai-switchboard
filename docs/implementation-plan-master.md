@@ -88,11 +88,13 @@ the current checkout.
 
 ### Remaining build work
 
-1. **Fresh quality evidence loop:** the machine-checked evidence contract is
-   now shipped in `benchmarks/fixtures/model-routing-quality-evidence.json`
-   and `npm run check:model-routing-evidence`. Importing successful-task,
-   rework, quality, and latency observations from real approved runs remains
-   pending; automatic routing stays observe-only until that evidence exists.
+1. **Fresh quality evidence loop:** the machine-checked evidence contract and
+   deterministic redacted baseline/candidate aggregation are shipped in
+   `benchmarks/fixtures/model-routing-quality-evidence.json`,
+   `src-tauri/src/optimization/model_routing.rs`, and
+   `npm run check:model-routing-evidence`. Importing successful-task, rework,
+   quality, and latency observations from real approved runs remains pending;
+   automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** make the prepared external checklist
    easy to execute and reconcile without accepting fabricated or stale
    artifacts.

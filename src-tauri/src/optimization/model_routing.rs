@@ -199,6 +199,104 @@ pub(crate) struct ModelRoutingExperimentRecord {
     pub(crate) outcome: ModelRoutingTaskOutcome,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ModelRoutingEvidenceArm {
+    Baseline,
+    Candidate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ModelRoutingEvidenceSample {
+    pub(crate) task_class: String,
+    pub(crate) arm: ModelRoutingEvidenceArm,
+    pub(crate) succeeded: bool,
+    pub(crate) successful_task_cost_microunits: Option<u64>,
+    pub(crate) quality_score_bps: u32,
+    pub(crate) latency_ms: u64,
+    pub(crate) follow_up_rework: bool,
+}
+
+/// Deterministically reconciles redacted, task-class-scoped observations into
+/// the benchmark shape consumed by the routing promotion gate. It never
+/// accepts prompts, outputs, credentials, or mixed task classes.
+pub(crate) fn aggregate_model_routing_evidence(
+    samples: &[ModelRoutingEvidenceSample],
+    expected_task_class: &str,
+) -> Result<ModelRoutingBenchmarkEvidence, String> {
+    let expected = expected_task_class.trim();
+    if expected.is_empty() {
+        return Err("model-routing evidence requires a task class".to_string());
+    }
+    if samples.is_empty() {
+        return Err("model-routing evidence requires baseline and candidate samples".to_string());
+    }
+
+    let mut baseline = Vec::new();
+    let mut candidate = Vec::new();
+    for sample in samples {
+        if sample.task_class != expected {
+            return Err("model-routing evidence cannot mix task classes".to_string());
+        }
+        if sample.quality_score_bps > 10_000 {
+            return Err("model-routing quality scores must be at most 10000 basis points".to_string());
+        }
+        match sample.arm {
+            ModelRoutingEvidenceArm::Baseline => baseline.push(sample),
+            ModelRoutingEvidenceArm::Candidate => candidate.push(sample),
+        }
+    }
+    if baseline.len() != candidate.len() || baseline.is_empty() {
+        return Err("model-routing evidence requires equal non-zero baseline and candidate samples".to_string());
+    }
+
+    fn success_count(samples: &[&ModelRoutingEvidenceSample]) -> u64 {
+        samples.iter().filter(|sample| sample.succeeded).count() as u64
+    }
+    fn average_success_cost(samples: &[&ModelRoutingEvidenceSample]) -> Result<u64, String> {
+        let successful = samples.iter().filter(|sample| sample.succeeded).collect::<Vec<_>>();
+        if successful.is_empty() {
+            return Err("model-routing evidence requires a successful task cost in each arm".to_string());
+        }
+        let mut total = 0u64;
+        for sample in &successful {
+            let cost = sample
+                .successful_task_cost_microunits
+                .ok_or_else(|| "successful model-routing samples require a cost".to_string())?;
+            total = total
+                .checked_add(cost)
+                .ok_or_else(|| "model-routing evidence cost total overflowed".to_string())?;
+        }
+        Ok(total / successful.len() as u64)
+    }
+    fn average_quality(samples: &[&ModelRoutingEvidenceSample]) -> u32 {
+        let total: u64 = samples.iter().map(|sample| sample.quality_score_bps as u64).sum();
+        (total / samples.len() as u64) as u32
+    }
+    fn p95_latency(samples: &[&ModelRoutingEvidenceSample]) -> u64 {
+        let mut latencies = samples.iter().map(|sample| sample.latency_ms).collect::<Vec<_>>();
+        latencies.sort_unstable();
+        let index = ((latencies.len() * 95).div_ceil(100)).saturating_sub(1);
+        latencies[index]
+    }
+    fn rework_rate(samples: &[&ModelRoutingEvidenceSample]) -> u32 {
+        ((samples.iter().filter(|sample| sample.follow_up_rework).count() as u64 * 10_000)
+            / samples.len() as u64) as u32
+    }
+
+    Ok(ModelRoutingBenchmarkEvidence {
+        sample_size: baseline.len() as u64,
+        baseline_successes: success_count(&baseline),
+        candidate_successes: success_count(&candidate),
+        baseline_average_success_cost_microunits: average_success_cost(&baseline)?,
+        candidate_average_success_cost_microunits: average_success_cost(&candidate)?,
+        baseline_quality_score_bps: average_quality(&baseline),
+        candidate_quality_score_bps: average_quality(&candidate),
+        baseline_p95_latency_ms: p95_latency(&baseline),
+        candidate_p95_latency_ms: p95_latency(&candidate),
+        follow_up_rework_rate_bps: rework_rate(&candidate),
+    })
+}
+
 pub(crate) fn record_model_routing_outcome(
     decision: &ModelRouteDecision,
     outcome: ModelRoutingTaskOutcome,
@@ -633,6 +731,60 @@ mod tests {
         assert_eq!(record.actual_model, "frontier");
         assert!(record.outcome.succeeded);
         assert_eq!(record.outcome.successful_task_cost_microunits, Some(725));
+    }
+
+    #[test]
+    fn evidence_aggregation_is_deterministic_and_redacted() {
+        let samples = vec![
+            ModelRoutingEvidenceSample {
+                task_class: "low_risk".to_string(),
+                arm: ModelRoutingEvidenceArm::Baseline,
+                succeeded: true,
+                successful_task_cost_microunits: Some(1_000),
+                quality_score_bps: 9_900,
+                latency_ms: 800,
+                follow_up_rework: false,
+            },
+            ModelRoutingEvidenceSample {
+                task_class: "low_risk".to_string(),
+                arm: ModelRoutingEvidenceArm::Candidate,
+                succeeded: true,
+                successful_task_cost_microunits: Some(700),
+                quality_score_bps: 9_850,
+                latency_ms: 780,
+                follow_up_rework: false,
+            },
+        ];
+        let evidence = aggregate_model_routing_evidence(&samples, "low_risk").unwrap();
+        assert_eq!(evidence.sample_size, 1);
+        assert_eq!(evidence.candidate_average_success_cost_microunits, 700);
+        assert_eq!(evidence.candidate_p95_latency_ms, 780);
+        assert_eq!(evidence.follow_up_rework_rate_bps, 0);
+    }
+
+    #[test]
+    fn evidence_aggregation_rejects_mixed_or_incomplete_samples() {
+        let mixed = ModelRoutingEvidenceSample {
+            task_class: "high_risk".to_string(),
+            arm: ModelRoutingEvidenceArm::Candidate,
+            succeeded: true,
+            successful_task_cost_microunits: Some(700),
+            quality_score_bps: 9_850,
+            latency_ms: 780,
+            follow_up_rework: false,
+        };
+        assert!(aggregate_model_routing_evidence(&[mixed], "low_risk").is_err());
+
+        let incomplete = ModelRoutingEvidenceSample {
+            task_class: "low_risk".to_string(),
+            arm: ModelRoutingEvidenceArm::Baseline,
+            succeeded: true,
+            successful_task_cost_microunits: None,
+            quality_score_bps: 9_850,
+            latency_ms: 780,
+            follow_up_rework: false,
+        };
+        assert!(aggregate_model_routing_evidence(&[incomplete], "low_risk").is_err());
     }
 
     #[test]
