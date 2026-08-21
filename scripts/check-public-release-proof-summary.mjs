@@ -6,6 +6,10 @@ import {
   shareableDmgGateBooleanFields,
 } from "./public-release-proof-gate.mjs";
 import { isRebootProofReady } from "./reboot-proof-contract.mjs";
+import {
+  expectedPublicReleaseProofBlockers,
+  hasExactPublicReleaseProofBlockers,
+} from "./public-release-proof-contract.mjs";
 
 const proofPath = "dist/public-release-proof-summary.json";
 const markdownPath = "dist/public-release-proof-summary.md";
@@ -273,6 +277,16 @@ if (
   fail("ready reboot-level proof must carry releaseGateEvidence true");
 }
 const rebootProofReady = isRebootProofReady(proof.rebootLevelInstalledProof);
+const expectedBlockers = expectedPublicReleaseProofBlockers({
+  checksumVerificationOk: proof.checksumVerification.ok,
+  updaterEvidence,
+  gate: proof.shareableDmgGate,
+  rebootProofReady,
+  publicReleaseGateBlockers,
+});
+if (!hasExactPublicReleaseProofBlockers(proof.blockers, expectedBlockers)) {
+  fail("blockers must exactly match current checksum, updater, release-gate, and reboot evidence");
+}
 if (proof.proofReady && !rebootProofReady) {
   fail("public proofReady requires complete current reboot-level installed proof");
 }

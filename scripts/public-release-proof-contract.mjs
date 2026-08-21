@@ -28,3 +28,26 @@ export function validateChecksumAssetEvidence({ state, url, verification } = {})
   if (!verification?.ok || !normalizeSha256(verification.digest)) return { ok: false, reason: verification?.reason ?? "checksum content is unverified" };
   return { ok: true, digest: normalizeSha256(verification.digest), filename: verification.filename ?? null };
 }
+
+export function expectedPublicReleaseProofBlockers({
+  checksumVerificationOk = false,
+  updaterEvidence = {},
+  gate = {},
+  rebootProofReady = false,
+  publicReleaseGateBlockers,
+} = {}) {
+  if (typeof publicReleaseGateBlockers !== "function") {
+    throw new TypeError("publicReleaseGateBlockers must be provided");
+  }
+  return [
+    checksumVerificationOk ? null : "public checksum",
+    ...(Array.isArray(updaterEvidence.blockers) ? updaterEvidence.blockers : []),
+    ...publicReleaseGateBlockers(gate),
+    rebootProofReady ? null : "reboot-level installed proof",
+  ].filter(Boolean);
+}
+
+export function hasExactPublicReleaseProofBlockers(actual, expected) {
+  return Array.isArray(actual) &&
+    JSON.stringify(actual) === JSON.stringify(expected);
+}

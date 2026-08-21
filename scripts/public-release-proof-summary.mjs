@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { verifyChecksumText, validateChecksumAssetEvidence } from "./public-release-proof-contract.mjs";
 import { publicReleaseGateBlockers } from "./public-release-proof-gate.mjs";
+import { expectedPublicReleaseProofBlockers } from "./public-release-proof-contract.mjs";
 import { isRebootProofReady } from "./reboot-proof-contract.mjs";
 
 const summaryPath = "dist/public-release-proof-summary.md";
@@ -287,12 +288,13 @@ const rebootLevelInstalledProofReady =
   fs.existsSync(rebootLevelInstalledProofPath) &&
   rebootLevelInstalledProof?.kind === "mac_ai_switchboard.reboot_level_installed_proof" &&
   isRebootProofReady(rebootLevelInstalledProof);
-const blockers = [
-  checksumVerification.ok ? null : "public checksum",
-  ...updaterEvidence.blockers,
-  ...publicReleaseGateBlockers(gate),
-  rebootLevelInstalledProofReady ? null : "reboot-level installed proof",
-].filter(Boolean);
+const blockers = expectedPublicReleaseProofBlockers({
+  checksumVerificationOk: checksumVerification.ok,
+  updaterEvidence,
+  gate,
+  rebootProofReady: rebootLevelInstalledProofReady,
+  publicReleaseGateBlockers,
+});
 const proofReady = blockers.length === 0;
 
 const releaseSnapshot = githubRelease
