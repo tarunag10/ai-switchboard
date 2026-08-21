@@ -3154,6 +3154,10 @@ function resolveDefaultExportName(
     /\bexport\s+default\s+(?:async\s+)?(?:function|class)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/,
   );
   if (declaration?.[1]) return declaration[1];
+  const identifierReference = content.match(
+    /\bexport\s+default\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*;/,
+  );
+  if (identifierReference?.[1]) return identifierReference[1];
   for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}(?!\s*from\b)/g)) {
     for (const item of match[1].split(",")) {
       const parts = item.trim().split(/\s+/).filter(Boolean);

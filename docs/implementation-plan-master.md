@@ -99,6 +99,9 @@ the current checkout.
   candidate model identities before producing benchmark metrics.
 - Repo Intelligence now offers a native folder chooser while preserving manual
   path entry, cancellation, and read-only indexing behavior.
+- Repo Intelligence now resolves same-file identifier-form default exports,
+  with frontend and CLI parity coverage; dynamic and multi-hop exports remain
+  intentionally unresolved.
 
 ### Done — prepared and shipped
 
