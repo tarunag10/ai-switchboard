@@ -36,6 +36,25 @@ test("no-refresh mode fails clearly when its report is absent", () => {
   assert.match(run.stderr, /release readiness report not found/);
 });
 
+test("no-refresh mode fails cleanly for corrupt JSON without rewriting it", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-release-corrupt-"));
+  const reportPath = path.join(tempDir, "corrupt-report.json");
+  const before = "{\"status\":\"blocked\",";
+  fs.writeFileSync(reportPath, before);
+  const run = spawnSync(process.execPath, [
+    "scripts/check-release-readiness.mjs",
+    "--json",
+    "--no-refresh",
+    "--report",
+    reportPath,
+  ], { encoding: "utf8" });
+  assert.equal(run.status, 1);
+  assert.equal(run.stdout, "");
+  assert.match(run.stderr, /release readiness report invalid JSON/);
+  assert.equal(fs.readFileSync(reportPath, "utf8"), before);
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
 test("rejects malformed readiness reports before action mapping", () => {
   const failures = validateReleaseReadinessReport({ status: "blocked", releaseEnv: {}, backendValidation: {}, installedSmoke: {} });
   assert.match(failures.join("\n"), /releaseEnv.blockers/);

@@ -38,7 +38,14 @@ if (!fs.existsSync(reportJsonPath)) {
   process.exit(1);
 }
 
-const report = JSON.parse(fs.readFileSync(reportJsonPath, "utf8"));
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(reportJsonPath, "utf8"));
+} catch (error) {
+  const detail = error instanceof SyntaxError ? "invalid JSON" : "could not be read";
+  console.error(`release readiness report ${detail}: ${reportJsonPath}`);
+  process.exit(1);
+}
 const reportFailures = validateReleaseReadinessReport(report);
 if (reportFailures.length) {
   console.error(`release readiness report invalid: ${reportFailures.join("; ")}`);
