@@ -137,6 +137,51 @@ fn model_routing_evidence_round_trips_and_exports_observe_only_artifact() {
 }
 
 #[test]
+fn model_routing_evidence_exports_per_arm_success_rates() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+
+    reset_for_tests();
+    for (arm, outcomes) in [
+        (ModelRoutingEvidenceArm::Baseline, [true, false]),
+        (ModelRoutingEvidenceArm::Candidate, [true, true]),
+    ] {
+        for (index, succeeded) in outcomes.into_iter().enumerate() {
+            record_model_routing_evidence(&ModelRoutingEvidenceObservation {
+                run_id: "run-2".to_string(),
+                captured_at: (chrono::Utc::now() + chrono::Duration::milliseconds(index as i64)).to_rfc3339(),
+                task_class: "formatting".to_string(),
+                arm,
+                baseline_model: "frontier".to_string(),
+                candidate_model: "fast/local".to_string(),
+                succeeded,
+                successful_task_cost_microunits: succeeded.then_some(if arm == ModelRoutingEvidenceArm::Baseline { 1000 } else { 700 }),
+                quality_score_bps: 9800,
+                latency_ms: 800,
+                follow_up_rework: false,
+            })
+            .expect("record routing evidence");
+        }
+    }
+
+    let artifact = export_model_routing_evidence("run-2", "formatting")
+        .expect("exported evidence");
+    assert_eq!(artifact.baseline.sample_count, 2);
+    assert_eq!(artifact.baseline.successful_task_count, 1);
+    assert_eq!(artifact.baseline.success_rate_bps, 5_000);
+    assert_eq!(artifact.candidate.sample_count, 2);
+    assert_eq!(artifact.candidate.successful_task_count, 2);
+    assert_eq!(artifact.candidate.success_rate_bps, 10_000);
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
 fn model_routing_evidence_rejects_overflow_and_invalid_timestamps() {
     let _guard = crate::optimization::telemetry::test_guard();
     let home = tempdir().expect("temp home");

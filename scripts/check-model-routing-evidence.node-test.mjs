@@ -223,9 +223,9 @@ test("rejects success rates inconsistent with successful task counts", () => {
     fixture.capturedAt = "2026-08-20T00:00:00Z";
     fixture.approvalReceipt = "test-receipt";
     for (const arm of ["baseline", "candidate"]) {
-      fixture[arm].sampleCount = 1;
+      fixture[arm].sampleCount = 2;
       fixture[arm].successfulTaskCount = 1;
-      fixture[arm].successRateBps = 0;
+      fixture[arm].successRateBps = 2_500;
     }
     const fixturePath = path.join(tempDir, "inconsistent-rate.json");
     fs.writeFileSync(fixturePath, JSON.stringify(fixture));
