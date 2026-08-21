@@ -31,7 +31,10 @@ export function buildResults(fixtures) {
   return fixtures.map((fixture) => {
     const originalTokens = estimateTokens(fixture.original);
     const optimizedTokens = estimateTokens(fixture.optimized);
-    const savedTokens = Math.max(0, originalTokens - optimizedTokens);
+    if (optimizedTokens > originalTokens) {
+      throw new Error(`benchmark fixture ${fixture.category}/${fixture.name} expands optimized content (${optimizedTokens} > ${originalTokens} tokens)`);
+    }
+    const savedTokens = originalTokens - optimizedTokens;
     return {
       category: fixture.category,
       name: fixture.name,
@@ -125,6 +128,25 @@ export function compareWithBaseline(manifest, baseline, thresholds) {
   }
   if (aggregate.staticSuccessPassRatePct < thresholds.minimumStaticSuccessPassRatePct) {
     violations.push("static success pass rate fell below its threshold");
+  }
+
+  const currentKeys = new Set();
+  const baselineKeys = new Set();
+  for (const result of manifest.results) {
+    const key = resultKey(result);
+    if (currentKeys.has(key)) violations.push(`duplicate current benchmark fixture: ${key}`);
+    currentKeys.add(key);
+  }
+  for (const result of baseline.results) {
+    const key = resultKey(result);
+    if (baselineKeys.has(key)) violations.push(`duplicate baseline benchmark fixture: ${key}`);
+    baselineKeys.add(key);
+  }
+  for (const key of baselineKeys) {
+    if (!currentKeys.has(key)) violations.push(`baseline benchmark fixture is missing from current results: ${key}`);
+  }
+  for (const key of currentKeys) {
+    if (!baselineKeys.has(key)) violations.push(`current benchmark fixture is missing from baseline results: ${key}`);
   }
 
   const baselineByKey = new Map(baseline.results.map((result) => [resultKey(result), result]));

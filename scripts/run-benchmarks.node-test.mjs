@@ -61,6 +61,26 @@ test("reports threshold violations against the stored baseline", () => {
   assert.match(comparison.violations.join("\n"), /aggregate saved percent dropped/);
 });
 
+test("fails comparison when a baseline fixture is missing or duplicated", () => {
+  const manifest = buildManifest({ root, fixtures, schema, baseline, env: deterministicEnv });
+  const missing = structuredClone(baseline);
+  missing.results = missing.results.slice(1);
+  const missingComparison = compareWithBaseline(manifest, missing, schema.regressionThresholds);
+  assert.equal(missingComparison.status, "regression");
+  assert.match(missingComparison.violations.join("\n"), /benchmark fixture is missing from baseline results/);
+
+  const duplicate = structuredClone(baseline);
+  duplicate.results.push(structuredClone(duplicate.results[0]));
+  const duplicateComparison = compareWithBaseline(manifest, duplicate, schema.regressionThresholds);
+  assert.equal(duplicateComparison.status, "regression");
+  assert.match(duplicateComparison.violations.join("\n"), /duplicate baseline benchmark fixture/);
+});
+
+test("rejects an optimized fixture that expands token count", () => {
+  const expanded = [{ category: "edge", name: "expands", original: "short", optimized: "this optimized content is much longer" }];
+  assert.throws(() => buildManifest({ root, fixtures: expanded, schema, baseline, env: deterministicEnv }), /expands optimized content/);
+});
+
 test("renders a human-readable summary with thresholds and all fixture rows", () => {
   const manifest = buildManifest({ root, fixtures, schema, baseline, env: deterministicEnv });
   const markdown = renderMarkdown(manifest);
