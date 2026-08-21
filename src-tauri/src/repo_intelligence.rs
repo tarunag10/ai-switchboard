@@ -3351,7 +3351,16 @@ fn python_import_specifiers(line: &str) -> Vec<String> {
 }
 
 fn quoted_import_specifier(line: &str) -> Option<String> {
-    if !(line.starts_with("import ") || line.starts_with("export ") || line.contains("require(")) {
+    if let Some(require_start) = line.find("require(") {
+        let argument = line[require_start + "require(".len()..].trim_start();
+        let quote = argument.chars().next()?;
+        if !matches!(quote, '"' | '\'') {
+            return None;
+        }
+        let value = argument[quote.len_utf8()..].split(quote).next()?.trim();
+        return (!value.is_empty()).then(|| value.to_string());
+    }
+    if !(line.starts_with("import ") || line.starts_with("export ")) {
         return None;
     }
     for quote in ['"', '\''] {
@@ -4365,6 +4374,30 @@ export const mapValues = <T>(items: T[]) => items;
                 "missing symbol-level call edge {caller} -> {callee}"
             );
         }
+    }
+
+    #[test]
+    fn bounds_commonjs_require_to_its_argument() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("worker.js"), "module.exports = {}\n").expect("write worker");
+        std::fs::write(src.join("loaded.js"), "module.exports = {}\n").expect("write loaded");
+        std::fs::write(
+            src.join("consumer.js"),
+            "const worker = require(\"./worker\"); console.log(\"loaded\");\n",
+        )
+        .expect("write consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/consumer.js"
+                && edge.to == "src/worker.js"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+        }));
+        assert!(!graph.import_edges.iter().any(|edge| {
+            edge.from == "src/consumer.js" && edge.to == "src/loaded.js"
+        }));
     }
 
     #[test]

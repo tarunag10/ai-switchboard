@@ -124,6 +124,22 @@ test("CLI default re-exports stay one-hop and anonymous defaults stay unresolved
   }
 });
 
+test("CLI CommonJS require ignores later string literals on the same line", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-commonjs-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/worker.js"), "module.exports = {}\n");
+    fs.writeFileSync(path.join(repo, "src/loaded.js"), "module.exports = {}\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.js"), "const worker = require(\"./worker\"); console.log(\"loaded\");\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    const imports = summary.graph.importEdges.filter((edge) => edge.from === "src/consumer.js");
+    assert.ok(imports.some((edge) => edge.to === "src/worker.js"));
+    assert.ok(!imports.some((edge) => edge.to === "src/loaded.js"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("CLI default indexing excludes unknown files like the native and frontend indexers", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-classification-"));
   try {

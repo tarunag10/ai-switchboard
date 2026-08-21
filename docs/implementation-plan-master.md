@@ -63,6 +63,10 @@ the current checkout.
 - Repo Intelligence now resolves one-hop local TypeScript/JavaScript named
   and wildcard re-exports, while dynamic exports remain unresolved; indexer
   version is `path-graph-v13`.
+- Repo Intelligence CommonJS fallback parsing now extracts only the quoted
+  argument of `require(...)`, preventing later unrelated string literals from
+  becoming false dependency edges; CommonJS symbol binding remains
+  intentionally unresolved.
 
 ### Done — prepared and shipped
 

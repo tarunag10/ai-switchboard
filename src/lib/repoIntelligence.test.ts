@@ -742,6 +742,17 @@ describe("repoIntelligence", () => {
     expect(callEdges.some((edge) => edge.to.includes("anonymous"))).toBe(false);
   });
 
+  it("keeps CommonJS require edges bounded to the call argument", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.js", bytes: 100, content: "module.exports = {}" },
+      { path: "src/loaded.js", bytes: 100, content: "module.exports = {}" },
+      { path: "src/consumer.js", bytes: 140, content: 'const worker = require("./worker"); console.log("loaded");' },
+    ]);
+    const imports = summary.graph?.importEdges?.filter((edge) => edge.from === "src/consumer.js") ?? [];
+    expect(imports).toEqual(expect.arrayContaining([expect.objectContaining({ to: "src/worker.js" })]));
+    expect(imports).not.toEqual(expect.arrayContaining([expect.objectContaining({ to: "src/loaded.js" })]));
+  });
+
   it("resolves namespace import member calls only for exported callable members", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/utils.ts", bytes: 120, content: "export function normalize() {}\nfunction hidden() {}" },
