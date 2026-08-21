@@ -418,7 +418,7 @@ export const defaultModelRoutingExperimentPolicy: ModelRoutingExperimentPolicy =
   disabledClients: [],
   automaticTaskAllowlist: [],
   thresholds: {
-    minimumSampleSize: 50,
+    minimumSampleSize: 100,
     maximumSuccessRegressionBps: 100,
     maximumQualityRegressionBps: 100,
     minimumCostImprovementBps: 1_000,

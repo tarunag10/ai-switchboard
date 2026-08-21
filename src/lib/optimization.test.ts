@@ -30,6 +30,10 @@ describe("optimization helpers", () => {
     invokeMock.mockReset();
   });
 
+  it("uses the 100-sample routing evidence minimum", () => {
+    expect(defaultModelRoutingExperimentPolicy.thresholds.minimumSampleSize).toBe(100);
+  });
+
   it("calculates prompt-cache efficiency from segments", () => {
     const efficiency = buildPromptCacheEfficiency([
       {

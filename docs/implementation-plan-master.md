@@ -298,6 +298,9 @@ the current checkout.
    completed-route adapter now enforces explicit quality, rework, and
    successful-task cost inputs before producing a store-ready observation;
    wiring it into a central production completion hook remains pending.
+   Native and TypeScript defaults now align with the 100-sample evidence
+   contract; transport-only proxy completion still lacks arm, task-class,
+   quality, rework, and provider-billed cost context.
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
    canonical app identity, report freshness contract, local source-lineage

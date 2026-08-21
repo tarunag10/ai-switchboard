@@ -37,7 +37,7 @@ pub(crate) struct ModelRoutingThresholds {
 impl Default for ModelRoutingThresholds {
     fn default() -> Self {
         Self {
-            minimum_sample_size: 50,
+            minimum_sample_size: 100,
             maximum_success_regression_bps: 100,
             maximum_quality_regression_bps: 100,
             minimum_cost_improvement_bps: 1_000,
@@ -745,6 +745,7 @@ mod tests {
             .any(|reason| reason == "task_class=formatting"));
         assert_eq!(decision.baseline_model, "frontier");
         assert_eq!(decision.candidate_model, "fast/local");
+        assert_eq!(ModelRoutingExperimentPolicy::default().thresholds.minimum_sample_size, 100);
     }
 
     fn completion() -> ModelRoutingCompletionEvidence {
