@@ -11,9 +11,12 @@ const requiredSignals = [
     needles: ["semantic-v2", "describeSemanticCacheV2Policy", "canEnableSemanticCacheV2"],
   },
   {
-    label: "semantic cache v2 rust flag",
+    label: "semantic cache v2 compatibility flag",
     file: "src-tauri/src/semantic_cache.rs",
-    needles: ["semantic_v2_enabled", "set_semantic_cache_v2_enabled", "semantic-v2"],
+    // The shipping cache is the exact response cache. Semantic-v2 remains a
+    // compatibility/opt-in contract, so the Rust surface carries the legacy
+    // serialized field rather than a product-facing `semantic-v2` label.
+    needles: ["semantic_v2_enabled", "set_semantic_cache_v2_enabled", "semanticV2Enabled"],
   },
   {
     label: "semantic cache v2 gate fixture",
