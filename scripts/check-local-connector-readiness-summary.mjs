@@ -36,6 +36,10 @@ if (report.status !== 0) {
 if (report.inventoryParsed !== true || !Array.isArray(requiredConnectors)) {
   fail("gated native-write inventory must be parsed into an array");
 }
+const requiredInventoryComparison = compareGatedNativeWriteInventory(requiredConnectors);
+if (!requiredInventoryComparison.matches) {
+  fail("requiredGatedNativeWrite does not match the authoritative contract");
+}
 const inventoryComparison = compareGatedNativeWriteInventory(report.gatedNativeWriteConnectors);
 if (report.inventoryComparison?.matches !== true || !inventoryComparison.matches) {
   fail("gated native-write inventory does not match the authoritative contract");

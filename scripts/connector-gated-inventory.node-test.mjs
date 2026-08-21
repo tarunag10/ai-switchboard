@@ -11,3 +11,8 @@ test("rejects empty, missing, duplicate, and extra gated connector inventories",
     assert.equal(compareGatedNativeWriteInventory(observed).matches, false);
   }
 });
+
+test("uses the same authoritative contract for required report fields", () => {
+  assert.equal(compareGatedNativeWriteInventory(["cursor"]).matches, true);
+  assert.equal(compareGatedNativeWriteInventory([]).matches, false);
+});
