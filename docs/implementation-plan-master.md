@@ -139,6 +139,10 @@ the current checkout.
   local-runtime artifacts are permanently `local_estimate`, while approved
   live runs require `provider_declared` attribution plus a provider identity;
   the eligibility thresholds are unchanged.
+- Connector listing tests now apply the dry-run payload safety contract to
+  every emitted preview, not only representative managed and gated rows;
+  target, marker, backup, state, rollback, confirmation, and zero-write
+  invariants all fail closed.
 
 ### Done — prepared and shipped
 

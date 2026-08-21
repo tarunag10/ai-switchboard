@@ -581,6 +581,21 @@
             .all(|connector| connector.config_creation_steps.is_empty()
                 && connector.config_creation_step_details.is_empty()));
 
+        for connector in connectors.iter() {
+            let Some(preview) = connector.config_dry_run_preview.as_ref() else {
+                continue;
+            };
+            assert!(!preview.target.trim().is_empty(), "{} preview target", connector.client_id);
+            assert!(!preview.marker.trim().is_empty(), "{} preview marker", connector.client_id);
+            assert!(!preview.backup_path.trim().is_empty(), "{} preview backup", connector.client_id);
+            assert!(!preview.current_state.trim().is_empty(), "{} preview current state", connector.client_id);
+            assert!(!preview.proposed_state.trim().is_empty(), "{} preview proposed state", connector.client_id);
+            assert!(!preview.apply_blocked_reason.trim().is_empty(), "{} preview block reason", connector.client_id);
+            assert!(!preview.rollback_preview.trim().is_empty(), "{} preview rollback", connector.client_id);
+            assert!(!preview.confirmation_phrase.trim().is_empty(), "{} preview confirmation", connector.client_id);
+            assert!(preview.writes.is_empty(), "{} preview must remain read-only", connector.client_id);
+        }
+
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "gemini_cli"
                 && connector.support_status == ClientConnectorSupportStatus::Managed
