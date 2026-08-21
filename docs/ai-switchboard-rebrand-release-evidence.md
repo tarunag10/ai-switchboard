@@ -41,7 +41,7 @@ Release blockers that still need public installed evidence remain outside this d
 
 ## Public Release Truth - 2026-07-06
 
-Verified live release:
+Historical asset evidence recorded (not current installed-app proof):
 
 - GitHub release: `v0.0.0` (`AI Switchboard for Mac 0.0.0`)
 - Public DMG asset: `Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg`
@@ -51,7 +51,7 @@ Verified live release:
 - Updater bundle asset: `AI.Switchboard.for.Mac.app.tar.gz`
 - Updater signature asset: `AI.Switchboard.for.Mac.app.tar.gz.sig`
 - Updater endpoint: `https://github.com/tarunag10/ai-switchboard/releases/latest/download/latest.json`
-- Local verification: downloaded the GitHub release asset, verified the checksum, ran `hdiutil verify`, installed `/Applications/AI Switchboard for Mac.app`, and verified Gatekeeper/Developer ID notarization plus `xcrun stapler validate`.
+- Historical local verification notes record downloading the GitHub release asset, verifying the checksum, running `hdiutil verify`, installing `/Applications/AI Switchboard for Mac.app`, and checking Gatekeeper/Developer ID notarization plus `xcrun stapler validate`. These notes are not treated as current release-gate evidence until regenerated and reconciled by the current release checkers.
 - Static smoke evidence: `npm run smoke:preflight` generated a fresh local `dist/smoke-preflight-summary.md`.
 
 Remaining public-release blockers:
