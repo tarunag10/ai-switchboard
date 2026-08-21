@@ -91,6 +91,8 @@ the current checkout.
   one-sided or missing pairs cannot be fresh or passing.
 - Release readiness now selects only the newest unambiguous DMG matching the
   configured app version and records its modification time and SHA-256.
+- Release report status is now an explicit `ready`/`blocked` enum consistent
+  with the underlying environment, validation, smoke, and DMG gates.
 
 ### Done — prepared and shipped
 

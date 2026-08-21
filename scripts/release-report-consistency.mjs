@@ -1,5 +1,22 @@
 export function validateReleaseReportConsistency(report) {
   const errors = [];
+  if (report?.status !== undefined) {
+    if (report.status !== "ready" && report.status !== "blocked") {
+      errors.push("status must be ready or blocked");
+    }
+    const expectedReady =
+      report?.releaseEnv?.ok === true &&
+      report?.backendValidation?.ready === true &&
+      report?.staticSmokePreflight?.ready === true &&
+      report?.installedSmoke?.ready === true &&
+      report?.shareableDmgGate?.ready === true;
+    if (report.status === "ready" && !expectedReady) {
+      errors.push("status=ready requires every release readiness gate to pass");
+    }
+    if (report.status === "blocked" && expectedReady) {
+      errors.push("status=blocked cannot claim every release readiness gate passes");
+    }
+  }
   const shareableGate = report?.shareableDmgGate;
   if (shareableGate && typeof shareableGate === "object") {
     const componentReady = [

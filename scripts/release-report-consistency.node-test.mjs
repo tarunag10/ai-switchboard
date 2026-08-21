@@ -35,6 +35,26 @@ test("accepts internally consistent blocked release evidence", () => {
   }), []);
 });
 
+test("rejects a release status that contradicts its readiness gates", () => {
+  const report = {
+    status: "ready",
+    releaseEnv: { ok: false },
+    backendValidation: { ready: true },
+    staticSmokePreflight: { ready: true },
+    installedSmoke: { ready: true },
+    shareableDmgGate: { ready: true },
+  };
+  assert.match(
+    validateReleaseReportConsistency(report).join("\n"),
+    /status=ready/,
+  );
+  report.status = "blocked";
+  assert.doesNotMatch(
+    validateReleaseReportConsistency(report).join("\n"),
+    /status=ready/,
+  );
+});
+
 test("rejects contradictory freshness, identity, and checklist combinations", () => {
   const errors = validateReleaseReportConsistency({
     staticSmokePreflight: {

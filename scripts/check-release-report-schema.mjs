@@ -364,6 +364,18 @@ if (!markdownReport.includes("Connector readiness required gated native-write do
 }
 
 requireType(report, "status", "string");
+if (report.status !== "ready" && report.status !== "blocked") {
+  fail("status must be ready or blocked");
+}
+const expectedReadyStatus =
+  report.releaseEnv?.ok === true &&
+  report.backendValidation?.ready === true &&
+  report.staticSmokePreflight?.ready === true &&
+  report.installedSmoke?.ready === true &&
+  report.shareableDmgGate?.ready === true;
+if ((report.status === "ready") !== expectedReadyStatus) {
+  fail("status must agree with the complete release readiness gate");
+}
 const generatedAt = requireType(report, "generatedAt", "string");
 const timestampCheck = validateReleaseEvidenceTimestamp(generatedAt, {
   label: "generatedAt",
