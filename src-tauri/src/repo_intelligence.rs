@@ -2325,6 +2325,26 @@ fn build_call_reference_edges(
                 .flat_map(|(_, names)| names.iter().cloned())
                 .collect::<BTreeSet<_>>()
         });
+        let unresolved_local_imports = extract_import_bindings(file, &content)
+            .into_iter()
+            .filter_map(|binding| {
+                let imported = binding.imported?;
+                let target_file = resolve_import_specifier(&file.path, &binding.specifier, files)?;
+                let direct_target_exists = symbols.iter().any(|symbol| {
+                    symbol.file == target_file.path && symbol.name == imported
+                });
+                if direct_target_exists {
+                    return None;
+                }
+                let resolved_reexport = resolve_local_reexport(
+                    repo_root,
+                    target_file,
+                    &imported,
+                    files,
+                );
+                resolved_reexport.is_none().then_some(binding.local)
+            })
+            .collect::<BTreeSet<_>>();
 
         // Keep the existing file -> symbol edge for compatibility, while
         // adding a more useful symbol -> symbol edge whenever the call is
@@ -2335,6 +2355,9 @@ fn build_call_reference_edges(
             for (caller, names) in call_sites {
                 for symbol in &callable_symbols {
                     if !names.contains(&symbol.name) {
+                        continue;
+                    }
+                    if symbol.file != file.path && unresolved_local_imports.contains(&symbol.name) {
                         continue;
                     }
                     if callable_name_counts.get(symbol.name.as_str()).copied().unwrap_or(0) > 1
@@ -2379,6 +2402,9 @@ fn build_call_reference_edges(
         // no parser is available.
         for symbol in &callable_symbols {
             if file.path == symbol.file {
+                continue;
+            }
+            if unresolved_local_imports.contains(&symbol.name) {
                 continue;
             }
             if callable_name_counts.get(symbol.name.as_str()).copied().unwrap_or(0) > 1 {
@@ -2538,6 +2564,7 @@ fn resolve_local_reexport(
     parser.set_language(&language).ok()?;
     let tree = parser.parse(&content, None)?;
     collect_export_statement_texts(tree.root_node(), content.as_bytes(), &mut statements);
+    let mut wildcard_candidates = Vec::new();
     for statement in statements {
         let statement = statement.trim();
         let Some(rest) = statement.strip_prefix("export ") else {
@@ -2558,7 +2585,10 @@ fn resolve_local_reexport(
             continue;
         };
         if clause.trim() == "*" {
-            return Some((target.path.clone(), imported.to_string()));
+            if imported != "default" && explicitly_exports_symbol(repo_root, &target.path, imported) {
+                wildcard_candidates.push((target.path.clone(), imported.to_string()));
+            }
+            continue;
         }
         let clause = clause.trim();
         let Some(inner) = clause.strip_prefix('{').and_then(|value| value.strip_suffix('}')) else {
@@ -2575,12 +2605,60 @@ fn resolve_local_reexport(
                 .and_then(|index| parts.get(index + 1))
                 .copied()
                 .unwrap_or(original);
-            if exported == imported {
+            if exported == imported && explicitly_exports_symbol(repo_root, &target.path, original) {
                 return Some((target.path.clone(), (*original).to_string()));
             }
         }
     }
-    None
+    (wildcard_candidates.len() == 1).then(|| wildcard_candidates.remove(0))
+}
+
+fn explicitly_exports_symbol(repo_root: &Path, target_path: &str, name: &str) -> bool {
+    if name == "default" {
+        return false;
+    }
+    let Ok(content) = std::fs::read_to_string(repo_root.join(target_path)) else {
+        return false;
+    };
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let Some(rest) = trimmed.strip_prefix("export ") else {
+            continue;
+        };
+        let rest = rest.strip_prefix("default ").unwrap_or(rest);
+        if rest.starts_with("function ")
+            || rest.starts_with("class ")
+            || rest.starts_with("const ")
+            || rest.starts_with("let ")
+            || rest.starts_with("var ")
+        {
+            let declared = rest
+                .split_whitespace()
+                .nth(1)
+                .and_then(|value| value.split(['(', '=', ';']).next())
+                .unwrap_or_default();
+            if declared == name {
+                return true;
+            }
+        }
+        if !rest.contains(" from ") {
+            if let Some(inner) = rest.strip_prefix('{').and_then(|value| value.split('}').next()) {
+                for item in inner.split(',') {
+                    let parts = item.split_whitespace().collect::<Vec<_>>();
+                    let exported = parts
+                        .iter()
+                        .position(|part| *part == "as")
+                        .and_then(|index| parts.get(index + 1))
+                        .copied()
+                        .unwrap_or_else(|| parts.first().copied().unwrap_or_default());
+                    if exported == name {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 fn collect_export_statement_texts(
@@ -4354,6 +4432,35 @@ export const mapValues = <T>(items: T[]) => items;
             edge.from == "src/consumer.ts#start"
                 && edge.to == "src/worker.ts#runTask"
                 && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn rejects_ambiguous_wildcards_and_private_reexports() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("a.ts"), "export function runTask() {}\nfunction hidden() {}\n")
+            .expect("write a");
+        std::fs::write(src.join("b.ts"), "export function runTask() {}\n")
+            .expect("write b");
+        std::fs::write(
+            src.join("barrel.ts"),
+            "export * from './a';\nexport * from './b';\nexport { hidden } from './a';\n",
+        )
+        .expect("write barrel");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import { runTask, hidden } from './barrel';\nexport function start() { runTask(); hidden(); }\n",
+        )
+        .expect("write consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.kind == RepoGraphEdgeKind::CallReference
+                && (edge.to == "src/a.ts#runTask"
+                    || edge.to == "src/b.ts#runTask"
+                    || edge.to == "src/a.ts#hidden")
         }));
     }
 

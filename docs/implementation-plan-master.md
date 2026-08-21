@@ -180,6 +180,9 @@ the current checkout.
 - CLI and frontend re-export resolution now rejects ambiguous wildcard targets,
   private named targets, and default wildcard names instead of choosing the
   first matching symbol.
+- Native Repo Intelligence now applies the same fail-closed re-export contract
+  and suppresses legacy name-matching edges for unresolved imported bindings;
+  native coverage is 42 focused tests.
 
 ### Remaining build work
 
