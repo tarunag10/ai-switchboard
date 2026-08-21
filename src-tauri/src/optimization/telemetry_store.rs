@@ -125,7 +125,7 @@ pub(crate) struct ModelRoutingEvidenceProvenance {
     pub(crate) captured_at: String,
 }
 
-const MODEL_ROUTING_EVIDENCE_MINIMUM_SAMPLES: u64 = 50;
+const MAX_MODEL_ROUTING_EVIDENCE_EVENTS_PER_RUN: i64 = 10_000;
 
 /// Persist only redacted routing outcome metrics. Request and response bodies
 /// are intentionally not represented by this schema.
@@ -174,6 +174,16 @@ fn try_record_model_routing_evidence(
         ModelRoutingEvidenceArm::Candidate => "candidate",
     };
     let conn = open_connection()?;
+    let existing: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM model_routing_evidence_events WHERE run_id = ?1",
+        params![observation.run_id.trim()],
+        |row| row.get(0),
+    )?;
+    if existing >= MAX_MODEL_ROUTING_EVIDENCE_EVENTS_PER_RUN {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "model-routing evidence run exceeds its bounded event limit".to_string(),
+        ));
+    }
     conn.execute(
         "INSERT INTO model_routing_evidence_events (
             run_id, captured_at, task_class, arm, baseline_model, candidate_model,
@@ -264,6 +274,8 @@ pub(crate) fn export_model_routing_evidence(
         .to_string();
     let samples = observations.iter().map(|observation| observation.sample()).collect::<Vec<_>>();
     let evidence = aggregate_model_routing_evidence(&samples, &task_class)?;
+    let minimum_samples =
+        super::model_routing::load_model_routing_experiment_policy().thresholds.minimum_sample_size;
     let rate = |successes: u64| -> u32 {
         ((successes.saturating_mul(10_000)) / evidence.sample_size.max(1)) as u32
     };
@@ -282,7 +294,7 @@ pub(crate) fn export_model_routing_evidence(
     Ok(ModelRoutingEvidenceArtifact {
         schema_version: 1,
         evidence_class: "local_runtime_observation",
-        minimum_samples: MODEL_ROUTING_EVIDENCE_MINIMUM_SAMPLES,
+        minimum_samples,
         baseline: ModelRoutingEvidenceArmMetrics {
             sample_count: baseline_count,
             success_rate_bps: rate(evidence.baseline_successes),

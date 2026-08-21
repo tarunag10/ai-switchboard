@@ -265,6 +265,9 @@ the current checkout.
   those capabilities exist while preventing restricted runners from reporting
   environment failures as product regressions; the full library suite is
   `1080 passed, 2 ignored` in this checkout.
+- Routing evidence ingestion now enforces a bounded 10,000-event run limit and
+  derives exported `minimumSamples` from the persisted routing policy rather
+  than duplicating a threshold constant.
 
 ### Remaining build work
 
