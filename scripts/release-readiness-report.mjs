@@ -4,7 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { assessSummaryFreshness, extractGeneratedAt } from "./release-summary-contract.mjs";
 import { validateModeRelaunchSummary } from "./local-mode-relaunch-contract.mjs";
-import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
+import {
+  canonicalInstalledAppPath,
+  readCanonicalAppIdentity,
+  validateAppIdentity,
+} from "./app-identity-contract.mjs";
 
 const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
@@ -47,6 +51,7 @@ const localOnlyNetworkJsonPath =
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const appPath = canonicalInstalledAppPath;
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
+const canonicalAppIdentity = readCanonicalAppIdentity();
 const staticSmokeRequiredEvidence = [
   "Switchboard modes",
   "Switchboard copyable state",
@@ -211,6 +216,37 @@ function runProbe(command, args) {
   };
 }
 
+function readPlistValue(key) {
+  if (!fs.existsSync(appInfoPlistPath)) return null;
+  const result = spawnSync(
+    "/usr/libexec/PlistBuddy",
+    ["-c", `Print :${key}`, appInfoPlistPath],
+    { encoding: "utf8", timeout: 15_000 },
+  );
+  return result.status === 0 ? result.stdout?.trim() ?? null : null;
+}
+
+const installedAppMetadata = {
+  bundleIdentifier: readPlistValue("CFBundleIdentifier"),
+  version: readPlistValue("CFBundleShortVersionString"),
+  displayName: readPlistValue("CFBundleDisplayName"),
+  bundleName: readPlistValue("CFBundleName"),
+};
+
+function presentEvidenceFreshness(summary, label) {
+  const assessed = assessSummaryFreshness(
+    {
+      summaryGeneratedAt: summary.generatedAt,
+      present: summary.present,
+      passed: false,
+    },
+    { label },
+  );
+  return summary.present
+    ? assessed
+    : { ...assessed, fresh: false, reason: `${label} summary is missing` };
+}
+
 function buildArtifactTrustEvidence() {
   const dmgDirectory = "src-tauri/target/release/bundle/dmg";
   const dmgPath = fs.existsSync(dmgDirectory)
@@ -314,14 +350,15 @@ function buildInstalledSmoke(
   bundleMetadataPresent,
   installedSmokeSummary,
 ) {
-  const freshness = assessSummaryFreshness(
-    {
-      summaryGeneratedAt: installedSmokeSummary.generatedAt,
-      present: installedSmokeSummary.present,
-      passed: false,
-    },
-    { label: "installedSmoke.generatedAt" },
+  const freshness = presentEvidenceFreshness(
+    installedSmokeSummary,
+    "installedSmoke.generatedAt",
   );
+  const identityFailures = validateAppIdentity(
+    installedAppMetadata,
+    canonicalAppIdentity,
+  );
+  const metadataMatches = identityFailures.length === 0;
   const missingEvidence = installedSmokeRequiredEvidence.filter(
     (item) => !installedSmokeSummary.body.includes(item),
   );
@@ -337,13 +374,17 @@ function buildInstalledSmoke(
     installedSmokeSummary.present &&
     missingEvidence.length === 0 &&
     checklistSha256Matches &&
-    freshness.fresh;
+    freshness.fresh &&
+    metadataMatches;
   const ready = installedAppPresent && bundleMetadataPresent && evidenceReady;
 
   return {
     ready,
     installedAppPresent,
     bundleMetadataPresent,
+    metadataMatches,
+    identityFailures,
+    appMetadata: installedAppMetadata,
     appPath,
     appInfoPlistPath,
     smokeSummaryPath: installedSmokeSummaryPath,
@@ -367,7 +408,12 @@ function buildStaticSmokePreflight(smokeSummary) {
   const missingEvidence = staticSmokeRequiredEvidence.filter(
     (item) => !smokeSummary.body.includes(item),
   );
-  const evidenceReady = smokeSummary.present && missingEvidence.length === 0;
+  const freshness = presentEvidenceFreshness(
+    smokeSummary,
+    "staticSmokePreflight.generatedAt",
+  );
+  const evidenceReady =
+    smokeSummary.present && missingEvidence.length === 0 && freshness.fresh;
 
   return {
     ready: evidenceReady,
@@ -378,6 +424,7 @@ function buildStaticSmokePreflight(smokeSummary) {
     requiredEvidence: staticSmokeRequiredEvidence,
     missingEvidence,
     evidenceReady,
+    freshness,
     message: evidenceReady
       ? "Static smoke preflight summary present with every required evidence line. Keep it with release evidence."
       : "Run npm run smoke:preflight before handing a DMG to a tester, and make sure it includes every required evidence line.",
@@ -847,6 +894,7 @@ ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}`
 - Required command: ${staticSmokePreflight.requiredCommand}
 - Required evidence: ${staticSmokePreflight.requiredEvidence.join(", ")}
 - Missing evidence: ${staticSmokePreflight.missingEvidence.length ? staticSmokePreflight.missingEvidence.join(", ") : "none"}
+- Static smoke freshness: ${staticSmokePreflight.freshness.fresh ? "fresh" : "stale or missing"} (${staticSmokePreflight.freshness.reason ?? "within evidence window"})
 - Static smoke evidence ready: ${staticSmokePreflight.evidenceReady ? "yes" : "no"}
 - ${staticSmokePreflight.message}
 
@@ -854,6 +902,7 @@ ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}`
 
 - Installed app present: ${installedSmoke.installedAppPresent ? "yes" : "no"} (${installedSmoke.appPath})
 - Installed app metadata present: ${installedSmoke.bundleMetadataPresent ? "yes" : "no"} (${installedSmoke.appInfoPlistPath})
+- Installed app metadata matches canonical identity: ${installedSmoke.metadataMatches ? "yes" : "no"}
 - Installed smoke summary present: ${installedSmoke.smokeSummaryPresent ? "yes" : "no"} (${installedSmoke.smokeSummaryPath})
 ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Installed smoke summary has not been generated in this checkout."}
 - Installed-app checklist: ${installedSmoke.betaSmokeDoc}

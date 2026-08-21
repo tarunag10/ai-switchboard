@@ -250,6 +250,9 @@ the current checkout.
 - Public installed-smoke readiness now requires a fresh, timestamped summary
   in addition to current checklist content and hash, preventing stale tester
   confirmations from being treated as current evidence.
+- Static smoke preflight now uses the same presence-and-freshness contract,
+  and public installed-smoke evidence is bound to canonical installed-app
+  metadata before it can be considered ready.
 
 ### Remaining build work
 

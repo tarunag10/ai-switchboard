@@ -428,6 +428,14 @@ requireBooleanFields(report, "staticSmokePreflight", [
   "smokeSummaryPresent",
   "evidenceReady",
 ]);
+requireObject(report, "staticSmokePreflight.freshness");
+requireType(report, "staticSmokePreflight.freshness.fresh", "boolean");
+if (
+  report.staticSmokePreflight.freshness.generatedAt !== null &&
+  typeof report.staticSmokePreflight.freshness.generatedAt !== "string"
+) {
+  fail("staticSmokePreflight.freshness.generatedAt must be string or null");
+}
 requireType(report, "staticSmokePreflight.smokeSummaryPath", "string");
 requireType(report, "staticSmokePreflight.requiredCommand", "string");
 const requiredEvidence = requireArray(
@@ -490,6 +498,7 @@ requireBooleanFields(report, "installedSmoke", [
   "smokeSummaryPresent",
   "evidenceReady",
   "checklistSha256Matches",
+  "metadataMatches",
 ]);
 requireObject(report, "installedSmoke.freshness");
 requireType(report, "installedSmoke.freshness.fresh", "boolean");
