@@ -273,6 +273,24 @@ pub(crate) fn observation_from_completed_route(
     decision: &ModelRouteDecision,
     completion: ModelRoutingCompletionEvidence,
 ) -> Result<ModelRoutingEvidenceObservation, String> {
+    let valid_identifier = |value: &str| {
+        let trimmed = value.trim();
+        !trimmed.is_empty()
+            && trimmed.len() <= 128
+            && trimmed.chars().all(|character| !character.is_control())
+    };
+    if !valid_identifier(&completion.run_id) {
+        return Err("completed route requires a valid run identifier".to_string());
+    }
+    if !valid_identifier(&completion.captured_at) {
+        return Err("completed route requires a valid capture timestamp".to_string());
+    }
+    if !valid_identifier(&decision.task_class) {
+        return Err("completed route requires a valid task class".to_string());
+    }
+    if completion.latency_ms > i64::MAX as u64 {
+        return Err("completed route latency is out of range".to_string());
+    }
     let arm = if decision.actual_model == decision.baseline_model {
         ModelRoutingEvidenceArm::Baseline
     } else if decision.actual_model == decision.candidate_model {
@@ -809,6 +827,36 @@ mod tests {
         assert!(observation_from_completed_route(&decision, completion())
             .unwrap_err()
             .contains("baseline or candidate"));
+    }
+
+    #[test]
+    fn completed_route_adapter_rejects_invalid_context_identity_and_latency() {
+        let decision = decide_model_route(&input());
+
+        let mut missing_run_id = completion();
+        missing_run_id.run_id = "  ".to_string();
+        assert!(observation_from_completed_route(&decision, missing_run_id)
+            .unwrap_err()
+            .contains("run identifier"));
+
+        let mut invalid_timestamp = completion();
+        invalid_timestamp.captured_at = "\u{0000}".to_string();
+        assert!(observation_from_completed_route(&decision, invalid_timestamp)
+            .unwrap_err()
+            .contains("capture timestamp"));
+
+        let mut invalid_task_class = completion();
+        let mut invalid_decision = decision.clone();
+        invalid_decision.task_class = "\n".to_string();
+        assert!(observation_from_completed_route(&invalid_decision, invalid_task_class)
+            .unwrap_err()
+            .contains("task class"));
+
+        let mut oversized_latency = completion();
+        oversized_latency.latency_ms = i64::MAX as u64 + 1;
+        assert!(observation_from_completed_route(&decision, oversized_latency)
+            .unwrap_err()
+            .contains("latency"));
     }
 
     #[test]

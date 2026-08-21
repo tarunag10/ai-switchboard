@@ -309,6 +309,8 @@ the current checkout.
    Native and TypeScript defaults now align with the 100-sample evidence
    contract; transport-only proxy completion still lacks arm, task-class,
    quality, rework, and provider-billed cost context.
+   The completion adapter now also rejects invalid run identity, task class,
+   timestamp metadata, and out-of-range latency before persistence.
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
    canonical app identity, report freshness contract, local source-lineage
