@@ -108,6 +108,9 @@ the current checkout.
   exports, preserving the existing parity boundary.
 - Release readiness now has a deterministic blocked no-refresh rehearsal that
   verifies exact action mapping without rewriting the supplied report.
+- Managed connector listings now expose read-only config previews for the
+  already-tested sidecar/native lifecycle adapters; preview writes remain empty
+  and explicit backup/apply/verify/rollback/Off actions remain required.
 
 ### Done — prepared and shipped
 
@@ -362,7 +365,8 @@ the current checkout.
    of scope unless a separate evidence-backed design is approved.
 4. **Connector coverage:** lifecycle evidence linkage is now machine-checked;
    promotion inventories are also fail-closed for canonical ordering,
-   duplication, overlap, and Cursor gating;
+   duplication, overlap, and Cursor gating; managed sidecar/native adapters now
+   expose truthful read-only previews in the connector listing;
    continue only with documented schemas and full
    detect/preview/backup/apply/verify/rollback/off/uninstall proof. Cursor
    native provider writes remain gated; Continue, Aider, Qwen Code, and Amazon

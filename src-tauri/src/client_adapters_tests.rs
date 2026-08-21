@@ -536,7 +536,12 @@
         assert_eq!(gemini.setup_phase, "managed");
         assert!(gemini.config_creation_steps.is_empty());
         assert!(gemini.config_creation_step_details.is_empty());
-        assert!(gemini.config_dry_run_preview.is_none());
+        let gemini_preview = gemini
+            .config_dry_run_preview
+            .as_ref()
+            .expect("gemini managed dry-run preview");
+        assert!(gemini_preview.apply_blocked_reason.contains("read-only"));
+        assert!(gemini_preview.writes.is_empty());
         assert!(gemini.automation_path.is_empty());
         assert!(!gemini.enabled);
         assert!(!gemini.verified);
@@ -552,7 +557,12 @@
         assert_eq!(opencode.setup_phase, "managed");
         assert!(opencode.config_creation_steps.is_empty());
         assert!(opencode.config_creation_step_details.is_empty());
-        assert!(opencode.config_dry_run_preview.is_none());
+        let opencode_preview = opencode
+            .config_dry_run_preview
+            .as_ref()
+            .expect("opencode managed dry-run preview");
+        assert!(opencode_preview.apply_blocked_reason.contains("read-only"));
+        assert!(opencode_preview.writes.is_empty());
         assert!(opencode.automation_path.is_empty());
         assert!(!opencode.enabled);
         assert!(!opencode.verified);
@@ -2968,7 +2978,12 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             assert!(connector.enabled, "{client_id} should be enabled");
             assert!(connector.verified, "{client_id} should be verified");
             assert!(connector.config_creation_steps.is_empty());
-            assert!(connector.config_dry_run_preview.is_none());
+            let preview = connector
+                .config_dry_run_preview
+                .as_ref()
+                .expect("managed connector dry-run preview");
+            assert!(preview.apply_blocked_reason.contains("read-only"));
+            assert!(preview.writes.is_empty());
             assert!(connector.automation_path.is_empty());
             super::disable_client_setup(client_id).expect("off cleanup");
         }
@@ -4976,7 +4991,12 @@ js_repl = false\n",
             .automation_gates
             .iter()
             .any(|gate| gate.contains("XAI_API_KEY")));
-        assert!(grok.config_dry_run_preview.is_none());
+        let grok_preview = grok
+            .config_dry_run_preview
+            .as_ref()
+            .expect("grok managed dry-run preview");
+        assert!(grok_preview.apply_blocked_reason.contains("read-only"));
+        assert!(grok_preview.writes.is_empty());
         assert!(grok.config_creation_step_details.is_empty());
     }
 
@@ -5001,7 +5021,12 @@ js_repl = false\n",
             .iter()
             .any(|location| location.contains(".continue")));
         assert!(continue_connector.config_creation_step_details.is_empty());
-        assert!(continue_connector.config_dry_run_preview.is_none());
+        let continue_preview = continue_connector
+            .config_dry_run_preview
+            .as_ref()
+            .expect("continue managed dry-run preview");
+        assert!(continue_preview.apply_blocked_reason.contains("read-only"));
+        assert!(continue_preview.writes.is_empty());
         assert!(continue_connector.automation_path.is_empty());
     }
 
@@ -5029,7 +5054,12 @@ js_repl = false\n",
             .any(|location| location.contains(".config/qwen")));
         assert!(qwen.config_creation_step_details.is_empty());
 
-        assert!(qwen.config_dry_run_preview.is_none());
+        let qwen_preview = qwen
+            .config_dry_run_preview
+            .as_ref()
+            .expect("qwen managed dry-run preview");
+        assert!(qwen_preview.apply_blocked_reason.contains("read-only"));
+        assert!(qwen_preview.writes.is_empty());
     }
 
     #[test]

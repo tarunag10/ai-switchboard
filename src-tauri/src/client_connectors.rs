@@ -634,6 +634,26 @@ pub(crate) fn planned_connector_dry_run_preview(
     })
 }
 
+pub(crate) fn managed_connector_dry_run_preview(
+    spec: &PlannedClientSpec,
+    detection_evidence: &[String],
+) -> Option<ClientConnectorConfigDryRunPreview> {
+    let mut preview = planned_connector_dry_run_preview(spec, detection_evidence)?;
+    preview.current_state = format!(
+        "Read-only preview for managed {} routing; current state is confirmed by lifecycle verification.",
+        spec.name
+    );
+    preview.proposed_state = format!(
+        "Preview only: no files are written. The tested managed {} lifecycle can add Switchboard routing after explicit consent.",
+        spec.name
+    );
+    preview.apply_blocked_reason = format!(
+        "{} listing is read-only; explicit backup, apply, verify, rollback, and Off actions are required before any config change.",
+        spec.name
+    );
+    Some(preview)
+}
+
 pub(crate) fn planned_connector_has_implemented_setup(client_id: &str) -> bool {
     matches!(normalized_connector_id(client_id), "goose" | "grok_cli")
         || planned_sidecar_spec(client_id).is_some()
