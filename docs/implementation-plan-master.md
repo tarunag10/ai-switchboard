@@ -120,6 +120,9 @@ the current checkout.
 - Added `npm run release:ready:selftest` and a non-mutating
   `--no-refresh --report <path>` mode so release action mapping can be tested
   against an existing report without regenerating local evidence artifacts.
+- Connector lifecycle fixtures now have a pure schema gate that rejects
+  duplicate IDs, unknown stages, and malformed required-stage declarations;
+  Cursor's gated null lifecycle remains valid.
 
 ### Remaining build work
 
