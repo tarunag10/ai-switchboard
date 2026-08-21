@@ -85,6 +85,8 @@ the current checkout.
   indefinitely.
 - Release-readiness measured-savings status now requires both positive saved
   tokens and fresh evidence; consistency tests reject stale passing reports.
+- Model-routing evidence persistence now rejects successful observations that
+  omit successful-task cost instead of silently dropping them.
 
 ### Done — prepared and shipped
 

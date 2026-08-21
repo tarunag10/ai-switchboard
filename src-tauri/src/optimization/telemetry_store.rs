@@ -172,7 +172,9 @@ fn try_record_model_routing_evidence(
         ));
     }
     if observation.succeeded && observation.successful_task_cost_microunits.is_none() {
-        return Ok(());
+        return Err(rusqlite::Error::InvalidParameterName(
+            "successful model-routing observations require cost evidence".to_string(),
+        ));
     }
     let arm = match observation.arm {
         ModelRoutingEvidenceArm::Baseline => "baseline",

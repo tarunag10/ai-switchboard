@@ -208,6 +208,12 @@ fn model_routing_evidence_rejects_overflow_and_invalid_timestamps() {
     assert!(record_model_routing_evidence(&observation).is_err());
     observation.captured_at = (chrono::Utc::now() - chrono::Duration::days(8)).to_rfc3339();
     assert!(record_model_routing_evidence(&observation).is_err());
+    observation.captured_at = chrono::Utc::now().to_rfc3339();
+    observation.successful_task_cost_microunits = None;
+    assert!(record_model_routing_evidence(&observation)
+        .expect_err("successful observations without cost must fail closed")
+        .to_string()
+        .contains("require cost evidence"));
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),
