@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { assessSummaryFreshness, extractGeneratedAt } from "./release-summary-contract.mjs";
 
 const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
@@ -160,6 +161,7 @@ function readSummaryStatus(summaryPath) {
     return {
       present: false,
       generatedLine: null,
+      generatedAt: null,
       body: "",
     };
   }
@@ -171,6 +173,7 @@ function readSummaryStatus(summaryPath) {
   return {
     present: true,
     generatedLine: firstGeneratedLine,
+    generatedAt: extractGeneratedAt(body),
     body,
   };
 }
@@ -408,17 +411,27 @@ function buildLocalValidationEvidence() {
   );
   const localOnlyNetworkSummary = readSummaryStatus(localOnlyNetworkSummaryPath);
   const localOnlyNetworkJson = readJsonStatus(localOnlyNetworkJsonPath);
-  const modeRelaunchPassed = modeRelaunchJson.body?.passed === true;
-  const rollbackPassed = rollbackJson.body?.passed === true;
-  const doctorRepairPassed = doctorJson.body?.passed === true;
-  const uninstallPassed = uninstallJson.body?.passed === true;
-  const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
-  const repoMemoryMcpPassed = repoMemoryMcpJson.body?.passed === true;
+  const localInstalledFreshness = assessSummaryFreshness({ summaryGeneratedAt: localInstalledSummary.generatedAt, jsonGeneratedAt: localInstalledJson.body?.generatedAt, present: localInstalledSummary.present || localInstalledJson.present, passed: localInstalledJson.body?.passed === true }, { label: "localInstalled.generatedAt" });
+  const modeRelaunchFreshness = assessSummaryFreshness({ summaryGeneratedAt: modeRelaunchSummary.generatedAt, jsonGeneratedAt: modeRelaunchJson.body?.generatedAt, present: modeRelaunchSummary.present || modeRelaunchJson.present, passed: modeRelaunchJson.body?.passed === true }, { label: "modeRelaunch.generatedAt" });
+  const rollbackFreshness = assessSummaryFreshness({ summaryGeneratedAt: rollbackSummary.generatedAt, jsonGeneratedAt: rollbackJson.body?.generatedAt, present: rollbackSummary.present || rollbackJson.present, passed: rollbackJson.body?.passed === true }, { label: "rollback.generatedAt" });
+  const doctorRepairFreshness = assessSummaryFreshness({ summaryGeneratedAt: doctorSummary.generatedAt, jsonGeneratedAt: doctorJson.body?.generatedAt, present: doctorSummary.present || doctorJson.present, passed: doctorJson.body?.passed === true }, { label: "doctorRepair.generatedAt" });
+  const uninstallFreshness = assessSummaryFreshness({ summaryGeneratedAt: uninstallSummary.generatedAt, jsonGeneratedAt: uninstallJson.body?.generatedAt, present: uninstallSummary.present || uninstallJson.present, passed: uninstallJson.body?.passed === true }, { label: "uninstall.generatedAt" });
+  const repoIntelligenceFreshness = assessSummaryFreshness({ summaryGeneratedAt: repoIntelligenceSummary.generatedAt, jsonGeneratedAt: repoIntelligenceJson.body?.generatedAt, present: repoIntelligenceSummary.present || repoIntelligenceJson.present, passed: repoIntelligenceJson.body?.passed === true }, { label: "repoIntelligence.generatedAt" });
+  const repoMemoryMcpFreshness = assessSummaryFreshness({ summaryGeneratedAt: repoMemoryMcpSummary.generatedAt, jsonGeneratedAt: repoMemoryMcpJson.body?.generatedAt, present: repoMemoryMcpSummary.present || repoMemoryMcpJson.present, passed: repoMemoryMcpJson.body?.passed === true }, { label: "repoMemoryMcp.generatedAt" });
+  const measuredSavingsBenchmarkFreshness = assessSummaryFreshness({ summaryGeneratedAt: measuredSavingsBenchmarkSummary.generatedAt, jsonGeneratedAt: measuredSavingsBenchmarkJson.body?.generatedAt, present: measuredSavingsBenchmarkSummary.present || measuredSavingsBenchmarkJson.present, passed: Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0 }, { label: "measuredSavingsBenchmark.generatedAt" });
+  const localConnectorReadinessFreshness = assessSummaryFreshness({ summaryGeneratedAt: localConnectorReadinessSummary.generatedAt, jsonGeneratedAt: localConnectorReadinessJson.body?.generatedAt, present: localConnectorReadinessSummary.present || localConnectorReadinessJson.present, passed: localConnectorReadinessJson.body?.passed === true }, { label: "connectorReadiness.generatedAt" });
+  const localOnlyNetworkFreshness = assessSummaryFreshness({ summaryGeneratedAt: localOnlyNetworkSummary.generatedAt, jsonGeneratedAt: localOnlyNetworkJson.body?.generatedAt, present: localOnlyNetworkSummary.present || localOnlyNetworkJson.present, passed: localOnlyNetworkJson.body?.passed === true }, { label: "localOnlyNetwork.generatedAt" });
+  const modeRelaunchPassed = modeRelaunchJson.body?.passed === true && modeRelaunchFreshness.fresh;
+  const rollbackPassed = rollbackJson.body?.passed === true && rollbackFreshness.fresh;
+  const doctorRepairPassed = doctorJson.body?.passed === true && doctorRepairFreshness.fresh;
+  const uninstallPassed = uninstallJson.body?.passed === true && uninstallFreshness.fresh;
+  const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true && repoIntelligenceFreshness.fresh;
+  const repoMemoryMcpPassed = repoMemoryMcpJson.body?.passed === true && repoMemoryMcpFreshness.fresh;
   const measuredSavingsBenchmarkPassed =
     Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0;
   const localConnectorReadinessPassed =
-    localConnectorReadinessJson.body?.passed === true;
-  const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true;
+    localConnectorReadinessJson.body?.passed === true && localConnectorReadinessFreshness.fresh;
+  const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true && localOnlyNetworkFreshness.fresh;
   const localInstalledAppPresent = localInstalledJson.body?.app?.present === true;
   const localInstalledMetadataMatches =
     localInstalledJson.body?.app?.metadataMatches === true;
@@ -436,7 +449,8 @@ function buildLocalValidationEvidence() {
     localInstalledAppPresent &&
     localInstalledMetadataMatches &&
     localInstalledDmgVerified &&
-    localInstalledCodesignVerified;
+    localInstalledCodesignVerified &&
+    localInstalledFreshness.fresh;
   const ready =
     localInstalledPassed &&
     modeRelaunchPassed &&
@@ -456,6 +470,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: localInstalledSummary.present,
       jsonPresent: localInstalledJson.present,
       generatedLine: localInstalledSummary.generatedLine,
+      generatedAt: localInstalledFreshness.generatedAt,
+      freshness: localInstalledFreshness,
       passed: localInstalledPassed,
       parseError: localInstalledJson.parseError,
       kind: localInstalledJson.body?.kind ?? null,
@@ -474,6 +490,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: modeRelaunchSummary.present,
       jsonPresent: modeRelaunchJson.present,
       generatedLine: modeRelaunchSummary.generatedLine,
+      generatedAt: modeRelaunchFreshness.generatedAt,
+      freshness: modeRelaunchFreshness,
       passed: modeRelaunchPassed,
       parseError: modeRelaunchJson.parseError,
       kind: modeRelaunchJson.body?.kind ?? null,
@@ -495,6 +513,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: rollbackSummary.present,
       jsonPresent: rollbackJson.present,
       generatedLine: rollbackSummary.generatedLine,
+      generatedAt: rollbackFreshness.generatedAt,
+      freshness: rollbackFreshness,
       passed: rollbackPassed,
       parseError: rollbackJson.parseError,
       kind: rollbackJson.body?.kind ?? null,
@@ -511,6 +531,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: doctorSummary.present,
       jsonPresent: doctorJson.present,
       generatedLine: doctorSummary.generatedLine,
+      generatedAt: doctorRepairFreshness.generatedAt,
+      freshness: doctorRepairFreshness,
       passed: doctorRepairPassed,
       parseError: doctorJson.parseError,
       kind: doctorJson.body?.kind ?? null,
@@ -525,6 +547,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: uninstallSummary.present,
       jsonPresent: uninstallJson.present,
       generatedLine: uninstallSummary.generatedLine,
+      generatedAt: uninstallFreshness.generatedAt,
+      freshness: uninstallFreshness,
       schemaVersion: uninstallJson.body?.schemaVersion ?? null,
       passed: uninstallPassed,
       destructive: uninstallJson.body?.destructive === true,
@@ -542,6 +566,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: repoIntelligenceSummary.present,
       jsonPresent: repoIntelligenceJson.present,
       generatedLine: repoIntelligenceSummary.generatedLine,
+      generatedAt: repoIntelligenceFreshness.generatedAt,
+      freshness: repoIntelligenceFreshness,
       schemaVersion: repoIntelligenceJson.body?.schemaVersion ?? null,
       passed: repoIntelligencePassed,
       readOnly: repoIntelligenceJson.body?.readOnly === true,
@@ -560,6 +586,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: measuredSavingsBenchmarkSummary.present,
       jsonPresent: measuredSavingsBenchmarkJson.present,
       generatedLine: measuredSavingsBenchmarkSummary.generatedLine ?? null,
+      generatedAt: measuredSavingsBenchmarkFreshness.generatedAt,
+      freshness: measuredSavingsBenchmarkFreshness,
       passed: measuredSavingsBenchmarkPassed,
       kind: measuredSavingsBenchmarkJson.body?.kind ?? null,
       releaseGateEvidence: measuredSavingsBenchmarkJson.body?.releaseGateEvidence ?? null,
@@ -574,6 +602,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: repoMemoryMcpSummary.present,
       jsonPresent: repoMemoryMcpJson.present,
       generatedLine: repoMemoryMcpSummary.generatedLine,
+      generatedAt: repoMemoryMcpFreshness.generatedAt,
+      freshness: repoMemoryMcpFreshness,
       schemaVersion: repoMemoryMcpJson.body?.schemaVersion ?? null,
       passed: repoMemoryMcpPassed,
       budgetedPackVerified:
@@ -606,6 +636,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: localConnectorReadinessSummary.present,
       jsonPresent: localConnectorReadinessJson.present,
       generatedLine: localConnectorReadinessSummary.generatedLine ?? null,
+      generatedAt: localConnectorReadinessFreshness.generatedAt,
+      freshness: localConnectorReadinessFreshness,
       passed: localConnectorReadinessPassed,
       readOnly: localConnectorReadinessJson.body?.readOnly === true,
       modifiesRepository:
@@ -630,6 +662,8 @@ function buildLocalValidationEvidence() {
       summaryPresent: localOnlyNetworkSummary.present,
       jsonPresent: localOnlyNetworkJson.present,
       generatedLine: localOnlyNetworkSummary.generatedLine,
+      generatedAt: localOnlyNetworkFreshness.generatedAt,
+      freshness: localOnlyNetworkFreshness,
       schemaVersion: localOnlyNetworkJson.body?.schemaVersion ?? null,
       passed: localOnlyNetworkPassed,
       localOnly: localOnlyNetworkJson.body?.localOnly === true,

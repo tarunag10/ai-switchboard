@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { validateReleaseEvidenceTimestamp } from "./release-evidence-time.mjs";
+import { validateSummaryGeneratedAt } from "./release-summary-contract.mjs";
 
 const reportPath = "dist/release-readiness-report.json";
 const markdownReportPath = "dist/release-readiness-report.md";
@@ -157,6 +158,10 @@ function hasPath(root, path) {
       .reduce((current, key) => current?.[key], root);
     return isObject(parent) || Array.isArray(parent) ? part in parent : false;
   });
+}
+
+function readPath(root, path) {
+  return path.split(".").reduce((current, part) => current?.[part], root);
 }
 
 if (!fs.existsSync(reportPath)) {
@@ -365,6 +370,36 @@ if (!timestampCheck.ok) {
 for (const path of requiredReleaseReportPaths) {
   if (!hasPath(report, path)) {
     fail(`${path} is missing`);
+  }
+}
+
+const localEvidenceTimestampPaths = [
+  ["localInstalled", "localValidation.localInstalled"],
+  ["modeRelaunch", "localValidation.modeRelaunch"],
+  ["rollback", "localValidation.rollback"],
+  ["doctorRepair", "localValidation.doctorRepair"],
+  ["uninstall", "localValidation.uninstall"],
+  ["repoIntelligence", "localValidation.repoIntelligence"],
+  ["measuredSavingsBenchmark", "localValidation.measuredSavingsBenchmark"],
+  ["repoMemoryMcp", "localValidation.repoMemoryMcp"],
+  ["connectorReadiness", "localValidation.connectorReadiness"],
+  ["localOnlyNetwork", "localValidation.localOnlyNetwork"],
+];
+for (const [label, prefix] of localEvidenceTimestampPaths) {
+  const evidence = readPath(report, prefix);
+  const timestampCheck = validateSummaryGeneratedAt(evidence?.generatedAt, {
+    present: evidence?.summaryPresent === true,
+    passed: evidence?.passed === true,
+    label: `${prefix}.generatedAt`,
+  });
+  if (!timestampCheck.ok) fail(timestampCheck.reason);
+  if (evidence?.freshness !== undefined) {
+    if (!isObject(evidence.freshness) || typeof evidence.freshness.fresh !== "boolean") {
+      fail(`${prefix}.freshness must include a boolean fresh field`);
+    }
+    if (evidence.passed === true && evidence.freshness.fresh !== true) {
+      fail(`${prefix}.passed cannot be true when freshness is not fresh`);
+    }
   }
 }
 

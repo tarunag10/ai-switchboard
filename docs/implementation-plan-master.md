@@ -145,6 +145,12 @@ the current checkout.
 - Model-routing live evidence now uses the same bounded timestamp contract and
   tests stale/timezone-free runs plus large-cost arithmetic; promotion remains
   observe-only for the checked-in offline fixture.
+- Local release-readiness sections now carry structured source `generatedAt`
+  lineage; the schema requires fresh timestamps for present or passed local
+  evidence while allowing absent blocked evidence to remain explicit.
+- Local readiness status now fails closed when JSON and Markdown source
+  timestamps are missing, stale, future-dated, or inconsistent; freshness
+  details are emitted in the report for operator diagnosis.
 
 ### Remaining build work
 
@@ -156,10 +162,10 @@ the current checkout.
    guards are shipped. Importing successful-task, rework,
    quality, and latency observations from real approved runs remains pending;
    automatic routing stays observe-only until that evidence exists.
-2. **Release evidence operator path:** the documentation/checker drift guard and
-   timestamp freshness contract are shipped; executing the external checklist
-   still requires signing credentials, a current public artifact, and a real
-   reboot.
+2. **Release evidence operator path:** the documentation/checker drift guard,
+   report freshness contract, and local source-lineage fields are shipped;
+   executing the external checklist still requires signing credentials, a
+   current public artifact, and a real reboot.
 3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
    shipped; remaining work is deeper bounded semantic resolution only where it
    remains deterministic. Whole-program type inference and dynamic dispatch

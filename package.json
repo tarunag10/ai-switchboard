@@ -33,6 +33,7 @@
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",
     "release:report": "node scripts/release-readiness-report.mjs",
+    "release:summary:selftest": "node --test scripts/release-summary-contract.node-test.mjs",
     "release:report:time:selftest": "node --test scripts/release-evidence-time.node-test.mjs",
     "release:report:check": "node scripts/check-release-report-schema.mjs",
     "savings:benchmark": "node scripts/measured-savings-benchmark.mjs",
