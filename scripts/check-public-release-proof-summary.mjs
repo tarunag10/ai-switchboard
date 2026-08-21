@@ -5,6 +5,7 @@ import {
   publicReleaseGateBlockers,
   shareableDmgGateBooleanFields,
 } from "./public-release-proof-gate.mjs";
+import { isRebootProofReady } from "./reboot-proof-contract.mjs";
 
 const proofPath = "dist/public-release-proof-summary.json";
 const markdownPath = "dist/public-release-proof-summary.md";
@@ -271,6 +272,10 @@ if (
 ) {
   fail("ready reboot-level proof must carry releaseGateEvidence true");
 }
+const rebootProofReady = isRebootProofReady(proof.rebootLevelInstalledProof);
+if (proof.proofReady && !rebootProofReady) {
+  fail("public proofReady requires complete current reboot-level installed proof");
+}
 
 if (proof.proofReady) {
   if (proof.blockers.length !== 0) {
@@ -284,12 +289,21 @@ if (proof.proofReady) {
 } else if (proof.blockers.length === 0) {
   fail("blocked public release proof must list blockers");
 }
+if (proof.evidenceReconciliation?.remainingProof?.rebootLevelInstalledProof !== !rebootProofReady) {
+  fail("remainingProof.rebootLevelInstalledProof must match reboot proof readiness");
+}
 if (!proof.proofReady && proof.githubRelease) {
-  if (!proof.githubRelease?.signedDmgAsset?.url) {
-    fail("blocked proof must still record signed/notarized DMG asset evidence when available");
+  if (
+    proof.evidenceReconciliation?.completedToday?.signedNotarizedDmgAsset === true &&
+    !proof.githubRelease?.signedDmgAsset?.url
+  ) {
+    fail("completed signed/notarized DMG evidence requires a public asset URL");
   }
-  if (!proof.githubRelease?.checksumAsset?.url) {
-    fail("blocked proof must still record public checksum asset evidence when available");
+  if (
+    proof.evidenceReconciliation?.completedToday?.publicChecksumAsset === true &&
+    !proof.githubRelease?.checksumAsset?.url
+  ) {
+    fail("completed public checksum evidence requires a public asset URL");
   }
   if (
     proof.rebootLevelInstalledProof?.proofReady !== true &&

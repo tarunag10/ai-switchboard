@@ -125,7 +125,7 @@
     "savings:runtime:check": "node scripts/check-runtime-savings-attribution.mjs",
     "release:proof": "node scripts/public-release-proof-summary.mjs",
     "release:proof:contract:selftest": "node --test scripts/public-release-proof-contract.node-test.mjs",
-    "release:proof:check": "node --test scripts/public-release-proof-gate.node-test.mjs scripts/public-release-proof-contract.node-test.mjs && node scripts/check-public-release-proof-summary.mjs",
+    "release:proof:check": "node --test scripts/public-release-proof-gate.node-test.mjs scripts/reboot-proof-contract.node-test.mjs scripts/public-release-proof-contract.node-test.mjs && node scripts/check-public-release-proof-summary.mjs",
     "check:repo-map-mounted": "node scripts/check-repo-map-mounted.mjs",
     "check:ui-wiring": "node --test scripts/ui-wiring-checks.node-test.mjs && node scripts/check-ui-wiring.mjs",
     "check:tray-layout": "node scripts/check-tray-layout-styles.mjs",

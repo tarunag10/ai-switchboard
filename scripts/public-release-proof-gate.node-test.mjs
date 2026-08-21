@@ -41,6 +41,8 @@ test("fails closed for absent and non-boolean gate components", () => {
   assert.equal(isShareableDmgGateReady(null), false);
   assert.equal(isShareableDmgGateReady({ environmentClear: true }), false);
   assert.deepEqual(publicReleaseGateBlockers({ environmentClear: true }), [
+    "signed/notarized DMG",
+    "updater feed",
     "backend validation",
     "static smoke preflight",
     "public installed-app smoke",

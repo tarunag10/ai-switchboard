@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { verifyChecksumText, validateChecksumAssetEvidence } from "./public-release-proof-contract.mjs";
 import { publicReleaseGateBlockers } from "./public-release-proof-gate.mjs";
+import { isRebootProofReady } from "./reboot-proof-contract.mjs";
 
 const summaryPath = "dist/public-release-proof-summary.md";
 const jsonPath = "dist/public-release-proof-summary.json";
@@ -285,10 +286,8 @@ const updaterFeedProofReady = updaterEvidence.ready;
 const rebootLevelInstalledProofReady =
   fs.existsSync(rebootLevelInstalledProofPath) &&
   rebootLevelInstalledProof?.kind === "mac_ai_switchboard.reboot_level_installed_proof" &&
-  rebootLevelInstalledProof?.proofReady === true &&
-  rebootLevelInstalledProof?.releaseGateEvidence === true;
+  isRebootProofReady(rebootLevelInstalledProof);
 const blockers = [
-  liveSignedDmgReady ? null : "signed/notarized DMG",
   checksumVerification.ok ? null : "public checksum",
   ...updaterEvidence.blockers,
   ...publicReleaseGateBlockers(gate),
@@ -362,13 +361,15 @@ const payload = {
     rebootLevelInstalledProof: rebootLevelInstalledProofPath,
   },
   rebootLevelInstalledProof: rebootLevelInstalledProof
-    ? {
-        path: rebootLevelInstalledProofJsonPath,
-        proofReady: rebootLevelInstalledProof.proofReady === true,
-        releaseGateEvidence: rebootLevelInstalledProof.releaseGateEvidence === true,
-        blockers: rebootLevelInstalledProof.blockers ?? [],
-        rebootMarker: rebootLevelInstalledProof.rebootMarker ?? null,
-      }
+      ? {
+          path: rebootLevelInstalledProofJsonPath,
+          proofReady: rebootLevelInstalledProof.proofReady === true,
+          releaseGateEvidence: rebootLevelInstalledProof.releaseGateEvidence === true,
+          destructive: rebootLevelInstalledProof.destructive === true,
+          blockers: rebootLevelInstalledProof.blockers ?? [],
+          trust: { ready: rebootLevelInstalledProof.trust?.ready === true },
+          rebootMarker: rebootLevelInstalledProof.rebootMarker ?? null,
+        }
     : null,
   evidenceReconciliation: {
     completedToday: {
