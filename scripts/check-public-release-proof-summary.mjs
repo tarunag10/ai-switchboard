@@ -91,6 +91,7 @@ for (const phrase of [
   "Endpoint source:",
   "Signed/notarized release asset present:",
   "Updater feed/signature ready:",
+  "Checksum verification:",
   "Remaining updater feed release asset proof:",
   "Remaining updater feed endpoint proof:",
   "Remaining updater signature release-asset proof:",
@@ -105,8 +106,20 @@ for (const phrase of [
 if (proof.evidenceReconciliation?.completedToday?.signedNotarizedDmgAsset !== Boolean(proof.githubRelease?.signedDmgAsset?.url && proof.githubRelease?.checksumAsset?.url)) {
   fail("evidenceReconciliation.completedToday.signedNotarizedDmgAsset must match live DMG/checksum evidence");
 }
-if (proof.evidenceReconciliation?.completedToday?.publicChecksumAsset !== Boolean(proof.githubRelease?.checksumAsset?.url)) {
-  fail("evidenceReconciliation.completedToday.publicChecksumAsset must match checksum evidence");
+if (!proof.checksumVerification || typeof proof.checksumVerification !== "object") {
+  fail("checksumVerification must be present");
+}
+if (typeof proof.checksumVerification.checked !== "boolean" || typeof proof.checksumVerification.ok !== "boolean") {
+  fail("checksumVerification.checked and ok must be boolean");
+}
+if (proof.checksumVerification.ok && typeof proof.checksumVerification.digest !== "string") {
+  fail("successful checksumVerification must record a digest");
+}
+if (proof.evidenceReconciliation?.completedToday?.publicChecksumAsset !== (proof.checksumVerification.ok === true)) {
+  fail("completed public checksum proof must match checksumVerification.ok");
+}
+if (proof.checksumVerification.ok && proof.githubRelease?.checksumAsset?.state !== "uploaded") {
+  fail("successful checksum verification requires an uploaded checksum asset");
 }
 const updaterEvidence = proof.updaterEvidence;
 if (!updaterEvidence || typeof updaterEvidence !== "object") {
@@ -250,7 +263,7 @@ if (proof.proofReady) {
 } else if (proof.blockers.length === 0) {
   fail("blocked public release proof must list blockers");
 }
-if (!proof.proofReady) {
+if (!proof.proofReady && proof.githubRelease) {
   if (!proof.githubRelease?.signedDmgAsset?.url) {
     fail("blocked proof must still record signed/notarized DMG asset evidence when available");
   }

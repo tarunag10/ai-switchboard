@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { verifyChecksumText, validateChecksumAssetEvidence } from "./public-release-proof-contract.mjs";
 
 const summaryPath = "dist/public-release-proof-summary.md";
 const jsonPath = "dist/public-release-proof-summary.json";
@@ -218,6 +219,33 @@ async function buildUpdaterEvidence({
   };
 }
 
+async function probeChecksumAsset(checksumAsset, signedDmgAsset) {
+  if (!checksumAsset || !signedDmgAsset) {
+    return { checked: false, ok: false, reason: "signed DMG or checksum asset is missing" };
+  }
+  const url = checksumAsset.browser_download_url ?? checksumAsset.url;
+  try {
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(20_000),
+    });
+    const text = await response.text();
+    const verification = verifyChecksumText(text, signedDmgAsset.digest, signedDmgAsset.name);
+    const validated = validateChecksumAssetEvidence({ state: checksumAsset.state, url, verification });
+    return {
+      checked: true,
+      ok: response.ok && validated.ok,
+      status: response.status,
+      url,
+      digest: validated.digest ?? verification.digest ?? null,
+      filename: verification.filename ?? null,
+      reason: response.ok ? validated.reason ?? null : `checksum download returned HTTP ${response.status}`,
+    };
+  } catch (error) {
+    return { checked: true, ok: false, url, reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 const releaseResult = run("gh", [
   "release",
   "view",
@@ -237,6 +265,7 @@ const signedDmgAsset = githubRelease?.assets?.find(
 const checksumAsset = githubRelease?.assets?.find(
   (asset) => signedDmgAsset && asset.name === `${signedDmgAsset.name}.sha256`,
 );
+const checksumVerification = await probeChecksumAsset(checksumAsset, signedDmgAsset);
 const updaterFeedAsset = githubRelease?.assets?.find((asset) => asset.name === "latest.json");
 const updaterSignatureAssets =
   githubRelease?.assets?.filter((asset) => /\.sig$/.test(asset.name) && asset.state === "uploaded") ?? [];
@@ -250,7 +279,7 @@ const reportStep = run("npm", ["run", "release:report"]);
 const releaseReport = readJson(releaseReportPath);
 const rebootLevelInstalledProof = readJson(rebootLevelInstalledProofJsonPath);
 const gate = releaseReport?.shareableDmgGate ?? {};
-const liveSignedDmgReady = Boolean(signedDmgAsset && checksumAsset);
+const liveSignedDmgReady = Boolean(signedDmgAsset && checksumAsset?.state === "uploaded" && checksumVerification.ok);
 const updaterFeedProofReady = updaterEvidence.ready;
 const rebootLevelInstalledProofReady =
   fs.existsSync(rebootLevelInstalledProofPath) &&
@@ -289,6 +318,7 @@ const releaseSnapshot = githubRelease
         ? {
             name: checksumAsset.name,
             url: checksumAsset.url,
+            state: checksumAsset.state,
             digest: checksumAsset.digest,
           }
         : null,
@@ -315,6 +345,7 @@ const payload = {
   proofReady,
   blockers,
   githubRelease: releaseSnapshot,
+  checksumVerification,
   requiredArtifacts: {
     releaseReadinessReport: releaseReportPath,
     installedSmokeSummary: "dist/installed-smoke-summary.md",
@@ -342,7 +373,7 @@ const payload = {
   evidenceReconciliation: {
     completedToday: {
       signedNotarizedDmgAsset: liveSignedDmgReady,
-      publicChecksumAsset: Boolean(checksumAsset),
+      publicChecksumAsset: checksumVerification.ok,
     },
     remainingProof: {
       updaterFeedReleaseAssetLatestJson: !updaterEvidence.releaseAsset,
@@ -402,6 +433,7 @@ Generated: ${generatedAt}
     : "missing"
 }
 - Public checksum asset: ${checksumAsset ? checksumAsset.name : "missing"}
+- Checksum verification: ${checksumVerification.ok ? `matched ${checksumVerification.digest}` : `blocked (${checksumVerification.reason ?? "unverified"})`}
 - Updater feed asset: ${updaterFeedAsset ? updaterFeedAsset.name : "missing"}
 - Updater feed endpoint: ${
   updaterEvidence.checkedEndpoints.find((check) => check.ok)?.url ?? "missing"
@@ -416,7 +448,7 @@ Generated: ${generatedAt}
 ## Evidence Reconciliation
 
 - Completed signed/notarized DMG asset proof today: ${liveSignedDmgReady ? "yes" : "no"}
-- Completed public checksum proof today: ${checksumAsset ? "yes" : "no"}
+- Completed public checksum proof today: ${checksumVerification.ok ? "yes" : "no"}
 - Remaining updater feed release asset proof: ${updaterEvidence.releaseAsset ? "no" : "yes"}
 - Remaining updater feed endpoint proof: ${
   updaterEvidence.checkedEndpoints.some((check) => check.ok) ? "no" : "yes"

@@ -167,6 +167,10 @@ the current checkout.
   `lifecycle-intent` markers for every fixture-linked stage; combined tests may
   declare multiple stages, but unknown or undeclared stage intent fails the
   harness.
+- Public release proof now validates uploaded checksum state and fetched
+  checksum content against the signed DMG digest; a blocked proof with no
+  external release snapshot remains a valid blocked artifact instead of being
+  rejected as malformed.
 
 ### Remaining build work
 
