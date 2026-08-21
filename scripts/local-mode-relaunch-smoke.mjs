@@ -16,6 +16,8 @@ const appProcess = "mac-ai-switchboard";
 const interceptPort = "6767";
 const proxyPort = "6768";
 const confirm = process.argv.includes("--confirm");
+// evidenceBoundary: config_persistence_only
+// Off and RTK-only modes are checked; appInternalModeObserved remains false.
 const summaryPath = "dist/local-mode-relaunch-smoke-summary.md";
 const jsonPath = "dist/local-mode-relaunch-smoke-summary.json";
 const configPath = path.join(
@@ -151,9 +153,11 @@ if (!fs.existsSync(appPath)) {
 if (process.env.MAC_AI_SWITCHBOARD_SKIP_OPEN === "1") {
   const generatedAt = new Date().toISOString();
   const payload = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     evidenceType: "mac_ai_switchboard.local_mode_relaunch_smoke",
     releaseGateEvidence: false,
+    evidenceBoundary: "config_persistence_only",
+    appInternalModeObserved: false,
     generatedAt,
     skipped: true,
     skipReason: "MAC_AI_SWITCHBOARD_SKIP_OPEN=1",
@@ -205,9 +209,12 @@ try {
 
 const passed = results.every((result) => result.pass) && restored;
 const payload = {
+  schemaVersion: 2,
   generatedAt,
   kind: "mac_ai_switchboard.local_mode_relaunch_smoke",
   releaseGateEvidence: false,
+  evidenceBoundary: "config_persistence_only",
+  appInternalModeObserved: false,
   appPath,
   configPath,
   backupPath: originalExists ? backupPath : null,
@@ -220,8 +227,9 @@ const summary = `# Local Mode Relaunch Smoke Summary
 
 Generated: ${generatedAt}
 
-- Evidence kind: local installed mode relaunch check
+- Evidence kind: local mode persistence and process check
 - Release gate evidence: no
+- Evidence boundary: config persistence only; app internal mode not observed
 - App path: ${appPath}
 - Config path: ${configPath}
 - Config backed up: ${originalExists ? "yes" : "no"}
@@ -241,7 +249,7 @@ ${results
 `,
   )
   .join("\n")}
-This smoke proves the unsigned/ad-hoc installed app can relaunch with saved Off and RTK-only modes without starting the Headroom proxy. It does not prove signed/notarized public release readiness.
+This smoke proves config persistence, process readiness, and proxy-listener state. It does not prove that the app internally loaded the requested mode or signed/notarized public release readiness.
 `;
 
 fs.mkdirSync(path.dirname(summaryPath), { recursive: true });

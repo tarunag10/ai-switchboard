@@ -203,6 +203,9 @@ the current checkout.
   classification parity coverage.
 - Native Repo Intelligence now excludes singular `secret` and `private_key`
   path segments consistently with CLI/frontend secret-path policy.
+- Mode-relaunch summaries now have a strict checker and explicitly classify
+  their evidence as config persistence/process state, not app-internal mode
+  observation or public release proof.
 
 ### Remaining build work
 

@@ -495,6 +495,9 @@ function buildLocalValidationEvidence() {
       passed: modeRelaunchPassed,
       parseError: modeRelaunchJson.parseError,
       kind: modeRelaunchJson.body?.kind ?? null,
+      evidenceBoundary: modeRelaunchJson.body?.evidenceBoundary ?? null,
+      appInternalModeObserved:
+        modeRelaunchJson.body?.appInternalModeObserved ?? null,
       modeCount: Array.isArray(modeRelaunchJson.body?.modes)
         ? modeRelaunchJson.body.modes.length
         : 0,

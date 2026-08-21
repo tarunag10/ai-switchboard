@@ -55,6 +55,7 @@
     "smoke:installed": "node scripts/installed-smoke-summary.mjs",
     "smoke:installed:local": "node scripts/local-installed-smoke-summary.mjs",
     "smoke:mode-relaunch:local": "node scripts/local-mode-relaunch-smoke.mjs",
+    "smoke:mode-relaunch:local:check": "node scripts/check-local-mode-relaunch-summary.mjs",
     "smoke:rollback:local": "node scripts/local-rollback-validation-summary.mjs",
     "smoke:rollback:local:check": "node scripts/check-local-rollback-summary.mjs",
     "smoke:doctor-repair:local": "node scripts/local-doctor-repair-validation-summary.mjs",

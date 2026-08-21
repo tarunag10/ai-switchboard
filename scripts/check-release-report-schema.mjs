@@ -606,9 +606,20 @@ requireBooleanFields(report, "localValidation.modeRelaunch", [
 ]);
 requireType(report, "localValidation.modeRelaunch.modeCount", "number");
 requireType(report, "localValidation.modeRelaunch.requiredCommand", "string");
+const modeRelaunchBoundary = report.localValidation.modeRelaunch.evidenceBoundary;
+if (modeRelaunchBoundary !== null && typeof modeRelaunchBoundary !== "string") {
+  fail("localValidation.modeRelaunch.evidenceBoundary must be string or null");
+}
+const appInternalModeObserved = report.localValidation.modeRelaunch.appInternalModeObserved;
+if (appInternalModeObserved !== null && typeof appInternalModeObserved !== "boolean") {
+  fail("localValidation.modeRelaunch.appInternalModeObserved must be boolean or null");
+}
 const modeRelaunchKind = report.localValidation.modeRelaunch.kind;
 if (modeRelaunchKind !== null && typeof modeRelaunchKind !== "string") {
   fail("localValidation.modeRelaunch.kind must be string or null");
+}
+if (modeRelaunchKind !== null && modeRelaunchBoundary !== null && modeRelaunchBoundary !== "config_persistence_only") {
+  fail("localValidation.modeRelaunch.evidenceBoundary must be config_persistence_only");
 }
 const modeRelaunchParseError = report.localValidation.modeRelaunch.parseError;
 if (
