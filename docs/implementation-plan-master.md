@@ -109,6 +109,9 @@ the current checkout.
   rejects non-positive minimum samples, unequal baseline/candidate arms, and
   future or invalid approved-run timestamps. The canonical offline fixture
   remains observe-only.
+- Added `npm run check:implementation-plan-master`, which validates that the
+  merged plan's evidence paths and external-proof boundaries still exist and
+  agrees with release truth, connector gating, and the offline routing fixture.
 - Verified with `npm run check:model-routing-evidence`,
   `npm run check:phase3-routing`, and `npm run build`.
 
