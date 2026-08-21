@@ -247,6 +247,9 @@ the current checkout.
   product name, and version before treating installed-app trust as ready; the
   restricted-runner arm test skips only when boot identity capability is
   unavailable, while the production arm command remains fail-closed.
+- Public installed-smoke readiness now requires a fresh, timestamped summary
+  in addition to current checklist content and hash, preventing stale tester
+  confirmations from being treated as current evidence.
 
 ### Remaining build work
 

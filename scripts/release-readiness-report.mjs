@@ -314,6 +314,14 @@ function buildInstalledSmoke(
   bundleMetadataPresent,
   installedSmokeSummary,
 ) {
+  const freshness = assessSummaryFreshness(
+    {
+      summaryGeneratedAt: installedSmokeSummary.generatedAt,
+      present: installedSmokeSummary.present,
+      passed: false,
+    },
+    { label: "installedSmoke.generatedAt" },
+  );
   const missingEvidence = installedSmokeRequiredEvidence.filter(
     (item) => !installedSmokeSummary.body.includes(item),
   );
@@ -328,7 +336,8 @@ function buildInstalledSmoke(
   const evidenceReady =
     installedSmokeSummary.present &&
     missingEvidence.length === 0 &&
-    checklistSha256Matches;
+    checklistSha256Matches &&
+    freshness.fresh;
   const ready = installedAppPresent && bundleMetadataPresent && evidenceReady;
 
   return {
@@ -344,6 +353,7 @@ function buildInstalledSmoke(
     currentChecklistSha256,
     recordedChecklistSha256,
     checklistSha256Matches,
+    freshness,
     requiredEvidence: installedSmokeRequiredEvidence,
     missingEvidence,
     evidenceReady,
@@ -848,6 +858,7 @@ ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}`
 ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Installed smoke summary has not been generated in this checkout."}
 - Installed-app checklist: ${installedSmoke.betaSmokeDoc}
 - Installed-app checklist hash matches current checklist: ${installedSmoke.checklistSha256Matches ? "yes" : "no"}
+- Installed smoke freshness: ${installedSmoke.freshness.fresh ? "fresh" : "stale or missing"} (${installedSmoke.freshness.reason ?? "within evidence window"})
 - Recorded checklist SHA-256: ${installedSmoke.recordedChecklistSha256 ?? "missing"}
 - Current checklist SHA-256: ${installedSmoke.currentChecklistSha256 ?? "missing"}
 - Required evidence: ${installedSmoke.requiredEvidence.join(", ")}

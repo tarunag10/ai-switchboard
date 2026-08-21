@@ -491,6 +491,20 @@ requireBooleanFields(report, "installedSmoke", [
   "evidenceReady",
   "checklistSha256Matches",
 ]);
+requireObject(report, "installedSmoke.freshness");
+requireType(report, "installedSmoke.freshness.fresh", "boolean");
+if (
+  report.installedSmoke.freshness.generatedAt !== null &&
+  typeof report.installedSmoke.freshness.generatedAt !== "string"
+) {
+  fail("installedSmoke.freshness.generatedAt must be string or null");
+}
+if (
+  report.installedSmoke.freshness.reason !== null &&
+  typeof report.installedSmoke.freshness.reason !== "string"
+) {
+  fail("installedSmoke.freshness.reason must be string or null");
+}
 requireType(report, "installedSmoke.appPath", "string");
 requireType(report, "installedSmoke.appInfoPlistPath", "string");
 requireType(report, "installedSmoke.smokeSummaryPath", "string");
