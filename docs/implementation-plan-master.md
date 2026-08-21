@@ -220,6 +220,9 @@ the current checkout.
 - Connector smoke async results now carry the proxy-verification session
   identity, so a late result from a prior launcher session or another client
   cannot mutate the current row state.
+- Connector lifecycle validation now rejects any support status outside the
+  explicit `managed`/`planned` vocabulary before managed counts or lifecycle
+  evidence are computed.
 - Mode-relaunch validation now requires both intercept and proxy listeners to
   be down for each persistence-only result, and release readiness reuses that
   contract instead of trusting `passed` alone.

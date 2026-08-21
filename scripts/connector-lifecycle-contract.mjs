@@ -1,4 +1,5 @@
 export const canonicalLifecycleStages = ["detect", "preview", "backup", "apply", "verify", "rollback", "off"];
+export const allowedConnectorSupportStatuses = ["managed", "planned"];
 export const runtimeStageByFixtureStage = {
   detect: "detect",
   preview: "dryRunDiff",
@@ -32,6 +33,15 @@ export function lifecycleIntentMarkerFailures(source) {
   return failures;
 }
 
+export function supportStatusFailures(manifest) {
+  if (!Array.isArray(manifest)) return ["connector manifest must be an array"];
+  return manifest.flatMap((connector) =>
+    allowedConnectorSupportStatuses.includes(connector?.support_status)
+      ? []
+      : [`${connector?.id ?? "unknown"}: unknown support_status`],
+  );
+}
+
 export function validateLifecycleSchema(manifest, fixtures) {
   const failures = [];
   if (!Array.isArray(manifest)) failures.push("connector manifest must be an array");
@@ -45,6 +55,7 @@ export function validateLifecycleSchema(manifest, fixtures) {
     failures.push("runtime lifecycle stage mapping must cover every fixture stage exactly once");
   }
   if (!Array.isArray(manifest) || !Array.isArray(fixtures?.connectors)) return failures;
+  failures.push(...supportStatusFailures(manifest));
 
   const manifestIds = new Set();
   for (const connector of manifest) {

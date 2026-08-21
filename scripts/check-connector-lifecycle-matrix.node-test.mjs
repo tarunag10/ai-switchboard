@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { canonicalLifecycleStages, lifecycleIntentForTest, lifecycleIntentMarkerFailures, runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
+import { canonicalLifecycleStages, lifecycleIntentForTest, lifecycleIntentMarkerFailures, runtimeStageByFixtureStage, supportStatusFailures, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
 
 test("connector lifecycle evidence resolves to approved Rust tests", () => {
   const output = execFileSync(process.execPath, ["scripts/check-connector-lifecycle-matrix.mjs"], { encoding: "utf8" });
@@ -26,6 +26,13 @@ test("rejects duplicate IDs and unknown lifecycle stages", () => {
   assert.match(failures.join("\n"), /duplicate lifecycle fixture ID/);
   assert.match(failures.join("\n"), /unknown lifecycle stage mystery/);
   assert.match(failures.join("\n"), /stages must declare every canonical stage exactly once in order/);
+});
+
+test("rejects unknown connector support statuses", () => {
+  assert.deepEqual(
+    supportStatusFailures([{ id: "example", support_status: "experimental" }]),
+    ["example: unknown support_status"],
+  );
 });
 
 test("rejects omitted required lifecycle stages", () => {
