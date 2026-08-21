@@ -38,6 +38,7 @@ import type { RepoSavingsEstimate } from "../lib/repoIntelligence";
 import type { ActivityFeedResponse } from "../lib/types";
 import { SwitchboardPanel } from "./SwitchboardPanel";
 import { SwitchboardDoctorPanel } from "./SwitchboardDoctorPanel";
+import { SessionReadyCard } from "./SessionReadyCard";
 import { SavingsCalculatorCard } from "./SavingsCalculatorCard";
 import { ClientSavingsTrendsCard } from "./ClientSavingsTrendsCard";
 import { DailySavingsChart } from "./DailySavingsChart";
@@ -275,6 +276,11 @@ export function HomeView({
           </button>
         </section>
       ) : null}
+      <SessionReadyCard
+        runtimeStatus={runtimeStatus}
+        switchboardMode={switchboardMode}
+        setActiveView={setActiveView}
+      />
       <section
         className={`callout-banner callout-banner--${calloutBanner.tone}`}
       >

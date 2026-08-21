@@ -1547,7 +1547,7 @@ html.window-hiding {
     background: var(--legacy-color-187);
   }
 
-  .optimize-card__head {
+.optimize-card__head {
     background: var(--legacy-color-181);
     border-bottom-color: var(--legacy-color-182);
   }
@@ -1998,3 +1998,60 @@ html.window-hiding {
     background: var(--legacy-color-201);
     border-color: var(--legacy-color-236);
   }
+
+.session-ready-card__steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.session-ready-card__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.65rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 0.55rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-ready-card__step:hover,
+.session-ready-card__step:focus-visible {
+  border-color: var(--accent, #d4a84f);
+}
+
+.session-ready-card__step-icon {
+  color: var(--accent, #d4a84f);
+  flex: 0 0 auto;
+}
+
+.session-ready-card__step-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.session-ready-card__step-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+}
+
+.session-ready-card__step-copy small {
+  color: var(--text-muted, #9e9a92);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .session-ready-card__steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
