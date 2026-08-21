@@ -872,7 +872,8 @@ const generatedPathPatterns = [
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
 ];
-export const repoIntelligenceIndexerVersion = "path-graph-v10";
+export const repoIntelligenceIndexerVersion = "path-graph-v11";
+export const MAX_REPO_SCAN_FILES = 2_500;
 
 const lockfileNames = new Set([
   "Cargo.lock",
@@ -1022,7 +1023,14 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
 export function buildRepoIntelligenceSummary(
   files: Array<{ path: string; bytes?: number; content?: string }>,
 ): RepoIntelligenceSummary {
-  const signals = files.map((file) =>
+  const boundedFiles = files
+    .map((file) => ({
+      ...file,
+      path: file.path.replace(/\\/g, "/"),
+    }))
+    .sort((left, right) => left.path.localeCompare(right.path))
+    .slice(0, MAX_REPO_SCAN_FILES);
+  const signals = boundedFiles.map((file) =>
     classifyRepoFile(file.path, file.bytes ?? 0),
   );
   const indexed = signals.filter((signal) => signal.includeByDefault);
@@ -1048,7 +1056,7 @@ export function buildRepoIntelligenceSummary(
   );
 
   const contentByPath = new Map(
-    files
+    boundedFiles
       .filter((file) => typeof file.content === "string")
       .map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]),
   );
@@ -1123,7 +1131,7 @@ export function buildRepoIntelligenceSummary(
     ),
   ];
 
-  const indexMetadata = buildRepoIndexMetadata(files, signals);
+  const indexMetadata = buildRepoIndexMetadata(boundedFiles, signals);
   return {
     totalFiles: signals.length,
     indexedFiles: indexed.length,

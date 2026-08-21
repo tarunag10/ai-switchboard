@@ -453,6 +453,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         .and_then(|cache| cache.entry_for(&repo_root).cloned());
     let mut files = Vec::new();
     walk_repo(&repo_root, &repo_root, &mut files)?;
+    bound_repo_files(&mut files);
 
     let previous_for_repo = previous_summary
         .as_ref()
@@ -604,6 +605,11 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         graph: Some(graph),
         packs,
     })
+}
+
+fn bound_repo_files(files: &mut Vec<RepoFile>) {
+    files.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    files.truncate(MAX_SCAN_FILES);
 }
 
 fn can_reuse_saved_summary(
@@ -1233,14 +1239,7 @@ struct RepoFile {
 }
 
 fn walk_repo(root: &Path, dir: &Path, files: &mut Vec<RepoFile>) -> Result<()> {
-    if files.len() >= MAX_SCAN_FILES {
-        return Ok(());
-    }
-
     for entry in std::fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))? {
-        if files.len() >= MAX_SCAN_FILES {
-            break;
-        }
         let entry = entry?;
         let path = entry.path();
         let file_type = entry.file_type()?;
@@ -3852,6 +3851,32 @@ mod tests {
             classify_file("private_key/api.ts", 100).role,
             RepoFileRole::Generated
         ));
+    }
+
+    #[test]
+    fn bounds_repo_files_by_global_relative_path_order() {
+        let mut files = vec![
+            RepoFile {
+                relative_path: "z.ts".to_string(),
+                bytes: 1,
+                modified_unix_ms: 0,
+                fingerprint: "z".to_string(),
+            },
+            RepoFile {
+                relative_path: "a.ts".to_string(),
+                bytes: 1,
+                modified_unix_ms: 0,
+                fingerprint: "a".to_string(),
+            },
+        ];
+        bound_repo_files(&mut files);
+        assert_eq!(
+            files
+                .iter()
+                .map(|file| file.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a.ts", "z.ts"]
+        );
     }
 
     #[test]

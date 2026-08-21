@@ -4,7 +4,11 @@ import fs from "node:fs";
 
 const reportPath = "dist/local-repo-intelligence-validation-summary.json";
 const requiredStepIds = ["repo-intelligence-frontend", "repo-intelligence-backend"];
-const requiredIndexerVersion = "path-graph-v10";
+const requiredIndexerVersions = {
+  backend: "path-graph-v13",
+  frontend: "path-graph-v11",
+  CLI: "path-graph-v12",
+};
 
 function fail(message) {
   console.error(`repo intelligence summary check failed: ${message}`);
@@ -46,8 +50,8 @@ for (const [label, source] of [
   ["frontend", frontendSource],
   ["CLI", cliSource],
 ]) {
-  if (!source.includes(requiredIndexerVersion)) {
-    fail(`${label} indexer version must include ${requiredIndexerVersion}`);
+  if (!source.includes(requiredIndexerVersions[label])) {
+    fail(`${label} indexer version must include ${requiredIndexerVersions[label]}`);
   }
 }
 

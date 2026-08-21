@@ -221,6 +221,10 @@ the current checkout.
   dependency-directory exclusions, the 1 MB default-index boundary, and
   secret/size role precedence; the remaining parity work is the native/UI
   contract matrix and cap-membership coverage.
+- Native, CLI, and frontend Repo Intelligence now normalize and globally sort
+  candidate paths before applying the 2,500-file cap, preventing directory
+  traversal or caller input order from changing indexed membership; boundary
+  tests cover all three surfaces.
 
 ### Remaining build work
 
@@ -237,11 +241,10 @@ the current checkout.
    executing the external checklist still requires signing credentials, a
    current public artifact, and a real reboot.
 3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
-   shipped; remaining work is deterministic cross-surface parity for ignored
-   directories, sorted traversal/cap membership, the one-megabyte boundary,
-   and role-precedence matrices. Whole-program type inference and dynamic
-   dispatch stay out of scope unless a separate evidence-backed design is
-   approved.
+   shipped; remaining work is deterministic cross-surface parity for the
+   frontend/native ignored-directory and role-precedence matrices. Whole-
+   program type inference and dynamic dispatch stay out of scope unless a
+   separate evidence-backed design is approved.
 4. **Connector coverage:** lifecycle evidence linkage is now machine-checked;
    continue only with documented schemas and full
    detect/preview/backup/apply/verify/rollback/off/uninstall proof. Cursor

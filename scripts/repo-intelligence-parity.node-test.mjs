@@ -138,3 +138,26 @@ test("CLI default indexing excludes singular secret directories", () => {
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("CLI applies the file cap after global path sorting", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-cap-"));
+  try {
+    fs.mkdirSync(path.join(repo, "a"), { recursive: true });
+    for (let index = 0; index < 2_500; index += 1) {
+      fs.writeFileSync(
+        path.join(repo, "a", `${String(index).padStart(4, "0")}.ts`),
+        "export const value = 1;\n",
+      );
+    }
+    fs.writeFileSync(path.join(repo, "a-file.ts"), "export const root = 1;\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.equal(summary.indexedFiles, 2_500);
+    const indexedPaths = summary.indexMetadata.fileFingerprints.map(
+      (entry) => entry.path,
+    );
+    assert.ok(indexedPaths.includes("a-file.ts"));
+    assert.ok(!indexedPaths.includes("a/2499.ts"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});

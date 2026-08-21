@@ -726,7 +726,6 @@ function walk(repoRoot, dir = repoRoot, files = []) {
     .readdirSync(dir, { withFileTypes: true })
     .sort((left, right) => left.name.localeCompare(right.name));
   for (const entry of entries) {
-    if (files.length >= MAX_SCAN_FILES) break;
     if (ignoredSegments.has(entry.name)) continue;
     const absolute = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -2372,7 +2371,9 @@ function hashString(value) {
 }
 
 function buildSummary(repoRoot) {
-  const files = walk(repoRoot);
+  const files = walk(repoRoot)
+    .sort((left, right) => left.path.localeCompare(right.path))
+    .slice(0, MAX_SCAN_FILES);
   const signals = files.map((file) => classify(file.path, file.bytes));
   const indexable = signals.filter((file) => file.includeByDefault);
   const estimatedFullScanTokens = signals.reduce(
