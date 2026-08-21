@@ -191,6 +191,22 @@ fn try_record_model_routing_evidence(
             "model-routing evidence run exceeds its bounded event limit".to_string(),
         ));
     }
+    let duplicate: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM model_routing_evidence_events
+         WHERE run_id = ?1 AND captured_at = ?2 AND task_class = ?3 AND arm = ?4",
+        params![
+            observation.run_id.trim(),
+            observation.captured_at.trim(),
+            observation.task_class.trim().to_ascii_lowercase(),
+            arm,
+        ],
+        |row| row.get(0),
+    )?;
+    if duplicate > 0 {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "duplicate model-routing evidence observation".to_string(),
+        ));
+    }
     conn.execute(
         "INSERT INTO model_routing_evidence_events (
             run_id, captured_at, task_class, arm, baseline_model, candidate_model,

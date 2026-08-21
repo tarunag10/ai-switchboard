@@ -220,6 +220,38 @@ fn model_routing_evidence_rejects_overflow_and_invalid_timestamps() {
         None => std::env::remove_var("HOME"),
     }
 }
+
+#[test]
+fn model_routing_evidence_rejects_exact_duplicate_callbacks() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+    reset_for_tests();
+
+    let observation = ModelRoutingEvidenceObservation {
+        run_id: "run-duplicate".to_string(),
+        captured_at: chrono::Utc::now().to_rfc3339(),
+        task_class: "formatting".to_string(),
+        arm: ModelRoutingEvidenceArm::Baseline,
+        baseline_model: "frontier".to_string(),
+        candidate_model: "fast/local".to_string(),
+        succeeded: true,
+        successful_task_cost_microunits: Some(1000),
+        quality_score_bps: 9800,
+        latency_ms: 800,
+        follow_up_rework: false,
+    };
+    record_model_routing_evidence(&observation).expect("first callback should persist");
+    let error = record_model_routing_evidence(&observation)
+        .expect_err("exact duplicate callback must fail closed");
+    assert!(error.contains("duplicate"));
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
 #[test]
 fn token_xray_buckets_round_trip_through_sqlite() {
     let _guard = crate::optimization::telemetry::test_guard();
