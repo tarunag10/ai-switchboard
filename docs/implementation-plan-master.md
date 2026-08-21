@@ -100,13 +100,26 @@ the current checkout.
 - Durable provider-billed counterfactuals for providers that do not expose a
   credible read-only usage API.
 
+### Completed current cycle: edge-case and harness hardening
+
+- Model-routing promotion now fails closed for zero-sample, impossible success
+  counts, out-of-range basis-point metrics, and unsigned latency arithmetic
+  overflow; focused Rust coverage is 16 model-routing tests.
+- The model-routing evidence harness now accepts an explicit fixture path and
+  rejects non-positive minimum samples, unequal baseline/candidate arms, and
+  future or invalid approved-run timestamps. The canonical offline fixture
+  remains observe-only.
+- Verified with `npm run check:model-routing-evidence`,
+  `npm run check:phase3-routing`, and `npm run build`.
+
 ### Remaining build work
 
 1. **Fresh quality evidence loop:** the machine-checked evidence contract and
    deterministic redacted baseline/candidate aggregation are shipped in
    `benchmarks/fixtures/model-routing-quality-evidence.json`,
    `src-tauri/src/optimization/model_routing.rs`, and
-   `npm run check:model-routing-evidence`. Importing successful-task, rework,
+   `npm run check:model-routing-evidence`, and malformed-evidence fail-closed
+   guards are shipped. Importing successful-task, rework,
    quality, and latency observations from real approved runs remains pending;
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard is

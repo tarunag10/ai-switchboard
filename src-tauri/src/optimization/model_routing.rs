@@ -434,6 +434,19 @@ pub(crate) fn decide_model_route_experiment(
                     None,
                 );
             };
+            if let Err(reason) = validate_benchmark_evidence(evidence) {
+                reasons.push(reason);
+                return decision(
+                    input,
+                    proposed_model,
+                    true,
+                    "automatic_evidence_invalid",
+                    reasons,
+                    policy,
+                    task_class,
+                    None,
+                );
+            }
             let assessment = assess_evidence(evidence, &policy.thresholds);
             reasons.push(assessment.explanation.clone());
             if !assessment.passed {
@@ -541,8 +554,15 @@ pub(crate) fn assess_evidence(
     let success_ok = success_regression_bps <= thresholds.maximum_success_regression_bps as i32;
     let quality_ok = quality_regression_bps <= thresholds.maximum_quality_regression_bps as i32;
     let cost_ok = cost_improvement_bps >= thresholds.minimum_cost_improvement_bps as i32;
-    let latency_regression_ms = evidence.candidate_p95_latency_ms as i64
-        - evidence.baseline_p95_latency_ms as i64;
+    let latency_regression_ms = if evidence.candidate_p95_latency_ms >= evidence.baseline_p95_latency_ms {
+        (evidence.candidate_p95_latency_ms - evidence.baseline_p95_latency_ms)
+            .min(i64::MAX as u64) as i64
+    } else {
+        -(evidence
+            .baseline_p95_latency_ms
+            .saturating_sub(evidence.candidate_p95_latency_ms)
+            .min(i64::MAX as u64) as i64)
+    };
     let latency_ok = latency_regression_ms <= thresholds.maximum_latency_regression_ms as i64;
     let rework_ok = evidence.follow_up_rework_rate_bps <= thresholds.maximum_rework_rate_bps;
     let passed = enough_samples && success_ok && quality_ok && cost_ok && latency_ok && rework_ok;
@@ -570,6 +590,24 @@ pub(crate) fn assess_evidence(
         passed,
         explanation,
     }
+}
+
+fn validate_benchmark_evidence(evidence: &ModelRoutingBenchmarkEvidence) -> Result<(), String> {
+    if evidence.sample_size == 0 {
+        return Err("benchmark_evidence_invalid: sample_size must be positive".to_string());
+    }
+    if evidence.baseline_successes > evidence.sample_size
+        || evidence.candidate_successes > evidence.sample_size
+    {
+        return Err("benchmark_evidence_invalid: successes cannot exceed sample_size".to_string());
+    }
+    if evidence.baseline_quality_score_bps > 10_000
+        || evidence.candidate_quality_score_bps > 10_000
+        || evidence.follow_up_rework_rate_bps > 10_000
+    {
+        return Err("benchmark_evidence_invalid: basis-point metrics must be at most 10000".to_string());
+    }
+    Ok(())
 }
 
 fn rate_bps(successes: u64, sample_size: u64) -> i32 {
@@ -714,6 +752,49 @@ mod tests {
         assert!(!assessment.passed);
         assert!(assessment.explanation.contains("quality_regression_bps=300/100"));
         assert!(assessment.explanation.contains("latency_regression_ms=100/50"));
+    }
+
+    #[test]
+    fn automatic_routing_rejects_impossible_benchmark_counts() {
+        let policy = ModelRoutingExperimentPolicy {
+            stage: ModelRoutingStage::AutomaticAllowlisted,
+            automatic_task_allowlist: vec!["formatting".to_string()],
+            ..Default::default()
+        };
+        let evidence = ModelRoutingBenchmarkEvidence {
+            sample_size: 10,
+            baseline_successes: 11,
+            candidate_successes: 10,
+            baseline_average_success_cost_microunits: 1,
+            candidate_average_success_cost_microunits: 1,
+            baseline_quality_score_bps: 10_000,
+            candidate_quality_score_bps: 10_000,
+            baseline_p95_latency_ms: 1,
+            candidate_p95_latency_ms: 1,
+            follow_up_rework_rate_bps: 0,
+        };
+        let decision = decide_model_route_experiment(&input(), &policy, false, Some(&evidence));
+        assert!(decision.observe_only);
+        assert_eq!(decision.reason, "automatic_evidence_invalid");
+        assert!(decision.evidence.is_none());
+    }
+
+    #[test]
+    fn latency_regression_does_not_wrap_for_large_unsigned_values() {
+        let evidence = ModelRoutingBenchmarkEvidence {
+            sample_size: 1,
+            baseline_successes: 1,
+            candidate_successes: 1,
+            baseline_average_success_cost_microunits: 1,
+            candidate_average_success_cost_microunits: 1,
+            baseline_quality_score_bps: 10_000,
+            candidate_quality_score_bps: 10_000,
+            baseline_p95_latency_ms: u64::MAX,
+            candidate_p95_latency_ms: 0,
+            follow_up_rework_rate_bps: 0,
+        };
+        let assessment = assess_evidence(&evidence, &ModelRoutingThresholds::default());
+        assert_eq!(assessment.latency_regression_ms, -i64::MAX);
     }
 
     #[test]

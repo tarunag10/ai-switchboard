@@ -3,7 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const fixturePath = path.join(root, "benchmarks/fixtures/model-routing-quality-evidence.json");
+const fixturePath = process.argv[2]
+  ? path.resolve(root, process.argv[2])
+  : path.join(root, "benchmarks/fixtures/model-routing-quality-evidence.json");
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 const metrics = [
   "sampleCount",
@@ -14,38 +16,51 @@ const metrics = [
   "followUpReworkRateBps",
 ];
 
-function fail(message) {
-  console.error(`model routing evidence check failed: ${message}`);
-  process.exit(1);
-}
-
-if (fixture.schemaVersion !== 1) fail("unsupported schemaVersion");
-if (!["offline_static_fixture", "approved_live_run"].includes(fixture.evidenceClass)) {
-  fail("evidenceClass must be offline_static_fixture or approved_live_run");
-}
-for (const arm of ["baseline", "candidate"]) {
-  if (!fixture[arm] || typeof fixture[arm] !== "object") fail(`missing ${arm} arm`);
-  for (const metric of metrics) {
-    if (!Number.isInteger(fixture[arm][metric]) || fixture[arm][metric] < 0) {
-      fail(`${arm}.${metric} must be a non-negative integer`);
+function validateFixture(value) {
+  if (value.schemaVersion !== 1) throw new Error("unsupported schemaVersion");
+  if (!["offline_static_fixture", "approved_live_run"].includes(value.evidenceClass)) {
+    throw new Error("evidenceClass must be offline_static_fixture or approved_live_run");
+  }
+  if (!Number.isInteger(value.minimumSamples) || value.minimumSamples <= 0) {
+    throw new Error("minimumSamples must be a positive integer");
+  }
+  for (const arm of ["baseline", "candidate"]) {
+    if (!value[arm] || typeof value[arm] !== "object") throw new Error(`missing ${arm} arm`);
+    for (const metric of metrics) {
+      if (!Number.isInteger(value[arm][metric]) || value[arm][metric] < 0) {
+        throw new Error(`${arm}.${metric} must be a non-negative integer`);
+      }
+    }
+    if (value[arm].successRateBps > 10_000 || value[arm].qualityScoreBps > 10_000 || value[arm].followUpReworkRateBps > 10_000) {
+      throw new Error(`${arm} basis-point metrics must be at most 10000`);
     }
   }
-  if (fixture[arm].successRateBps > 10_000 || fixture[arm].qualityScoreBps > 10_000 || fixture[arm].followUpReworkRateBps > 10_000) {
-    fail(`${arm} basis-point metrics must be at most 10000`);
+  if (value.baseline.sampleCount !== value.candidate.sampleCount) {
+    throw new Error("baseline and candidate sampleCount must match");
+  }
+  if (value.evidenceClass !== "approved_live_run" && value.promotionEligible !== false) {
+    throw new Error("offline evidence must never be promotion eligible");
+  }
+  if (value.evidenceClass === "approved_live_run") {
+    if (value.baseline.sampleCount < value.minimumSamples) {
+      throw new Error(`approved live runs require at least ${value.minimumSamples} samples per arm`);
+    }
+    if (value.promotionEligible !== true) throw new Error("approved live run must state promotionEligible explicitly");
+    for (const field of ["runId", "capturedAt", "approvalReceipt"]) {
+      if (typeof value[field] !== "string" || value[field].trim() === "") throw new Error(`approved live run requires ${field}`);
+    }
+    const capturedAt = Date.parse(value.capturedAt);
+    if (Number.isNaN(capturedAt) || capturedAt > Date.now()) {
+      throw new Error("approved live run capturedAt must be a valid non-future timestamp");
+    }
   }
 }
 
-if (fixture.evidenceClass !== "approved_live_run" && fixture.promotionEligible !== false) {
-  fail("offline evidence must never be promotion eligible");
-}
-if (fixture.evidenceClass === "approved_live_run") {
-  if (fixture.baseline.sampleCount < fixture.minimumSamples || fixture.candidate.sampleCount < fixture.minimumSamples) {
-    fail(`approved live runs require at least ${fixture.minimumSamples} samples per arm`);
-  }
-  if (fixture.promotionEligible !== true) fail("approved live run must state promotionEligible explicitly");
-  for (const field of ["runId", "capturedAt", "approvalReceipt"]) {
-    if (typeof fixture[field] !== "string" || fixture[field].trim() === "") fail(`approved live run requires ${field}`);
-  }
+try {
+  validateFixture(fixture);
+} catch (error) {
+  console.error(`model routing evidence check failed: ${error.message}`);
+  process.exit(1);
 }
 
 console.log(JSON.stringify({
