@@ -10,7 +10,7 @@ describe("ModelRoutingExperimentCard", () => {
     expect(markup).toContain("Observe only");
     expect(markup).toContain("Automatic after evidence gate");
     expect(markup).toContain("Disabled clients");
-    expect(markup).toContain("50 samples");
+    expect(markup).toContain("100 samples");
     expect(markup).toContain("follow-up rework");
   });
 });
