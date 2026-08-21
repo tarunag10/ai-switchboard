@@ -88,10 +88,11 @@ the current checkout.
 
 ### Remaining build work
 
-1. **Fresh quality evidence loop:** add/import successful-task, rework, quality,
-   and latency observations from real approved runs without changing automatic
-   routing defaults. Keep model routing observe-only until the promotion gate
-   has fresh evidence.
+1. **Fresh quality evidence loop:** the machine-checked evidence contract is
+   now shipped in `benchmarks/fixtures/model-routing-quality-evidence.json`
+   and `npm run check:model-routing-evidence`. Importing successful-task,
+   rework, quality, and latency observations from real approved runs remains
+   pending; automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** make the prepared external checklist
    easy to execute and reconcile without accepting fabricated or stale
    artifacts.
@@ -123,4 +124,3 @@ the current checkout.
   trust never become enabled merely because a fixture or local build passes.
 - Each completed implementation slice has its own commit and is pushed to
   `main`.
-

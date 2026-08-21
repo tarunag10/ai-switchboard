@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "offline_static_fixture",
+  "promotionEligible": false,
+  "minimumSamples": 100,
+  "baseline": {
+    "sampleCount": 0,
+    "successRateBps": 10000,
+    "qualityScoreBps": 10000,
+    "p95LatencyMs": 0,
+    "successfulTaskCostMicros": 0,
+    "followUpReworkRateBps": 0
+  },
+  "candidate": {
+    "sampleCount": 0,
+    "successRateBps": 10000,
+    "qualityScoreBps": 10000,
+    "p95LatencyMs": 0,
+    "successfulTaskCostMicros": 0,
+    "followUpReworkRateBps": 0
+  },
+  "note": "Static contract fixture only; no live provider or successful-task evidence is claimed."
+}
