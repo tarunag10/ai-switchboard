@@ -123,6 +123,15 @@ the current checkout.
 - Repo Intelligence frontend, CLI, and native traversal now treat case-variant
   dependency/generated directories as ignored, with parity fixtures for
   `Node_modules`, `Vendor`, and `DIST`.
+- The shared Repo Intelligence golden graph now requires an exact, sorted,
+  duplicate-free normalized call-edge projection across CLI, frontend, and
+  native implementations; unexpected or repeated edges fail the parity gate.
+- Release operator action validation now rejects null, array, empty-label,
+  and non-string blocker entries before action mapping, preserving the
+  no-refresh report without rewriting it.
+- Connector dry-run preview tests now require non-empty target, marker,
+  backup, rollback, and confirmation fields while retaining the zero-write
+  invariant for gated previews.
 
 ### Done — prepared and shipped
 
