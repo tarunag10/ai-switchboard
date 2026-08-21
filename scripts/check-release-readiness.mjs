@@ -1,11 +1,15 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { buildReleaseReadinessActions } from "./release-readiness-actions.mjs";
+import { buildReleaseReadinessActions, validateReleaseReadinessReport } from "./release-readiness-actions.mjs";
 
 const strict = process.argv.includes("--strict");
 const jsonOutput = process.argv.includes("--json");
 const noRefresh = process.argv.includes("--no-refresh");
 const reportArgumentIndex = process.argv.indexOf("--report");
+if (reportArgumentIndex >= 0 && (!process.argv[reportArgumentIndex + 1] || process.argv[reportArgumentIndex + 1].startsWith("--"))) {
+  console.error("release readiness --report requires a file path");
+  process.exit(1);
+}
 const reportJsonPath = reportArgumentIndex >= 0 ? process.argv[reportArgumentIndex + 1] : "dist/release-readiness-report.json";
 
 function run(command, args) {
@@ -35,6 +39,11 @@ if (!fs.existsSync(reportJsonPath)) {
 }
 
 const report = JSON.parse(fs.readFileSync(reportJsonPath, "utf8"));
+const reportFailures = validateReleaseReadinessReport(report);
+if (reportFailures.length) {
+  console.error(`release readiness report invalid: ${reportFailures.join("; ")}`);
+  process.exit(1);
+}
 const actions = buildReleaseReadinessActions(report);
 
 if (jsonOutput) {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { actionForBlocker, buildReleaseReadinessActions } from "./release-readiness-actions.mjs";
+import { actionForBlocker, buildReleaseReadinessActions, validateReleaseReadinessReport } from "./release-readiness-actions.mjs";
 
 test("maps signing and toolchain blockers to actionable commands", () => {
   assert.equal(actionForBlocker({ label: "missing environment: APPLE_SIGNING_IDENTITY", hint: "x" }).label, "Set Developer ID identity");
@@ -31,4 +31,17 @@ test("no-refresh mode fails clearly when its report is absent", () => {
   const run = spawnSync(process.execPath, ["scripts/check-release-readiness.mjs", "--json", "--no-refresh", "--report", "/tmp/switchboard-release-report-that-does-not-exist.json"], { encoding: "utf8" });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /release readiness report not found/);
+});
+
+test("rejects malformed readiness reports before action mapping", () => {
+  const failures = validateReleaseReadinessReport({ status: "blocked", releaseEnv: {}, backendValidation: {}, installedSmoke: {} });
+  assert.match(failures.join("\n"), /releaseEnv.blockers/);
+  assert.match(failures.join("\n"), /backendValidation.ready/);
+  assert.match(failures.join("\n"), /installedSmoke/);
+});
+
+test("requires a value after --report", () => {
+  const run = spawnSync(process.execPath, ["scripts/check-release-readiness.mjs", "--no-refresh", "--report", "--json"], { encoding: "utf8" });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /--report requires a file path/);
 });

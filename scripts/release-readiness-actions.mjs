@@ -39,3 +39,21 @@ export function buildReleaseReadinessActions(report) {
     return allActions.findIndex((candidate) => `${candidate.label}\n${candidate.command}` === key) === index;
   });
 }
+
+export function validateReleaseReadinessReport(report) {
+  const failures = [];
+  if (!report || typeof report !== "object" || Array.isArray(report)) return ["report must be an object"];
+  if (typeof report.status !== "string" || report.status.trim() === "") failures.push("status must be a non-empty string");
+  if (!report.releaseEnv || !Array.isArray(report.releaseEnv.blockers)) failures.push("releaseEnv.blockers must be an array");
+  if (!report.backendValidation || typeof report.backendValidation.ready !== "boolean") failures.push("backendValidation.ready must be boolean");
+  if (report.backendValidation && !report.backendValidation.ready) {
+    if (!Array.isArray(report.backendValidation.unblockCommands)) failures.push("backendValidation.unblockCommands must be an array when not ready");
+    if (typeof report.backendValidation.message !== "string") failures.push("backendValidation.message must be a string when not ready");
+  }
+  if (!report.installedSmoke || typeof report.installedSmoke.installedAppPresent !== "boolean" || typeof report.installedSmoke.evidenceReady !== "boolean") {
+    failures.push("installedSmoke presence and evidenceReady flags must be boolean");
+  } else if (!Array.isArray(report.installedSmoke.missingEvidence)) {
+    failures.push("installedSmoke.missingEvidence must be an array");
+  }
+  return failures;
+}
