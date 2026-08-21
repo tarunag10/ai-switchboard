@@ -93,6 +93,8 @@ the current checkout.
   configured app version and records its modification time and SHA-256.
 - Release report status is now an explicit `ready`/`blocked` enum consistent
   with the underlying environment, validation, smoke, and DMG gates.
+- The model-routing evidence gate now runs the native routing and telemetry
+  persistence test modules in addition to the JavaScript evidence checker.
 
 ### Done — prepared and shipped
 
