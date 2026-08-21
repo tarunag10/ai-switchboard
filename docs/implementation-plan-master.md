@@ -74,6 +74,9 @@ the current checkout.
   events while retaining changed evidence and leaving measured Headroom/RTK
   events unaffected, preventing repeated local setup callbacks from inflating
   savings history.
+- Connector promotion now requires non-empty native evidence, a null native
+  blocked-stage marker, and all lifecycle stages unblocked before returning
+  `native_promoted`; contradictory contracts fail closed.
 
 ### Done — prepared and shipped
 

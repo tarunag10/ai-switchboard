@@ -94,4 +94,24 @@ describe("evaluateConnectorPromotionGate", () => {
     );
     expect(evaluation.verdict).toBe("native_promoted");
   });
+
+  it("blocks contradictory native promotion contracts", () => {
+    const evaluation = evaluateConnectorPromotionGate(
+      contract({
+        connectorId: "goose",
+        connectorName: "Goose",
+        automationEnabled: true,
+        nativeAutomationEnabled: true,
+        nativeNextBlockedStage: "applyImplemented",
+        nativeWriteEvidence: "",
+        stages: contract().stages.map((stage) => ({
+          ...stage,
+          state: "blocked" as const,
+        })),
+      }),
+    );
+    expect(evaluation.verdict).toBe("blocked");
+    expect(evaluation.nextBlockedStage).toBe("applyImplemented");
+    expect(evaluation.reasons[0]).toMatch(/contradictory|incomplete/);
+  });
 });

@@ -18,7 +18,13 @@ export interface ConnectorPromotionEvaluation {
 export function evaluateConnectorPromotionGate(
   contract: PlannedConnectorReadinessContract,
 ): ConnectorPromotionEvaluation {
-  if (contract.nativeAutomationEnabled) {
+  const blockedStages = contract.stages.filter((stage) => stage.state === "blocked");
+  const nativePromotionReady =
+    contract.nativeAutomationEnabled &&
+    contract.nativeWriteEvidence.trim().length > 0 &&
+    contract.nativeNextBlockedStage === null &&
+    blockedStages.length === 0;
+  if (nativePromotionReady) {
     return {
       verdict: "native_promoted",
       reasons: [contract.nativeWriteEvidence],
@@ -26,7 +32,6 @@ export function evaluateConnectorPromotionGate(
     };
   }
 
-  const blockedStages = contract.stages.filter((stage) => stage.state === "blocked");
   if (contract.automationEnabled && blockedStages.length === 0) {
     return {
       verdict: "sidecar_ready",
@@ -38,6 +43,7 @@ export function evaluateConnectorPromotionGate(
   }
 
   const nextBlockedStage =
+    (contract.nativeAutomationEnabled ? contract.nativeNextBlockedStage : null) ??
     contract.nextBlockedStage ??
     blockedStages[0]?.id ??
     plannedConnectorReadinessStageOrder[0];
@@ -45,7 +51,9 @@ export function evaluateConnectorPromotionGate(
   return {
     verdict: "blocked",
     reasons: [
-      blockedStages.length > 0
+      contract.nativeAutomationEnabled && !nativePromotionReady
+        ? `${contract.connectorName} native promotion contract is contradictory or incomplete.`
+        : blockedStages.length > 0
         ? `${contract.connectorName} is blocked at ${blockedStages.map((stage) => stage.label).join(", ")}.`
         : `${contract.connectorName} automation is not enabled yet.`,
       contract.nativeWriteEvidence,
