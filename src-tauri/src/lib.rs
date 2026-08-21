@@ -2173,6 +2173,23 @@ mod tests {
     }
 
     #[test]
+    fn connector_smoke_requires_the_exact_expected_response() {
+        assert!(crate::connector_smoke::connector_smoke_response_matches(
+            "switchboard verification ok\n"
+        ));
+        assert!(crate::connector_smoke::connector_smoke_response_matches(
+            "  switchboard verification ok  \n"
+        ));
+        assert!(!crate::connector_smoke::connector_smoke_response_matches(
+            "switchboard verification okay\n"
+        ));
+        assert!(!crate::connector_smoke::connector_smoke_response_matches(
+            "prefix\nswitchboard verification ok\n"
+        ));
+        assert!(!crate::connector_smoke::connector_smoke_response_matches("") );
+    }
+
+    #[test]
     fn prerelease_versions_are_detected() {
         assert!(is_prerelease_version("0.2.44-rc.1"));
         assert!(is_prerelease_version("0.2.44-staging"));

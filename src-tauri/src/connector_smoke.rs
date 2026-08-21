@@ -30,6 +30,12 @@ fn tail_text(value: &str, max_chars: usize) -> String {
         .collect()
 }
 
+const CONNECTOR_SMOKE_EXPECTED_RESPONSE: &str = "switchboard verification ok";
+
+pub(crate) fn connector_smoke_response_matches(stdout: &str) -> bool {
+    stdout.trim() == CONNECTOR_SMOKE_EXPECTED_RESPONSE
+}
+
 pub(crate) fn shell_single_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
@@ -104,7 +110,8 @@ pub async fn run_connector_smoke_test(
         .map_err(|err| format!("Could not collect {client_id} smoke test output: {err}"))?;
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let success = output.status.success();
+    let response_matches = connector_smoke_response_matches(&stdout);
+    let success = output.status.success() && response_matches;
     Ok(ConnectorSmokeTestResult {
         client_id,
         supported: true,
@@ -112,6 +119,8 @@ pub async fn run_connector_smoke_test(
         success,
         summary: if success {
             "Test prompt sent. Waiting for the local proxy to confirm the request.".into()
+        } else if output.status.success() && !response_matches {
+            "Test prompt completed, but the connector returned an unexpected response. Open the connector and send a tiny prompt manually.".into()
         } else {
             format!(
                 "Test prompt exited with status {}. Open the connector and send a tiny prompt manually.",
