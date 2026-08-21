@@ -407,7 +407,7 @@ pub(crate) fn decide_model_route_experiment(
             if !policy
                 .automatic_task_allowlist
                 .iter()
-                .any(|allowed| allowed == &task_class)
+                .any(|allowed| allowed.trim().eq_ignore_ascii_case(&task_class))
             {
                 reasons.push("task_class_not_allowlisted".to_string());
                 return decision(
@@ -691,6 +691,30 @@ mod tests {
         let decision = decide_model_route_experiment(&input(), &policy, false, Some(&failing));
         assert!(decision.observe_only);
         assert_eq!(decision.reason, "automatic_thresholds_failed");
+    }
+
+    #[test]
+    fn automatic_allowlist_normalizes_case_and_whitespace() {
+        let policy = ModelRoutingExperimentPolicy {
+            stage: ModelRoutingStage::AutomaticAllowlisted,
+            automatic_task_allowlist: vec!["  FoRmAtTiNg  ".to_string()],
+            ..Default::default()
+        };
+        let evidence = ModelRoutingBenchmarkEvidence {
+            sample_size: 100,
+            baseline_successes: 98,
+            candidate_successes: 98,
+            baseline_average_success_cost_microunits: 1_000,
+            candidate_average_success_cost_microunits: 700,
+            baseline_quality_score_bps: 9_800,
+            candidate_quality_score_bps: 9_800,
+            baseline_p95_latency_ms: 800,
+            candidate_p95_latency_ms: 820,
+            follow_up_rework_rate_bps: 300,
+        };
+        let decision = decide_model_route_experiment(&input(), &policy, false, Some(&evidence));
+        assert!(!decision.observe_only);
+        assert_eq!(decision.reason, "automatic_allowlisted");
     }
 
     #[test]

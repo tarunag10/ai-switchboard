@@ -183,6 +183,9 @@ the current checkout.
 - Native Repo Intelligence now applies the same fail-closed re-export contract
   and suppresses legacy name-matching edges for unresolved imported bindings;
   native coverage is 42 focused tests.
+- Automatic model-routing task allowlists now trim surrounding whitespace and
+  compare case-insensitively, with a regression fixture for persisted policy
+  formatting drift.
 
 ### Remaining build work
 
