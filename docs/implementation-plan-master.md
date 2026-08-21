@@ -142,6 +142,9 @@ the current checkout.
   and materially future-dated `generatedAt` evidence; deterministic timestamp
   edge-case tests cover the seven-day freshness window and five-minute clock
   skew allowance.
+- Model-routing live evidence now uses the same bounded timestamp contract and
+  tests stale/timezone-free runs plus large-cost arithmetic; promotion remains
+  observe-only for the checked-in offline fixture.
 
 ### Remaining build work
 

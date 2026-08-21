@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { validateReleaseEvidenceTimestamp } from "./release-evidence-time.mjs";
 
 const root = process.cwd();
 const fixturePath = process.argv[2]
@@ -56,9 +57,11 @@ function validateFixture(value) {
     for (const field of ["runId", "capturedAt", "approvalReceipt"]) {
       if (typeof value[field] !== "string" || value[field].trim() === "") throw new Error(`approved live run requires ${field}`);
     }
-    const capturedAt = Date.parse(value.capturedAt);
-    if (Number.isNaN(capturedAt) || capturedAt > Date.now()) {
-      throw new Error("approved live run capturedAt must be a valid non-future timestamp");
+    const capturedAt = validateReleaseEvidenceTimestamp(value.capturedAt, {
+      label: "capturedAt",
+    });
+    if (!capturedAt.ok) {
+      throw new Error(`approved live run ${capturedAt.reason}`);
     }
   }
 }
@@ -69,7 +72,7 @@ function evaluatePromotionEligibility(value) {
   const latencyRegressionMs = value.candidate.p95LatencyMs - value.baseline.p95LatencyMs;
   const baselineCost = BigInt(value.baseline.successfulTaskCostMicros);
   const candidateCost = BigInt(value.candidate.successfulTaskCostMicros);
-  const costImprovementBps = baselineCost === 0n
+  const costImprovementBps = baselineCost === 0n || candidateCost >= baselineCost
     ? 0
     : Number(((baselineCost - candidateCost) * 10_000n) / baselineCost);
   const enoughSamples = value.baseline.sampleCount >= value.minimumSamples;
