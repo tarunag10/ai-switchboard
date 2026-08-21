@@ -77,6 +77,9 @@ the current checkout.
 - Connector promotion now requires non-empty native evidence, a null native
   blocked-stage marker, and all lifecycle stages unblocked before returning
   `native_promoted`; contradictory contracts fail closed.
+- Repo Intelligence task context-pack selection now never admits a file that
+  exceeds the requested token budget, including zero and undersized budgets;
+  ranking remains deterministic for positive budgets.
 
 ### Done — prepared and shipped
 

@@ -333,6 +333,35 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("never exceeds a zero or undersized context-pack budget", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/large.ts", bytes: 2_000 },
+      { path: "src/small.ts", bytes: 500 },
+    ]);
+    const files = summary.packs.flatMap((contextPack) => contextPack.files);
+    const empty = buildRepoTaskContextPack(
+      files,
+      summary.graph,
+      "implementation",
+      "implementation",
+      0,
+    );
+    expect(empty.files).toEqual([]);
+    expect(empty.files.reduce((sum, file) => sum + file.estimatedTokens, 0)).toBe(0);
+
+    const undersized = buildRepoTaskContextPack(
+      files,
+      summary.graph,
+      "implementation",
+      "implementation",
+      1,
+    );
+    expect(undersized.files).toEqual([]);
+    expect(
+      undersized.files.reduce((sum, file) => sum + file.estimatedTokens, 0),
+    ).toBeLessThanOrEqual(1);
+  });
+
   it("derives index freshness copy from persistent metadata", () => {
     expect(getRepoIndexFreshness({})).toMatchObject({
       status: "none",

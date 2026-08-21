@@ -2351,10 +2351,7 @@ export function buildRepoTaskContextPack(
   const selected: RepoFileRank[] = [];
   let tokenTotal = 0;
   for (const rank of ranked) {
-    if (
-      selected.length > 0 &&
-      tokenTotal + rank.estimatedTokens > budgetTokens
-    ) {
+    if (budgetTokens <= 0 || tokenTotal + rank.estimatedTokens > budgetTokens) {
       continue;
     }
     selected.push(rank);
