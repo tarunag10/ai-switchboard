@@ -138,6 +138,10 @@ the current checkout.
   missing report arguments.
 - Gemini and Qwen connector fixture tests now cover drift detection, repair,
   and byte-stable repeated Off cleanup.
+- Release report schema validation now rejects malformed, timezone-free, stale,
+  and materially future-dated `generatedAt` evidence; deterministic timestamp
+  edge-case tests cover the seven-day freshness window and five-minute clock
+  skew allowance.
 
 ### Remaining build work
 
@@ -149,9 +153,10 @@ the current checkout.
    guards are shipped. Importing successful-task, rework,
    quality, and latency observations from real approved runs remains pending;
    automatic routing stays observe-only until that evidence exists.
-2. **Release evidence operator path:** the documentation/checker drift guard is
-   shipped; executing the external checklist still requires signing
-   credentials, a current public artifact, and a real reboot.
+2. **Release evidence operator path:** the documentation/checker drift guard and
+   timestamp freshness contract are shipped; executing the external checklist
+   still requires signing credentials, a current public artifact, and a real
+   reboot.
 3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
    shipped; remaining work is deeper bounded semantic resolution only where it
    remains deterministic. Whole-program type inference and dynamic dispatch

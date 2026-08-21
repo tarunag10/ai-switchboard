@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { validateReleaseEvidenceTimestamp } from "./release-evidence-time.mjs";
 
 const reportPath = "dist/release-readiness-report.json";
 const markdownReportPath = "dist/release-readiness-report.md";
@@ -353,7 +354,13 @@ if (!markdownReport.includes("Connector readiness required gated native-write do
 }
 
 requireType(report, "status", "string");
-requireType(report, "generatedAt", "string");
+const generatedAt = requireType(report, "generatedAt", "string");
+const timestampCheck = validateReleaseEvidenceTimestamp(generatedAt, {
+  label: "generatedAt",
+});
+if (!timestampCheck.ok) {
+  fail(timestampCheck.reason);
+}
 
 for (const path of requiredReleaseReportPaths) {
   if (!hasPath(report, path)) {
