@@ -601,6 +601,9 @@ fn validate_benchmark_evidence(evidence: &ModelRoutingBenchmarkEvidence) -> Resu
     {
         return Err("benchmark_evidence_invalid: successes cannot exceed sample_size".to_string());
     }
+    if evidence.baseline_successes == 0 || evidence.candidate_successes == 0 {
+        return Err("benchmark_evidence_invalid: each arm requires at least one successful task".to_string());
+    }
     if evidence.baseline_quality_score_bps > 10_000
         || evidence.candidate_quality_score_bps > 10_000
         || evidence.follow_up_rework_rate_bps > 10_000
@@ -777,6 +780,30 @@ mod tests {
         assert!(decision.observe_only);
         assert_eq!(decision.reason, "automatic_evidence_invalid");
         assert!(decision.evidence.is_none());
+    }
+
+    #[test]
+    fn automatic_routing_rejects_zero_success_arms_even_with_costs() {
+        let policy = ModelRoutingExperimentPolicy {
+            stage: ModelRoutingStage::AutomaticAllowlisted,
+            automatic_task_allowlist: vec!["formatting".to_string()],
+            ..Default::default()
+        };
+        let evidence = ModelRoutingBenchmarkEvidence {
+            sample_size: 100,
+            baseline_successes: 0,
+            candidate_successes: 0,
+            baseline_average_success_cost_microunits: 1_000,
+            candidate_average_success_cost_microunits: 500,
+            baseline_quality_score_bps: 10_000,
+            candidate_quality_score_bps: 10_000,
+            baseline_p95_latency_ms: 800,
+            candidate_p95_latency_ms: 800,
+            follow_up_rework_rate_bps: 0,
+        };
+        let decision = decide_model_route_experiment(&input(), &policy, false, Some(&evidence));
+        assert!(decision.observe_only);
+        assert_eq!(decision.reason, "automatic_evidence_invalid");
     }
 
     #[test]
