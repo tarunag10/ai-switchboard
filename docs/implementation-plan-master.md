@@ -102,6 +102,10 @@ the current checkout.
 - Repo Intelligence now resolves same-file identifier-form default exports,
   with frontend and CLI parity coverage; dynamic and multi-hop exports remain
   intentionally unresolved.
+- Repo Intelligence now resolves same-file aliased named exports without
+  broadening dynamic or multi-hop re-export inference.
+- CLI Repo Intelligence now matches the frontend for same-file aliased named
+  exports, preserving the existing parity boundary.
 
 ### Done — prepared and shipped
 

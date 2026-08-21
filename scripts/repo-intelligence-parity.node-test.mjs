@@ -120,6 +120,19 @@ test("CLI graph resolves same-file identifier-form default exports", () => {
   }
 });
 
+test("CLI graph resolves same-file aliased named exports", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-local-alias-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/worker.ts"), "function runTask() {}\nexport { runTask as execute };\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import { execute } from './worker'; export function start() { execute(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.ok(summary.graph.symbolEdges.some((edge) => edge.to === "src/worker.ts#runTask" && edge.kind === "call_reference"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("CLI default re-exports stay one-hop and anonymous defaults stay unresolved", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-default-reexport-"));
   try {

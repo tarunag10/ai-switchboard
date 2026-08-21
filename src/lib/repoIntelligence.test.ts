@@ -767,6 +767,18 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("resolves same-file aliased named exports", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.ts", bytes: 140, content: "function runTask() {}\nexport { runTask as execute };" },
+      { path: "src/consumer.ts", bytes: 140, content: "import { execute } from './worker'; export function start() { execute(); }" },
+    ]);
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+  });
+
   it("resolves one-hop default re-exports and ignores anonymous defaults", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },

@@ -1639,6 +1639,18 @@ function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
     return null;
   }
   const byPath = new Map(files.map((file) => [file.path, file]));
+  const localPattern = /\bexport\s*\{([^}]*)\}(?!\s*from\b)/g;
+  for (const match of content.matchAll(localPattern)) {
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) continue;
+      const original = parts[0];
+      const exported = parts[1] === "as" ? parts[2] : original;
+      if (exported === imported && original) {
+        return { file: barrel.path, name: original };
+      }
+    }
+  }
   const namedPattern = /\bexport\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
   for (const match of content.matchAll(namedPattern)) {
       const target = resolveImportSpecifier(barrel.path, match[2], byPath);

@@ -3096,6 +3096,17 @@ function resolveLocalReexportBinding(
 ): { file: string; name: string } | null {
   const content = contentByPath.get(barrel.path);
   if (!content) return null;
+  for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}(?!\s*from\b)/g)) {
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) continue;
+      const original = parts[0];
+      const exported = parts[1] === "as" ? parts[2] : original;
+      if (exported === imported && original) {
+        return { file: barrel.path, name: original };
+      }
+    }
+  }
   for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g)) {
     const target = resolveImportSpecifier(barrel.path, match[2], byPath);
     if (!target) continue;
