@@ -1933,6 +1933,48 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    fn gemini_verification_fails_closed_for_each_drifted_shell_export() {
+        let home = TestHome::new();
+        let sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create gemini dir");
+        fs::write(&sidecar, "# user note\nkeep this\n").expect("seed sidecar");
+        let applied = super::apply_client_setup("gemini_cli").expect("apply gemini setup");
+        let shell_paths = applied
+            .changed_files
+            .iter()
+            .map(PathBuf::from)
+            .filter(|path| path.file_name().is_some_and(|name| name != SWITCHBOARD_ROUTING_FILE))
+            .collect::<Vec<_>>();
+        assert!(!shell_paths.is_empty(), "apply should report Gemini shell targets");
+        let exports = [
+            ("GOOGLE_GEMINI_BASE_URL", "http://127.0.0.1:6767", "http://127.0.0.1:1"),
+            ("GEMINI_BASE_URL", "http://127.0.0.1:6767", "http://127.0.0.1:2"),
+            ("GEMINI_API_KEY", "headroom-local", "wrong-local-key"),
+        ];
+        for (key, expected, drifted) in exports {
+            let expected_line = format!("export {key}={expected}");
+            let drifted_line = format!("export {key}={drifted}");
+            let mut drifted_target = false;
+            for shell_path in &shell_paths {
+                let shell = fs::read_to_string(shell_path).expect("read gemini shell");
+                if shell.contains(&expected_line) {
+                    fs::write(shell_path, shell.replace(&expected_line, &drifted_line))
+                        .expect("write drifted gemini shell");
+                    drifted_target = true;
+                }
+            }
+            assert!(drifted_target, "missing {key} before drift");
+
+            let verification =
+                super::verify_client_setup("gemini_cli").expect("verify drifted gemini shell");
+            assert!(!verification.verified, "verification should fail for {key}");
+            let repaired = super::apply_client_setup("gemini_cli").expect("repair gemini shell");
+            assert!(repaired.verification.verified, "repair should restore {key}");
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn gemini_managed_rollback_removes_shell_and_sidecar_blocks() {
         let home = TestHome::new();
         let sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);

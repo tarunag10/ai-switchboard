@@ -154,6 +154,9 @@ the current checkout.
 - CLI and frontend Repo Intelligence fallback call matching now suppresses
   duplicate cross-file callable names and receiver-qualified calls while
   retaining unique direct-call edges; parity fixtures cover both surfaces.
+- Gemini connector verification now has a deterministic negative-path test for
+  each managed shell export; the test derives the actual apply targets so a
+  future target-surface change cannot silently make drift coverage ineffective.
 
 ### Remaining build work
 
