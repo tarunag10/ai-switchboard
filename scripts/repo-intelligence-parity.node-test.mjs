@@ -5,6 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
+const goldenFixture = JSON.parse(
+  fs.readFileSync("tests/fixtures/repo-intelligence/golden-js-graph.json", "utf8"),
+);
+
 test("CLI graph suppresses ambiguous and receiver-qualified fallback calls", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-graph-"));
   try {
@@ -274,6 +278,37 @@ test("CLI applies the file cap after global path sorting", () => {
     );
     assert.ok(indexedPaths.includes("a-file.ts"));
     assert.ok(!indexedPaths.includes("a/2499.ts"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("CLI matches the shared golden bounded JavaScript graph contract", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-golden-"));
+  try {
+    for (const file of goldenFixture.files) {
+      const target = path.join(repo, file.path);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, file.content);
+    }
+    const summary = JSON.parse(
+      execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }),
+    );
+    const callEdges = new Set(
+      summary.graph.symbolEdges
+        .filter((edge) => edge.kind === "call_reference")
+        .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`),
+    );
+    for (const expected of goldenFixture.expected.positiveCallEdges) {
+      assert.ok(callEdges.has(expected), `missing golden edge ${expected}`);
+    }
+    for (const forbidden of goldenFixture.expected.negativeCallEdgesFrom) {
+      assert.ok(!callEdges.has(forbidden), `unexpected golden edge ${forbidden}`);
+    }
+    const symbols = new Set(summary.graph.symbols.map((symbol) => `${symbol.file}#${symbol.name}`));
+    for (const expected of goldenFixture.expected.symbols) {
+      assert.ok(symbols.has(expected), `missing golden symbol ${expected}`);
+    }
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }

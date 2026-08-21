@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "contract": "bounded-js-local-graph-v1",
+  "files": [
+    {
+      "path": "src/worker.ts",
+      "content": "export function runTask() {}\n"
+    },
+    {
+      "path": "src/named.ts",
+      "content": "export { runTask as execute } from './worker';\n"
+    },
+    {
+      "path": "src/star.ts",
+      "content": "export * from './worker';\n"
+    },
+    {
+      "path": "src/utils.ts",
+      "content": "export function normalize() {}\nfunction hidden() {}\n"
+    },
+    {
+      "path": "src/a.ts",
+      "content": "export function runTask() {}\nfunction hidden() {}\n"
+    },
+    {
+      "path": "src/b.ts",
+      "content": "export function runTask() {}\n"
+    },
+    {
+      "path": "src/ambiguous.ts",
+      "content": "export * from './a'; export * from './b';\n"
+    },
+    {
+      "path": "src/dynamic.ts",
+      "content": "const target = './worker'; export { target };\n"
+    },
+    {
+      "path": "src/inner.ts",
+      "content": "export { runTask } from './worker';\n"
+    },
+    {
+      "path": "src/outer.ts",
+      "content": "export { runTask } from './inner';\n"
+    },
+    {
+      "path": "src/consumer.ts",
+      "content": "import { execute } from './named';\nimport { runTask } from './star';\nimport * as utils from './utils';\nexport function start() {\n  execute();\n  runTask();\n  utils.normalize();\n}\n"
+    },
+    {
+      "path": "src/negative.ts",
+      "content": "import { runTask as ambiguous } from './ambiguous';\nimport { runTask as dynamic } from './dynamic';\nimport { runTask as chained } from './outer';\nexport function check() {\n  ambiguous();\n  dynamic();\n  chained();\n}\n"
+    }
+  ],
+  "expected": {
+    "positiveCallEdges": [
+      "src/consumer.ts->src/utils.ts#normalize",
+      "src/consumer.ts->src/worker.ts#runTask"
+    ],
+    "negativeCallEdgesFrom": [
+      "src/negative.ts->src/a.ts#runTask",
+      "src/negative.ts->src/b.ts#runTask",
+      "src/negative.ts->src/worker.ts#runTask"
+    ],
+    "symbols": [
+      "src/worker.ts#runTask",
+      "src/utils.ts#normalize",
+      "src/a.ts#runTask",
+      "src/b.ts#runTask"
+    ]
+  }
+}

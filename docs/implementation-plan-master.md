@@ -117,6 +117,9 @@ the current checkout.
 - A deterministic completion harness now exercises one baseline/candidate pair,
   export reconciliation, duplicate rejection, and the permanently observe-only
   local-runtime result without network or provider traffic.
+- Repo Intelligence now has a shared bounded JavaScript/TypeScript golden graph
+  corpus with normalized CLI, frontend, and native projections; the parity gate
+  runs all three surfaces instead of only the CLI.
 - Repo Intelligence frontend, CLI, and native traversal now treat case-variant
   dependency/generated directories as ignored, with parity fixtures for
   `Node_modules`, `Vendor`, and `DIST`.
@@ -369,8 +372,9 @@ the current checkout.
    are shipped; executing the external checklist still requires signing
    credentials, a current public artifact, and a real reboot.
 3. **Repo Intelligence depth:** ambiguity handling, indexer versioning,
-   case-insensitive generated-directory exclusion, and bounded named
-   default-import/default-re-export resolution are shipped;
+   case-insensitive generated-directory exclusion, the shared bounded golden
+   graph contract, and bounded named default-import/default-re-export
+   resolution are shipped;
    remaining work is deeper bounded semantic resolution only where it remains
    deterministic. Whole-program type inference and dynamic dispatch stay out
    of scope unless a separate evidence-backed design is approved.

@@ -25,8 +25,30 @@ import {
   repoAgentPackLabel,
   resolveRepoPackCompression,
 } from "./repoIntelligence";
+import goldenFixture from "../../tests/fixtures/repo-intelligence/golden-js-graph.json";
 
 describe("repoIntelligence", () => {
+  it("matches the shared golden bounded JavaScript graph contract", () => {
+    const summary = buildRepoIntelligenceSummary(goldenFixture.files);
+    const callEdges = new Set(
+        (summary.graph?.symbolEdges ?? [])
+        .filter((edge) => edge.kind === "call_reference")
+        .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`),
+    );
+    for (const expected of goldenFixture.expected.positiveCallEdges) {
+      expect(callEdges, `missing golden edge ${expected}`).toContain(expected);
+    }
+    for (const forbidden of goldenFixture.expected.negativeCallEdgesFrom) {
+      expect(callEdges, `unexpected golden edge ${forbidden}`).not.toContain(forbidden);
+    }
+    const symbols = new Set(
+      (summary.graph?.symbols ?? []).map((symbol) => `${symbol.file}#${symbol.name}`),
+    );
+    for (const expected of goldenFixture.expected.symbols) {
+      expect(symbols, `missing golden symbol ${expected}`).toContain(expected);
+    }
+  });
+
   it("validates repo index requests before invoking the app indexer", () => {
     expect(normalizeRepoIndexRequest("")).toEqual({
       repoPath: "",

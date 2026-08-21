@@ -5762,4 +5762,61 @@ export const mapValues = <T>(items: T[]) => items;
             .to_string()
             .contains("parsing repo intelligence summary"));
     }
+
+    #[test]
+    fn matches_the_shared_golden_bounded_javascript_graph_contract() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/repo-intelligence/golden-js-graph.json"
+        ))
+        .expect("parse golden fixture");
+        let root = tempfile::tempdir().expect("create golden repo");
+        for file in fixture["files"].as_array().expect("golden files") {
+            let relative = file["path"].as_str().expect("golden path");
+            let target = root.path().join(relative);
+            std::fs::create_dir_all(target.parent().expect("golden parent"))
+                .expect("create golden parent");
+            std::fs::write(
+                target,
+                file["content"].as_str().expect("golden content"),
+            )
+            .expect("write golden file");
+        }
+
+        let graph = summarize_repo(root.path())
+            .expect("summarize golden repo")
+            .graph
+            .expect("golden graph");
+        let call_edges = graph
+            .symbol_edges
+            .iter()
+            .filter(|edge| edge.kind == RepoGraphEdgeKind::CallReference)
+            .map(|edge| {
+                let caller = edge.from.split('#').next().unwrap_or(edge.from.as_str());
+                format!("{}->{}", caller, edge.to)
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        for expected in fixture["expected"]["positiveCallEdges"]
+            .as_array()
+            .expect("positive golden edges")
+        {
+            let expected = expected.as_str().expect("positive edge string");
+            assert!(call_edges.contains(expected), "missing golden edge {expected}");
+        }
+        for forbidden in fixture["expected"]["negativeCallEdgesFrom"]
+            .as_array()
+            .expect("negative golden edges")
+        {
+            let forbidden = forbidden.as_str().expect("negative edge string");
+            assert!(!call_edges.contains(forbidden), "unexpected golden edge {forbidden}");
+        }
+        let symbols = graph
+            .symbols
+            .iter()
+            .map(|symbol| format!("{}#{}", symbol.file, symbol.name))
+            .collect::<std::collections::BTreeSet<_>>();
+        for expected in fixture["expected"]["symbols"].as_array().expect("golden symbols") {
+            let expected = expected.as_str().expect("golden symbol string");
+            assert!(symbols.contains(expected), "missing golden symbol {expected}");
+        }
+    }
 }
