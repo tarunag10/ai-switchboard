@@ -72,3 +72,36 @@ test("rejects contradictory freshness, identity, and checklist combinations", ()
   assert.match(errors.join("\n"), /installedSmoke/);
   assert.match(errors.join("\n"), /shareableDmgGate/);
 });
+
+test("requires measured savings readiness to include fresh evidence", () => {
+  const base = {
+    shareableDmgGate: {
+      ready: false,
+      environmentClear: false,
+      signedAndNotarized: false,
+      updaterFeedReady: true,
+      backendValidationReady: true,
+      staticSmokePreflightReady: false,
+      installedAppSmokeReady: false,
+    },
+    localValidation: {
+      measuredSavingsBenchmark: {
+        totals: { savedTokens: 100 },
+        passed: true,
+        freshness: { fresh: false, generatedAt: "2020-01-01T00:00:00Z" },
+      },
+    },
+  };
+  expectConsistencyError(base, /measuredSavingsBenchmark/);
+
+  const fresh = structuredClone(base);
+  fresh.localValidation.measuredSavingsBenchmark.freshness = {
+    fresh: true,
+    generatedAt: new Date().toISOString(),
+  };
+  assert.deepEqual(validateReleaseReportConsistency(fresh), []);
+});
+
+function expectConsistencyError(report, pattern) {
+  assert.match(validateReleaseReportConsistency(report).join("\n"), pattern);
+}

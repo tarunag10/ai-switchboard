@@ -83,6 +83,8 @@ the current checkout.
 - Local Repo Memory MCP evidence now validates a fresh, timezone-qualified
   `generatedAt`, preventing stale passing bridge summaries from being reused
   indefinitely.
+- Release-readiness measured-savings status now requires both positive saved
+  tokens and fresh evidence; consistency tests reject stale passing reports.
 
 ### Done — prepared and shipped
 

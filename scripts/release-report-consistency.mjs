@@ -70,5 +70,17 @@ export function validateReleaseReportConsistency(report) {
       errors.push("installedSmoke.checklistSha256Matches requires equal recorded and current hashes");
     }
   }
+  const measuredSavings = report?.localValidation?.measuredSavingsBenchmark;
+  if (measuredSavings && typeof measuredSavings === "object") {
+    const expectedPassed =
+      Number(measuredSavings.totals?.savedTokens ?? 0) > 0 &&
+      measuredSavings.freshness?.fresh === true;
+    if (measuredSavings.passed !== expectedPassed) {
+      errors.push("measuredSavingsBenchmark.passed must require positive saved tokens and fresh evidence");
+    }
+    if (measuredSavings.freshness?.fresh === true && typeof measuredSavings.freshness.generatedAt !== "string") {
+      errors.push("measuredSavingsBenchmark.freshness cannot be fresh without a timestamp");
+    }
+  }
   return errors;
 }

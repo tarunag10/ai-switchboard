@@ -469,7 +469,24 @@ function buildLocalValidationEvidence() {
   const uninstallFreshness = assessSummaryFreshness({ summaryGeneratedAt: uninstallSummary.generatedAt, jsonGeneratedAt: uninstallJson.body?.generatedAt, present: uninstallSummary.present || uninstallJson.present, passed: uninstallJson.body?.passed === true }, { label: "uninstall.generatedAt" });
   const repoIntelligenceFreshness = assessSummaryFreshness({ summaryGeneratedAt: repoIntelligenceSummary.generatedAt, jsonGeneratedAt: repoIntelligenceJson.body?.generatedAt, present: repoIntelligenceSummary.present || repoIntelligenceJson.present, passed: repoIntelligenceJson.body?.passed === true }, { label: "repoIntelligence.generatedAt" });
   const repoMemoryMcpFreshness = assessSummaryFreshness({ summaryGeneratedAt: repoMemoryMcpSummary.generatedAt, jsonGeneratedAt: repoMemoryMcpJson.body?.generatedAt, present: repoMemoryMcpSummary.present || repoMemoryMcpJson.present, passed: repoMemoryMcpJson.body?.passed === true }, { label: "repoMemoryMcp.generatedAt" });
-  const measuredSavingsBenchmarkFreshness = assessSummaryFreshness({ summaryGeneratedAt: measuredSavingsBenchmarkSummary.generatedAt, jsonGeneratedAt: measuredSavingsBenchmarkJson.body?.generatedAt, present: measuredSavingsBenchmarkSummary.present || measuredSavingsBenchmarkJson.present, passed: Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0 }, { label: "measuredSavingsBenchmark.generatedAt" });
+  const measuredSavingsBenchmarkPresent =
+    measuredSavingsBenchmarkSummary.present || measuredSavingsBenchmarkJson.present;
+  const measuredSavingsBenchmarkFreshnessAssessment = assessSummaryFreshness(
+    {
+      summaryGeneratedAt: measuredSavingsBenchmarkSummary.generatedAt,
+      jsonGeneratedAt: measuredSavingsBenchmarkJson.body?.generatedAt,
+      present: measuredSavingsBenchmarkPresent,
+      passed: Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0,
+    },
+    { label: "measuredSavingsBenchmark.generatedAt" },
+  );
+  const measuredSavingsBenchmarkFreshness = measuredSavingsBenchmarkPresent
+    ? measuredSavingsBenchmarkFreshnessAssessment
+    : {
+        ...measuredSavingsBenchmarkFreshnessAssessment,
+        fresh: false,
+        reason: "measuredSavingsBenchmark.generatedAt summary is missing",
+      };
   const localConnectorReadinessFreshness = assessSummaryFreshness({ summaryGeneratedAt: localConnectorReadinessSummary.generatedAt, jsonGeneratedAt: localConnectorReadinessJson.body?.generatedAt, present: localConnectorReadinessSummary.present || localConnectorReadinessJson.present, passed: localConnectorReadinessJson.body?.passed === true }, { label: "connectorReadiness.generatedAt" });
   const localOnlyNetworkFreshness = assessSummaryFreshness({ summaryGeneratedAt: localOnlyNetworkSummary.generatedAt, jsonGeneratedAt: localOnlyNetworkJson.body?.generatedAt, present: localOnlyNetworkSummary.present || localOnlyNetworkJson.present, passed: localOnlyNetworkJson.body?.passed === true }, { label: "localOnlyNetwork.generatedAt" });
   const modeRelaunchContractFailures = validateModeRelaunchSummary(
@@ -483,7 +500,8 @@ function buildLocalValidationEvidence() {
   const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true && repoIntelligenceFreshness.fresh;
   const repoMemoryMcpPassed = repoMemoryMcpJson.body?.passed === true && repoMemoryMcpFreshness.fresh;
   const measuredSavingsBenchmarkPassed =
-    Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0;
+    Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0 &&
+    measuredSavingsBenchmarkFreshness.fresh;
   const localConnectorReadinessPassed =
     localConnectorReadinessJson.body?.passed === true && localConnectorReadinessFreshness.fresh;
   const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true && localOnlyNetworkFreshness.fresh;
