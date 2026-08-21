@@ -6,6 +6,23 @@ pub(crate) fn open_external_link(url: &str) -> Result<(), String> {
     open_target(&trimmed, "External link")
 }
 
+/// Open the app-owned Headroom dashboard. This is intentionally separate from
+/// public-link handling: loopback is unsafe for arbitrary webview input but is
+/// the documented destination for this explicit, app-owned action.
+pub(crate) fn open_local_dashboard(url: &str) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(url).map_err(|_| "Headroom dashboard URL is invalid.".to_string())?;
+    let valid = parsed.scheme() == "http"
+        && parsed.host_str() == Some("127.0.0.1")
+        && parsed.port_or_known_default() == Some(6767)
+        && parsed.path() == "/dashboard"
+        && parsed.query().is_none()
+        && parsed.fragment().is_none();
+    if !valid {
+        return Err("Only the local Headroom dashboard at 127.0.0.1:6767/dashboard can be opened.".into());
+    }
+    open_target(url, "Headroom dashboard")
+}
+
 pub(crate) fn open_local_path(path: &Path) -> Result<(), String> {
     open_target(
         path.to_str()
@@ -125,7 +142,14 @@ fn is_blocked_external_link_host(host: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_external_link_url;
+    use super::{open_local_dashboard, validate_external_link_url};
+
+    #[test]
+    fn local_dashboard_policy_is_narrower_than_external_links() {
+        assert!(open_local_dashboard("http://127.0.0.1:6767/dashboard?debug=1").is_err());
+        assert!(open_local_dashboard("http://localhost:6767/dashboard").is_err());
+        assert!(open_local_dashboard("https://127.0.0.1:6767/dashboard").is_err());
+    }
 
     #[test]
     fn external_link_validator_accepts_documented_public_links() {

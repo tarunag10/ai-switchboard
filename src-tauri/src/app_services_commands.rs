@@ -9,7 +9,7 @@ const HEADROOM_DASHBOARD_URL: &str = "http://127.0.0.1:6767/dashboard";
 
 #[tauri::command]
 pub async fn open_headroom_dashboard() -> Result<(), String> {
-    external_open::open_external_link(HEADROOM_DASHBOARD_URL)
+    external_open::open_local_dashboard(HEADROOM_DASHBOARD_URL)
         .map_err(|err| format!("Failed to open Headroom dashboard: {err}"))
 }
 
