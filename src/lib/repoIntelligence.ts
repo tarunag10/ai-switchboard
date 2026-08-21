@@ -2986,15 +2986,17 @@ function buildImportCallReferenceEdges(
     for (const binding of extractStaticImportBindings(content)) {
       const importedFile = resolveImportSpecifier(file.path, binding.specifier, byPath);
       if (!importedFile) continue;
-      const memberNames = binding.imported ? [binding.imported] : [...content.matchAll(
-        new RegExp(
-          `\\b${escapeRegExp(binding.local)}\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(`,
-          "g",
-        ),
-      )].map((match) => match[1]);
-      for (const memberName of new Set(memberNames)) {
+      const memberNames: string[] = binding.imported
+        ? [binding.imported]
+        : [...content.matchAll(
+            new RegExp(
+              `\\b${escapeRegExp(binding.local)}\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(`,
+              "g",
+            ),
+          )].map((match): string => match[1] ?? "");
+      for (const memberName of new Set<string>(memberNames)) {
         if (!binding.imported && !isExplicitlyExportedSymbol(importedFile, memberName, contentByPath)) continue;
-        let target = callableSymbols.find(
+        let target: RepoSymbol | undefined = callableSymbols.find(
           (symbol) => symbol.file === importedFile.path && symbol.name === memberName,
         );
         if (!target) {
@@ -3011,7 +3013,7 @@ function buildImportCallReferenceEdges(
           }
         }
         if (!target) continue;
-        const callPattern = binding.imported
+        const callPattern: RegExp = binding.imported
           ? new RegExp(`\\b${escapeRegExp(binding.local)}\\s*\\(`)
           : new RegExp(
               `\\b${escapeRegExp(binding.local)}\\s*\\.\\s*${escapeRegExp(memberName)}\\s*\\(`,
