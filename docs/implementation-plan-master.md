@@ -80,6 +80,9 @@ the current checkout.
 - Repo Intelligence task context-pack selection now never admits a file that
   exceeds the requested token budget, including zero and undersized budgets;
   ranking remains deterministic for positive budgets.
+- Local Repo Memory MCP evidence now validates a fresh, timezone-qualified
+  `generatedAt`, preventing stale passing bridge summaries from being reused
+  indefinitely.
 
 ### Done — prepared and shipped
 

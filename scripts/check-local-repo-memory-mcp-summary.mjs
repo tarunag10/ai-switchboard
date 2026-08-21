@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import path from "node:path";
+import { validateReleaseEvidenceTimestamp } from "./release-evidence-time.mjs";
 
-const reportPath = "dist/local-repo-memory-mcp-validation-summary.json";
+const reportPath = process.argv[2]
+  ? path.resolve(process.cwd(), process.argv[2])
+  : "dist/local-repo-memory-mcp-validation-summary.json";
 const requiredTools = [
   "switchboard.list_context_packs",
   "switchboard.build_context_pack",
@@ -22,6 +26,13 @@ if (!fs.existsSync(reportPath)) {
 }
 
 const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+
+const timestamp = validateReleaseEvidenceTimestamp(report.generatedAt, {
+  label: "generatedAt",
+});
+if (!timestamp.ok) {
+  fail(timestamp.reason);
+}
 
 if (report.schemaVersion !== 1) {
   fail("schemaVersion must be 1");

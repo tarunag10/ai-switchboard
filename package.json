@@ -71,7 +71,7 @@
     "smoke:repo-intelligence:local": "node scripts/local-repo-intelligence-validation-summary.mjs",
     "smoke:repo-intelligence:local:check": "node scripts/check-local-repo-intelligence-summary.mjs",
     "smoke:repo-memory-mcp:local": "node scripts/local-repo-memory-mcp-validation-summary.mjs",
-    "smoke:repo-memory-mcp:local:check": "node scripts/check-local-repo-memory-mcp-summary.mjs",
+    "smoke:repo-memory-mcp:local:check": "node --test scripts/check-local-repo-memory-mcp-summary.node-test.mjs && node scripts/check-local-repo-memory-mcp-summary.mjs",
     "smoke:local-only:local": "node scripts/local-only-network-validation-summary.mjs",
     "smoke:local-only:local:check": "node scripts/check-local-only-network-summary.mjs",
     "switchboard": "node bin/switchboard.mjs",
