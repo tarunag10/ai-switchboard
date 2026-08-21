@@ -23,6 +23,15 @@ test("accepts internally consistent blocked release evidence", () => {
       missingEvidence: ["summary"],
       freshness: { fresh: false, generatedAt: null },
     },
+    shareableDmgGate: {
+      ready: false,
+      environmentClear: false,
+      signedAndNotarized: false,
+      updaterFeedReady: true,
+      backendValidationReady: true,
+      staticSmokePreflightReady: false,
+      installedAppSmokeReady: false,
+    },
   }), []);
 });
 
@@ -49,7 +58,17 @@ test("rejects contradictory freshness, identity, and checklist combinations", ()
       currentChecklistSha256: "a",
       recordedChecklistSha256: "b",
     },
+    shareableDmgGate: {
+      ready: true,
+      environmentClear: true,
+      signedAndNotarized: false,
+      updaterFeedReady: true,
+      backendValidationReady: true,
+      staticSmokePreflightReady: true,
+      installedAppSmokeReady: true,
+    },
   });
   assert.match(errors.join("\n"), /staticSmokePreflight/);
   assert.match(errors.join("\n"), /installedSmoke/);
+  assert.match(errors.join("\n"), /shareableDmgGate/);
 });

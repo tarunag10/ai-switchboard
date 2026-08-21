@@ -280,6 +280,9 @@ the current checkout.
 - Release report schema validation now enforces cross-field consistency for
   summary presence, freshness, identity, checklist hashes, and readiness
   booleans, with adversarial blocked/contradictory fixtures.
+- Shareable DMG readiness now also requires its `ready` flag to equal the
+  conjunction of environment, artifact, backend, updater, static-smoke, and
+  installed-smoke gates, preventing contradictory public-release status.
 
 ### Remaining build work
 

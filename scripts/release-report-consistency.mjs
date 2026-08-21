@@ -1,5 +1,19 @@
 export function validateReleaseReportConsistency(report) {
   const errors = [];
+  const shareableGate = report?.shareableDmgGate;
+  if (shareableGate && typeof shareableGate === "object") {
+    const componentReady = [
+      shareableGate.environmentClear,
+      shareableGate.signedAndNotarized,
+      shareableGate.updaterFeedReady,
+      shareableGate.backendValidationReady,
+      shareableGate.staticSmokePreflightReady,
+      shareableGate.installedAppSmokeReady,
+    ].every((value) => value === true);
+    if (shareableGate.ready !== componentReady) {
+      errors.push("shareableDmgGate.ready must match all component gates");
+    }
+  }
   const staticSmoke = report?.staticSmokePreflight;
   if (staticSmoke && typeof staticSmoke === "object") {
     if (staticSmoke.ready !== staticSmoke.evidenceReady) {
