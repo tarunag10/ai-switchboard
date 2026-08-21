@@ -3768,6 +3768,7 @@ mod tests {
 
     #[test]
     fn wait_for_port_free_detects_release() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         assert!(
@@ -3854,6 +3855,7 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn probe_backend_readyz_ok_false_when_nothing_listening() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
@@ -3888,6 +3890,7 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn managed_headroom_startup_uses_supported_proxy_args() {
+        if crate::test_support::skip_if_app_storage_unavailable() { return; }
         std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
         let _app_storage = AppStorageEnvGuard::new();
         crate::message_logging::save_settings(&crate::models::MessageLoggingSettings::default())

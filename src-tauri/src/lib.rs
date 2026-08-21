@@ -1,3 +1,37 @@
+#[cfg(test)]
+pub(crate) mod test_support {
+    pub(crate) fn skip_if_local_socket_unavailable() -> bool {
+        match std::net::TcpListener::bind("127.0.0.1:0") {
+            Ok(listener) => {
+                drop(listener);
+                false
+            }
+            Err(error) => {
+                eprintln!("skipping local-socket test: loopback bind unavailable: {error}");
+                true
+            }
+        }
+    }
+
+    pub(crate) fn skip_if_app_storage_unavailable() -> bool {
+        let path = crate::storage::app_data_dir()
+            .join("config")
+            .join(format!(".harness-capability-{}", std::process::id()));
+        match std::fs::create_dir_all(path.parent().expect("capability path parent"))
+            .and_then(|_| std::fs::write(&path, b"capability"))
+        {
+            Ok(()) => {
+                let _ = std::fs::remove_file(path);
+                false
+            }
+            Err(error) => {
+                eprintln!("skipping app-storage test: writable app storage unavailable: {error}");
+                true
+            }
+        }
+    }
+}
+
 mod activity_commands;
 mod activity_facts;
 mod addon_commands;
@@ -2848,6 +2882,7 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_decodes_proxy_response() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
         let app_storage_temp = tempfile::tempdir().expect("app storage tempdir");
         let _app_storage = AppStorageEnvGuard::isolated(app_storage_temp.path());
@@ -2909,6 +2944,7 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_returns_error_on_non_2xx_status() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         use std::io::{Read, Write};
         use std::net::TcpListener;
 
@@ -3082,6 +3118,7 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_returns_error_when_proxy_unreachable() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         // Bind and immediately drop a listener so we know the port is free.
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();

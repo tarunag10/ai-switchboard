@@ -2241,6 +2241,7 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn exact_cache_hit_is_served_by_intercept_without_second_backend_request() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         let (backend_listener, backend_addr) = bind_ephemeral().await;
         let backend_task = tokio::spawn(async move {
             let (mut sock, _) = backend_listener.accept().await.expect("backend accept");
@@ -2352,6 +2353,7 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn intercept_captures_bearer_and_forwards_headers_to_backend() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         // Fake backend: accept one connection, read its header block, hold the
         // connection open long enough for the test to inspect what arrived.
         let (backend_listener, backend_addr) = bind_ephemeral().await;
@@ -2455,6 +2457,7 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn intercept_returns_502_when_backend_is_unreachable() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         // Pick a backend port that nothing is listening on. Bind+immediately
         // drop a listener to grab a free port, then connect attempts will fail.
         let (probe, dead_backend_addr) = bind_ephemeral().await;
@@ -2671,6 +2674,7 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn bypass_forwards_request_to_upstream_and_streams_response_back() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         let (upstream_listener, upstream_addr) = bind_ephemeral().await;
         let upstream_base = format!("http://127.0.0.1:{}", upstream_addr.port());
 
@@ -2872,6 +2876,7 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn bypass_returns_502_when_upstream_unreachable() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         // Bind+drop to grab a free port nothing is listening on.
         let (probe, dead_addr) = bind_ephemeral().await;
         drop(probe);
@@ -2952,6 +2957,7 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn intercept_picks_up_backend_port_changes_between_connections() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         let (first_listener, first_addr) = bind_ephemeral().await;
         let (second_listener, second_addr) = bind_ephemeral().await;
 

@@ -248,6 +248,7 @@ mod tests {
 
     #[test]
     fn tcp_port_accepts_connection_true_when_listener_bound() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         use std::net::TcpListener;
         use std::time::Duration;
 
@@ -265,6 +266,7 @@ mod tests {
 
     #[test]
     fn tcp_port_accepts_connection_false_when_no_listener() {
+        if crate::test_support::skip_if_local_socket_unavailable() { return; }
         use std::net::{SocketAddr, TcpListener};
         use std::time::Duration;
 

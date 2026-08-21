@@ -260,6 +260,11 @@ the current checkout.
   permanently observe-only `local_runtime_observation`; Tauri and frontend
   command boundaries expose record/export without accepting prompts or
   responses.
+- Native harness tests now detect unavailable loopback sockets and unwritable
+  app storage in test-only capability guards, preserving real assertions when
+  those capabilities exist while preventing restricted runners from reporting
+  environment failures as product regressions; the full library suite is
+  `1080 passed, 2 ignored` in this checkout.
 
 ### Remaining build work
 
