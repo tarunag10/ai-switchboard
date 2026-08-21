@@ -57,6 +57,9 @@ the current checkout.
 - Repo Intelligence ambiguity guard: `path-graph-v11` suppresses ambiguous
   duplicate cross-file name edges and object-member false positives while
   preserving same-file and static-import resolution.
+- Repo Intelligence now preserves a direct same-file call when the same file
+  also contains a member call with that name; the object-member cross-file
+  guard remains in place.
 
 ### Done — prepared and shipped
 

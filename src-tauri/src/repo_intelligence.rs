@@ -30,7 +30,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v11";
+const INDEXER_VERSION: &str = "path-graph-v12";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "tree-sitter-graph-v2";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -2342,7 +2342,11 @@ fn build_call_reference_edges(
                     {
                         continue;
                     }
-                    if contains_member_call_reference(&content, &symbol.name) {
+                    // Member-call suppression is only a cross-file guard. A
+                    // file may legitimately contain both `run()` and
+                    // `client.run()`; suppressing the whole file would erase
+                    // the direct same-file edge.
+                    if symbol.file != file.path && contains_member_call_reference(&content, &symbol.name) {
                         continue;
                     }
                     let from = caller
@@ -4103,6 +4107,25 @@ export const mapValues = <T>(items: T[]) => items;
     }
 
     #[test]
+    fn preserves_direct_same_file_call_when_member_call_shares_the_name() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(
+            src.join("entry.ts"),
+            "function run() {}\nexport function start() { client.run(); run(); }\n",
+        )
+        .expect("write entry");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/entry.ts#start"
+                && edge.to == "src/entry.ts#run"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
     fn resolves_import_aliases_for_typescript_python_and_rust_calls() {
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
@@ -4203,7 +4226,7 @@ export const mapValues = <T>(items: T[]) => items;
         .expect("write html");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
-        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v11"));
+        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v12"));
         let graph = summary.graph.expect("graph");
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/styles.css"
