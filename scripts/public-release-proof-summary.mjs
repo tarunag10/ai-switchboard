@@ -288,7 +288,7 @@ const rebootLevelInstalledProofReady =
   rebootLevelInstalledProof?.releaseGateEvidence === true;
 const blockers = [
   signedDmgAsset ? null : "signed/notarized DMG",
-  checksumAsset ? null : "public checksum",
+  checksumVerification.ok ? null : "public checksum",
   ...updaterEvidence.blockers,
   gate.staticSmokePreflightReady ? null : "static smoke preflight",
   gate.installedAppSmokeReady ? null : "public installed-app smoke",

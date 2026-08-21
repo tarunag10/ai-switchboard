@@ -174,6 +174,9 @@ the current checkout.
 - Repo Intelligence CLI/frontend parity now has negative fixtures proving
   dynamic, unresolved, and two-hop re-exports produce no false call edges;
   the bounded one-hop contract remains explicit.
+- Public checksum blockers now depend on verified digest content, not merely
+  an uploaded asset name; an uploaded-but-mismatched checksum is covered by a
+  fail-closed regression.
 
 ### Remaining build work
 

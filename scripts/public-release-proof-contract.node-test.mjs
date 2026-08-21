@@ -20,3 +20,9 @@ test("rejects missing upload state or non-HTTPS asset URLs", () => {
   assert.equal(validateChecksumAssetEvidence({ state: "new", url: "https://example.test/checksum", verification }).ok, false);
   assert.equal(validateChecksumAssetEvidence({ state: "uploaded", url: "http://example.test/checksum", verification }).ok, false);
 });
+
+test("does not treat an uploaded but mismatched checksum as proof", () => {
+  const verification = verifyChecksumText(`${"f".repeat(64)}  app.dmg`, digest, "app.dmg");
+  const result = validateChecksumAssetEvidence({ state: "uploaded", url: "https://example.test/checksum", verification });
+  assert.equal(result.ok, false);
+});
