@@ -217,6 +217,9 @@ the current checkout.
 - Successful one-click smoke attempts now transition directly to verified from
   the exact native result; request-counter polling cannot upgrade a pending or
   failed one-click attempt.
+- Connector smoke async results now carry the proxy-verification session
+  identity, so a late result from a prior launcher session or another client
+  cannot mutate the current row state.
 - Mode-relaunch validation now requires both intercept and proxy listeners to
   be down for each persistence-only result, and release readiness reuses that
   contract instead of trusting `passed` alone.
