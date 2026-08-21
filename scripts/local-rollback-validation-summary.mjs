@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 
 const summaryPath = "dist/local-rollback-validation-summary.md";
 const jsonPath = "dist/local-rollback-validation-summary.json";
-const relaunchProbePath = "dist/local-rollback-relaunch-survival-probe.json";
+const serializationProbePath = "dist/local-rollback-serialization-process-isolation-probe.json";
 const dedicatedCleanupDomains = [
   "managed-storage",
   "repo-intelligence",
@@ -76,18 +76,18 @@ function runStep(step) {
   };
 }
 
-function recordRelaunchSurvivalProbe(generatedAt) {
+function recordSerializationProcessIsolationProbe(generatedAt) {
   const probe = {
     generatedAt,
-    kind: "mac_ai_switchboard.rollback_relaunch_survival_probe",
+    kind: "mac_ai_switchboard.rollback_serialization_process_isolation_probe",
     releaseGateEvidence: false,
     readOnly: true,
     modifiesRepository: false,
-    evidence: "rollback probe persisted to disk and re-read by a fresh Node process",
+    evidence: "rollback probe persisted to disk and re-read by a fresh Node process; this is not an installed-app relaunch",
     domains: dedicatedCleanupDomains,
   };
-  fs.mkdirSync(path.dirname(relaunchProbePath), { recursive: true });
-  fs.writeFileSync(relaunchProbePath, `${JSON.stringify(probe, null, 2)}\n`);
+  fs.mkdirSync(path.dirname(serializationProbePath), { recursive: true });
+  fs.writeFileSync(serializationProbePath, `${JSON.stringify(probe, null, 2)}\n`);
 
   const result = spawnSync(
     process.execPath,
@@ -97,11 +97,11 @@ function recordRelaunchSurvivalProbe(generatedAt) {
         "const fs = require('fs');",
         "const file = process.argv[1];",
         "const probe = JSON.parse(fs.readFileSync(file, 'utf8'));",
-        "if (probe.kind !== 'mac_ai_switchboard.rollback_relaunch_survival_probe') process.exit(2);",
+        "if (probe.kind !== 'mac_ai_switchboard.rollback_serialization_process_isolation_probe') process.exit(2);",
         "if (!Array.isArray(probe.domains) || probe.domains.length < 4) process.exit(3);",
         "console.log(`${probe.kind}:${probe.domains.join(',')}`);",
       ].join(" "),
-      relaunchProbePath,
+      serializationProbePath,
     ],
     { encoding: "utf8", timeout: 10_000 },
   );
@@ -109,7 +109,7 @@ function recordRelaunchSurvivalProbe(generatedAt) {
   if (result.status !== 0) {
     return {
       passed: false,
-      path: relaunchProbePath,
+      path: serializationProbePath,
       evidence: null,
       stdout: result.stdout?.trim() ?? "",
       stderr: result.stderr?.trim() ?? "",
@@ -118,7 +118,7 @@ function recordRelaunchSurvivalProbe(generatedAt) {
 
   return {
     passed: true,
-    path: relaunchProbePath,
+    path: serializationProbePath,
     evidence: result.stdout.trim(),
     stdout: result.stdout.trim(),
     stderr: result.stderr?.trim() ?? "",
@@ -127,16 +127,17 @@ function recordRelaunchSurvivalProbe(generatedAt) {
 
 const generatedAt = new Date().toISOString();
 const results = steps.map(runStep);
-const relaunchProbe = recordRelaunchSurvivalProbe(generatedAt);
-const passed = results.every((result) => result.ok) && relaunchProbe.passed;
+const serializationProbe = recordSerializationProcessIsolationProbe(generatedAt);
+const passed = results.every((result) => result.ok) && serializationProbe.passed;
 
 const payload = {
   schemaVersion: 1,
   generatedAt,
   kind: "mac_ai_switchboard.local_rollback_validation",
   releaseGateEvidence: false,
-  relaunchSurvivalEvidence: relaunchProbe.evidence,
-  relaunchSurvivalProbe: relaunchProbe,
+  relaunchSurvivalEvidence: null,
+  serializationProcessIsolationEvidence: serializationProbe.evidence,
+  serializationProcessIsolationProbe: serializationProbe,
   dedicatedCleanupDomains,
   passed,
   steps: results.map(({ stdout, stderr, ...result }) => ({
@@ -151,8 +152,9 @@ const markdown = `# Local Rollback Center Summary
 Generated: ${generatedAt}
 
 - Release gate evidence: no
-- Installed-app relaunch survival evidence: ${relaunchProbe.evidence ?? "not recorded"}
-- Relaunch probe path: ${relaunchProbe.path}
+- Installed-app relaunch survival evidence: not proven by this local summary
+- Serialization/process isolation probe: ${serializationProbe.evidence ?? "not recorded"}
+- Serialization probe path: ${serializationProbe.path}
 - Overall result: ${passed ? "pass" : "fail"}
 - Dedicated cleanup domains covered: ${dedicatedCleanupDomains
   .map((domain) => `\`${domain}\``)

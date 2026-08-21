@@ -29,8 +29,11 @@ if (report.releaseGateEvidence !== false) {
 if (report.passed !== true) {
   fail("report.passed must be true");
 }
-if (!String(report.relaunchSurvivalEvidence || "").includes("mac_ai_switchboard.rollback_relaunch_survival_probe")) {
-  fail("missing relaunch survival probe evidence");
+if (report.relaunchSurvivalEvidence !== null) {
+  fail("local rollback validation must not claim installed-app relaunch survival");
+}
+if (!String(report.serializationProcessIsolationEvidence || "").includes("mac_ai_switchboard.rollback_serialization_process_isolation_probe")) {
+  fail("missing serialization/process isolation probe evidence");
 }
 if (!Array.isArray(report.steps)) {
   fail("steps must be an array");

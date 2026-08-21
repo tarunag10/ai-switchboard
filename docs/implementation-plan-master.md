@@ -189,6 +189,9 @@ the current checkout.
 - Model-routing evidence now requires explicit task-class, baseline-model,
   candidate-model, and source provenance; approved live evidence must identify
   itself separately from the offline fixture class.
+- Rollback local evidence now labels its fresh-process persistence probe as
+  serialization/process isolation only and keeps installed-app relaunch proof
+  explicitly unverified.
 
 ### Remaining build work
 
