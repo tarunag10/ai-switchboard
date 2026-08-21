@@ -44,6 +44,17 @@ the current checkout.
 
 ## Reconciled status
 
+### Completed in the current execution cycle
+
+- Redacted model-routing baseline/candidate aggregation with deterministic
+  quality, latency, cost, success, and rework derivation.
+- Release-evidence documentation reconciliation plus
+  `npm run check:release-documentation-drift`, keeping historical asset notes
+  distinct from current installed/reboot proof.
+- Connector lifecycle evidence linkage: every declared lifecycle evidence name
+  now resolves to an approved Rust `#[test]` in
+  `src-tauri/src/client_adapters_tests.rs`.
+
 ### Done — prepared and shipped
 
 - Trust seal: proxy session authentication, Mode Inspector verdicts, local-only
@@ -95,13 +106,14 @@ the current checkout.
    `npm run check:model-routing-evidence`. Importing successful-task, rework,
    quality, and latency observations from real approved runs remains pending;
    automatic routing stays observe-only until that evidence exists.
-2. **Release evidence operator path:** make the prepared external checklist
-   easy to execute and reconcile without accepting fabricated or stale
-   artifacts.
+2. **Release evidence operator path:** the documentation/checker drift guard is
+   shipped; executing the external checklist still requires signing
+   credentials, a current public artifact, and a real reboot.
 3. **Repo Intelligence depth:** improve bounded semantic resolution only where
    it remains deterministic; whole-program type inference and dynamic dispatch
    stay out of scope unless a separate evidence-backed design is approved.
-4. **Connector coverage:** continue only with documented schemas and full
+4. **Connector coverage:** lifecycle evidence linkage is now machine-checked;
+   continue only with documented schemas and full
    detect/preview/backup/apply/verify/rollback/off/uninstall proof. Cursor
    native provider writes remain gated; Continue, Aider, Qwen Code, and Amazon
    Q remain guided or sidecar paths until their schemas are proven.
