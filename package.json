@@ -47,6 +47,7 @@
     "smoke:savings-anomalies:local": "node scripts/local-savings-anomaly-validation-summary.mjs",
     "release:ready": "node scripts/check-release-readiness.mjs",
     "release:ready:strict": "node scripts/check-release-readiness.mjs --strict",
+    "release:ready:selftest": "node --test scripts/check-release-readiness.node-test.mjs",
     "evidence:local": "node scripts/run-local-evidence.mjs",
     "smoke:preflight": "node scripts/smoke-preflight.mjs",
     "smoke:installed": "node scripts/installed-smoke-summary.mjs",

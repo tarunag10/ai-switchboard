@@ -117,6 +117,9 @@ the current checkout.
 - The evidence checker now independently recomputes the Rust promotion
   thresholds for approved-live fixtures; checked-in offline evidence remains
   explicitly ineligible.
+- Added `npm run release:ready:selftest` and a non-mutating
+  `--no-refresh --report <path>` mode so release action mapping can be tested
+  against an existing report without regenerating local evidence artifacts.
 
 ### Remaining build work
 
