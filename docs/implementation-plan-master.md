@@ -297,8 +297,9 @@ the current checkout.
    stays observe-only until that evidence and approval exists.
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
-   canonical app identity, report freshness contract, and local source-lineage
-   fields are shipped; executing the external checklist still requires signing
+   canonical app identity, report freshness contract, local source-lineage
+   fields, and the shared public-proof/shareable-DMG gate consistency contract
+   are shipped; executing the external checklist still requires signing
    credentials, a current public artifact, and a real reboot.
 3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
    shipped; remaining work is deeper bounded semantic resolution only where it

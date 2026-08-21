@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { verifyChecksumText, validateChecksumAssetEvidence } from "./public-release-proof-contract.mjs";
+import { publicReleaseGateBlockers } from "./public-release-proof-gate.mjs";
 
 const summaryPath = "dist/public-release-proof-summary.md";
 const jsonPath = "dist/public-release-proof-summary.json";
@@ -287,11 +288,10 @@ const rebootLevelInstalledProofReady =
   rebootLevelInstalledProof?.proofReady === true &&
   rebootLevelInstalledProof?.releaseGateEvidence === true;
 const blockers = [
-  signedDmgAsset ? null : "signed/notarized DMG",
+  liveSignedDmgReady ? null : "signed/notarized DMG",
   checksumVerification.ok ? null : "public checksum",
   ...updaterEvidence.blockers,
-  gate.staticSmokePreflightReady ? null : "static smoke preflight",
-  gate.installedAppSmokeReady ? null : "public installed-app smoke",
+  ...publicReleaseGateBlockers(gate),
   rebootLevelInstalledProofReady ? null : "reboot-level installed proof",
 ].filter(Boolean);
 const proofReady = blockers.length === 0;

@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+import {
+  isShareableDmgGateReady,
+  publicReleaseGateBlockers,
+  shareableDmgGateBooleanFields,
+} from "./public-release-proof-gate.mjs";
 
 const proofPath = "dist/public-release-proof-summary.json";
 const markdownPath = "dist/public-release-proof-summary.md";
@@ -63,6 +68,22 @@ if (proof.releaseGateEvidence !== proof.proofReady) {
 }
 if (!Array.isArray(proof.blockers)) {
   fail("blockers must be an array");
+}
+if (!proof.shareableDmgGate || typeof proof.shareableDmgGate !== "object") {
+  fail("shareableDmgGate must be present");
+} else {
+  for (const field of shareableDmgGateBooleanFields) {
+    requireBoolean(`shareableDmgGate.${field}`, proof.shareableDmgGate[field]);
+  }
+  requireBoolean("shareableDmgGate.ready", proof.shareableDmgGate.ready);
+  if (proof.shareableDmgGate.ready !== isShareableDmgGateReady(proof.shareableDmgGate)) {
+    fail("shareableDmgGate.ready must match all public gate components");
+  }
+  for (const blocker of publicReleaseGateBlockers(proof.shareableDmgGate)) {
+    if (!proof.blockers.includes(blocker)) {
+      fail(`public proof missing shareable gate blocker: ${blocker}`);
+    }
+  }
 }
 for (const key of requiredArtifactKeys) {
   if (!proof.requiredArtifacts?.[key]) {
