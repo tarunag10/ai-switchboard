@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { canonicalLifecycleStages, runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
+import { canonicalLifecycleStages, lifecycleIntentForTest, lifecycleIntentMarkerFailures, runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
 
 test("connector lifecycle evidence resolves to approved Rust tests", () => {
   const output = execFileSync(process.execPath, ["scripts/check-connector-lifecycle-matrix.mjs"], { encoding: "utf8" });
@@ -36,4 +36,15 @@ test("keeps fixture stages mapped to the runtime lifecycle vocabulary", () => {
   assert.equal(runtimeStageByFixtureStage.preview, "dryRunDiff");
   assert.equal(runtimeStageByFixtureStage.off, "offCleanup");
   assert.deepEqual(Object.keys(runtimeStageByFixtureStage), canonicalLifecycleStages);
+});
+
+test("requires explicit stage intent markers for linked tests", () => {
+  const source = "// lifecycle-intent: preview,off\nfn combined() {}\n";
+  assert.deepEqual(lifecycleIntentForTest(source, "combined"), ["preview", "off"]);
+  assert.deepEqual(lifecycleIntentMarkerFailures(source), []);
+  assert.match(
+    lifecycleIntentMarkerFailures("// lifecycle-intent: mystery\nfn bad() {}\n").join("\n"),
+    /unknown lifecycle intent stage: mystery/,
+  );
+  assert.equal(lifecycleIntentForTest("fn missing() {}\n", "missing"), null);
 });

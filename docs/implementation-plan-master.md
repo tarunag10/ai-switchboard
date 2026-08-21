@@ -163,6 +163,10 @@ the current checkout.
 - CLI and frontend Repo Intelligence now resolve bounded one-hop named and
   wildcard local re-exports for static imported calls; dynamic, namespace,
   default, and multi-hop inference remain intentionally unresolved.
+- Connector lifecycle evidence now requires adjacent Rust
+  `lifecycle-intent` markers for every fixture-linked stage; combined tests may
+  declare multiple stages, but unknown or undeclared stage intent fails the
+  harness.
 
 ### Remaining build work
 

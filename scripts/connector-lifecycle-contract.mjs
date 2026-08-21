@@ -9,6 +9,29 @@ export const runtimeStageByFixtureStage = {
   off: "offCleanup",
 };
 
+export function lifecycleIntentForTest(source, testName) {
+  const escaped = testName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = source.match(
+    new RegExp(`lifecycle-intent:\\s*([^\\n\\r]+)\\s*\\n\\s*fn\\s+${escaped}\\s*\\(`),
+  );
+  return match
+    ? match[1].split(",").map((stage) => stage.trim()).filter(Boolean)
+    : null;
+}
+
+export function lifecycleIntentMarkerFailures(source) {
+  const failures = [];
+  const markerPattern = /lifecycle-intent:\s*([^\n\r]+)/g;
+  for (const match of source.matchAll(markerPattern)) {
+    for (const stage of match[1].split(",").map((item) => item.trim()).filter(Boolean)) {
+      if (!canonicalLifecycleStages.includes(stage)) {
+        failures.push(`unknown lifecycle intent stage: ${stage}`);
+      }
+    }
+  }
+  return failures;
+}
+
 export function validateLifecycleSchema(manifest, fixtures) {
   const failures = [];
   if (!Array.isArray(manifest)) failures.push("connector manifest must be an array");

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
+import { canonicalLifecycleStages, lifecycleIntentForTest, lifecycleIntentMarkerFailures, runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
 
 const root = process.cwd();
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "connectors/manifest.json"), "utf8"));
@@ -13,6 +13,7 @@ const failures = [];
 const evidenceLinks = [];
 
 failures.push(...validateLifecycleSchema(manifest, fixtures));
+failures.push(...lifecycleIntentMarkerFailures(approvedTestSource));
 
 function isRustTest(name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -35,6 +36,12 @@ for (const connector of manifest) {
       evidenceLinks.push({ connector: connector.id, stage, test: evidence });
       if (!isRustTest(evidence)) {
         failures.push(`${connector.id}: ${stage} evidence '${evidence}' is not a #[test] in ${approvedTestFile}`);
+      }
+      const intent = lifecycleIntentForTest(approvedTestSource, evidence);
+      if (!intent) {
+        failures.push(`${connector.id}: ${stage} evidence '${evidence}' is missing a lifecycle-intent marker`);
+      } else if (!intent.includes(stage)) {
+        failures.push(`${connector.id}: ${stage} evidence '${evidence}' marker does not declare ${stage}`);
       }
     }
   }

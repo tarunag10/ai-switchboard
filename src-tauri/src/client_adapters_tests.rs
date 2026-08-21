@@ -193,6 +193,7 @@
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn planned_connector_registry_includes_backend_detection_metadata() {
         for spec in PLANNED_CLIENT_SPECS {
             assert!(matches!(spec.category, "cli" | "editor" | "agent"));
@@ -718,6 +719,7 @@
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn opencode_compatibility_evidence_reports_version_config_and_managed_routing() {
         let report = super::PlannedCliCompatibilityReport {
             label: "OpenCode",
@@ -742,6 +744,7 @@
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn grok_compatibility_evidence_reports_model_account_blocker() {
         let report = super::PlannedCliCompatibilityReport {
             label: "Grok / xAI",
@@ -765,6 +768,7 @@
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn aider_compatibility_evidence_reports_environment_wrapper_blocker() {
         let report = super::PlannedCliCompatibilityReport {
             label: "Aider",
@@ -788,6 +792,7 @@
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn goose_compatibility_evidence_reports_mcp_handoff_blocker() {
         let report = super::PlannedCliCompatibilityReport {
             label: "Goose",
@@ -834,6 +839,7 @@
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn amazon_q_compatibility_evidence_reports_managed_sidecar_lifecycle() {
         let report = super::PlannedCliCompatibilityReport {
             label: "Amazon Q",
@@ -857,6 +863,7 @@
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn gemini_detection_reports_managed_routing_lifecycle() {
         let mut status = ClientStatus {
             id: "gemini_cli".into(),
@@ -1191,6 +1198,7 @@
     }
 
     #[test]
+    // lifecycle-intent: backup
     fn write_file_if_changed_skips_backups_when_content_is_unchanged() {
         let root = unique_temp_dir("headroom-write-file");
         fs::create_dir_all(&root).expect("create root");
@@ -1856,6 +1864,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,apply,verify,off
     fn gemini_setup_writes_verifies_and_cleans_sidecar_only() {
         let home = TestHome::new();
         let sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);
@@ -1975,6 +1984,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: rollback
     fn gemini_managed_rollback_removes_shell_and_sidecar_blocks() {
         let home = TestHome::new();
         let sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);
@@ -2078,6 +2088,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,apply,verify,rollback,off
     fn amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
         let home = TestHome::new();
         let sidecar = home
@@ -2180,6 +2191,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,apply,verify,rollback,off
     fn aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
         let home = TestHome::new();
         let config = home.path().join(".aider.conf.yml");
@@ -2324,6 +2336,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,apply,verify,rollback,off
     fn continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
         let home = TestHome::new();
         let continue_dir = home.path().join(".continue");
@@ -2462,6 +2475,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: apply,verify,off
     fn goose_native_provider_and_mcp_bridge_lifecycle_preserves_user_state() {
         let home = TestHome::new();
         let config = home
@@ -2710,6 +2724,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: apply,verify,off
     fn opencode_setup_writes_verifies_and_cleans_native_routing_only() {
         let home = TestHome::new();
         let sidecar = home
@@ -2799,6 +2814,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: apply,verify,off
     fn windsurf_setup_writes_verifies_and_off_cleanup_removes_native_routing_only() {
         let home = TestHome::new();
         let windsurf_dir = home
@@ -2858,6 +2874,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: apply,verify,off
     fn zed_setup_writes_verifies_and_off_cleanup_removes_native_routing_only() {
         let home = TestHome::new();
         let zed_dir = home.path().join(".config").join("zed");
@@ -3077,6 +3094,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,apply,verify
     fn apply_then_verify_claude_code_writes_expected_files() {
         let home = TestHome::new();
         // Seed an empty zshrc/zshenv so the shell-block writers have files to
@@ -3350,6 +3368,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: rollback,off
     fn disable_then_clear_claude_code_removes_traces() {
         let home = TestHome::new();
         fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
@@ -3405,6 +3424,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,apply,verify,off
     fn apply_then_verify_then_disable_codex_round_trip() {
         let home = TestHome::new();
         fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
@@ -3543,6 +3563,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: backup,rollback
     fn managed_rollback_preview_and_execute_restores_codex_backup() {
         let home = TestHome::new();
         fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
@@ -3637,6 +3658,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: rollback
     fn managed_rollback_preview_and_execute_restores_opencode_backup() {
         let home = TestHome::new();
         let opencode_dir = home.path().join(".config").join("opencode");
@@ -3701,6 +3723,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup
     fn managed_config_apply_preview_and_execute_promotes_opencode_safely() {
         let home = TestHome::new();
         let opencode_dir = home.path().join(".config").join("opencode");
@@ -3874,6 +3897,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,rollback
     fn managed_config_apply_preview_and_execute_promotes_zed_rollback_safely() {
         let home = TestHome::new();
         let zed_dir = home.path().join(".config").join("zed");
@@ -3936,6 +3960,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,rollback
     fn managed_config_apply_preview_and_execute_promotes_windsurf_rollback_safely() {
         let home = TestHome::new();
         let windsurf_dir = home
@@ -4755,6 +4780,7 @@ js_repl = false\n",
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,apply,verify,rollback,off
     fn grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup() {
         let home = TestHome::new();
         let config = grok_config_path();
@@ -4820,6 +4846,7 @@ js_repl = false\n",
 
     #[test]
     #[serial_test::serial]
+    // lifecycle-intent: preview,backup,rollback
     fn goose_native_endpoint_apply_exposes_rollback_center_restore() {
         let home = TestHome::new();
         let config = crate::goose_provider_configs::goose_config_path();
@@ -4881,6 +4908,7 @@ js_repl = false\n",
     }
 
     #[test]
+    // lifecycle-intent: detect,preview
     fn cursor_connector_has_fixture_home_dry_run_preview() {
         let detected_clients = Vec::new();
         let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
@@ -4953,6 +4981,7 @@ js_repl = false\n",
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn continue_connector_exposes_managed_native_and_sidecar_paths() {
         let detected_clients = Vec::new();
         let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
@@ -4977,6 +5006,7 @@ js_repl = false\n",
     }
 
     #[test]
+    // lifecycle-intent: detect
     fn qwen_connector_exposes_managed_sidecar_without_provider_writes() {
         let _home = TestHome::new();
         let detected_clients = Vec::new();
@@ -5003,6 +5033,7 @@ js_repl = false\n",
     }
 
     #[test]
+    // lifecycle-intent: preview,backup,apply,verify,rollback,off
     fn qwen_connector_applies_and_disables_switchboard_owned_sidecar_only() {
         let _home = TestHome::new();
         let routing_path = planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
@@ -5071,4 +5102,33 @@ js_repl = false\n",
         let repaired_cleaned = std::fs::read_to_string(&routing_path).expect("read repaired qwen sidecar");
         super::disable_client_setup("qwen_code").expect("repeat disable qwen sidecar");
         assert_eq!(std::fs::read_to_string(&routing_path).expect("read repeated qwen off"), repaired_cleaned);
+    }
+
+    #[test]
+    fn qwen_verification_fails_closed_for_missing_and_malformed_sidecars() {
+        let _home = TestHome::new();
+        let routing_path = planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
+        std::fs::create_dir_all(routing_path.parent().expect("qwen sidecar parent"))
+            .expect("create qwen config directory");
+        std::fs::write(&routing_path, "# user-owned qwen note\nkeep this\n")
+            .expect("seed qwen sidecar");
+
+        super::apply_client_setup("qwen_code").expect("apply qwen sidecar");
+        std::fs::remove_file(&routing_path).expect("remove qwen sidecar");
+        assert!(!super::verify_client_setup("qwen_code")
+            .expect("verify missing qwen sidecar")
+            .verified);
+
+        std::fs::write(
+            &routing_path,
+            "# user-owned qwen note\n# >>> ai-switchboard:qwen_code >>>\npartial marker\n",
+        )
+        .expect("write malformed qwen sidecar");
+        assert!(!super::verify_client_setup("qwen_code")
+            .expect("verify malformed qwen sidecar")
+            .verified);
+        assert!(super::apply_client_setup("qwen_code")
+            .expect("repair malformed qwen sidecar")
+            .verification
+            .verified);
     }
