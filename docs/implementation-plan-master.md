@@ -95,6 +95,8 @@ the current checkout.
   with the underlying environment, validation, smoke, and DMG gates.
 - The model-routing evidence gate now runs the native routing and telemetry
   persistence test modules in addition to the JavaScript evidence checker.
+- Native evidence aggregation now rejects empty, identical, or mixed baseline/
+  candidate model identities before producing benchmark metrics.
 
 ### Done — prepared and shipped
 

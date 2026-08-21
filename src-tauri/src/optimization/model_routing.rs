@@ -211,6 +211,8 @@ pub(crate) enum ModelRoutingEvidenceArm {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ModelRoutingEvidenceSample {
     pub(crate) task_class: String,
+    pub(crate) baseline_model: String,
+    pub(crate) candidate_model: String,
     pub(crate) arm: ModelRoutingEvidenceArm,
     pub(crate) succeeded: bool,
     pub(crate) successful_task_cost_microunits: Option<u64>,
@@ -256,6 +258,8 @@ impl ModelRoutingEvidenceObservation {
     pub(crate) fn sample(&self) -> ModelRoutingEvidenceSample {
         ModelRoutingEvidenceSample {
             task_class: self.task_class.trim().to_ascii_lowercase(),
+            baseline_model: self.baseline_model.trim().to_string(),
+            candidate_model: self.candidate_model.trim().to_string(),
             arm: self.arm,
             succeeded: self.succeeded,
             successful_task_cost_microunits: self.successful_task_cost_microunits,
@@ -345,9 +349,23 @@ pub(crate) fn aggregate_model_routing_evidence(
 
     let mut baseline = Vec::new();
     let mut candidate = Vec::new();
+    let mut model_pair: Option<(&str, &str)> = None;
     for sample in samples {
         if sample.task_class != expected {
             return Err("model-routing evidence cannot mix task classes".to_string());
+        }
+        if sample.baseline_model.trim().is_empty()
+            || sample.candidate_model.trim().is_empty()
+            || sample.baseline_model.trim() == sample.candidate_model.trim()
+        {
+            return Err("model-routing evidence requires distinct model identities".to_string());
+        }
+        if let Some((baseline_model, candidate_model)) = model_pair {
+            if sample.baseline_model != baseline_model || sample.candidate_model != candidate_model {
+                return Err("model-routing evidence cannot mix model identities".to_string());
+            }
+        } else {
+            model_pair = Some((&sample.baseline_model, &sample.candidate_model));
         }
         if sample.quality_score_bps > 10_000 {
             return Err("model-routing quality scores must be at most 10000 basis points".to_string());
@@ -1080,6 +1098,8 @@ mod tests {
         let samples = vec![
             ModelRoutingEvidenceSample {
                 task_class: "low_risk".to_string(),
+                baseline_model: "frontier".to_string(),
+                candidate_model: "fast/local".to_string(),
                 arm: ModelRoutingEvidenceArm::Baseline,
                 succeeded: true,
                 successful_task_cost_microunits: Some(1_000),
@@ -1089,6 +1109,8 @@ mod tests {
             },
             ModelRoutingEvidenceSample {
                 task_class: "low_risk".to_string(),
+                baseline_model: "frontier".to_string(),
+                candidate_model: "fast/local".to_string(),
                 arm: ModelRoutingEvidenceArm::Candidate,
                 succeeded: true,
                 successful_task_cost_microunits: Some(700),
@@ -1108,6 +1130,8 @@ mod tests {
     fn evidence_aggregation_rejects_mixed_or_incomplete_samples() {
         let mixed = ModelRoutingEvidenceSample {
             task_class: "high_risk".to_string(),
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
             arm: ModelRoutingEvidenceArm::Candidate,
             succeeded: true,
             successful_task_cost_microunits: Some(700),
@@ -1119,6 +1143,8 @@ mod tests {
 
         let incomplete = ModelRoutingEvidenceSample {
             task_class: "low_risk".to_string(),
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
             arm: ModelRoutingEvidenceArm::Baseline,
             succeeded: true,
             successful_task_cost_microunits: None,
@@ -1127,6 +1153,30 @@ mod tests {
             follow_up_rework: false,
         };
         assert!(aggregate_model_routing_evidence(&[incomplete], "low_risk").is_err());
+
+        let mismatched = ModelRoutingEvidenceSample {
+            task_class: "low_risk".to_string(),
+            baseline_model: "frontier".to_string(),
+            candidate_model: "another/local".to_string(),
+            arm: ModelRoutingEvidenceArm::Candidate,
+            succeeded: true,
+            successful_task_cost_microunits: Some(700),
+            quality_score_bps: 9_850,
+            latency_ms: 780,
+            follow_up_rework: false,
+        };
+        let baseline = ModelRoutingEvidenceSample {
+            task_class: "low_risk".to_string(),
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
+            arm: ModelRoutingEvidenceArm::Baseline,
+            succeeded: true,
+            successful_task_cost_microunits: Some(1_000),
+            quality_score_bps: 9_900,
+            latency_ms: 800,
+            follow_up_rework: false,
+        };
+        assert!(aggregate_model_routing_evidence(&[baseline, mismatched], "low_risk").is_err());
     }
 
     #[test]
