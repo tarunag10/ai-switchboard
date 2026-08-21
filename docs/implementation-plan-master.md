@@ -195,6 +195,9 @@ the current checkout.
 - Repo Intelligence namespace imports now resolve exported member calls with
   visibility checks across CLI, native Rust, and frontend parity fixtures;
   private namespace members remain unresolved.
+- Connector lifecycle fixtures now fail closed when any canonical stage is
+  omitted or reordered; explicit `null` remains the only valid gated-stage
+  declaration.
 
 ### Remaining build work
 

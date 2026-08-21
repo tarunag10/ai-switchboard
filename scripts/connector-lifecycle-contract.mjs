@@ -67,6 +67,9 @@ export function validateLifecycleSchema(manifest, fixtures) {
       failures.push(`${fixture.id}: stages must be an object`);
       continue;
     }
+    if (JSON.stringify(Object.keys(fixture.stages)) !== JSON.stringify(canonicalLifecycleStages)) {
+      failures.push(`${fixture.id}: stages must declare every canonical stage exactly once in order`);
+    }
     for (const stage of Object.keys(fixture.stages)) {
       if (!canonicalLifecycleStages.includes(stage)) failures.push(`${fixture.id}: unknown lifecycle stage ${stage}`);
     }

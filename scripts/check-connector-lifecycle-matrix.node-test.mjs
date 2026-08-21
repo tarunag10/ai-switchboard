@@ -25,6 +25,18 @@ test("rejects duplicate IDs and unknown lifecycle stages", () => {
   assert.match(failures.join("\n"), /duplicate manifest connector ID/);
   assert.match(failures.join("\n"), /duplicate lifecycle fixture ID/);
   assert.match(failures.join("\n"), /unknown lifecycle stage mystery/);
+  assert.match(failures.join("\n"), /stages must declare every canonical stage exactly once in order/);
+});
+
+test("rejects omitted required lifecycle stages", () => {
+  const failures = validateLifecycleSchema(
+    [{ id: "cursor", support_status: "gated" }],
+    {
+      requiredStages: [...canonicalLifecycleStages],
+      connectors: [{ id: "cursor", stages: { detect: null } }],
+    },
+  );
+  assert.match(failures.join("\n"), /stages must declare every canonical stage exactly once in order/);
 });
 
 test("rejects reordered or duplicated required stages", () => {
