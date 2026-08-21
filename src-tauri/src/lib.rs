@@ -836,6 +836,8 @@ pub fn run() {
             optimization_commands::get_model_routing_experiment_policy,
             optimization_commands::set_model_routing_experiment_policy,
             optimization_commands::validate_model_routing,
+            optimization_commands::record_model_routing_evidence,
+            optimization_commands::export_model_routing_evidence,
             activity_commands::get_rtk_activity,
             activity_commands::get_tool_logs,
             activity_commands::get_claude_code_projects,

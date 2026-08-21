@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defaultModelRoutingExperimentPolicy,
   defaultOptimizationActionPolicy,
+  exportModelRoutingEvidence,
   formatCompactNumber,
   getPromptCacheAction,
   getRedundancyTokens,
@@ -11,6 +12,7 @@ import {
   loadOptimizationSnapshot,
   normalizeOptimizationSnapshot,
   runPreemptiveCompaction,
+  recordModelRoutingEvidence,
   saveModelRoutingExperimentPolicy,
   saveOptimizationActionPolicy,
   validateModelRouting,
@@ -297,6 +299,30 @@ describe("optimization helpers", () => {
     expect(invokeMock.mock.calls).toEqual([
       ["validate_model_routing"],
       ["run_preemptive_compaction"],
+    ]);
+  });
+
+  it("records and exports only the redacted observe-only routing evidence contract", async () => {
+    const observation = {
+      runId: "run-1",
+      capturedAt: "2026-08-21T10:00:00Z",
+      taskClass: "formatting",
+      arm: "baseline" as const,
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      succeeded: true,
+      successfulTaskCostMicrounits: 1000,
+      qualityScoreBps: 9800,
+      latencyMs: 800,
+      followUpRework: false,
+    };
+    const artifact = { evidenceClass: "local_runtime_observation", promotionEligible: false };
+    invokeMock.mockResolvedValueOnce(undefined).mockResolvedValueOnce(artifact);
+    await expect(recordModelRoutingEvidence(observation)).resolves.toBeUndefined();
+    await expect(exportModelRoutingEvidence("run-1", "formatting")).resolves.toEqual(artifact);
+    expect(invokeMock.mock.calls).toEqual([
+      ["record_model_routing_evidence", { observation }],
+      ["export_model_routing_evidence", { runId: "run-1", taskClass: "formatting" }],
     ]);
   });
 

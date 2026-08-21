@@ -255,6 +255,11 @@ the current checkout.
 - Local connector readiness now reads the canonical promoted native-config
   inventory name and rejects an empty or duplicate promoted-ID report, avoiding
   silent drift from a stale extractor regex.
+- Local model-routing evidence capture now persists only bounded, redacted,
+  run-scoped arm metrics in SQLite and exports the existing checker shape as a
+  permanently observe-only `local_runtime_observation`; Tauri and frontend
+  command boundaries expose record/export without accepting prompts or
+  responses.
 
 ### Remaining build work
 
@@ -264,7 +269,9 @@ the current checkout.
    `src-tauri/src/optimization/model_routing.rs`, and
    `npm run check:model-routing-evidence`, and malformed-evidence fail-closed
    guards are shipped. Importing successful-task, rework,
-   quality, and latency observations from real approved runs remains pending;
+   quality, and latency observations from a real approved benchmark producer
+   remains pending; the local runtime exporter is ready but automatic routing
+   stays observe-only until that evidence and approval exists.
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
    canonical app identity, report freshness contract, and local source-lineage

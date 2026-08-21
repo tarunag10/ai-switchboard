@@ -152,6 +152,46 @@ export interface ModelRoutingExperimentPolicy {
   thresholds: ModelRoutingThresholds;
 }
 
+export type ModelRoutingEvidenceArm = "baseline" | "candidate";
+
+export interface ModelRoutingEvidenceObservation {
+  runId: string;
+  capturedAt: string;
+  taskClass: string;
+  arm: ModelRoutingEvidenceArm;
+  baselineModel: string;
+  candidateModel: string;
+  succeeded: boolean;
+  successfulTaskCostMicrounits?: number | null;
+  qualityScoreBps: number;
+  latencyMs: number;
+  followUpRework: boolean;
+}
+
+export interface ModelRoutingEvidenceArtifact {
+  schemaVersion: number;
+  evidenceClass: "local_runtime_observation";
+  minimumSamples: number;
+  baseline: {
+    sampleCount: number;
+    successRateBps: number;
+    qualityScoreBps: number;
+    p95LatencyMs: number;
+    successfulTaskCostMicros: number;
+    followUpReworkRateBps: number;
+  };
+  candidate: ModelRoutingEvidenceArtifact["baseline"];
+  provenance: {
+    taskClass: string;
+    baselineModel: string;
+    candidateModel: string;
+    source: "local_runtime_observation";
+    runId: string;
+    capturedAt: string;
+  };
+  promotionEligible: false;
+}
+
 export interface PreemptiveCompactionReceipt {
   recordedAt: string;
   triggered: boolean;
@@ -399,6 +439,22 @@ export async function saveModelRoutingExperimentPolicy(
   policy: ModelRoutingExperimentPolicy,
 ): Promise<ModelRoutingExperimentPolicy> {
   return invoke<ModelRoutingExperimentPolicy>("set_model_routing_experiment_policy", { policy });
+}
+
+export function recordModelRoutingEvidence(
+  observation: ModelRoutingEvidenceObservation,
+): Promise<void> {
+  return invoke<void>("record_model_routing_evidence", { observation });
+}
+
+export function exportModelRoutingEvidence(
+  runId: string,
+  taskClass: string,
+): Promise<ModelRoutingEvidenceArtifact> {
+  return invoke<ModelRoutingEvidenceArtifact>("export_model_routing_evidence", {
+    runId,
+    taskClass,
+  });
 }
 
 function normalizeTokenXray(

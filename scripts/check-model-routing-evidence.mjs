@@ -26,8 +26,8 @@ const thresholds = {
 
 function validateFixture(value) {
   if (value.schemaVersion !== 1) throw new Error("unsupported schemaVersion");
-  if (!["offline_static_fixture", "approved_live_run"].includes(value.evidenceClass)) {
-    throw new Error("evidenceClass must be offline_static_fixture or approved_live_run");
+  if (!["offline_static_fixture", "local_runtime_observation", "approved_live_run"].includes(value.evidenceClass)) {
+    throw new Error("evidenceClass must be offline_static_fixture, local_runtime_observation, or approved_live_run");
   }
   if (!Number.isInteger(value.minimumSamples) || value.minimumSamples <= 0) {
     throw new Error("minimumSamples must be a positive integer");
@@ -61,7 +61,24 @@ function validateFixture(value) {
   if (value.evidenceClass === "offline_static_fixture" && provenance.source !== "offline_fixture") {
     throw new Error("offline evidence provenance.source must be offline_fixture");
   }
-  if (value.evidenceClass !== "approved_live_run" && value.promotionEligible !== false) {
+  if (value.evidenceClass === "local_runtime_observation") {
+    if (provenance.source !== "local_runtime_observation") {
+      throw new Error("local evidence provenance.source must be local_runtime_observation");
+    }
+    for (const field of ["runId", "capturedAt"]) {
+      if (typeof value.provenance[field] !== "string" || value.provenance[field].trim() === "") {
+        throw new Error(`local runtime evidence requires provenance.${field}`);
+      }
+    }
+    const capturedAt = validateReleaseEvidenceTimestamp(value.provenance.capturedAt, {
+      label: "capturedAt",
+    });
+    if (!capturedAt.ok) throw new Error(`local runtime evidence ${capturedAt.reason}`);
+    if (value.promotionEligible !== false) {
+      throw new Error("local runtime evidence must remain observe-only");
+    }
+  }
+  if (value.evidenceClass === "offline_static_fixture" && value.promotionEligible !== false) {
     throw new Error("offline evidence must never be promotion eligible");
   }
   if (value.evidenceClass === "approved_live_run") {
@@ -94,6 +111,17 @@ function evaluatePromotionEligibility(value) {
     ? 0
     : Number(((baselineCost - candidateCost) * 10_000n) / baselineCost);
   const enoughSamples = value.baseline.sampleCount >= value.minimumSamples;
+  if (value.evidenceClass === "local_runtime_observation") {
+    return {
+      enoughSamples,
+      successRegressionBps,
+      qualityRegressionBps,
+      costImprovementBps,
+      latencyRegressionMs,
+      reworkRateBps: value.candidate.followUpReworkRateBps,
+      eligible: false,
+    };
+  }
   return {
     enoughSamples,
     successRegressionBps,

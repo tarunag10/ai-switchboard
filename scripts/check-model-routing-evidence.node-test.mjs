@@ -14,6 +14,24 @@ test("offline model-routing evidence remains observe-only", () => {
   assert.equal(result.automaticRouting, "observe_only");
 });
 
+test("local runtime model-routing evidence remains observe-only", () => {
+  const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
+  fixture.evidenceClass = "local_runtime_observation";
+  fixture.provenance = {
+    ...fixture.provenance,
+    source: "local_runtime_observation",
+    runId: "local-run-1",
+    capturedAt: new Date().toISOString(),
+  };
+  fixture.promotionEligible = false;
+  const fixturePath = path.join(os.tmpdir(), `model-routing-local-${process.pid}.json`);
+  fs.writeFileSync(fixturePath, JSON.stringify(fixture));
+  const result = JSON.parse(execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], { encoding: "utf8" }));
+  assert.equal(result.ok, true);
+  assert.equal(result.automaticRouting, "observe_only");
+  fs.unlinkSync(fixturePath);
+});
+
 test("rejects missing or non-distinct evidence provenance", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-provenance-"));
   try {

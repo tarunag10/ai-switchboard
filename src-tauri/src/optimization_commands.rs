@@ -40,3 +40,21 @@ pub fn validate_model_routing(
 ) -> Result<optimization::model_routing_validation::ModelRoutingValidationReceipt, String> {
     optimization::model_routing_validation::validate_model_routing()
 }
+
+/// Records only redacted, task-class-scoped routing metrics. Prompts and
+/// responses never cross this command boundary.
+#[tauri::command]
+pub fn record_model_routing_evidence(
+    observation: optimization::model_routing::ModelRoutingEvidenceObservation,
+) -> Result<(), String> {
+    optimization::telemetry_store::record_model_routing_evidence(&observation);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn export_model_routing_evidence(
+    run_id: String,
+    task_class: String,
+) -> Result<optimization::telemetry_store::ModelRoutingEvidenceArtifact, String> {
+    optimization::telemetry_store::export_model_routing_evidence(&run_id, &task_class)
+}

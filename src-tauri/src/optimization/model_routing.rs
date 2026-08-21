@@ -199,7 +199,8 @@ pub(crate) struct ModelRoutingExperimentRecord {
     pub(crate) outcome: ModelRoutingTaskOutcome,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) enum ModelRoutingEvidenceArm {
     Baseline,
     Candidate,
@@ -214,6 +215,39 @@ pub(crate) struct ModelRoutingEvidenceSample {
     pub(crate) quality_score_bps: u32,
     pub(crate) latency_ms: u64,
     pub(crate) follow_up_rework: bool,
+}
+
+/// Metadata-only observation captured from a completed routing run. The run
+/// identifier and model identities make reconciliation deterministic without
+/// retaining request or response content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingEvidenceObservation {
+    pub(crate) run_id: String,
+    pub(crate) captured_at: String,
+    pub(crate) task_class: String,
+    pub(crate) arm: ModelRoutingEvidenceArm,
+    pub(crate) baseline_model: String,
+    pub(crate) candidate_model: String,
+    pub(crate) succeeded: bool,
+    pub(crate) successful_task_cost_microunits: Option<u64>,
+    pub(crate) quality_score_bps: u32,
+    pub(crate) latency_ms: u64,
+    pub(crate) follow_up_rework: bool,
+}
+
+impl ModelRoutingEvidenceObservation {
+    pub(crate) fn sample(&self) -> ModelRoutingEvidenceSample {
+        ModelRoutingEvidenceSample {
+            task_class: self.task_class.trim().to_ascii_lowercase(),
+            arm: self.arm,
+            succeeded: self.succeeded,
+            successful_task_cost_microunits: self.successful_task_cost_microunits,
+            quality_score_bps: self.quality_score_bps,
+            latency_ms: self.latency_ms,
+            follow_up_rework: self.follow_up_rework,
+        }
+    }
 }
 
 /// Deterministically reconciles redacted, task-class-scoped observations into

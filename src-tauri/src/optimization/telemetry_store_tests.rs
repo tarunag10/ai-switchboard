@@ -1,6 +1,7 @@
 use tempfile::tempdir;
 
 use super::cache_metrics::CacheTokenMetrics;
+use super::model_routing::{ModelRoutingEvidenceArm, ModelRoutingEvidenceObservation};
 use super::telemetry::{RedundancyHashRecord, RoutingDecisionRecord, RtkPresetMetadata};
 use super::telemetry_store::*;
 
@@ -84,6 +85,80 @@ fn routing_decisions_round_trip_through_sqlite() {
     assert_eq!(decisions.len(), 1);
     assert_eq!(decisions[0].selected_model, "gpt-5-mini");
     assert_eq!(decisions[0].estimated_savings_percent, 42);
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn model_routing_evidence_round_trips_and_exports_observe_only_artifact() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+
+    reset_for_tests();
+    for arm in [ModelRoutingEvidenceArm::Baseline, ModelRoutingEvidenceArm::Candidate] {
+        record_model_routing_evidence(&ModelRoutingEvidenceObservation {
+            run_id: "run-1".to_string(),
+            captured_at: chrono::Utc::now().to_rfc3339(),
+            task_class: " Formatting ".to_string(),
+            arm,
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
+            succeeded: true,
+            successful_task_cost_microunits: Some(if arm == ModelRoutingEvidenceArm::Baseline { 1000 } else { 700 }),
+            quality_score_bps: 9800,
+            latency_ms: if arm == ModelRoutingEvidenceArm::Baseline { 800 } else { 820 },
+            follow_up_rework: false,
+        });
+    }
+
+    let artifact = export_model_routing_evidence("run-1", "formatting")
+        .expect("exported evidence");
+    assert_eq!(artifact.evidence_class, "local_runtime_observation");
+    assert_eq!(artifact.baseline.sample_count, 1);
+    assert_eq!(artifact.candidate.successful_task_cost_micros, 700);
+    assert!(!artifact.promotion_eligible);
+    assert_eq!(artifact.provenance.task_class, "formatting");
+    let serialized = serde_json::to_value(&artifact).expect("serialized evidence");
+    assert_eq!(serialized["evidenceClass"], "local_runtime_observation");
+    assert_eq!(serialized["promotionEligible"], false);
+    assert!(serialized["baseline"]["successfulTaskCostMicros"].is_number());
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn model_routing_evidence_rejects_overflow_and_invalid_timestamps() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+    reset_for_tests();
+
+    let mut observation = ModelRoutingEvidenceObservation {
+        run_id: "run-1".to_string(),
+        captured_at: chrono::Utc::now().to_rfc3339(),
+        task_class: "formatting".to_string(),
+        arm: ModelRoutingEvidenceArm::Baseline,
+        baseline_model: "frontier".to_string(),
+        candidate_model: "fast/local".to_string(),
+        succeeded: true,
+        successful_task_cost_microunits: Some(i64::MAX as u64 + 1),
+        quality_score_bps: 9000,
+        latency_ms: 10,
+        follow_up_rework: false,
+    };
+    assert!(record_model_routing_evidence(&observation).is_err());
+    observation.successful_task_cost_microunits = Some(10);
+    observation.captured_at = "not-a-timestamp".to_string();
+    assert!(record_model_routing_evidence(&observation).is_err());
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),
