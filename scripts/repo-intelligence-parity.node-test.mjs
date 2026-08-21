@@ -101,7 +101,24 @@ test("CLI default indexing excludes unknown files like the native and frontend i
     const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
     assert.equal(summary.indexedFiles, 1);
     assert.equal(summary.skippedFiles, 1);
-    assert.equal(summary.indexerVersion, "path-graph-v11");
+    assert.equal(summary.indexerVersion, "path-graph-v12");
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("CLI skips oversized source files and ignored dependency directories deterministically", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-size-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "vendor", "nested"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/small.ts"), "export const ok = true;\n");
+    fs.writeFileSync(path.join(repo, "src/large.ts"), "x".repeat(1_000_001));
+    fs.writeFileSync(path.join(repo, "vendor", "nested", "ignored.ts"), "export const no = true;\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.equal(summary.indexedFiles, 1);
+    assert.equal(summary.skippedFiles, 1);
+    assert.equal(summary.roleCounts.generated, 1);
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }

@@ -217,6 +217,10 @@ the current checkout.
 - Mode-relaunch validation now requires both intercept and proxy listeners to
   be down for each persistence-only result, and release readiness reuses that
   contract instead of trusting `passed` alone.
+- CLI Repo Intelligence now matches native scan safety for sorted traversal,
+  dependency-directory exclusions, the 1 MB default-index boundary, and
+  secret/size role precedence; the remaining parity work is the native/UI
+  contract matrix and cap-membership coverage.
 
 ### Remaining build work
 

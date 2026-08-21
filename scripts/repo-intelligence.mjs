@@ -3,7 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { chonkifyPackFiles } from "./chonkify-adapter.mjs";
 
-const INDEXER_VERSION = "path-graph-v11";
+const INDEXER_VERSION = "path-graph-v12";
+const MAX_SCAN_FILES = 2_500;
+const MAX_INDEXED_FILE_BYTES = 1_000_000;
 
 function readRepoMapContext(repoRoot) {
   const mapPath = path.join(repoRoot, "docs/repo-map/repo-map.json");
@@ -78,6 +80,10 @@ const ignoredSegments = new Set([
   "target",
   ".next",
   ".turbo",
+  "vendor",
+  ".venv",
+  "__pycache__",
+  ".pytest_cache",
 ]);
 
 const languageByExtension = {
@@ -716,7 +722,11 @@ Examples:
 }
 
 function walk(repoRoot, dir = repoRoot, files = []) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  const entries = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    if (files.length >= MAX_SCAN_FILES) break;
     if (ignoredSegments.has(entry.name)) continue;
     const absolute = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -755,7 +765,13 @@ function classify(filePath, bytes) {
   const reasons = [];
   let role = "unknown";
 
-  if (lockfileNames.has(name)) {
+  if (isSecretLikePath(filePath)) {
+    role = "generated";
+    reasons.push("secret-like path excluded");
+  } else if (bytes > MAX_INDEXED_FILE_BYTES) {
+    role = "generated";
+    reasons.push("large file skipped from default packs");
+  } else if (lockfileNames.has(name)) {
     role = "lockfile";
     reasons.push("package lockfile");
   } else if (
@@ -785,12 +801,7 @@ function classify(filePath, bytes) {
     reasons.push("asset file");
   }
 
-  const secretLike = isSecretLikePath(filePath);
-  if (secretLike) {
-    reasons.push("secret-like path excluded");
-  }
   const includeByDefault =
-    !secretLike &&
     ["source", "test", "config", "docs"].includes(role);
 
   return {
