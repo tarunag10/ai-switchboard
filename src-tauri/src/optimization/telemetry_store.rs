@@ -148,9 +148,13 @@ fn try_record_model_routing_evidence(
     let captured_at = DateTime::parse_from_rfc3339(observation.captured_at.trim())
         .ok()
         .map(|value| value.with_timezone(&Utc));
+    let now = Utc::now();
     let valid = !valid_identifier(&observation.run_id)
         || captured_at.is_none()
-        || captured_at.is_some_and(|value| value > Utc::now() + chrono::Duration::minutes(5))
+        || captured_at.is_some_and(|value| {
+            value > now + chrono::Duration::minutes(5)
+                || value < now - chrono::Duration::days(7)
+        })
         || !valid_identifier(&observation.captured_at)
         || !valid_identifier(&observation.task_class)
         || !valid_identifier(&observation.baseline_model)

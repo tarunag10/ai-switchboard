@@ -268,6 +268,9 @@ the current checkout.
 - Routing evidence ingestion now enforces a bounded 10,000-event run limit and
   derives exported `minimumSamples` from the persisted routing policy rather
   than duplicating a threshold constant.
+- Native routing evidence ingestion applies the same explicit timezone,
+  seven-day freshness, and five-minute future-skew contract as the JavaScript
+  checker, preventing stale local rows from entering a reconciliation run.
 
 ### Remaining build work
 

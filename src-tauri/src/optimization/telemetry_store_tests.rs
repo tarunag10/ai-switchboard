@@ -159,6 +159,8 @@ fn model_routing_evidence_rejects_overflow_and_invalid_timestamps() {
     observation.successful_task_cost_microunits = Some(10);
     observation.captured_at = "not-a-timestamp".to_string();
     assert!(record_model_routing_evidence(&observation).is_err());
+    observation.captured_at = (chrono::Utc::now() - chrono::Duration::days(8)).to_rfc3339();
+    assert!(record_model_routing_evidence(&observation).is_err());
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),
