@@ -209,6 +209,14 @@ the current checkout.
 - Local connector readiness now compares command output against an independent
   authoritative gated-native-write inventory and rejects empty, duplicate,
   missing, or extra connector lists.
+- Connector smoke verification now requires a successful process exit plus the
+  exact expected model response; mismatched or empty output stays unverified.
+- Frontend one-click connector rows now require that exact smoke result before
+  request-counter activity can mark them verified, preventing unrelated or
+  mismatched model traffic from producing a false green.
+- Mode-relaunch validation now requires both intercept and proxy listeners to
+  be down for each persistence-only result, and release readiness reuses that
+  contract instead of trusting `passed` alone.
 
 ### Remaining build work
 
@@ -225,9 +233,11 @@ the current checkout.
    executing the external checklist still requires signing credentials, a
    current public artifact, and a real reboot.
 3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
-   shipped; remaining work is deeper bounded semantic resolution only where it
-   remains deterministic. Whole-program type inference and dynamic dispatch
-   stay out of scope unless a separate evidence-backed design is approved.
+   shipped; remaining work is deterministic cross-surface parity for ignored
+   directories, sorted traversal/cap membership, the one-megabyte boundary,
+   and role-precedence matrices. Whole-program type inference and dynamic
+   dispatch stay out of scope unless a separate evidence-backed design is
+   approved.
 4. **Connector coverage:** lifecycle evidence linkage is now machine-checked;
    continue only with documented schemas and full
    detect/preview/backup/apply/verify/rollback/off/uninstall proof. Cursor

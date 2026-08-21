@@ -20,6 +20,9 @@ export function validateModeRelaunchSummary(report) {
       if (!mode || mode.pass !== true) failures.push(`${mode?.mode ?? "unknown"} mode must pass`);
       if (mode.persistedMode !== mode.mode) failures.push(`${mode?.mode ?? "unknown"} persisted mode must match requested mode`);
       if (mode.launchOk !== true || mode.appRunning !== true) failures.push(`${mode?.mode ?? "unknown"} app process evidence must pass`);
+      if (mode.interceptListening !== false || mode.proxyListening !== false) {
+        failures.push(`${mode?.mode ?? "unknown"} listeners must be down for off/rtk mode persistence evidence`);
+      }
     }
   }
   if (report.passed !== true) failures.push("passed must be true");

@@ -12,8 +12,8 @@ function validSummary() {
     restored: true,
     passed: true,
     modes: [
-      { mode: "off", pass: true, launchOk: true, appRunning: true, persistedMode: "off" },
-      { mode: "rtk", pass: true, launchOk: true, appRunning: true, persistedMode: "rtk" },
+      { mode: "off", pass: true, launchOk: true, appRunning: true, interceptListening: false, proxyListening: false, persistedMode: "off" },
+      { mode: "rtk", pass: true, launchOk: true, appRunning: true, interceptListening: false, proxyListening: false, persistedMode: "rtk" },
     ],
   };
 }
@@ -32,4 +32,14 @@ test("rejects wrong schema, missing mode, mismatched persistence, and claimed ap
   const mismatch = validSummary();
   mismatch.modes[1].persistedMode = "off";
   assert.match(validateModeRelaunchSummary(mismatch).join("\n"), /persisted mode must match/);
+});
+
+test("rejects a mode summary that claims either listener is active", () => {
+  const report = validSummary();
+  report.modes[0].interceptListening = true;
+  report.modes[1].proxyListening = true;
+  assert.match(
+    validateModeRelaunchSummary(report).join("\n"),
+    /listeners must be down/,
+  );
 });

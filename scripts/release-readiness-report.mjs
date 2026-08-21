@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { assessSummaryFreshness, extractGeneratedAt } from "./release-summary-contract.mjs";
+import { validateModeRelaunchSummary } from "./local-mode-relaunch-contract.mjs";
 
 const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
@@ -421,7 +422,11 @@ function buildLocalValidationEvidence() {
   const measuredSavingsBenchmarkFreshness = assessSummaryFreshness({ summaryGeneratedAt: measuredSavingsBenchmarkSummary.generatedAt, jsonGeneratedAt: measuredSavingsBenchmarkJson.body?.generatedAt, present: measuredSavingsBenchmarkSummary.present || measuredSavingsBenchmarkJson.present, passed: Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0 }, { label: "measuredSavingsBenchmark.generatedAt" });
   const localConnectorReadinessFreshness = assessSummaryFreshness({ summaryGeneratedAt: localConnectorReadinessSummary.generatedAt, jsonGeneratedAt: localConnectorReadinessJson.body?.generatedAt, present: localConnectorReadinessSummary.present || localConnectorReadinessJson.present, passed: localConnectorReadinessJson.body?.passed === true }, { label: "connectorReadiness.generatedAt" });
   const localOnlyNetworkFreshness = assessSummaryFreshness({ summaryGeneratedAt: localOnlyNetworkSummary.generatedAt, jsonGeneratedAt: localOnlyNetworkJson.body?.generatedAt, present: localOnlyNetworkSummary.present || localOnlyNetworkJson.present, passed: localOnlyNetworkJson.body?.passed === true }, { label: "localOnlyNetwork.generatedAt" });
-  const modeRelaunchPassed = modeRelaunchJson.body?.passed === true && modeRelaunchFreshness.fresh;
+  const modeRelaunchContractFailures = validateModeRelaunchSummary(
+    modeRelaunchJson.body,
+  );
+  const modeRelaunchPassed =
+    modeRelaunchContractFailures.length === 0 && modeRelaunchFreshness.fresh;
   const rollbackPassed = rollbackJson.body?.passed === true && rollbackFreshness.fresh;
   const doctorRepairPassed = doctorJson.body?.passed === true && doctorRepairFreshness.fresh;
   const uninstallPassed = uninstallJson.body?.passed === true && uninstallFreshness.fresh;
@@ -494,6 +499,7 @@ function buildLocalValidationEvidence() {
       freshness: modeRelaunchFreshness,
       passed: modeRelaunchPassed,
       parseError: modeRelaunchJson.parseError,
+      contractFailures: modeRelaunchContractFailures,
       kind: modeRelaunchJson.body?.kind ?? null,
       evidenceBoundary: modeRelaunchJson.body?.evidenceBoundary ?? null,
       appInternalModeObserved:
