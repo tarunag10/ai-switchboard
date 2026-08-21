@@ -3,7 +3,11 @@ import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
+import {
+  canonicalInstalledAppPath,
+  readCanonicalAppIdentity,
+  validateAppIdentity,
+} from "./app-identity-contract.mjs";
 
 const armPath =
   process.env.MAC_AI_SWITCHBOARD_REBOOT_ARM_PATH ??
@@ -32,6 +36,12 @@ function readJson(filePath) {
   } catch {
     return null;
   }
+}
+
+function plistValue(filePath, key) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  const result = run("/usr/libexec/PlistBuddy", ["-c", `Print :${key}`, filePath]);
+  return result.ok ? result.stdout : null;
 }
 
 function currentBootSession() {
@@ -63,6 +73,14 @@ function verifyPublicArtifact() {
 const arm = readJson(armPath);
 const session = currentBootSession();
 const infoPlistPath = appPath ? path.join(appPath, "Contents", "Info.plist") : null;
+const expectedIdentity = readCanonicalAppIdentity();
+const appMetadata = {
+  bundleIdentifier: plistValue(infoPlistPath, "CFBundleIdentifier"),
+  version: plistValue(infoPlistPath, "CFBundleShortVersionString"),
+  displayName: plistValue(infoPlistPath, "CFBundleDisplayName"),
+  bundleName: plistValue(infoPlistPath, "CFBundleName"),
+};
+const identityFailures = validateAppIdentity(appMetadata, expectedIdentity);
 const codesign = appPath ? run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", appPath]) : null;
 const gatekeeper = appPath ? run("spctl", ["--assess", "--type", "execute", "--verbose=4", appPath]) : null;
 const stapler = appPath ? run("xcrun", ["stapler", "validate", appPath]) : null;
@@ -79,6 +97,7 @@ const trustReady = Boolean(
   appPath &&
     infoPlistPath &&
     fs.existsSync(infoPlistPath) &&
+    identityFailures.length === 0 &&
     codesign?.ok &&
     gatekeeper?.ok &&
     stapler?.ok,
@@ -88,6 +107,7 @@ const blockers = [
   rebootObserved ? null : "current boot session does not differ from the armed boot session",
   appPath ? null : "signed installed app is missing from /Applications",
   infoPlistPath && fs.existsSync(infoPlistPath) ? null : "installed app Info.plist is missing",
+  identityFailures.length === 0 ? null : `installed app identity mismatch: ${identityFailures.join("; ")}`,
   codesign?.ok ? null : "installed app codesign verification failed",
   gatekeeper?.ok ? null : "installed app Gatekeeper assessment failed",
   stapler?.ok ? null : "installed app notarization stapler validation failed",
@@ -113,6 +133,8 @@ const marker = {
   appTrust: {
     verified: trustReady,
     infoPlistPath,
+    metadata: appMetadata,
+    identityFailures,
     codesignVerify: { command: codesign.command, ok: codesign.ok },
     gatekeeperAssess: { command: gatekeeper.command, ok: gatekeeper.ok },
     staplerValidate: { command: stapler.command, ok: stapler.ok },

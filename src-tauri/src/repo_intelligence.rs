@@ -1524,6 +1524,9 @@ fn classify_file(path: &str, bytes: u64) -> RepoFileSignal {
     } else if bytes > MAX_INDEXED_FILE_BYTES {
         reasons.push("large file skipped from default packs".to_string());
         RepoFileRole::Generated
+    } else if is_ignored_path(path) {
+        reasons.push("generated or dependency output".to_string());
+        RepoFileRole::Generated
     } else if lockfile_name(name) {
         reasons.push("package lockfile".to_string());
         RepoFileRole::Lockfile
@@ -1563,6 +1566,12 @@ fn classify_file(path: &str, bytes: u64) -> RepoFileSignal {
         include_by_default,
         reasons,
     }
+}
+
+fn is_ignored_path(path: &str) -> bool {
+    path.replace('\\', "/")
+        .split('/')
+        .any(|segment| IGNORED_DIRS.iter().any(|ignored| ignored == &segment))
 }
 
 fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoGraphSummary {
@@ -3850,6 +3859,22 @@ mod tests {
         assert!(matches!(
             classify_file("private_key/api.ts", 100).role,
             RepoFileRole::Generated
+        ));
+        assert!(matches!(
+            classify_file("Secret/api.ts", 100).role,
+            RepoFileRole::Generated
+        ));
+        assert!(matches!(
+            classify_file("dist/assets/index.js", 100).role,
+            RepoFileRole::Generated
+        ));
+        assert!(matches!(
+            classify_file("scripts/build.sh", 100).role,
+            RepoFileRole::Source
+        ));
+        assert!(matches!(
+            classify_file("src/docs/guide.ts", 100).role,
+            RepoFileRole::Docs
         ));
     }
 

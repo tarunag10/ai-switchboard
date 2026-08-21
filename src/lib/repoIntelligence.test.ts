@@ -59,6 +59,17 @@ describe("repoIntelligence", () => {
     expect(classifyRepoFile("src/assets/logo.svg", 100).role).toBe("asset");
   });
 
+  it("uses the shared precedence for secrets, shell files, nested docs, and large files", () => {
+    expect(classifyRepoFile("secret/api.ts", 100)).toMatchObject({
+      role: "generated",
+      includeByDefault: false,
+    });
+    expect(classifyRepoFile("Secret/api.ts", 100).role).toBe("generated");
+    expect(classifyRepoFile("scripts/build.sh", 100).role).toBe("source");
+    expect(classifyRepoFile("src/docs/guide.ts", 100).role).toBe("docs");
+    expect(classifyRepoFile("src/large.ts", 1_000_001).role).toBe("generated");
+  });
+
   it("excludes secret-like paths from default context packs", () => {
     expect(isSecretLikeRepoPath(".env.local")).toBe(true);
     expect(isSecretLikeRepoPath(".envrc")).toBe(true);
@@ -77,7 +88,7 @@ describe("repoIntelligence", () => {
     expect(isSecretLikeRepoPath("headroom_memory.db")).toBe(true);
 
     const envFile = classifyRepoFile(".env.local", 100);
-    expect(envFile.role).toBe("config");
+    expect(envFile.role).toBe("generated");
     expect(envFile.includeByDefault).toBe(false);
     expect(envFile.reasons).toContain("secret-like path excluded");
 
@@ -128,18 +139,18 @@ describe("repoIntelligence", () => {
       { path: "package.json", bytes: 800 },
     ]);
 
-    expect(summary.totalFiles).toBe(6);
+    expect(summary.totalFiles).toBe(5);
     expect(summary.indexedFiles).toBe(5);
     expect(summary.indexerVersion).toBe("path-graph-v11");
-    expect(summary.roleCounts.generated).toBe(1);
+    expect(summary.roleCounts.generated).toBe(0);
     expect(summary.indexMetadata).toMatchObject({
       schemaVersion: 1,
       indexerVersion: "path-graph-v11",
       parserVersion: "metadata-fingerprint-v1",
       cacheState: "new",
-      fileCount: 6,
+      fileCount: 5,
       indexedFileCount: 5,
-      skippedFileCount: 1,
+      skippedFileCount: 0,
     });
     expect(summary.indexMetadata?.cacheKey).toEqual(expect.any(String));
     expect(summary.indexMetadata?.fileFingerprints).toHaveLength(5);
@@ -149,13 +160,7 @@ describe("repoIntelligence", () => {
         fingerprint: expect.any(String),
       }),
     );
-    expect(summary.indexMetadata?.skippedFiles).toEqual([
-      expect.objectContaining({
-        path: "dist/bundle.js",
-        role: "generated",
-        reasons: expect.arrayContaining(["generated or dependency output"]),
-      }),
-    ]);
+    expect(summary.indexMetadata?.skippedFiles).toEqual([]);
     expect(summary.indexMetadata?.graphInputs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -203,7 +208,7 @@ describe("repoIntelligence", () => {
         "package.json",
       ]),
     );
-    expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(50);
+    expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(30);
     expect(summary.taskPacks?.map((pack) => pack.id)).toEqual([
       "task_implementation",
       "task_verification",

@@ -8,6 +8,11 @@ import test from "node:test";
 const root = process.cwd();
 const armScript = path.join(root, "scripts/arm-reboot-level-installed-proof.mjs");
 const markerScript = path.join(root, "scripts/record-reboot-level-installed-proof-marker.mjs");
+const bootIdentityProbe = spawnSync("sysctl", ["-n", "kern.boottime"], {
+  encoding: "utf8",
+});
+const bootIdentityAvailable =
+  bootIdentityProbe.status === 0 && /sec = \d+/.test(bootIdentityProbe.stdout ?? "");
 
 function run(script, env) {
   return spawnSync(process.execPath, [script], {
@@ -30,7 +35,7 @@ test("post-reboot recorder refuses a missing arm receipt without writing a marke
   assert.equal(fs.existsSync(markerPath), false);
 });
 
-test("arm receipt records a concrete macOS boot-session baseline", () => {
+test("arm receipt records a concrete macOS boot-session baseline", { skip: !bootIdentityAvailable }, () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-reboot-proof-"));
   const armPath = path.join(directory, "arm.json");
   const result = run(armScript, { MAC_AI_SWITCHBOARD_REBOOT_ARM_PATH: armPath });

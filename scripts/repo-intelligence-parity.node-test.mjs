@@ -139,6 +139,30 @@ test("CLI default indexing excludes singular secret directories", () => {
   }
 });
 
+test("CLI classification keeps secret precedence, shell source, and nested docs parity", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-role-matrix-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src", "docs"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "Secret"), { recursive: true });
+    fs.mkdirSync(path.join(repo, ".secret"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "private_key"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "scripts.sh"), "echo ok\n");
+    fs.writeFileSync(path.join(repo, "src", "docs", "guide.ts"), "export const guide = true;\n");
+    fs.writeFileSync(path.join(repo, "Secret", "api.ts"), "export const token = true;\n");
+    fs.writeFileSync(path.join(repo, ".secret", "api.ts"), "export const token = true;\n");
+    fs.writeFileSync(path.join(repo, "private_key", "api.ts"), "export const token = true;\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.equal(summary.indexedFiles, 2);
+    assert.equal(summary.roleCounts.generated, 3);
+    assert.equal(summary.roleCounts.source, 1);
+    assert.equal(summary.roleCounts.docs, 1);
+    assert.ok(summary.indexMetadata.fileFingerprints.some((entry) => entry.path === "scripts.sh"));
+    assert.ok(summary.indexMetadata.fileFingerprints.some((entry) => entry.path === "src/docs/guide.ts"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("CLI applies the file cap after global path sorting", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-cap-"));
   try {

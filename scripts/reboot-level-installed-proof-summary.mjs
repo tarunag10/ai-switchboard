@@ -2,7 +2,11 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
+import {
+  canonicalInstalledAppPath,
+  readCanonicalAppIdentity,
+  validateAppIdentity,
+} from "./app-identity-contract.mjs";
 
 const summaryPath = "dist/reboot-level-installed-proof-summary.md";
 const jsonPath = "dist/reboot-level-installed-proof-summary.json";
@@ -141,6 +145,14 @@ const bootTime = currentBootTime();
 const marker = safeReadJson(markerPath);
 const appPresent = fs.existsSync(appPath);
 const metadataPresent = fs.existsSync(appInfoPlistPath);
+const expectedIdentity = readCanonicalAppIdentity();
+const appMetadata = {
+  bundleIdentifier: plistValue("CFBundleIdentifier"),
+  version: plistValue("CFBundleShortVersionString"),
+  displayName: plistValue("CFBundleDisplayName"),
+  bundleName: plistValue("CFBundleName"),
+};
+const identityFailures = validateAppIdentity(appMetadata, expectedIdentity);
 const codesignVerify = appPresent
   ? run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", appPath])
   : null;
@@ -162,6 +174,7 @@ const markerMatchesCurrentBoot =
 const trustReady =
   appPresent &&
   metadataPresent &&
+  identityFailures.length === 0 &&
   codesignVerify?.ok === true &&
   spctlAssess?.ok === true &&
   staplerValidate?.ok === true;
@@ -169,6 +182,7 @@ const supportingArtifactsReady = artifacts.every((artifact) => artifact.valid);
 const blockers = [
   appPresent ? null : `installed app missing at ${appPath}`,
   metadataPresent ? null : `installed app metadata missing at ${appInfoPlistPath}`,
+  identityFailures.length === 0 ? null : `installed app identity mismatch: ${identityFailures.join("; ")}`,
   codesignVerify?.ok ? null : "installed app codesign verification failed or was not run",
   spctlAssess?.ok ? null : "installed app Gatekeeper assessment failed or was not run",
   staplerValidate?.ok ? null : "installed app notarization stapler validation failed or was not run",
@@ -196,6 +210,8 @@ const payload = {
     version: plistValue("CFBundleShortVersionString"),
     displayName: plistValue("CFBundleDisplayName"),
     bundleName: plistValue("CFBundleName"),
+    metadataMatches: identityFailures.length === 0,
+    identityFailures,
   },
   trust: {
     ready: trustReady,

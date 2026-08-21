@@ -871,9 +871,34 @@ const generatedPathPatterns = [
   /(^|\/)\.next\//,
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
+  /(^|\/)\.venv\//,
+  /(^|\/)__pycache__\//,
+  /(^|\/)\.pytest_cache\//,
 ];
+const ignoredRepoDirectoryNames = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  "target",
+  ".next",
+  ".turbo",
+  "vendor",
+  ".venv",
+  "__pycache__",
+  ".pytest_cache",
+]);
+
+function isIgnoredRepoTraversalPath(filePath: string): boolean {
+  return filePath
+    .replace(/\\/g, "/")
+    .split("/")
+    .some((segment) => ignoredRepoDirectoryNames.has(segment));
+}
 export const repoIntelligenceIndexerVersion = "path-graph-v11";
 export const MAX_REPO_SCAN_FILES = 2_500;
+export const MAX_INDEXED_REPO_FILE_BYTES = 1_000_000;
 
 const lockfileNames = new Set([
   "Cargo.lock",
@@ -939,12 +964,13 @@ export function estimateRepoTokens(bytes: number): number {
 
 export function isSecretLikeRepoPath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
+  const normalizedLower = normalized.toLowerCase();
   const name =
     normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
   return (
     secretFileNames.has(name) ||
     name.startsWith(".env.") ||
-    secretPathPatterns.some((pattern) => pattern.test(normalized))
+    secretPathPatterns.some((pattern) => pattern.test(normalizedLower))
   );
 }
 
@@ -956,10 +982,21 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
   const extension = extensionMatch?.[1]?.toLowerCase() ?? "";
   const reasons: string[] = [];
   let role: RepoFileRole = "unknown";
+  const secretLike = isSecretLikeRepoPath(normalized);
 
-  if (generatedPathPatterns.some((pattern) => pattern.test(normalized))) {
+  if (
+    generatedPathPatterns.some((pattern) => pattern.test(normalized)) ||
+    secretLike ||
+    bytes > MAX_INDEXED_REPO_FILE_BYTES
+  ) {
     role = "generated";
-    reasons.push("generated or dependency output");
+    if (secretLike) reasons.push("secret-like path excluded");
+    if (bytes > MAX_INDEXED_REPO_FILE_BYTES) {
+      reasons.push("large file skipped from default packs");
+    }
+    if (!secretLike && bytes <= MAX_INDEXED_REPO_FILE_BYTES) {
+      reasons.push("generated or dependency output");
+    }
   } else if (lockfileNames.has(name)) {
     role = "lockfile";
     reasons.push("package lockfile");
@@ -999,10 +1036,6 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
   }
 
   const estimatedTokens = estimateRepoTokens(bytes);
-  const secretLike = isSecretLikeRepoPath(normalized);
-  if (secretLike) {
-    reasons.push("secret-like path excluded");
-  }
   const includeByDefault =
     !secretLike &&
     (role === "source" ||
@@ -1028,6 +1061,7 @@ export function buildRepoIntelligenceSummary(
       ...file,
       path: file.path.replace(/\\/g, "/"),
     }))
+    .filter((file) => !isIgnoredRepoTraversalPath(file.path))
     .sort((left, right) => left.path.localeCompare(right.path))
     .slice(0, MAX_REPO_SCAN_FILES);
   const signals = boundedFiles.map((file) =>

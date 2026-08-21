@@ -748,12 +748,13 @@ function estimateTokens(bytes) {
 
 function isSecretLikePath(filePath) {
   const normalized = filePath.replace(/\\/g, "/");
+  const normalizedLower = normalized.toLowerCase();
   const name =
     normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
   return (
     secretFileNames.has(name) ||
     name.startsWith(".env.") ||
-    secretPathPatterns.some((pattern) => pattern.test(normalized))
+    secretPathPatterns.some((pattern) => pattern.test(normalizedLower))
   );
 }
 
@@ -780,14 +781,18 @@ function classify(filePath, bytes) {
   ) {
     role = "test";
     reasons.push("test path");
-  } else if (lower.startsWith("docs/") || extension === ".md") {
+  } else if (
+    lower.startsWith("docs/") ||
+    lower.includes("/docs/") ||
+    extension === ".md"
+  ) {
     role = "docs";
     reasons.push("documentation");
-  } else if ([".json", ".toml", ".yaml", ".yml", ".sh"].includes(extension)) {
+  } else if ([".json", ".toml", ".yaml", ".yml"].includes(extension)) {
     role = "config";
     reasons.push("configuration or script");
   } else if (
-    [".ts", ".tsx", ".js", ".jsx", ".py", ".rs", ".swift", ".css", ".html"].includes(extension)
+    [".ts", ".tsx", ".js", ".jsx", ".py", ".rs", ".swift", ".css", ".html", ".sh"].includes(extension)
   ) {
     role = "source";
     reasons.push("source extension");
