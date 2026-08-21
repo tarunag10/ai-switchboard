@@ -118,6 +118,7 @@
     "check:deployment": "node scripts/check-deployment-readiness.mjs",
     "smoke:connectors:local": "node scripts/local-connector-readiness-summary.mjs",
     "smoke:connectors:local:check": "node scripts/check-local-connector-readiness-summary.mjs",
+    "check:connector-gated-inventory": "node --test scripts/connector-gated-inventory.node-test.mjs",
     "savings:benchmark:check": "node scripts/check-measured-savings-benchmark.mjs",
     "smoke:savings-anomalies:local:check": "node scripts/check-local-savings-anomaly-summary.mjs",
     "savings:runtime:check": "node scripts/check-runtime-savings-attribution.mjs",

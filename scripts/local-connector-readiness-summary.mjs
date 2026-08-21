@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
+import { authoritativeGatedNativeWriteConnectors, compareGatedNativeWriteInventory } from "./connector-gated-inventory.mjs";
 
 const summaryPath = "dist/local-connector-readiness-summary.md";
 const jsonPath = "dist/local-connector-readiness-summary.json";
@@ -28,10 +29,9 @@ const inventoryParsed = Boolean(gatedMatch);
 // Keep this evidence contract aligned with check-planned-connectors.mjs. The
 // pending native-write set changes as connectors are promoted; duplicating an
 // older static list here creates false release blockers.
-const requiredGatedNativeWrite = gatedNativeWriteConnectors;
-const requiredGatedNativeWritePresent = requiredGatedNativeWrite.every((id) =>
-  gatedNativeWriteConnectors.includes(id),
-);
+const requiredGatedNativeWrite = authoritativeGatedNativeWriteConnectors;
+const inventoryComparison = compareGatedNativeWriteInventory(gatedNativeWriteConnectors);
+const requiredGatedNativeWritePresent = inventoryComparison.matches;
 
 const connectorSource = fs.readFileSync("src/lib/plannedConnectors.ts", "utf8");
 
@@ -82,6 +82,7 @@ const payload = {
   inventoryParsed,
   gatedNativeWriteConnectors,
   requiredGatedNativeWritePresent,
+  inventoryComparison,
   requiredLifecycleStages,
   sharedStages,
   promotedNativeAutomationIds: promotedIds,

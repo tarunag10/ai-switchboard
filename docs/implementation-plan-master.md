@@ -206,6 +206,9 @@ the current checkout.
 - Mode-relaunch summaries now have a strict checker and explicitly classify
   their evidence as config persistence/process state, not app-internal mode
   observation or public release proof.
+- Local connector readiness now compares command output against an independent
+  authoritative gated-native-write inventory and rejects empty, duplicate,
+  missing, or extra connector lists.
 
 ### Remaining build work
 

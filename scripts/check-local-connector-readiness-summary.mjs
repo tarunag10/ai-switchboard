@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import { compareGatedNativeWriteInventory } from "./connector-gated-inventory.mjs";
 
 const reportPath = "dist/local-connector-readiness-summary.json";
 const requiredStages = ["detect", "dryRunDiff", "backup", "apply", "verify", "rollback", "offCleanup"];
@@ -34,6 +35,10 @@ if (report.status !== 0) {
 }
 if (report.inventoryParsed !== true || !Array.isArray(requiredConnectors)) {
   fail("gated native-write inventory must be parsed into an array");
+}
+const inventoryComparison = compareGatedNativeWriteInventory(report.gatedNativeWriteConnectors);
+if (report.inventoryComparison?.matches !== true || !inventoryComparison.matches) {
+  fail("gated native-write inventory does not match the authoritative contract");
 }
 if (report.ready !== true) {
   fail("report.ready must be true");
