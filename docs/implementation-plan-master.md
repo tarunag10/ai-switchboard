@@ -106,6 +106,8 @@ the current checkout.
   broadening dynamic or multi-hop re-export inference.
 - CLI Repo Intelligence now matches the frontend for same-file aliased named
   exports, preserving the existing parity boundary.
+- Release readiness now has a deterministic blocked no-refresh rehearsal that
+  verifies exact action mapping without rewriting the supplied report.
 
 ### Done — prepared and shipped
 

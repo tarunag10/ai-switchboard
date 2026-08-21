@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { actionForBlocker, buildReleaseReadinessActions, validateReleaseReadinessReport } from "./release-readiness-actions.mjs";
 
 test("maps signing and toolchain blockers to actionable commands", () => {
@@ -44,4 +47,49 @@ test("requires a value after --report", () => {
   const run = spawnSync(process.execPath, ["scripts/check-release-readiness.mjs", "--no-refresh", "--report", "--json"], { encoding: "utf8" });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /--report requires a file path/);
+});
+
+test("rehearses blocked no-refresh action mapping without rewriting the report", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-release-rehearsal-"));
+  const reportPath = path.join(tempDir, "blocked-report.json");
+  const report = {
+    status: "blocked",
+    releaseEnv: {
+      blockers: [
+        { label: "missing environment: APPLE_SIGNING_IDENTITY", hint: "identity required" },
+        { label: "missing command: cargo", hint: "cargo required" },
+      ],
+    },
+    backendValidation: {
+      ready: false,
+      unblockCommands: ["rustup --version"],
+      message: "backend unavailable",
+    },
+    installedSmoke: {
+      installedAppPresent: false,
+      evidenceReady: false,
+      missingEvidence: ["smoke summary"],
+    },
+  };
+  fs.writeFileSync(reportPath, JSON.stringify(report));
+  const before = fs.readFileSync(reportPath, "utf8");
+  const run = spawnSync(process.execPath, [
+    "scripts/check-release-readiness.mjs",
+    "--json",
+    "--no-refresh",
+    "--report",
+    reportPath,
+  ], { encoding: "utf8" });
+  assert.equal(run.status, 0);
+  const result = JSON.parse(run.stdout);
+  assert.equal(result.status, "blocked");
+  assert.deepEqual(result.actions.map((action) => action.label), [
+    "Set Developer ID identity",
+    "Install Rust toolchain",
+    "Run backend validation",
+    "Install signed DMG",
+    "Record installed smoke evidence",
+  ]);
+  assert.equal(fs.readFileSync(reportPath, "utf8"), before);
+  fs.rmSync(tempDir, { recursive: true, force: true });
 });
