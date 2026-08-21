@@ -106,3 +106,56 @@ test("rehearses blocked no-refresh action mapping without rewriting the report",
   assert.equal(fs.readFileSync(reportPath, "utf8"), before);
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
+
+test("strict blocked readiness exits non-zero without rewriting the report", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-release-strict-blocked-"));
+  const reportPath = path.join(tempDir, "blocked-report.json");
+  const report = {
+    status: "blocked",
+    releaseEnv: { blockers: [{ label: "missing signing evidence", hint: "signing required" }] },
+    backendValidation: { ready: true, unblockCommands: [], message: "" },
+    installedSmoke: { installedAppPresent: true, evidenceReady: true, missingEvidence: [] },
+  };
+  fs.writeFileSync(reportPath, JSON.stringify(report));
+  const before = fs.readFileSync(reportPath, "utf8");
+  const run = spawnSync(process.execPath, [
+    "scripts/check-release-readiness.mjs",
+    "--strict",
+    "--json",
+    "--no-refresh",
+    "--report",
+    reportPath,
+  ], { encoding: "utf8" });
+  assert.equal(run.status, 1);
+  assert.equal(JSON.parse(run.stdout).status, "blocked");
+  assert.equal(JSON.parse(run.stdout).strict, true);
+  assert.equal(fs.readFileSync(reportPath, "utf8"), before);
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+test("strict ready readiness exits zero without rewriting the report", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-release-strict-ready-"));
+  const reportPath = path.join(tempDir, "ready-report.json");
+  const report = {
+    status: "ready",
+    releaseEnv: { blockers: [] },
+    backendValidation: { ready: true, unblockCommands: [], message: "" },
+    installedSmoke: { installedAppPresent: true, evidenceReady: true, missingEvidence: [] },
+  };
+  fs.writeFileSync(reportPath, JSON.stringify(report));
+  const before = fs.readFileSync(reportPath, "utf8");
+  const run = spawnSync(process.execPath, [
+    "scripts/check-release-readiness.mjs",
+    "--strict",
+    "--json",
+    "--no-refresh",
+    "--report",
+    reportPath,
+  ], { encoding: "utf8" });
+  assert.equal(run.status, 0);
+  const result = JSON.parse(run.stdout);
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.actions, []);
+  assert.equal(fs.readFileSync(reportPath, "utf8"), before);
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
