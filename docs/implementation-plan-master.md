@@ -136,6 +136,8 @@ the current checkout.
 - Deployment-readiness wiring now tracks the extracted release action module,
   and no-refresh readiness reports fail closed on malformed structure or
   missing report arguments.
+- Gemini and Qwen connector fixture tests now cover drift detection, repair,
+  and byte-stable repeated Off cleanup.
 
 ### Remaining build work
 

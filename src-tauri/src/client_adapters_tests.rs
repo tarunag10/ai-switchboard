@@ -1883,6 +1883,14 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(shell_content.contains("GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:6767"));
         assert!(shell_content.contains("GEMINI_BASE_URL=http://127.0.0.1:6767"));
 
+        let drifted = content.replace(super::HEADROOM_OPENAI_BASE_URL, "http://127.0.0.1:1");
+        fs::write(&sidecar, drifted).expect("drift gemini sidecar");
+        let drift_verification =
+            super::verify_client_setup("gemini_cli").expect("verify drifted gemini setup");
+        assert!(!drift_verification.verified);
+        let repaired = super::apply_client_setup("gemini_cli").expect("repair gemini setup");
+        assert!(repaired.verification.verified);
+
         let detected_clients = vec![ClientStatus {
             id: "gemini_cli".into(),
             name: "Gemini CLI".into(),
@@ -1918,6 +1926,9 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let verification =
             super::verify_client_setup("gemini_cli").expect("verify cleaned gemini setup");
         assert!(!verification.verified);
+        let cleaned_once = fs::read_to_string(&sidecar).expect("read gemini after first off");
+        super::disable_client_setup("gemini_cli").expect("repeat disable gemini setup");
+        assert_eq!(fs::read_to_string(&sidecar).expect("read gemini after second off"), cleaned_once);
     }
 
     #[test]
@@ -5005,4 +5016,17 @@ js_repl = false\n",
         let cleaned = std::fs::read_to_string(&routing_path).expect("read cleaned qwen sidecar");
         assert!(cleaned.contains("# user-owned qwen note\nkeep this"));
         assert!(!cleaned.contains("ai-switchboard:qwen_code"));
+        let drifted = cleaned.replace("# user-owned qwen note", "# user-owned qwen note\nhttp://127.0.0.1:1");
+        std::fs::write(&routing_path, drifted).expect("drift qwen sidecar");
+        assert!(!super::verify_client_setup("qwen_code")
+            .expect("verify drifted qwen sidecar")
+            .verified);
+        assert!(super::apply_client_setup("qwen_code")
+            .expect("repair qwen sidecar")
+            .verification
+            .verified);
+        super::disable_client_setup("qwen_code").expect("disable repaired qwen sidecar");
+        let repaired_cleaned = std::fs::read_to_string(&routing_path).expect("read repaired qwen sidecar");
+        super::disable_client_setup("qwen_code").expect("repeat disable qwen sidecar");
+        assert_eq!(std::fs::read_to_string(&routing_path).expect("read repeated qwen off"), repaired_cleaned);
     }
