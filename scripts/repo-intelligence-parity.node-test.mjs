@@ -106,3 +106,18 @@ test("CLI default indexing excludes unknown files like the native and frontend i
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("CLI default indexing excludes singular secret directories", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-secret-classification-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "secret"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/app.ts"), "export function app() {}\n");
+    fs.writeFileSync(path.join(repo, "secret/api.ts"), "export const token = 'redacted';\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.equal(summary.indexedFiles, 1);
+    assert.equal(summary.skippedFiles, 1);
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});

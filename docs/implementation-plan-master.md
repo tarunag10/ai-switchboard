@@ -201,6 +201,8 @@ the current checkout.
 - CLI Repo Intelligence now excludes unknown files from default indexing like
   the native and frontend implementations, with an indexer-version bump and
   classification parity coverage.
+- Native Repo Intelligence now excludes singular `secret` and `private_key`
+  path segments consistently with CLI/frontend secret-path policy.
 
 ### Remaining build work
 

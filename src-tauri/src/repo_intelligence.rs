@@ -73,9 +73,13 @@ const SECRET_FILE_NAMES: [&str; 13] = [
 const SECRET_EXTENSIONS: [&str; 10] = [
     ".pem", ".p8", ".p12", ".key", ".crt", ".cer", ".db", ".sqlite", ".sqlite3", ".log",
 ];
-const SECRET_PATH_SEGMENTS: [&str; 10] = [
+const SECRET_PATH_SEGMENTS: [&str; 14] = [
+    "secret",
+    ".secret",
     "secrets",
     ".secrets",
+    "private_key",
+    ".private_key",
     "private_keys",
     ".private_keys",
     ".aws",
@@ -3838,6 +3842,14 @@ mod tests {
         ));
         assert!(matches!(
             classify_file("dist/assets/index.js", MAX_INDEXED_FILE_BYTES + 1).role,
+            RepoFileRole::Generated
+        ));
+        assert!(matches!(
+            classify_file("secret/api.ts", 100).role,
+            RepoFileRole::Generated
+        ));
+        assert!(matches!(
+            classify_file("private_key/api.ts", 100).role,
             RepoFileRole::Generated
         ));
     }
