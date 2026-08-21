@@ -13,8 +13,13 @@ test("missing plan paths fail instead of silently passing", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-master-plan-"));
   try {
     fs.writeFileSync(path.join(tempDir, "plan.md"), "Remaining build work");
-    assert.match(checkMasterPlan(tempDir, "plan.md")[0], /missing referenced evidence path|missing required boundary/);
+    assert.match(checkMasterPlan(tempDir, "plan.md")[0], /missing referenced evidence path|missing required boundary|cannot read package/);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+});
+
+test("current package exposes every operational gate named by the roadmap", () => {
+  const failures = checkMasterPlan();
+  assert.equal(failures.some((failure) => failure.includes("missing operational package script")), false, failures.join("\n"));
 });

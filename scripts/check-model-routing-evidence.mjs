@@ -15,6 +15,13 @@ const metrics = [
   "successfulTaskCostMicros",
   "followUpReworkRateBps",
 ];
+const thresholds = {
+  maximumSuccessRegressionBps: 100,
+  maximumQualityRegressionBps: 100,
+  minimumCostImprovementBps: 1_000,
+  maximumReworkRateBps: 500,
+  maximumLatencyRegressionMs: 50,
+};
 
 function validateFixture(value) {
   if (value.schemaVersion !== 1) throw new Error("unsupported schemaVersion");
@@ -27,7 +34,7 @@ function validateFixture(value) {
   for (const arm of ["baseline", "candidate"]) {
     if (!value[arm] || typeof value[arm] !== "object") throw new Error(`missing ${arm} arm`);
     for (const metric of metrics) {
-      if (!Number.isInteger(value[arm][metric]) || value[arm][metric] < 0) {
+      if (!Number.isSafeInteger(value[arm][metric]) || value[arm][metric] < 0) {
         throw new Error(`${arm}.${metric} must be a non-negative integer`);
       }
     }
@@ -56,10 +63,42 @@ function validateFixture(value) {
   }
 }
 
+function evaluatePromotionEligibility(value) {
+  const successRegressionBps = Math.max(0, value.baseline.successRateBps - value.candidate.successRateBps);
+  const qualityRegressionBps = Math.max(0, value.baseline.qualityScoreBps - value.candidate.qualityScoreBps);
+  const latencyRegressionMs = value.candidate.p95LatencyMs - value.baseline.p95LatencyMs;
+  const baselineCost = BigInt(value.baseline.successfulTaskCostMicros);
+  const candidateCost = BigInt(value.candidate.successfulTaskCostMicros);
+  const costImprovementBps = baselineCost === 0n
+    ? 0
+    : Number(((baselineCost - candidateCost) * 10_000n) / baselineCost);
+  const enoughSamples = value.baseline.sampleCount >= value.minimumSamples;
+  return {
+    enoughSamples,
+    successRegressionBps,
+    qualityRegressionBps,
+    costImprovementBps,
+    latencyRegressionMs,
+    reworkRateBps: value.candidate.followUpReworkRateBps,
+    eligible: enoughSamples
+      && successRegressionBps <= thresholds.maximumSuccessRegressionBps
+      && qualityRegressionBps <= thresholds.maximumQualityRegressionBps
+      && costImprovementBps >= thresholds.minimumCostImprovementBps
+      && latencyRegressionMs <= thresholds.maximumLatencyRegressionMs
+      && value.candidate.followUpReworkRateBps <= thresholds.maximumReworkRateBps,
+  };
+}
+
 try {
   validateFixture(fixture);
 } catch (error) {
   console.error(`model routing evidence check failed: ${error.message}`);
+  process.exit(1);
+}
+
+const eligibility = evaluatePromotionEligibility(fixture);
+if (fixture.promotionEligible !== eligibility.eligible) {
+  console.error(`model routing evidence check failed: promotionEligible does not match recomputed threshold result (${eligibility.eligible})`);
   process.exit(1);
 }
 
@@ -72,5 +111,6 @@ console.log(JSON.stringify({
     baseline: fixture.baseline.sampleCount,
     candidate: fixture.candidate.sampleCount,
   },
+  eligibility,
   automaticRouting: fixture.promotionEligible ? "eligible_for_threshold_evaluation" : "observe_only",
 }, null, 2));

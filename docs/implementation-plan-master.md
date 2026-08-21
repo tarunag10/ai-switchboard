@@ -114,6 +114,9 @@ the current checkout.
   agrees with release truth, connector gating, and the offline routing fixture.
 - Verified with `npm run check:model-routing-evidence`,
   `npm run check:phase3-routing`, and `npm run build`.
+- The evidence checker now independently recomputes the Rust promotion
+  thresholds for approved-live fixtures; checked-in offline evidence remains
+  explicitly ineligible.
 
 ### Remaining build work
 

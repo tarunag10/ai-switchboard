@@ -18,6 +18,14 @@ const requiredPaths = [
   "scripts/check-connector-lifecycle-matrix.mjs",
   "src-tauri/src/optimization/model_routing.rs",
 ];
+const requiredScripts = [
+  "check:implementation-plan-master",
+  "check:release-documentation-drift",
+  "check:model-routing-evidence",
+  "release:report:check",
+  "release:proof:check",
+  "smoke:reboot-level:local:check",
+];
 
 const readJson = (root, relativePath) => JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 
@@ -26,6 +34,15 @@ export function checkMasterPlan(root = process.cwd(), planRelativePath = "docs/i
   const planPath = path.join(root, planRelativePath);
   if (!fs.existsSync(planPath)) return [`missing ${planRelativePath}`];
   const plan = fs.readFileSync(planPath, "utf8");
+
+  try {
+    const packageJson = readJson(root, "package.json");
+    for (const script of requiredScripts) {
+      if (typeof packageJson.scripts?.[script] !== "string") failures.push(`missing operational package script: ${script}`);
+    }
+  } catch (error) {
+    failures.push(`cannot read package.json for operational gates: ${error.message}`);
+  }
 
   for (const relativePath of requiredPaths) {
     if (!fs.existsSync(path.join(root, relativePath))) failures.push(`missing referenced evidence path: ${relativePath}`);
@@ -69,7 +86,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(JSON.stringify({ ok: true, requiredPaths: requiredPaths.length, routing: "observe_only", externalReleaseProof: "blocked_until_fresh_artifacts" }, null, 2));
+  console.log(JSON.stringify({ ok: true, requiredPaths: requiredPaths.length, requiredScripts: requiredScripts.length, routing: "observe_only", externalReleaseProof: "blocked_until_fresh_artifacts" }, null, 2));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
