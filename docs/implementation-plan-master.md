@@ -171,6 +171,9 @@ the current checkout.
   checksum content against the signed DMG digest; a blocked proof with no
   external release snapshot remains a valid blocked artifact instead of being
   rejected as malformed.
+- Repo Intelligence CLI/frontend parity now has negative fixtures proving
+  dynamic, unresolved, and two-hop re-exports produce no false call edges;
+  the bounded one-hop contract remains explicit.
 
 ### Remaining build work
 

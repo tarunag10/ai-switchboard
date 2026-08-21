@@ -702,6 +702,22 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("does not infer dynamic or multi-hop re-export calls", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
+      { path: "src/duplicate.ts", bytes: 100, content: "export function runTask() {}" },
+      { path: "src/dynamic.ts", bytes: 100, content: "const target = './worker'; export { target };" },
+      { path: "src/inner.ts", bytes: 100, content: "export { runTask } from './worker';" },
+      { path: "src/outer.ts", bytes: 100, content: "export { runTask } from './inner';" },
+      { path: "src/consumer.ts", bytes: 160, content: "import { runTask as dynamic } from './dynamic'; import { runTask as chained } from './outer'; export function start() { dynamic(); chained(); }" },
+    ]);
+    expect(summary.graph?.symbolEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+  });
+
   it("formats bounded context packs for agent handoff", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
