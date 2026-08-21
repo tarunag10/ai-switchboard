@@ -126,6 +126,8 @@ the current checkout.
 - Connector lifecycle fixtures now have a pure schema gate that rejects
   duplicate IDs, unknown stages, and malformed required-stage declarations;
   Cursor's gated null lifecycle remains valid.
+- World-class benchmark fixtures now have explicit shape, numeric, identity,
+  and allowed-success-proxy validation before quality gates run.
 
 ### Remaining build work
 

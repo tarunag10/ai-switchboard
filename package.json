@@ -85,7 +85,7 @@
     "check:phase5-enterprise": "vitest run src/components/InferenceEndpointProfilesCard.test.tsx && cargo test --manifest-path src-tauri/Cargo.toml --lib content_free_observability && cargo test --manifest-path src-tauri/Cargo.toml --lib inference_endpoint && cargo test --manifest-path src-tauri/Cargo.toml --lib inference_endpoint_commands && cargo test --manifest-path src-tauri/Cargo.toml --lib tenant_policy && cargo test --manifest-path src-tauri/Cargo.toml --lib enterprise_evidence_chain",
     "check:phase6-hardening": "node --test scripts/reboot-level-installed-proof.node-test.mjs scripts/check-phase6-release-hardening.node-test.mjs && cargo test --manifest-path src-tauri/Cargo.toml --lib plugin_promotion_gate && cargo test --manifest-path src-tauri/Cargo.toml --lib dsh_plugin_maturity && cargo test --manifest-path src-tauri/Cargo.toml --lib install_pending_update && cargo test --manifest-path src-tauri/Cargo.toml --lib storage::tests && cargo test --manifest-path src-tauri/Cargo.toml --lib dedicated_cleanup_rollback_removes_managed_launch_agents_only",
     "audit:phase6-release": "node scripts/check-phase6-release-hardening.mjs",
-    "check:world-class-benchmarks": "node scripts/check-world-class-benchmarks.mjs",
+    "check:world-class-benchmarks": "node --test scripts/check-world-class-benchmarks.node-test.mjs && node scripts/check-world-class-benchmarks.mjs",
     "check:world-class-plan": "node scripts/check-world-class-token-savings-plan.mjs",
     "check:p0-trust-seal": "node scripts/check-p0-trust-seal.mjs",
     "check:leanctx-promotion-gate": "node scripts/check-leanctx-promotion-gate.mjs",
