@@ -30,7 +30,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v12";
+const INDEXER_VERSION: &str = "path-graph-v13";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "tree-sitter-graph-v2";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -2462,10 +2462,35 @@ fn build_semantic_call_reference_edges(
                 else {
                     continue;
                 };
+                let direct_target_names = binding
+                    .imported
+                    .clone()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                let direct_target_exists = direct_target_names.iter().any(|name| {
+                    symbols
+                        .iter()
+                        .any(|symbol| symbol.file == target_file.path && symbol.name == *name)
+                });
+                let reexport = if !direct_target_exists {
+                    binding.imported.as_deref().and_then(|imported| {
+                        resolve_local_reexport(repo_root, target_file, imported, files)
+                    })
+                } else {
+                    None
+                };
+                let target_path = reexport
+                    .as_ref()
+                    .map(|(path, _)| path.as_str())
+                    .unwrap_or(target_file.path.as_str());
+                let target_name = reexport
+                    .as_ref()
+                    .map(|(_, name)| name.as_str())
+                    .or(binding.imported.as_deref());
                 let target_symbols = symbols.iter().filter(|symbol| {
-                    symbol.file == target_file.path
-                        && match &binding.imported {
-                            Some(imported) => symbol.name == *imported,
+                    symbol.file == target_path
+                        && match target_name {
+                            Some(name) => symbol.name == name,
                             None => names
                                 .iter()
                                 .any(|name| name != &binding.local && symbol.name == *name),
@@ -2495,6 +2520,58 @@ fn build_semantic_call_reference_edges(
         }
     }
     edges
+}
+
+/// Resolve one static local TypeScript/JavaScript re-export from a barrel
+/// file. This is intentionally one hop: it follows only `export { ... } from`
+/// and `export * from` declarations and never evaluates dynamic exports.
+fn resolve_local_reexport(
+    repo_root: &Path,
+    barrel: &RepoFileSignal,
+    imported: &str,
+    files: &[RepoFileSignal],
+) -> Option<(String, String)> {
+    let content = std::fs::read_to_string(repo_root.join(&barrel.path)).ok()?;
+    for statement in content.replace(['\n', '\r'], " ").split(';') {
+        let statement = statement.trim();
+        let Some(rest) = statement.strip_prefix("export ") else {
+            continue;
+        };
+        let Some((clause, source)) = rest.split_once(" from ") else {
+            continue;
+        };
+        let source = source
+            .trim()
+            .trim_matches(['"', '\'', '`'])
+            .trim_end_matches(',');
+        if source.is_empty() {
+            continue;
+        }
+        let target = resolve_import_specifier(&barrel.path, source, files)?;
+        if clause.trim() == "*" {
+            return Some((target.path.clone(), imported.to_string()));
+        }
+        let clause = clause.trim();
+        let Some(inner) = clause.strip_prefix('{').and_then(|value| value.strip_suffix('}')) else {
+            continue;
+        };
+        for item in inner.split(',') {
+            let parts = item.split_whitespace().collect::<Vec<_>>();
+            let Some(original) = parts.first() else {
+                continue;
+            };
+            let exported = parts
+                .iter()
+                .position(|part| *part == "as")
+                .and_then(|index| parts.get(index + 1))
+                .copied()
+                .unwrap_or(original);
+            if exported == imported {
+                return Some((target.path.clone(), (*original).to_string()));
+            }
+        }
+    }
+    None
 }
 
 fn extract_import_bindings(file: &RepoFileSignal, content: &str) -> Vec<RepoImportBinding> {
@@ -4176,6 +4253,60 @@ export const mapValues = <T>(items: T[]) => items;
     }
 
     #[test]
+    fn resolves_one_hop_named_and_wildcard_typescript_reexports() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("worker.ts"), "export function runTask() {}\n")
+            .expect("write worker");
+        std::fs::write(src.join("named.ts"), "export { runTask as execute } from './worker';\n")
+            .expect("write named barrel");
+        std::fs::write(src.join("star.ts"), "export * from './worker';\n")
+            .expect("write wildcard barrel");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import { execute } from './named';\nimport { runTask } from './star';\nexport function start() { execute(); runTask(); }\n",
+        )
+        .expect("write consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        for edge in [
+            ("src/consumer.ts#start", "src/worker.ts#runTask"),
+        ] {
+            assert!(graph.symbol_edges.iter().any(|candidate| {
+                candidate.from == edge.0
+                    && candidate.to == edge.1
+                    && candidate.kind == RepoGraphEdgeKind::CallReference
+                    && candidate.reason == "AST call expression resolved through local import binding"
+            }), "missing re-export edge {} -> {}", edge.0, edge.1);
+        }
+    }
+
+    #[test]
+    fn does_not_resolve_dynamic_reexports() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("worker.ts"), "export function runTask() {}\n")
+            .expect("write worker");
+        std::fs::write(src.join("barrel.ts"), "const target = './worker'; export { target };\n")
+            .expect("write dynamic barrel");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import { runTask } from './barrel';\nexport function start() { runTask(); }\n",
+        )
+        .expect("write consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/consumer.ts#start"
+                && edge.to == "src/worker.ts#runTask"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+                && edge.reason == "AST call expression resolved through local import binding"
+        }));
+    }
+
+    #[test]
     fn resolves_namespace_import_member_calls_to_target_file_symbols() {
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
@@ -4226,7 +4357,7 @@ export const mapValues = <T>(items: T[]) => items;
         .expect("write html");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
-        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v12"));
+        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v13"));
         let graph = summary.graph.expect("graph");
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/styles.css"

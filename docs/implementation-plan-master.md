@@ -60,6 +60,9 @@ the current checkout.
 - Repo Intelligence now preserves a direct same-file call when the same file
   also contains a member call with that name; the object-member cross-file
   guard remains in place.
+- Repo Intelligence now resolves one-hop local TypeScript/JavaScript named
+  and wildcard re-exports, while dynamic exports remain unresolved; indexer
+  version is `path-graph-v13`.
 
 ### Done — prepared and shipped
 
