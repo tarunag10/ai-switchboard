@@ -1595,6 +1595,9 @@ function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
         let target = callableSymbols.find(
           (symbol) => symbol.file === targetFile.path && symbol.name === name,
         );
+        if (!target && binding.imported === "default") {
+          target = resolveDefaultExportSymbol(repoRoot, targetFile, callableSymbols);
+        }
         if (!target && binding.imported) {
           const reexport = resolveLocalReexportBinding(
             repoRoot,
@@ -1645,8 +1648,13 @@ function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
       if (!parts.length) continue;
       const original = parts[0];
       const exported = parts[1] === "as" ? parts[2] : original;
-      if (exported === imported && isExplicitlyExportedSymbol(repoRoot, target, original)) {
-        return { file: target.path, name: original };
+      if (exported === imported) {
+        if (original === "default") {
+          const defaultTarget = resolveDefaultExportName(repoRoot, target);
+          if (defaultTarget) return { file: target.path, name: defaultTarget };
+        } else if (isExplicitlyExportedSymbol(repoRoot, target, original)) {
+          return { file: target.path, name: original };
+        }
       }
     }
   }
@@ -1659,6 +1667,35 @@ function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
     }
   }
   return candidates.length === 1 ? candidates[0] : null;
+}
+
+function resolveDefaultExportName(repoRoot, file) {
+  let content = "";
+  try {
+    content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+  } catch {
+    return null;
+  }
+  const declaration = content.match(
+    /\bexport\s+default\s+(?:async\s+)?(?:function|class)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/,
+  );
+  if (declaration?.[1]) return declaration[1];
+  for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}(?!\s*from\b)/g)) {
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      const original = parts[0];
+      const exported = parts[1] === "as" ? parts[2] : original;
+      if (exported === "default" && original) return original;
+    }
+  }
+  return null;
+}
+
+function resolveDefaultExportSymbol(repoRoot, file, callableSymbols) {
+  const name = resolveDefaultExportName(repoRoot, file);
+  return name
+    ? callableSymbols.find((symbol) => symbol.file === file.path && symbol.name === name) ?? null
+    : null;
 }
 
 function isExplicitlyExportedSymbol(repoRoot, file, name) {
@@ -1703,6 +1740,10 @@ function extractStaticImportBindings(content, language) {
           imported: parts[0],
           specifier,
         });
+      }
+      const defaultPart = clause.split(",", 1)[0]?.trim() ?? "";
+      if (defaultPart && !defaultPart.startsWith("{") && !defaultPart.startsWith("*")) {
+        bindings.push({ local: defaultPart, imported: "default", specifier });
       }
     }
   }

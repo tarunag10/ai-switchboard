@@ -92,6 +92,38 @@ test("CLI graph resolves exported namespace members and rejects private members"
   }
 });
 
+test("CLI graph resolves named default imports without global-name ambiguity", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-default-import-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/worker.ts"), "export default function runTask() {}\n");
+    fs.writeFileSync(path.join(repo, "src/other.ts"), "export function runTask() {}\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import runTask from './worker'; export function start() { runTask(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.ok(summary.graph.symbolEdges.some((edge) => edge.to === "src/worker.ts#runTask" && edge.kind === "call_reference"));
+    assert.ok(!summary.graph.symbolEdges.some((edge) => edge.to === "src/other.ts#runTask" && edge.kind === "call_reference"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("CLI default re-exports stay one-hop and anonymous defaults stay unresolved", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-default-reexport-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/worker.ts"), "export function runTask() {}\n");
+    fs.writeFileSync(path.join(repo, "src/barrel.ts"), "export { runTask as default } from './worker';\n");
+    fs.writeFileSync(path.join(repo, "src/anonymous.ts"), "export default function () {}\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import runTask from './barrel'; import anonymous from './anonymous'; export function start() { runTask(); anonymous(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    const callEdges = summary.graph.symbolEdges.filter((edge) => edge.kind === "call_reference");
+    assert.ok(callEdges.some((edge) => edge.to === "src/worker.ts#runTask"));
+    assert.ok(!callEdges.some((edge) => edge.to.includes("anonymous")));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("CLI default indexing excludes unknown files like the native and frontend indexers", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-classification-"));
   try {

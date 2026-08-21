@@ -3033,6 +3033,9 @@ function buildImportCallReferenceEdges(
         let target: RepoSymbol | undefined = callableSymbols.find(
           (symbol) => symbol.file === importedFile.path && symbol.name === memberName,
         );
+        if (!target && binding.imported === "default") {
+          target = resolveDefaultExportSymbol(importedFile, callableSymbols, contentByPath);
+        }
         if (!target) {
           const reexport = resolveLocalReexportBinding(
             importedFile,
@@ -3082,6 +3085,9 @@ function extractStaticImportBindings(content: string): Array<{ local: string; im
       });
     }
   }
+  for (const match of joined.matchAll(/\bimport\s+([A-Za-z_$][A-Za-z0-9_$]*)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+[A-Za-z_$][A-Za-z0-9_$]*))?\s+from\s+["']([^"']+)["']/g)) {
+    bindings.push({ local: match[1], imported: "default", specifier: match[2] });
+  }
   return bindings.filter((binding) => Boolean(binding.local && binding.specifier));
 }
 
@@ -3101,8 +3107,13 @@ function resolveLocalReexportBinding(
       if (!parts.length) continue;
       const original = parts[0];
       const exported = parts[1] === "as" ? parts[2] : original;
-      if (exported === imported && isExplicitlyExportedSymbol(target, original, contentByPath)) {
-        return { file: target.path, name: original };
+      if (exported === imported) {
+        if (original === "default") {
+          const defaultTarget = resolveDefaultExportName(target, contentByPath);
+          if (defaultTarget) return { file: target.path, name: defaultTarget };
+        } else if (isExplicitlyExportedSymbol(target, original, contentByPath)) {
+          return { file: target.path, name: original };
+        }
       }
     }
   }
@@ -3134,6 +3145,38 @@ function isExplicitlyExportedSymbol(
     }
   }
   return false;
+}
+
+function resolveDefaultExportName(
+  file: RepoFileSignal,
+  contentByPath: Map<string, string>,
+): string | null {
+  const content = contentByPath.get(file.path);
+  if (!content) return null;
+  const declaration = content.match(
+    /\bexport\s+default\s+(?:async\s+)?(?:function|class)\s+([A-Za-z_$][A-Za-z0-9_$]*)\b/,
+  );
+  if (declaration?.[1]) return declaration[1];
+  for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}(?!\s*from\b)/g)) {
+    for (const item of match[1].split(",")) {
+      const parts = item.trim().split(/\s+/).filter(Boolean);
+      const original = parts[0];
+      const exported = parts[1] === "as" ? parts[2] : original;
+      if (exported === "default" && original) return original;
+    }
+  }
+  return null;
+}
+
+function resolveDefaultExportSymbol(
+  file: RepoFileSignal,
+  callableSymbols: RepoSymbol[],
+  contentByPath: Map<string, string>,
+): RepoSymbol | undefined {
+  const name = resolveDefaultExportName(file, contentByPath);
+  return name
+    ? callableSymbols.find((symbol) => symbol.file === file.path && symbol.name === name)
+    : undefined;
 }
 
 function hasUnqualifiedCallReference(content: string, name: string): boolean {

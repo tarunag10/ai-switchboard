@@ -708,6 +708,40 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("resolves named default imports without global-name ambiguity", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.ts", bytes: 120, content: "export default function runTask() {}" },
+      { path: "src/other.ts", bytes: 100, content: "export function runTask() {}" },
+      { path: "src/consumer.ts", bytes: 140, content: "import runTask from './worker'; export function start() { runTask(); }" },
+    ]);
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+    expect(summary.graph?.symbolEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/other.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+  });
+
+  it("resolves one-hop default re-exports and ignores anonymous defaults", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
+      { path: "src/barrel.ts", bytes: 120, content: "export { runTask as default } from './worker';" },
+      { path: "src/anonymous.ts", bytes: 120, content: "export default function () {}" },
+      { path: "src/consumer.ts", bytes: 180, content: "import runTask from './barrel'; import anonymous from './anonymous'; export function start() { runTask(); anonymous(); }" },
+    ]);
+    const callEdges = summary.graph?.symbolEdges?.filter((edge) => edge.kind === "call_reference") ?? [];
+    expect(callEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+    expect(callEdges.some((edge) => edge.to.includes("anonymous"))).toBe(false);
+  });
+
   it("resolves namespace import member calls only for exported callable members", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/utils.ts", bytes: 120, content: "export function normalize() {}\nfunction hidden() {}" },

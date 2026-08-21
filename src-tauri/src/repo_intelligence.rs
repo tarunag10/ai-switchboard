@@ -2517,6 +2517,13 @@ fn build_semantic_call_reference_edges(
                 } else {
                     None
                 };
+                let default_name = if binding.imported.as_deref() == Some("default")
+                    && reexport.is_none()
+                {
+                    resolve_default_export_name(repo_root, target_file)
+                } else {
+                    None
+                };
                 let target_path = reexport
                     .as_ref()
                     .map(|(path, _)| path.as_str())
@@ -2524,6 +2531,7 @@ fn build_semantic_call_reference_edges(
                 let target_name = reexport
                     .as_ref()
                     .map(|(_, name)| name.as_str())
+                    .or(default_name.as_deref())
                     .or(binding.imported.as_deref());
                 let namespace_member_names = binding
                     .imported
@@ -2625,12 +2633,52 @@ fn resolve_local_reexport(
                 .and_then(|index| parts.get(index + 1))
                 .copied()
                 .unwrap_or(original);
-            if exported == imported && explicitly_exports_symbol(repo_root, &target.path, original) {
-                return Some((target.path.clone(), (*original).to_string()));
+            if exported == imported {
+                if *original == "default" {
+                    if let Some(default_name) = resolve_default_export_name(repo_root, target) {
+                        return Some((target.path.clone(), default_name));
+                    }
+                } else if explicitly_exports_symbol(repo_root, &target.path, original) {
+                    return Some((target.path.clone(), (*original).to_string()));
+                }
             }
         }
     }
     (wildcard_candidates.len() == 1).then(|| wildcard_candidates.remove(0))
+}
+
+fn resolve_default_export_name(repo_root: &Path, target: &RepoFileSignal) -> Option<String> {
+    let content = std::fs::read_to_string(repo_root.join(&target.path)).ok()?;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let Some(rest) = trimmed.strip_prefix("export default ") else {
+            continue;
+        };
+        let rest = rest.trim_start_matches("async ");
+        if rest.starts_with("function ") || rest.starts_with("class ") {
+            return rest
+                .split_whitespace()
+                .nth(1)
+                .and_then(|value| value.split(['(', '{']).next())
+                .map(str::to_string);
+        }
+    }
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let Some(inner) = trimmed
+            .strip_prefix("export {")
+            .and_then(|value| value.split('}').next())
+        else {
+            continue;
+        };
+        for item in inner.split(',') {
+            let parts = item.split_whitespace().collect::<Vec<_>>();
+            if parts.get(1) == Some(&"as") && parts.get(2) == Some(&"default") {
+                return parts.first().map(|value| (*value).to_string());
+            }
+        }
+    }
+    None
 }
 
 fn explicitly_exports_symbol(repo_root: &Path, target_path: &str, name: &str) -> bool {
@@ -4443,6 +4491,60 @@ export const mapValues = <T>(items: T[]) => items;
                 "missing semantically resolved call edge {caller} -> {callee}"
             );
         }
+    }
+
+    #[test]
+    fn resolves_named_default_import_without_global_name_ambiguity() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("worker.ts"), "export default function runTask() {}\n")
+            .expect("write default worker");
+        std::fs::write(src.join("other.ts"), "export function runTask() {}\n")
+            .expect("write duplicate worker");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import runTask from './worker';\nexport function start() { runTask(); }\n",
+        )
+        .expect("write default consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/consumer.ts#start"
+                && edge.to == "src/worker.ts#runTask"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/consumer.ts#start"
+                && edge.to == "src/other.ts#runTask"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn resolves_one_hop_default_reexport_and_ignores_anonymous_default() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("worker.ts"), "export function runTask() {}\n")
+            .expect("write worker");
+        std::fs::write(src.join("barrel.ts"), "export { runTask as default } from './worker';\n")
+            .expect("write barrel");
+        std::fs::write(src.join("anonymous.ts"), "export default function () {}\n")
+            .expect("write anonymous default");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import runTask from './barrel';\nimport anonymous from './anonymous';\nexport function start() { runTask(); anonymous(); }\n",
+        )
+        .expect("write consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.to == "src/worker.ts#runTask" && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.to.contains("anonymous") && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
     }
 
     #[test]

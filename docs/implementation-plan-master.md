@@ -307,10 +307,11 @@ the current checkout.
    fields, and the shared public-proof/shareable-DMG gate consistency contract
    are shipped; executing the external checklist still requires signing
    credentials, a current public artifact, and a real reboot.
-3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
-   shipped; remaining work is deeper bounded semantic resolution only where it
-   remains deterministic. Whole-program type inference and dynamic dispatch
-   stay out of scope unless a separate evidence-backed design is approved.
+3. **Repo Intelligence depth:** ambiguity handling, indexer versioning, and
+   bounded named default-import/default-re-export resolution are shipped;
+   remaining work is deeper bounded semantic resolution only where it remains
+   deterministic. Whole-program type inference and dynamic dispatch stay out
+   of scope unless a separate evidence-backed design is approved.
 4. **Connector coverage:** lifecycle evidence linkage is now machine-checked;
    promotion inventories are also fail-closed for canonical ordering,
    duplication, overlap, and Cursor gating;
