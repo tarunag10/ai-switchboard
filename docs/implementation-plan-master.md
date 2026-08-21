@@ -271,6 +271,9 @@ the current checkout.
 - Native routing evidence ingestion applies the same explicit timezone,
   seven-day freshness, and five-minute future-skew contract as the JavaScript
   checker, preventing stale local rows from entering a reconciliation run.
+- The model-routing experiment card now provides an operator-facing redacted
+  capture/export path wired to the native evidence store; it exposes outcome
+  metrics only and labels every local export observe-only.
 
 ### Remaining build work
 

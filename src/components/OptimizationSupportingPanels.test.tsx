@@ -8,6 +8,7 @@ import { OptimizationStatusIcon, PromptCacheClientProofList, RoutingValidationPa
 const mocks = vi.hoisted(() => ({
   loadAction: vi.fn(), saveAction: vi.fn(), compact: vi.fn(), validate: vi.fn(),
   loadRouting: vi.fn(), saveRouting: vi.fn(),
+  recordEvidence: vi.fn(), exportEvidence: vi.fn(),
 }));
 
 vi.mock("../lib/optimization", async (importOriginal) => ({
@@ -18,6 +19,8 @@ vi.mock("../lib/optimization", async (importOriginal) => ({
   validateModelRouting: mocks.validate,
   loadModelRoutingExperimentPolicy: mocks.loadRouting,
   saveModelRoutingExperimentPolicy: mocks.saveRouting,
+  recordModelRoutingEvidence: mocks.recordEvidence,
+  exportModelRoutingEvidence: mocks.exportEvidence,
 }));
 
 const actionPolicy = {
@@ -110,5 +113,34 @@ describe("optimization supporting panels", () => {
     render(<ModelRoutingExperimentCard />);
     fireEvent.click(await screen.findByRole("button", { name: "Save routing policy" }));
     expect(await screen.findByRole("status")).toHaveTextContent("storage blocked");
+  });
+
+  it("captures and exports redacted model-routing observations", async () => {
+    mocks.recordEvidence.mockResolvedValue(undefined);
+    mocks.exportEvidence.mockResolvedValue({
+      evidenceClass: "local_runtime_observation",
+      promotionEligible: false,
+      baseline: { sampleCount: 1 },
+      candidate: { sampleCount: 1 },
+    });
+    render(<ModelRoutingExperimentCard />);
+    fireEvent.change(screen.getByLabelText("Routing evidence run ID"), { target: { value: "run-1" } });
+    fireEvent.change(screen.getByLabelText("Baseline model ID"), { target: { value: "frontier" } });
+    fireEvent.change(screen.getByLabelText("Candidate model ID"), { target: { value: "fast/local" } });
+    fireEvent.change(screen.getByLabelText("Successful task cost"), { target: { value: "700" } });
+    fireEvent.change(screen.getByLabelText("Latency"), { target: { value: "820" } });
+    fireEvent.click(screen.getByRole("button", { name: "Record observation" }));
+    await waitFor(() => expect(mocks.recordEvidence).toHaveBeenCalledWith(expect.objectContaining({
+      runId: "run-1",
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      successfulTaskCostMicrounits: 700,
+      latencyMs: 820,
+    })));
+    expect(await screen.findByRole("status")).toHaveTextContent("recorded locally");
+
+    fireEvent.click(screen.getByRole("button", { name: "Export run evidence" }));
+    await waitFor(() => expect(mocks.exportEvidence).toHaveBeenCalledWith("run-1", "formatting"));
+    expect(await screen.findByLabelText("Exported routing evidence")).toHaveTextContent("local_runtime_observation");
   });
 });

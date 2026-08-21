@@ -7,6 +7,7 @@ import {
   type ModelRoutingExperimentPolicy,
   type ModelRoutingStage,
 } from "../lib/optimization";
+import { ModelRoutingEvidenceCapture } from "./ModelRoutingEvidenceCapture";
 
 const taskClasses = ["formatting", "commit_message", "rename", "diff_summary"] as const;
 
@@ -144,6 +145,7 @@ export function ModelRoutingExperimentCard() {
         {saving ? "Saving" : "Save routing policy"}
       </button>
       {notice ? <p role="status">{notice}</p> : null}
+      <ModelRoutingEvidenceCapture />
     </article>
   );
 }
