@@ -157,6 +157,9 @@ the current checkout.
 - Gemini connector verification now has a deterministic negative-path test for
   each managed shell export; the test derives the actual apply targets so a
   future target-surface change cannot silently make drift coverage ineffective.
+- Native Repo Intelligence re-export scanning now uses Tree-sitter export
+  nodes, handles semicolonless declarations, and continues after unresolved
+  external exports; focused native coverage is 41 tests.
 
 ### Remaining build work
 

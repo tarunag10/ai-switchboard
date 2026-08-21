@@ -2532,7 +2532,13 @@ fn resolve_local_reexport(
     files: &[RepoFileSignal],
 ) -> Option<(String, String)> {
     let content = std::fs::read_to_string(repo_root.join(&barrel.path)).ok()?;
-    for statement in content.replace(['\n', '\r'], " ").split(';') {
+    let mut statements = Vec::new();
+    let mut parser = tree_sitter::Parser::new();
+    let language = tree_sitter_language_for_language_name(&barrel.language)?;
+    parser.set_language(&language).ok()?;
+    let tree = parser.parse(&content, None)?;
+    collect_export_statement_texts(tree.root_node(), content.as_bytes(), &mut statements);
+    for statement in statements {
         let statement = statement.trim();
         let Some(rest) = statement.strip_prefix("export ") else {
             continue;
@@ -2542,12 +2548,15 @@ fn resolve_local_reexport(
         };
         let source = source
             .trim()
+            .trim_end_matches([';', ','])
             .trim_matches(['"', '\'', '`'])
-            .trim_end_matches(',');
+            .trim();
         if source.is_empty() {
             continue;
         }
-        let target = resolve_import_specifier(&barrel.path, source, files)?;
+        let Some(target) = resolve_import_specifier(&barrel.path, source, files) else {
+            continue;
+        };
         if clause.trim() == "*" {
             return Some((target.path.clone(), imported.to_string()));
         }
@@ -2572,6 +2581,22 @@ fn resolve_local_reexport(
         }
     }
     None
+}
+
+fn collect_export_statement_texts(
+    node: tree_sitter::Node<'_>,
+    source: &[u8],
+    statements: &mut Vec<String>,
+) {
+    if node.kind() == "export_statement" {
+        if let Ok(text) = node.utf8_text(source) {
+            statements.push(text.to_string());
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_export_statement_texts(child, source, statements);
+    }
 }
 
 fn extract_import_bindings(file: &RepoFileSignal, content: &str) -> Vec<RepoImportBinding> {
@@ -4303,6 +4328,32 @@ export const mapValues = <T>(items: T[]) => items;
                 && edge.to == "src/worker.ts#runTask"
                 && edge.kind == RepoGraphEdgeKind::CallReference
                 && edge.reason == "AST call expression resolved through local import binding"
+        }));
+    }
+
+    #[test]
+    fn continues_after_unresolved_and_semicolonless_reexports() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("worker.ts"), "export function runTask() {}\n")
+            .expect("write worker");
+        std::fs::write(
+            src.join("barrel.ts"),
+            "export { missing } from './outside'\nexport { runTask as execute } from './worker'\nexport const after = true\n",
+        )
+        .expect("write barrel");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import { execute } from './barrel';\nexport function start() { execute(); }\n",
+        )
+        .expect("write consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/consumer.ts#start"
+                && edge.to == "src/worker.ts#runTask"
+                && edge.kind == RepoGraphEdgeKind::CallReference
         }));
     }
 
