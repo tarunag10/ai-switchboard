@@ -45,6 +45,20 @@ export function validateReleaseReadinessReport(report) {
   if (!report || typeof report !== "object" || Array.isArray(report)) return ["report must be an object"];
   if (typeof report.status !== "string" || report.status.trim() === "") failures.push("status must be a non-empty string");
   if (!report.releaseEnv || !Array.isArray(report.releaseEnv.blockers)) failures.push("releaseEnv.blockers must be an array");
+  if (report.releaseEnv && Array.isArray(report.releaseEnv.blockers)) {
+    report.releaseEnv.blockers.forEach((blocker, index) => {
+      if (!blocker || typeof blocker !== "object" || Array.isArray(blocker)) {
+        failures.push(`releaseEnv.blockers[${index}] must be an object`);
+        return;
+      }
+      if (typeof blocker.label !== "string" || blocker.label.trim() === "") {
+        failures.push(`releaseEnv.blockers[${index}].label must be a non-empty string`);
+      }
+      if (typeof blocker.hint !== "string") {
+        failures.push(`releaseEnv.blockers[${index}].hint must be a string`);
+      }
+    });
+  }
   if (!report.backendValidation || typeof report.backendValidation.ready !== "boolean") failures.push("backendValidation.ready must be boolean");
   if (report.backendValidation && !report.backendValidation.ready) {
     if (!Array.isArray(report.backendValidation.unblockCommands)) failures.push("backendValidation.unblockCommands must be an array when not ready");

@@ -43,6 +43,19 @@ test("rejects malformed readiness reports before action mapping", () => {
   assert.match(failures.join("\n"), /installedSmoke/);
 });
 
+test("rejects malformed blocker entries before action mapping", () => {
+  const failures = validateReleaseReadinessReport({
+    status: "blocked",
+    releaseEnv: { blockers: [null, {}, { label: "", hint: 42 }, { label: 7, hint: "ok" }] },
+    backendValidation: { ready: true },
+    installedSmoke: { installedAppPresent: true, evidenceReady: true, missingEvidence: [] },
+  });
+  assert.match(failures.join("\n"), /blockers\[0\] must be an object/);
+  assert.match(failures.join("\n"), /blockers\[1\]\.label must be a non-empty string/);
+  assert.match(failures.join("\n"), /blockers\[2\]\.hint must be a string/);
+  assert.match(failures.join("\n"), /blockers\[3\]\.label must be a non-empty string/);
+});
+
 test("requires a value after --report", () => {
   const run = spawnSync(process.execPath, ["scripts/check-release-readiness.mjs", "--no-refresh", "--report", "--json"], { encoding: "utf8" });
   assert.equal(run.status, 1);
