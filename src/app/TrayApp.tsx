@@ -2619,7 +2619,11 @@ export default function TrayApp() {
           item.clientId === row.clientId
             ? {
                 ...item,
-                state: result.success ? "processing" : "waiting",
+                // The native smoke command already requires both a zero exit
+                // status and the exact expected response. Marking this row
+                // verified here prevents an unrelated later request-counter
+                // tick from being mistaken for proof of this attempt.
+                state: result.success ? "verified" : "waiting",
                 message: result.summary,
               }
             : item,

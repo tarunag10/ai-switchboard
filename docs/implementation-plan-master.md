@@ -214,6 +214,9 @@ the current checkout.
 - Frontend one-click connector rows now require that exact smoke result before
   request-counter activity can mark them verified, preventing unrelated or
   mismatched model traffic from producing a false green.
+- Successful one-click smoke attempts now transition directly to verified from
+  the exact native result; request-counter polling cannot upgrade a pending or
+  failed one-click attempt.
 - Mode-relaunch validation now requires both intercept and proxy listeners to
   be down for each persistence-only result, and release readiness reuses that
   contract instead of trusting `passed` alone.
