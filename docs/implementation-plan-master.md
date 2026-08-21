@@ -294,7 +294,10 @@ the current checkout.
    guards are shipped. Importing successful-task, rework,
    quality, and latency observations from a real approved benchmark producer
    remains pending; the local runtime exporter is ready but automatic routing
-   stays observe-only until that evidence and approval exists.
+   stays observe-only until that evidence and approval exists. A content-free
+   completed-route adapter now enforces explicit quality, rework, and
+   successful-task cost inputs before producing a store-ready observation;
+   wiring it into a central production completion hook remains pending.
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
    canonical app identity, report freshness contract, local source-lineage

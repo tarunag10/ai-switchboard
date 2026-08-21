@@ -177,6 +177,8 @@ pub(crate) struct ModelRouteDecision {
     pub(crate) reasons: Vec<String>,
     pub(crate) stage: ModelRoutingStage,
     pub(crate) task_class: String,
+    pub(crate) baseline_model: String,
+    pub(crate) candidate_model: String,
     pub(crate) evidence: Option<ModelRoutingEvidenceAssessment>,
 }
 
@@ -236,6 +238,20 @@ pub(crate) struct ModelRoutingEvidenceObservation {
     pub(crate) follow_up_rework: bool,
 }
 
+/// Content-free metrics supplied by a completed route. Quality, rework, and
+/// successful-task cost are intentionally caller-provided: routing code must
+/// never infer them from prompts, responses, token counts, or latency alone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ModelRoutingCompletionEvidence {
+    pub(crate) run_id: String,
+    pub(crate) captured_at: String,
+    pub(crate) succeeded: bool,
+    pub(crate) successful_task_cost_microunits: Option<u64>,
+    pub(crate) quality_score_bps: Option<u32>,
+    pub(crate) latency_ms: u64,
+    pub(crate) follow_up_rework: Option<bool>,
+}
+
 impl ModelRoutingEvidenceObservation {
     pub(crate) fn sample(&self) -> ModelRoutingEvidenceSample {
         ModelRoutingEvidenceSample {
@@ -248,6 +264,50 @@ impl ModelRoutingEvidenceObservation {
             follow_up_rework: self.follow_up_rework,
         }
     }
+}
+
+/// Build a redacted evidence observation from a completed route. This adapter
+/// does not persist data or promote routing; callers must pass the returned
+/// observation through the validated telemetry-store boundary.
+pub(crate) fn observation_from_completed_route(
+    decision: &ModelRouteDecision,
+    completion: ModelRoutingCompletionEvidence,
+) -> Result<ModelRoutingEvidenceObservation, String> {
+    let arm = if decision.actual_model == decision.baseline_model {
+        ModelRoutingEvidenceArm::Baseline
+    } else if decision.actual_model == decision.candidate_model {
+        ModelRoutingEvidenceArm::Candidate
+    } else {
+        return Err("completed route model does not match baseline or candidate identity".to_string());
+    };
+    let quality_score_bps = completion
+        .quality_score_bps
+        .ok_or_else(|| "completed route requires an explicit quality score".to_string())?;
+    let follow_up_rework = completion
+        .follow_up_rework
+        .ok_or_else(|| "completed route requires an explicit rework result".to_string())?;
+    if quality_score_bps > 10_000 {
+        return Err("completed route quality score must be between 0 and 10000 basis points".to_string());
+    }
+    if completion.succeeded != completion.successful_task_cost_microunits.is_some() {
+        return Err(
+            "successful-task cost is required only for successful completed routes".to_string(),
+        );
+    }
+
+    Ok(ModelRoutingEvidenceObservation {
+        run_id: completion.run_id,
+        captured_at: completion.captured_at,
+        task_class: decision.task_class.clone(),
+        arm,
+        baseline_model: decision.baseline_model.clone(),
+        candidate_model: decision.candidate_model.clone(),
+        succeeded: completion.succeeded,
+        successful_task_cost_microunits: completion.successful_task_cost_microunits,
+        quality_score_bps,
+        latency_ms: completion.latency_ms,
+        follow_up_rework,
+    })
 }
 
 /// Deterministically reconciles redacted, task-class-scoped observations into
@@ -526,12 +586,14 @@ fn decision(
         } else {
             proposed_model.clone()
         },
-        selected_model: proposed_model,
+        selected_model: proposed_model.clone(),
         observe_only,
         reason: reason.to_string(),
         reasons,
         stage: policy.stage,
         task_class,
+        baseline_model: input.requested_model.clone(),
+        candidate_model: proposed_model.clone(),
         evidence,
     }
 }
@@ -681,6 +743,71 @@ mod tests {
             .reasons
             .iter()
             .any(|reason| reason == "task_class=formatting"));
+        assert_eq!(decision.baseline_model, "frontier");
+        assert_eq!(decision.candidate_model, "fast/local");
+    }
+
+    fn completion() -> ModelRoutingCompletionEvidence {
+        ModelRoutingCompletionEvidence {
+            run_id: "run-1".to_string(),
+            captured_at: "2026-08-21T00:00:00Z".to_string(),
+            succeeded: true,
+            successful_task_cost_microunits: Some(100),
+            quality_score_bps: Some(9_500),
+            latency_ms: 120,
+            follow_up_rework: Some(false),
+        }
+    }
+
+    #[test]
+    fn completed_route_adapter_builds_redacted_baseline_observation() {
+        let decision = decide_model_route(&input());
+        let observation = observation_from_completed_route(&decision, completion()).unwrap();
+        assert_eq!(observation.arm, ModelRoutingEvidenceArm::Baseline);
+        assert_eq!(observation.task_class, "formatting");
+        assert_eq!(observation.baseline_model, "frontier");
+        assert_eq!(observation.candidate_model, "fast/local");
+        assert_eq!(observation.successful_task_cost_microunits, Some(100));
+    }
+
+    #[test]
+    fn completed_route_adapter_requires_explicit_quality_rework_and_cost_contract() {
+        let decision = decide_model_route(&input());
+
+        let mut missing_quality = completion();
+        missing_quality.quality_score_bps = None;
+        assert!(observation_from_completed_route(&decision, missing_quality)
+            .unwrap_err()
+            .contains("explicit quality"));
+
+        let mut missing_rework = completion();
+        missing_rework.follow_up_rework = None;
+        assert!(observation_from_completed_route(&decision, missing_rework)
+            .unwrap_err()
+            .contains("explicit rework"));
+
+        let mut missing_cost = completion();
+        missing_cost.successful_task_cost_microunits = None;
+        assert!(observation_from_completed_route(&decision, missing_cost).is_err());
+
+        let mut failed_with_cost = completion();
+        failed_with_cost.succeeded = false;
+        assert!(observation_from_completed_route(&decision, failed_with_cost).is_err());
+
+        let mut invalid_quality = completion();
+        invalid_quality.quality_score_bps = Some(10_001);
+        assert!(observation_from_completed_route(&decision, invalid_quality)
+            .unwrap_err()
+            .contains("basis points"));
+    }
+
+    #[test]
+    fn completed_route_adapter_rejects_unknown_actual_model() {
+        let mut decision = decide_model_route(&input());
+        decision.actual_model = "unregistered-model".to_string();
+        assert!(observation_from_completed_route(&decision, completion())
+            .unwrap_err()
+            .contains("baseline or candidate"));
     }
 
     #[test]
