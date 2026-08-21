@@ -24,4 +24,7 @@ test("rejects duplicate, overlapping, malformed, and reordered promotion data", 
 
   const reordered = { ...fixture, requiredSidecarStages: [...fixture.requiredSidecarStages].reverse() };
   assert.match(validateConnectorPromotionFixture(reordered).join("\n"), /canonical lifecycle order/);
+
+  const reorderedIds = { ...fixture, promotedNativeConnectorIds: [...fixture.promotedNativeConnectorIds].reverse() };
+  assert.match(validateConnectorPromotionFixture(reorderedIds).join("\n"), /canonical sorted connector ID order/);
 });

@@ -23,6 +23,9 @@ function validateIdList(value, label) {
   }
   const duplicates = duplicateValues(value);
   if (duplicates.length > 0) errors.push(`${label} contains duplicate IDs: ${duplicates.join(", ")}`);
+  if (JSON.stringify(value) !== JSON.stringify([...value].sort())) {
+    errors.push(`${label} must use canonical sorted connector ID order`);
+  }
   return errors;
 }
 

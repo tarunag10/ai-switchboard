@@ -312,6 +312,8 @@ the current checkout.
    remains deterministic. Whole-program type inference and dynamic dispatch
    stay out of scope unless a separate evidence-backed design is approved.
 4. **Connector coverage:** lifecycle evidence linkage is now machine-checked;
+   promotion inventories are also fail-closed for canonical ordering,
+   duplication, overlap, and Cursor gating;
    continue only with documented schemas and full
    detect/preview/backup/apply/verify/rollback/off/uninstall proof. Cursor
    native provider writes remain gated; Continue, Aider, Qwen Code, and Amazon
