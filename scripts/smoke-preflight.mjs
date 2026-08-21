@@ -1,18 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
 
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const installDoc = "docs/install.md";
 const releaseDoc = "docs/macos-release.md";
-const appPathCandidates = [
-  "/Applications/AI Switchboard.app",
-  "/Applications/AI Switchboard for Mac.app",
-  "/Applications/Mac AI Switchboard.app",
-  "/Applications/Mac Switchboard.app",
-];
-const appPath =
-  appPathCandidates.find((candidate) => fs.existsSync(candidate)) ??
-  appPathCandidates[0];
+const appPath = canonicalInstalledAppPath;
 const summaryPath = "dist/smoke-preflight-summary.md";
 const releaseReportPath = "dist/release-readiness-report.md";
 
