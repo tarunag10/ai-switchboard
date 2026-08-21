@@ -1573,6 +1573,9 @@ function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
             ),
           )].map((match) => match[1]);
       for (const name of new Set(targetNames)) {
+        if (!binding.imported && !isExplicitlyExportedSymbol(repoRoot, targetFile, name)) {
+          continue;
+        }
         let target = callableSymbols.find(
           (symbol) => symbol.file === targetFile.path && symbol.name === name,
         );

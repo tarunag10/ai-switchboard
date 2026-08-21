@@ -76,3 +76,18 @@ test("CLI graph rejects ambiguous wildcards and private named re-exports", () =>
     fs.rmSync(repo, { recursive: true, force: true });
   }
 });
+
+test("CLI graph resolves exported namespace members and rejects private members", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-namespace-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/utils.ts"), "export function normalize() {}\nfunction hidden() {}\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import * as utils from './utils'; export function start() { utils.normalize(); utils.hidden(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    const callEdges = summary.graph.symbolEdges.filter((edge) => edge.kind === "call_reference");
+    assert.ok(callEdges.some((edge) => edge.to === "src/utils.ts#normalize"));
+    assert.ok(!callEdges.some((edge) => edge.to === "src/utils.ts#hidden"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});

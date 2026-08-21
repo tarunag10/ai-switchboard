@@ -2513,13 +2513,21 @@ fn build_semantic_call_reference_edges(
                     .as_ref()
                     .map(|(_, name)| name.as_str())
                     .or(binding.imported.as_deref());
+                let namespace_member_names = binding
+                    .imported
+                    .is_none()
+                    .then(|| namespace_member_call_names(&content, &binding.local))
+                    .unwrap_or_default();
                 let target_symbols = symbols.iter().filter(|symbol| {
                     symbol.file == target_path
                         && match target_name {
                             Some(name) => symbol.name == name,
-                            None => names
-                                .iter()
-                                .any(|name| name != &binding.local && symbol.name == *name),
+                            None => namespace_member_names.contains(&symbol.name)
+                                && explicitly_exports_symbol(
+                                    repo_root,
+                                    &target_file.path,
+                                    &symbol.name,
+                                ),
                         }
                 });
                 for target in target_symbols {
@@ -3414,6 +3422,26 @@ fn contains_call_reference(content: &str, symbol_name: &str) -> bool {
 fn contains_member_call_reference(content: &str, symbol_name: &str) -> bool {
     content.contains(&format!(".{symbol_name}("))
         || content.contains(&format!(".{symbol_name} ("))
+}
+
+fn namespace_member_call_names(content: &str, local: &str) -> BTreeSet<String> {
+    let prefix = format!("{local}.");
+    let mut names = BTreeSet::new();
+    for (index, _) in content.match_indices(&prefix) {
+        let suffix = &content[index + prefix.len()..];
+        let member = suffix
+            .chars()
+            .take_while(|character| character.is_ascii_alphanumeric() || *character == '_' || *character == '$')
+            .collect::<String>();
+        if member.is_empty() {
+            continue;
+        }
+        let remainder = &suffix[member.len()..];
+        if remainder.trim_start().starts_with('(') {
+            names.insert(member);
+        }
+    }
+    names
 }
 
 fn push_unbounded_graph_edge(edges: &mut Vec<RepoGraphEdge>, edge: RepoGraphEdge, limit: usize) {
@@ -4471,12 +4499,12 @@ export const mapValues = <T>(items: T[]) => items;
         std::fs::create_dir_all(&src).expect("create src");
         std::fs::write(
             src.join("utils.ts"),
-            "export function normalize() {}\nexport function parse() {}\n",
+            "export function normalize() {}\nexport function parse() {}\nfunction hidden() {}\n",
         )
         .expect("write namespace target");
         std::fs::write(
             src.join("entry.ts"),
-            "import * as utils from './utils';\nexport function start() { utils.normalize(); }\n",
+            "import * as utils from './utils';\nexport function start() { utils.normalize(); utils.hidden(); }\n",
         )
         .expect("write namespace consumer");
 
@@ -4487,6 +4515,11 @@ export const mapValues = <T>(items: T[]) => items;
                 && edge.to == "src/utils.ts#normalize"
                 && edge.kind == RepoGraphEdgeKind::CallReference
                 && edge.reason == "AST call expression resolved through local import binding"
+        }));
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/entry.ts#start"
+                && edge.to == "src/utils.ts#hidden"
+                && edge.kind == RepoGraphEdgeKind::CallReference
         }));
     }
 

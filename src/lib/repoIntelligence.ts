@@ -2975,41 +2975,58 @@ function buildImportCallReferenceEdges(
   )) {
     const content = contentByPath.get(file.path);
     if (!content) continue;
-    for (const binding of extractStaticNamedImportBindings(content)) {
+    for (const binding of extractStaticImportBindings(content)) {
       const importedFile = resolveImportSpecifier(file.path, binding.specifier, byPath);
       if (!importedFile) continue;
-      let target = callableSymbols.find(
-        (symbol) => symbol.file === importedFile.path && symbol.name === binding.imported,
-      );
-      if (!target) {
-        const reexport = resolveLocalReexportBinding(
-          importedFile,
-          binding.imported,
-          byPath,
-          contentByPath,
+      const memberNames = binding.imported ? [binding.imported] : [...content.matchAll(
+        new RegExp(
+          `\\b${escapeRegExp(binding.local)}\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(`,
+          "g",
+        ),
+      )].map((match) => match[1]);
+      for (const memberName of new Set(memberNames)) {
+        if (!binding.imported && !isExplicitlyExportedSymbol(importedFile, memberName, contentByPath)) continue;
+        let target = callableSymbols.find(
+          (symbol) => symbol.file === importedFile.path && symbol.name === memberName,
         );
-        if (reexport) {
-          target = callableSymbols.find(
-            (symbol) => symbol.file === reexport.file && symbol.name === reexport.name,
+        if (!target) {
+          const reexport = resolveLocalReexportBinding(
+            importedFile,
+            memberName,
+            byPath,
+            contentByPath,
           );
+          if (reexport) {
+            target = callableSymbols.find(
+              (symbol) => symbol.file === reexport.file && symbol.name === reexport.name,
+            );
+          }
         }
+        if (!target) continue;
+        const callPattern = binding.imported
+          ? new RegExp(`\\b${escapeRegExp(binding.local)}\\s*\\(`)
+          : new RegExp(
+              `\\b${escapeRegExp(binding.local)}\\s*\\.\\s*${escapeRegExp(memberName)}\\s*\\(`,
+            );
+        if (!callPattern.test(content)) continue;
+        pushUniqueGraphEdge(edges, {
+          from: file.path,
+          to: `${target.file}#${target.name}`,
+          kind: "call_reference",
+          reason: "source call resolves through local import/re-export binding",
+        });
       }
-      if (!target) continue;
-      if (!new RegExp(`\\b${escapeRegExp(binding.local)}\\s*\\(`).test(content)) continue;
-      pushUniqueGraphEdge(edges, {
-        from: file.path,
-        to: `${target.file}#${target.name}`,
-        kind: "call_reference",
-        reason: "source call resolves through local import/re-export binding",
-      });
     }
   }
   return edges;
 }
 
-function extractStaticNamedImportBindings(content: string): Array<{ local: string; imported: string; specifier: string }> {
-  const bindings: Array<{ local: string; imported: string; specifier: string }> = [];
+function extractStaticImportBindings(content: string): Array<{ local: string; imported: string | null; specifier: string }> {
+  const bindings: Array<{ local: string; imported: string | null; specifier: string }> = [];
   const joined = content.replace(/[\r\n]/g, " ");
+  for (const match of joined.matchAll(/\bimport\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+)["']/g)) {
+    bindings.push({ local: match[1], imported: null, specifier: match[2] });
+  }
   for (const match of joined.matchAll(/\bimport\s+\{([^}]*)\}\s+from\s+["']([^"']+)["']/g)) {
     for (const item of match[1].split(",")) {
       const parts = item.trim().split(/\s+/).filter(Boolean);
@@ -3021,7 +3038,7 @@ function extractStaticNamedImportBindings(content: string): Array<{ local: strin
       });
     }
   }
-  return bindings.filter((binding) => Boolean(binding.local && binding.imported));
+  return bindings.filter((binding) => Boolean(binding.local && binding.specifier));
 }
 
 function resolveLocalReexportBinding(

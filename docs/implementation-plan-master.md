@@ -192,6 +192,9 @@ the current checkout.
 - Rollback local evidence now labels its fresh-process persistence probe as
   serialization/process isolation only and keeps installed-app relaunch proof
   explicitly unverified.
+- Repo Intelligence namespace imports now resolve exported member calls with
+  visibility checks across CLI, native Rust, and frontend parity fixtures;
+  private namespace members remain unresolved.
 
 ### Remaining build work
 

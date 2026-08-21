@@ -702,6 +702,24 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("resolves namespace import member calls only for exported callable members", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/utils.ts", bytes: 120, content: "export function normalize() {}\nfunction hidden() {}" },
+      { path: "src/consumer.ts", bytes: 160, content: "import * as utils from './utils'; export function start() { utils.normalize(); utils.hidden(); }" },
+    ]);
+    const callEdges = summary.graph?.symbolEdges?.filter((edge) => edge.kind === "call_reference") ?? [];
+    expect(callEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/utils.ts#normalize", kind: "call_reference" }),
+      ]),
+    );
+    expect(callEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/utils.ts#hidden", kind: "call_reference" }),
+      ]),
+    );
+  });
+
   it("does not infer dynamic or multi-hop re-export calls", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
