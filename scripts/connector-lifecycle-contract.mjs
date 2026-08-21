@@ -1,4 +1,13 @@
 export const canonicalLifecycleStages = ["detect", "preview", "backup", "apply", "verify", "rollback", "off"];
+export const runtimeStageByFixtureStage = {
+  detect: "detect",
+  preview: "dryRunDiff",
+  backup: "backup",
+  apply: "apply",
+  verify: "verify",
+  rollback: "rollback",
+  off: "offCleanup",
+};
 
 export function validateLifecycleSchema(manifest, fixtures) {
   const failures = [];
@@ -8,6 +17,9 @@ export function validateLifecycleSchema(manifest, fixtures) {
     failures.push("requiredStages must be a unique array");
   } else if (JSON.stringify(fixtures.requiredStages) !== JSON.stringify(canonicalLifecycleStages)) {
     failures.push(`requiredStages must equal ${canonicalLifecycleStages.join(",")}`);
+  }
+  if (JSON.stringify(Object.keys(runtimeStageByFixtureStage)) !== JSON.stringify(canonicalLifecycleStages)) {
+    failures.push("runtime lifecycle stage mapping must cover every fixture stage exactly once");
   }
   if (!Array.isArray(manifest) || !Array.isArray(fixtures?.connectors)) return failures;
 

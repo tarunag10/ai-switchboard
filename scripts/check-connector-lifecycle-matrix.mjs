@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
+import { runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
 
 const root = process.cwd();
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "connectors/manifest.json"), "utf8"));
@@ -53,6 +53,7 @@ if (failures.length) {
     ok: true,
     managedConnectors: managed,
     requiredStages,
+    runtimeStageByFixtureStage,
     approvedTestFile,
     evidenceLinks,
   }, null, 2));

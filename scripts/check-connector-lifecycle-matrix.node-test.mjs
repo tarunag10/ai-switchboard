@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { canonicalLifecycleStages, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
+import { canonicalLifecycleStages, runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
 
 test("connector lifecycle evidence resolves to approved Rust tests", () => {
   const output = execFileSync(process.execPath, ["scripts/check-connector-lifecycle-matrix.mjs"], { encoding: "utf8" });
@@ -30,4 +30,10 @@ test("rejects duplicate IDs and unknown lifecycle stages", () => {
 test("rejects reordered or duplicated required stages", () => {
   const failures = validateLifecycleSchema([], { requiredStages: ["detect", "detect"], connectors: [] });
   assert.match(failures.join("\n"), /requiredStages must be a unique array/);
+});
+
+test("keeps fixture stages mapped to the runtime lifecycle vocabulary", () => {
+  assert.equal(runtimeStageByFixtureStage.preview, "dryRunDiff");
+  assert.equal(runtimeStageByFixtureStage.off, "offCleanup");
+  assert.deepEqual(Object.keys(runtimeStageByFixtureStage), canonicalLifecycleStages);
 });

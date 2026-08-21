@@ -131,6 +131,8 @@ the current checkout.
   Cursor's gated null lifecycle remains valid.
 - World-class benchmark fixtures now have explicit shape, numeric, identity,
   and allowed-success-proxy validation before quality gates run.
+- Connector lifecycle gates now expose the canonical fixture-to-runtime stage
+  mapping (`preview` to `dryRunDiff`, `off` to `offCleanup`).
 
 ### Remaining build work
 
