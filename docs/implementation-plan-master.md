@@ -133,6 +133,9 @@ the current checkout.
   and allowed-success-proxy validation before quality gates run.
 - Connector lifecycle gates now expose the canonical fixture-to-runtime stage
   mapping (`preview` to `dryRunDiff`, `off` to `offCleanup`).
+- Deployment-readiness wiring now tracks the extracted release action module,
+  and no-refresh readiness reports fail closed on malformed structure or
+  missing report arguments.
 
 ### Remaining build work
 
