@@ -294,11 +294,12 @@ test("CLI matches the shared golden bounded JavaScript graph contract", () => {
     const summary = JSON.parse(
       execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }),
     );
-    const callEdges = new Set(
-      summary.graph.symbolEdges
-        .filter((edge) => edge.kind === "call_reference")
-        .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`),
-    );
+    const callEdgeProjections = summary.graph.symbolEdges
+      .filter((edge) => edge.kind === "call_reference")
+      .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`);
+    const callEdges = new Set(callEdgeProjections);
+    assert.equal(callEdgeProjections.length, callEdges.size, "golden call-edge projections must be unique");
+    assert.deepEqual([...callEdges].sort(), [...goldenFixture.expected.exactCallEdges].sort(), "unexpected golden call-edge projection");
     for (const expected of goldenFixture.expected.positiveCallEdges) {
       assert.ok(callEdges.has(expected), `missing golden edge ${expected}`);
     }

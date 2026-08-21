@@ -30,11 +30,12 @@ import goldenFixture from "../../tests/fixtures/repo-intelligence/golden-js-grap
 describe("repoIntelligence", () => {
   it("matches the shared golden bounded JavaScript graph contract", () => {
     const summary = buildRepoIntelligenceSummary(goldenFixture.files);
-    const callEdges = new Set(
-        (summary.graph?.symbolEdges ?? [])
-        .filter((edge) => edge.kind === "call_reference")
-        .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`),
-    );
+    const callEdgeProjections = (summary.graph?.symbolEdges ?? [])
+      .filter((edge) => edge.kind === "call_reference")
+      .map((edge) => `${edge.from.split("#")[0]}->${edge.to}`);
+    const callEdges = new Set(callEdgeProjections);
+    expect(callEdgeProjections, "golden call-edge projections must be unique").toHaveLength(callEdges.size);
+    expect([...callEdges].sort(), "unexpected golden call-edge projection").toEqual([...goldenFixture.expected.exactCallEdges].sort());
     for (const expected of goldenFixture.expected.positiveCallEdges) {
       expect(callEdges, `missing golden edge ${expected}`).toContain(expected);
     }

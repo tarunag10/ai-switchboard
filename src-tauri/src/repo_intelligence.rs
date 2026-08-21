@@ -5786,7 +5786,7 @@ export const mapValues = <T>(items: T[]) => items;
             .expect("summarize golden repo")
             .graph
             .expect("golden graph");
-        let call_edges = graph
+        let call_edge_projections = graph
             .symbol_edges
             .iter()
             .filter(|edge| edge.kind == RepoGraphEdgeKind::CallReference)
@@ -5794,7 +5794,16 @@ export const mapValues = <T>(items: T[]) => items;
                 let caller = edge.from.split('#').next().unwrap_or(edge.from.as_str());
                 format!("{}->{}", caller, edge.to)
             })
+            .collect::<Vec<_>>();
+        let call_edges = call_edge_projections.iter().cloned().collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(call_edge_projections.len(), call_edges.len(), "golden call-edge projections must be unique");
+        let expected_call_edges = fixture["expected"]["exactCallEdges"]
+            .as_array()
+            .expect("exact golden edges")
+            .iter()
+            .map(|edge| edge.as_str().expect("exact edge string").to_string())
             .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(call_edges, expected_call_edges, "unexpected golden call-edge projection");
         for expected in fixture["expected"]["positiveCallEdges"]
             .as_array()
             .expect("positive golden edges")
