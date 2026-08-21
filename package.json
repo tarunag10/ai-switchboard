@@ -24,6 +24,7 @@
     "test:all": "npm run test:coverage && npm run test:desktop",
     "release:check": "./scripts/verify-release.sh",
     "check:release-truth": "node scripts/check-release-truth.mjs",
+    "check:connector-lifecycle": "node scripts/check-connector-lifecycle-matrix.mjs",
     "release:env": "node scripts/check-release-env.mjs",
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",

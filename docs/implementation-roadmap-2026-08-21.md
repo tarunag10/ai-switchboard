@@ -18,7 +18,7 @@ context packs, and evidence remain on the Mac.
 | 1 | Release/product truth contract | Shipped | `docs/release-truth.json`, `npm run check:release-truth`, 1 node test |
 | 2 | Session Ready overview path | Shipped | `SessionReadyCard` tests, Home integration tests, production build |
 | 3 | Safe app-owned Headroom dashboard action | Shipped | 3 focused Rust tests; public-link SSRF policy unchanged |
-| 4 | Connector lifecycle behavioral matrix | Next | Temporary-home detect/preview/backup/apply/verify/rollback/Off/idempotence tests for every Managed connector |
+| 4 | Connector lifecycle behavioral matrix | In progress | Static matrix gate is shipped; temporary-home detect/preview/backup/apply/verify/rollback/Off/idempotence tests remain |
 | 5 | Benchmark-backed proof loop | Planned | Baseline versus optimized JSON/Markdown artifacts with tokens, latency, retention, quality, rework, and caveats |
 | 6 | One bounded endpoint/runtime expansion | Planned | Generic OpenAI-compatible endpoint first; explicit approval, health check, streaming/tools/cancellation tests, rollback fixtures |
 
