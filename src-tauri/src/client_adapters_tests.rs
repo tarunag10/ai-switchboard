@@ -478,6 +478,11 @@
                 .config_dry_run_preview
                 .as_ref()
                 .expect("gated connector dry-run preview");
+            assert!(!preview.target.trim().is_empty());
+            assert!(!preview.marker.trim().is_empty());
+            assert!(!preview.backup_path.trim().is_empty());
+            assert!(!preview.rollback_preview.trim().is_empty());
+            assert!(!preview.confirmation_phrase.trim().is_empty());
             assert_eq!(
                 preview.marker,
                 format!("ai-switchboard:{}", connector.client_id)
