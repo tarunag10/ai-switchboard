@@ -19,7 +19,7 @@ context packs, and evidence remain on the Mac.
 | 2 | Session Ready overview path | Shipped | `SessionReadyCard` tests, Home integration tests, production build |
 | 3 | Safe app-owned Headroom dashboard action | Shipped | 3 focused Rust tests; public-link SSRF policy unchanged |
 | 4 | Connector lifecycle behavioral matrix | Shipped | `npm run check:connector-behavior` runs the static matrix plus the temporary-home Rust adapter lifecycle suite |
-| 5 | Benchmark-backed proof loop | Planned | Baseline versus optimized JSON/Markdown artifacts with tokens, latency, retention, quality, rework, and caveats |
+| 5 | Benchmark-backed proof loop | In progress | Four-variant compression evidence is now validated and explicitly observe-only; successful-task latency/rework evidence remains |
 | 6 | One bounded endpoint/runtime expansion | Planned | Generic OpenAI-compatible endpoint first; explicit approval, health check, streaming/tools/cancellation tests, rollback fixtures |
 
 ## Phase 4 — Connector lifecycle behavioral matrix

@@ -1,6 +1,11 @@
 {
   "evidenceVersion": "2026-08-16.p3",
   "deterministicFixtureId": "phase3-cache-compression-v1",
+  "routingPolicy": {
+    "stage": "observe",
+    "automaticRoutingAllowed": false,
+    "reason": "Fixture evidence does not establish provider quality, latency, or successful-task rework in a live session."
+  },
   "results": [
     {
       "variant": "no_compression",

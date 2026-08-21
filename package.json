@@ -26,6 +26,7 @@
     "check:release-truth": "node scripts/check-release-truth.mjs",
     "check:connector-lifecycle": "node scripts/check-connector-lifecycle-matrix.mjs",
     "check:connector-behavior": "npm run check:connector-lifecycle && cargo test --manifest-path src-tauri/Cargo.toml --lib client_adapters::tests -- --test-threads=1",
+    "check:compression-proof": "node scripts/check-compression-proof.mjs",
     "release:env": "node scripts/check-release-env.mjs",
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",
