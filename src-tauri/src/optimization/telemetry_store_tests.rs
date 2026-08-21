@@ -120,6 +120,8 @@ fn model_routing_evidence_round_trips_and_exports_observe_only_artifact() {
         .expect("exported evidence");
     assert_eq!(artifact.evidence_class, "local_runtime_observation");
     assert_eq!(artifact.baseline.sample_count, 1);
+    assert_eq!(artifact.baseline.successful_task_count, 1);
+    assert_eq!(artifact.candidate.successful_task_count, 1);
     assert_eq!(artifact.candidate.successful_task_cost_micros, 700);
     assert!(!artifact.promotion_eligible);
     assert_eq!(artifact.provenance.task_class, "formatting");

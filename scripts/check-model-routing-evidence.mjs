@@ -10,6 +10,7 @@ const fixturePath = process.argv[2]
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 const metrics = [
   "sampleCount",
+  "successfulTaskCount",
   "successRateBps",
   "qualityScoreBps",
   "p95LatencyMs",
@@ -41,6 +42,15 @@ function validateFixture(value) {
     }
     if (value[arm].successRateBps > 10_000 || value[arm].qualityScoreBps > 10_000 || value[arm].followUpReworkRateBps > 10_000) {
       throw new Error(`${arm} basis-point metrics must be at most 10000`);
+    }
+    if (value[arm].successfulTaskCount > value[arm].sampleCount) {
+      throw new Error(`${arm}.successfulTaskCount must not exceed sampleCount`);
+    }
+    if (value[arm].sampleCount > 0) {
+      const expectedSuccessRateBps = Math.floor((value[arm].successfulTaskCount * 10_000) / value[arm].sampleCount);
+      if (value[arm].successRateBps !== expectedSuccessRateBps) {
+        throw new Error(`${arm}.successRateBps must match successfulTaskCount/sampleCount`);
+      }
     }
   }
   if (value.baseline.sampleCount !== value.candidate.sampleCount) {
@@ -84,6 +94,11 @@ function validateFixture(value) {
   if (value.evidenceClass === "approved_live_run") {
     if (value.baseline.sampleCount < value.minimumSamples) {
       throw new Error(`approved live runs require at least ${value.minimumSamples} samples per arm`);
+    }
+    for (const arm of ["baseline", "candidate"]) {
+      if (value[arm].successfulTaskCount < 1) {
+        throw new Error(`approved live runs require at least one successful task in ${arm}`);
+      }
     }
     if (value.promotionEligible !== true) throw new Error("approved live run must state promotionEligible explicitly");
     if (provenance.source !== "approved_live_run") {

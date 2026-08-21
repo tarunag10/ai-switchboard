@@ -107,6 +107,7 @@ pub(crate) struct ModelRoutingEvidenceArtifact {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ModelRoutingEvidenceArmMetrics {
     pub(crate) sample_count: u64,
+    pub(crate) successful_task_count: u64,
     pub(crate) success_rate_bps: u32,
     pub(crate) quality_score_bps: u32,
     pub(crate) p95_latency_ms: u64,
@@ -301,6 +302,7 @@ pub(crate) fn export_model_routing_evidence(
         minimum_samples,
         baseline: ModelRoutingEvidenceArmMetrics {
             sample_count: baseline_count,
+            successful_task_count: evidence.baseline_successes,
             success_rate_bps: rate(evidence.baseline_successes),
             quality_score_bps: quality(ModelRoutingEvidenceArm::Baseline),
             p95_latency_ms: evidence.baseline_p95_latency_ms,
@@ -309,6 +311,7 @@ pub(crate) fn export_model_routing_evidence(
         },
         candidate: ModelRoutingEvidenceArmMetrics {
             sample_count: candidate_count,
+            successful_task_count: evidence.candidate_successes,
             success_rate_bps: rate(evidence.candidate_successes),
             quality_score_bps: quality(ModelRoutingEvidenceArm::Candidate),
             p95_latency_ms: evidence.candidate_p95_latency_ms,

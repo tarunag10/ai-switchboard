@@ -109,8 +109,9 @@ the current checkout.
 ### Completed current cycle: edge-case and harness hardening
 
 - Model-routing promotion now fails closed for zero-sample, impossible success
-  counts, out-of-range basis-point metrics, and unsigned latency arithmetic
-  overflow; focused Rust coverage is 16 model-routing tests.
+  counts, zero-success approved runs, inconsistent success-rate/count pairs,
+  out-of-range basis-point metrics, and unsigned latency arithmetic overflow;
+  the JS and native evidence artifacts expose explicit successful-task counts.
 - The model-routing evidence harness now accepts an explicit fixture path and
   rejects non-positive minimum samples, unequal baseline/candidate arms, and
   future or invalid approved-run timestamps. The canonical offline fixture

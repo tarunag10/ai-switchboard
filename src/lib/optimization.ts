@@ -174,6 +174,7 @@ export interface ModelRoutingEvidenceArtifact {
   minimumSamples: number;
   baseline: {
     sampleCount: number;
+    successfulTaskCount: number;
     successRateBps: number;
     qualityScoreBps: number;
     p95LatencyMs: number;

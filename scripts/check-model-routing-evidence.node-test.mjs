@@ -108,6 +108,8 @@ test("recomputes a passing live run instead of trusting promotionEligible", () =
     fixture.minimumSamples = 100;
     fixture.baseline.sampleCount = 100;
     fixture.candidate.sampleCount = 100;
+    fixture.baseline.successfulTaskCount = 98;
+    fixture.candidate.successfulTaskCount = 98;
     fixture.baseline.successRateBps = 9_800;
     fixture.candidate.successRateBps = 9_800;
     fixture.baseline.qualityScoreBps = 9_800;
@@ -138,8 +140,10 @@ test("keeps large cost-improvement arithmetic bounded and exact enough for the g
     fixture.provenance.source = "approved_live_run";
     fixture.promotionEligible = true;
     fixture.minimumSamples = 1;
-    fixture.baseline.sampleCount = 1;
-    fixture.candidate.sampleCount = 1;
+    fixture.baseline.sampleCount = 100;
+    fixture.candidate.sampleCount = 100;
+    fixture.baseline.successfulTaskCount = 99;
+    fixture.candidate.successfulTaskCount = 99;
     fixture.baseline.successRateBps = fixture.candidate.successRateBps = 9_900;
     fixture.baseline.qualityScoreBps = fixture.candidate.qualityScoreBps = 9_900;
     fixture.baseline.p95LatencyMs = fixture.candidate.p95LatencyMs = 800;
@@ -175,6 +179,55 @@ test("rejects a live fixture that claims eligibility while failing thresholds", 
     fixture.capturedAt = "2026-08-20T00:00:00Z";
     fixture.approvalReceipt = "test-receipt";
     const fixturePath = path.join(tempDir, "failing.json");
+    fs.writeFileSync(fixturePath, JSON.stringify(fixture));
+    assert.throws(() => execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], { encoding: "utf8" }));
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("rejects approved live evidence with zero successful tasks", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-zero-success-"));
+  try {
+    const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
+    fixture.evidenceClass = "approved_live_run";
+    fixture.provenance.source = "approved_live_run";
+    fixture.promotionEligible = false;
+    fixture.minimumSamples = 100;
+    fixture.runId = "zero-success-run";
+    fixture.capturedAt = "2026-08-20T00:00:00Z";
+    fixture.approvalReceipt = "test-receipt";
+    for (const arm of ["baseline", "candidate"]) {
+      fixture[arm].sampleCount = 100;
+      fixture[arm].successfulTaskCount = 0;
+      fixture[arm].successRateBps = 0;
+      fixture[arm].successfulTaskCostMicros = arm === "baseline" ? 1_000 : 0;
+    }
+    const fixturePath = path.join(tempDir, "zero-success.json");
+    fs.writeFileSync(fixturePath, JSON.stringify(fixture));
+    assert.throws(() => execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], { encoding: "utf8" }));
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("rejects success rates inconsistent with successful task counts", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-success-rate-"));
+  try {
+    const fixture = JSON.parse(fs.readFileSync("benchmarks/fixtures/model-routing-quality-evidence.json", "utf8"));
+    fixture.evidenceClass = "approved_live_run";
+    fixture.provenance.source = "approved_live_run";
+    fixture.promotionEligible = false;
+    fixture.minimumSamples = 1;
+    fixture.runId = "inconsistent-rate-run";
+    fixture.capturedAt = "2026-08-20T00:00:00Z";
+    fixture.approvalReceipt = "test-receipt";
+    for (const arm of ["baseline", "candidate"]) {
+      fixture[arm].sampleCount = 1;
+      fixture[arm].successfulTaskCount = 1;
+      fixture[arm].successRateBps = 0;
+    }
+    const fixturePath = path.join(tempDir, "inconsistent-rate.json");
     fs.writeFileSync(fixturePath, JSON.stringify(fixture));
     assert.throws(() => execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], { encoding: "utf8" }));
   } finally {

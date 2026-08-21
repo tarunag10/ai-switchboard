@@ -11,6 +11,7 @@
   },
   "baseline": {
     "sampleCount": 0,
+    "successfulTaskCount": 0,
     "successRateBps": 10000,
     "qualityScoreBps": 10000,
     "p95LatencyMs": 0,
@@ -19,6 +20,7 @@
   },
   "candidate": {
     "sampleCount": 0,
+    "successfulTaskCount": 0,
     "successRateBps": 10000,
     "qualityScoreBps": 10000,
     "p95LatencyMs": 0,
