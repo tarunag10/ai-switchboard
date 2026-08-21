@@ -23,6 +23,7 @@
     "fmt:desktop": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "test:all": "npm run test:coverage && npm run test:desktop",
     "release:check": "./scripts/verify-release.sh",
+    "check:release-truth": "node scripts/check-release-truth.mjs",
     "release:env": "node scripts/check-release-env.mjs",
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",

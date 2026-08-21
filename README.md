@@ -4,7 +4,7 @@
 
 ## Current Feature Snapshot
 
-AI Switchboard now ships as more than a routing toggle. The current `main` branch includes:
+AI Switchboard now ships as more than a routing toggle. The current productization checkout includes:
 
 - **One-click optimization modes**: Full optimization, Headroom only, RTK only, and Off, with reversible Doctor repair flows.
 - **Codex + Claude routing**: managed local routing through Headroom where supported, with oversized-turn safety handling and Codex repair guidance.
@@ -60,7 +60,7 @@ AI Switchboard is a privacy-first platform for turning local coding-agent optimi
 
 Switchboard is **local-first**, not offline-only. Claude, OpenAI, and other provider model calls still go to the configured remote APIs. Switchboard state, reversible client config edits, Doctor repair data, add-on setup, telemetry defaults, and Repo Intelligence metadata stay on your Mac.
 
-Current status: active productization branch. The standalone repository is public and GitHub release `v0.0.0` now carries the signed/notarized Apple Silicon DMG `Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg` plus checksum, signed Apple Silicon updater bundle, updater signature, and reachable `latest.json`.
+Current release truth is recorded in [docs/release-truth.json](docs/release-truth.json): this checkout builds app version `0.0.2`, while the repository's documented public release evidence refers to `v0.0.0`. Those are intentionally tracked separately until a new release is independently verified.
 
 For local development, run `npm run app:run` or use the Codex desktop **Run** action. Both point at `script/build_and_run.sh`, which stops any existing app process and launches the Tauri development build. Use `script/build_and_run.sh --verify` when you want a one-command launch health check.
 
@@ -235,14 +235,14 @@ See [Threat Model](docs/threat-model.md) for the local proxy bind/auth boundary,
 
 ## Installing
 
-Normal macOS users will install a signed DMG once releases are published:
+Normal macOS users should install a signed DMG from a verified GitHub release:
 
 1. Download the current AI Switchboard for Mac DMG from GitHub Releases. During the compatibility window, artifacts may still be named `Mac-AI-Switchboard_<version>.dmg`.
 2. Drag **AI Switchboard for Mac** into **Applications**. Current compatibility bundles may still appear as **Mac AI Switchboard** in Finder and `/Applications`.
 3. Launch the app and approve local runtime install on first run.
 4. Choose **Full optimization**, **Headroom only**, **RTK only**, or **Off**.
 
-Until signed DMGs are published, build from source:
+If the required release asset is unavailable or its evidence is not verified, build from source:
 
 ```bash
 git clone https://github.com/tarunag10/mac-ai-switchboard.git

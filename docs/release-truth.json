@@ -1,0 +1,23 @@
+{
+  "$schema": "./release-truth.schema.json",
+  "productName": "AI Switchboard",
+  "repository": "tarunag10/ai-switchboard",
+  "appVersion": "0.0.2",
+  "publicRelease": {
+    "tag": "v0.0.0",
+    "status": "documented",
+    "asset": "Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg",
+    "source": "docs/ai-switchboard-rebrand-release-evidence.md"
+  },
+  "evidence": {
+    "signedNotarizedPublicDmg": "documented",
+    "publicInstalledAppSmoke": "unverified",
+    "rebootLevelDoctorRollbackUninstall": "unverified",
+    "liveProductionAlias": "unverified"
+  },
+  "claimPolicy": {
+    "measuredNumbersRequireProvenance": true,
+    "unverifiedEvidenceMustNotBePresentedAsLive": true,
+    "releaseStatusAndAppVersionMustBeShownSeparately": true
+  }
+}
