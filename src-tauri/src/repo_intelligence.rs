@@ -30,7 +30,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v10";
+const INDEXER_VERSION: &str = "path-graph-v11";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "tree-sitter-graph-v2";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -2303,6 +2303,10 @@ fn build_call_reference_edges(
         })
         .take(120)
         .collect::<Vec<_>>();
+    let callable_name_counts = callable_symbols.iter().fold(BTreeMap::new(), |mut counts, symbol| {
+        *counts.entry(symbol.name.as_str()).or_insert(0usize) += 1;
+        counts
+    });
     let mut edges = Vec::new();
     for file in files.iter().filter(|file| {
         matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
@@ -2331,6 +2335,14 @@ fn build_call_reference_edges(
             for (caller, names) in call_sites {
                 for symbol in &callable_symbols {
                     if !names.contains(&symbol.name) {
+                        continue;
+                    }
+                    if callable_name_counts.get(symbol.name.as_str()).copied().unwrap_or(0) > 1
+                        && symbol.file != file.path
+                    {
+                        continue;
+                    }
+                    if contains_member_call_reference(&content, &symbol.name) {
                         continue;
                     }
                     let from = caller
@@ -2363,6 +2375,12 @@ fn build_call_reference_edges(
         // no parser is available.
         for symbol in &callable_symbols {
             if file.path == symbol.file {
+                continue;
+            }
+            if callable_name_counts.get(symbol.name.as_str()).copied().unwrap_or(0) > 1 {
+                continue;
+            }
+            if contains_member_call_reference(&content, &symbol.name) {
                 continue;
             }
             let ast_match = ast_call_names
@@ -3209,6 +3227,11 @@ fn contains_call_reference(content: &str, symbol_name: &str) -> bool {
         || content.contains(&format!(".{needle}"))
 }
 
+fn contains_member_call_reference(content: &str, symbol_name: &str) -> bool {
+    content.contains(&format!(".{symbol_name}("))
+        || content.contains(&format!(".{symbol_name} ("))
+}
+
 fn push_unbounded_graph_edge(edges: &mut Vec<RepoGraphEdge>, edge: RepoGraphEdge, limit: usize) {
     if edge.from == edge.to || edges.len() >= limit {
         return;
@@ -4023,6 +4046,63 @@ export const mapValues = <T>(items: T[]) => items;
     }
 
     #[test]
+    fn suppresses_ambiguous_cross_file_name_only_edges() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("first.ts"), "export function run() {}\nexport function start() { run(); }\n")
+            .expect("write first");
+        std::fs::write(src.join("second.ts"), "export function run() {}\nexport function other() { run(); }\n")
+            .expect("write second");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/first.ts#start"
+                && edge.to == "src/second.ts#run"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/second.ts#other"
+                && edge.to == "src/first.ts#run"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn preserves_same_file_calls_when_duplicate_names_exist_elsewhere() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("first.ts"), "export function run() {}\nexport function start() { run(); }\n")
+            .expect("write first");
+        std::fs::write(src.join("second.ts"), "export function run() {}\n").expect("write second");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/first.ts#start"
+                && edge.to == "src/first.ts#run"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn does_not_treat_object_receiver_as_global_callable_reference() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("entry.ts"), "export function start() { client.run(); }\n")
+            .expect("write entry");
+        std::fs::write(src.join("helper.ts"), "export function run() {}\n").expect("write helper");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/entry.ts#start"
+                && edge.to == "src/helper.ts#run"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
     fn resolves_import_aliases_for_typescript_python_and_rust_calls() {
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
@@ -4123,7 +4203,7 @@ export const mapValues = <T>(items: T[]) => items;
         .expect("write html");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
-        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v10"));
+        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v11"));
         let graph = summary.graph.expect("graph");
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/styles.css"

@@ -54,6 +54,9 @@ the current checkout.
 - Connector lifecycle evidence linkage: every declared lifecycle evidence name
   now resolves to an approved Rust `#[test]` in
   `src-tauri/src/client_adapters_tests.rs`.
+- Repo Intelligence ambiguity guard: `path-graph-v11` suppresses ambiguous
+  duplicate cross-file name edges and object-member false positives while
+  preserving same-file and static-import resolution.
 
 ### Done — prepared and shipped
 
@@ -109,8 +112,9 @@ the current checkout.
 2. **Release evidence operator path:** the documentation/checker drift guard is
    shipped; executing the external checklist still requires signing
    credentials, a current public artifact, and a real reboot.
-3. **Repo Intelligence depth:** improve bounded semantic resolution only where
-   it remains deterministic; whole-program type inference and dynamic dispatch
+3. **Repo Intelligence depth:** ambiguity handling and indexer versioning are
+   shipped; remaining work is deeper bounded semantic resolution only where it
+   remains deterministic. Whole-program type inference and dynamic dispatch
    stay out of scope unless a separate evidence-backed design is approved.
 4. **Connector coverage:** lifecycle evidence linkage is now machine-checked;
    continue only with documented schemas and full
