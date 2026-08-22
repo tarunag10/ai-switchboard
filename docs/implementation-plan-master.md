@@ -143,6 +143,9 @@ the current checkout.
   every emitted preview, not only representative managed and gated rows;
   target, marker, backup, state, rollback, confirmation, and zero-write
   invariants all fail closed.
+- Public release proof generation and checking now reject corrupt local JSON
+  inputs with concise operator diagnostics before writing or accepting proof;
+  the corruption harness verifies the generated proof remains untouched.
 
 ### Done — prepared and shipped
 

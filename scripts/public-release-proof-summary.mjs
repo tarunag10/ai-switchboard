@@ -38,7 +38,12 @@ function readJson(file) {
   if (!fs.existsSync(file)) {
     return null;
   }
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    const detail = error instanceof SyntaxError ? "invalid JSON" : "could not be read";
+    throw new Error(`public release proof input ${detail}: ${file}`);
+  }
 }
 
 function parseJsonOutput(result) {
@@ -279,8 +284,15 @@ const updaterEvidence = await buildUpdaterEvidence({
 });
 
 const reportStep = run("npm", ["run", "release:report"]);
-const releaseReport = readJson(releaseReportPath);
-const rebootLevelInstalledProof = readJson(rebootLevelInstalledProofJsonPath);
+let releaseReport;
+let rebootLevelInstalledProof;
+try {
+  releaseReport = readJson(releaseReportPath);
+  rebootLevelInstalledProof = readJson(rebootLevelInstalledProofJsonPath);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
 const gate = releaseReport?.shareableDmgGate ?? {};
 const liveSignedDmgReady = Boolean(signedDmgAsset && checksumAsset?.state === "uploaded" && checksumVerification.ok);
 const updaterFeedProofReady = updaterEvidence.ready;

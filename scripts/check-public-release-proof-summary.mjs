@@ -37,7 +37,13 @@ if (!fs.existsSync(markdownPath)) {
   process.exit();
 }
 
-const proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
+let proof;
+try {
+  proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
+} catch {
+  fail(`${proofPath} contains invalid JSON`);
+  process.exit();
+}
 const markdown = fs.readFileSync(markdownPath, "utf8");
 const updaterBlockers = {
   releaseAsset: "updater feed release asset latest.json",
