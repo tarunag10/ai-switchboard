@@ -27,3 +27,26 @@ test("public proof checker rejects corrupt generated JSON without a stack trace"
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test("public proof checker rejects parseable malformed arrays without a stack trace", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-public-proof-malformed-"));
+  try {
+    const dist = path.join(tempDir, "dist");
+    fs.mkdirSync(dist, { recursive: true });
+    const proofPath = path.join(dist, "public-release-proof-summary.json");
+    const markdownPath = path.join(dist, "public-release-proof-summary.md");
+    fs.writeFileSync(proofPath, JSON.stringify({
+      kind: "mac_ai_switchboard.public_release_proof",
+      schemaVersion: 1,
+      blockers: null,
+    }));
+    fs.writeFileSync(markdownPath, "# Public Release Proof Summary\n");
+    const result = spawnSync(process.execPath, [checker], { cwd: tempDir, encoding: "utf8" });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /public release proof check failed: blockers must be an array/);
+    assert.doesNotMatch(result.stderr, /TypeError|at /);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});

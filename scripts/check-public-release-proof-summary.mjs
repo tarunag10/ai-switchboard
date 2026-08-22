@@ -79,6 +79,7 @@ if (proof.releaseGateEvidence !== proof.proofReady) {
 }
 if (!Array.isArray(proof.blockers)) {
   fail("blockers must be an array");
+  process.exit();
 }
 if (!proof.shareableDmgGate || typeof proof.shareableDmgGate !== "object") {
   fail("shareableDmgGate must be present");
@@ -105,6 +106,10 @@ if (proof.requiredArtifacts.staticSmokeSummary !== "dist/smoke-preflight-summary
   fail("requiredArtifacts.staticSmokeSummary must be dist/smoke-preflight-summary.md");
 }
 const excludedLocalEvidence = proof.localOnlyEvidenceExcluded ?? [];
+if (!Array.isArray(excludedLocalEvidence)) {
+  fail("localOnlyEvidenceExcluded must be an array");
+  process.exit();
+}
 for (const localOnlyArtifact of [
   "dist/local-installed-smoke-summary.md",
   "dist/local-rollback-validation-summary.md",
@@ -156,18 +161,23 @@ if (proof.checksumVerification.ok && proof.githubRelease?.checksumAsset?.state !
 const updaterEvidence = proof.updaterEvidence;
 if (!updaterEvidence || typeof updaterEvidence !== "object") {
   fail("updaterEvidence must be present");
+  process.exit();
 }
 if (!Array.isArray(updaterEvidence?.blockers)) {
   fail("updaterEvidence.blockers must be an array");
+  process.exit();
 }
 if (!Array.isArray(updaterEvidence?.signatureAssets)) {
   fail("updaterEvidence.signatureAssets must be an array");
+  process.exit();
 }
 if (!Array.isArray(updaterEvidence?.checkedEndpoints)) {
   fail("updaterEvidence.checkedEndpoints must be an array");
+  process.exit();
 }
 if (!Array.isArray(updaterEvidence?.workflowConfiguredEndpoints)) {
   fail("updaterEvidence.workflowConfiguredEndpoints must be an array");
+  process.exit();
 }
 requireBoolean("updaterEvidence.ready", updaterEvidence?.ready);
 requireBoolean(
