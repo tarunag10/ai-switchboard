@@ -149,6 +149,15 @@ the current checkout.
 - Routing evidence export now compares parsed RFC3339 instants rather than
   timestamp strings, so timezone-offset observations report the true latest
   completion while retaining the observe-only boundary.
+- Public proof and model-routing checkers now fail closed with concise
+  diagnostics for parseable malformed arrays and corrupt JSON fixtures instead
+  of continuing into type errors or exposing parser stack traces.
+- Continue and Aider dry-run previews now redact YAML fields whose keys imply
+  keys, tokens, secrets, passwords, credentials, or auth; raw state remains
+  internal for confirmation hashing and apply preservation.
+- Model-routing disabled-client matching and policy uniqueness now trim
+  surrounding whitespace, closing a kill-switch bypass and whitespace-variant
+  duplicate gap.
 
 ### Done — prepared and shipped
 
