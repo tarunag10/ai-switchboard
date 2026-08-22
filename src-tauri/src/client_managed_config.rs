@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use serde_json;
+use serde_yaml::Value;
 
 use crate::client_adapters::{
     codex_provider_block_matches, configure_planned_switchboard_sidecar, disable_client_setup,
@@ -79,6 +80,42 @@ const ZED_ROLLBACK_EVIDENCE: &[&str] = &[
 const WINDSURF_ROLLBACK_RECORD_ID: &str = "windsurf-routing";
 const WINDSURF_ROLLBACK_OWNER: &str = "Windsurf routing";
 const WINDSURF_ROLLBACK_MARKER: &str = "ai-switchboard:windsurf";
+
+fn redact_yaml_for_display(raw: &str) -> String {
+    if raw.trim().is_empty() {
+        return "{}\n".to_string();
+    }
+    let Ok(mut value) = serde_yaml::from_str::<Value>(raw) else {
+        return "<unavailable: invalid YAML>".to_string();
+    };
+    redact_yaml_value(&mut value, None);
+    serde_yaml::to_string(&value).unwrap_or_else(|_| "<unavailable>".to_string())
+}
+
+fn redact_yaml_value(value: &mut Value, key: Option<&str>) {
+    if key.is_some_and(|key| {
+        let upper = key.to_ascii_uppercase();
+        ["KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "AUTH"]
+            .iter()
+            .any(|part| upper.contains(part))
+    }) {
+        *value = Value::String("<redacted>".to_string());
+        return;
+    }
+    match value {
+        Value::Mapping(mapping) => {
+            for (key, child) in mapping.iter_mut() {
+                redact_yaml_value(child, key.as_str());
+            }
+        }
+        Value::Sequence(sequence) => {
+            for child in sequence {
+                redact_yaml_value(child, None);
+            }
+        }
+        _ => {}
+    }
+}
 const WINDSURF_ROLLBACK_EVIDENCE: &[&str] = &[
     "Allowlisted rollback execution row: windsurf-routing.",
     "Backup must live next to ~/Library/Application Support/Windsurf/User/settings.json and use *.headroom-backup-*.",
@@ -520,7 +557,9 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             } else {
                 String::new()
             };
+            let display_current_state = redact_yaml_for_display(&current_state);
             let (proposed_state, changed) = continue_next_provider_config()?;
+            let display_proposed_state = redact_yaml_for_display(&proposed_state);
             Ok(ManagedConfigApplyPreview {
                 record_id: CONTINUE_NATIVE_APPLY_RECORD_ID.to_string(),
                 owner: CONTINUE_NATIVE_OWNER.to_string(),
@@ -532,8 +571,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                     CONTINUE_NATIVE_MARKER,
                     &current_state,
                 ),
-                current_state,
-                proposed_state,
+                current_state: display_current_state,
+                proposed_state: display_proposed_state,
                 rollback_preview:
                     "Restore the sibling *.headroom-backup-* file through Rollback Center."
                         .to_string(),
@@ -554,7 +593,9 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             } else {
                 String::new()
             };
+            let display_current_state = redact_yaml_for_display(&current_state);
             let (proposed_state, changed) = aider_next_provider_config()?;
+            let display_proposed_state = redact_yaml_for_display(&proposed_state);
             Ok(ManagedConfigApplyPreview {
                 record_id: AIDER_NATIVE_APPLY_RECORD_ID.to_string(),
                 owner: AIDER_NATIVE_OWNER.to_string(),
@@ -566,8 +607,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                     AIDER_NATIVE_MARKER,
                     &current_state,
                 ),
-                current_state,
-                proposed_state,
+                current_state: display_current_state,
+                proposed_state: display_proposed_state,
                 rollback_preview:
                     "Restore the sibling *.headroom-backup-* file through Rollback Center."
                         .to_string(),
@@ -1080,4 +1121,20 @@ pub fn execute_managed_rollback_undo_all(
         blocked: preview.blocked,
         verification,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::redact_yaml_for_display;
+
+    #[test]
+    fn yaml_preview_redacts_secret_keys_but_preserves_safe_fields() {
+        let displayed = redact_yaml_for_display(
+            "name: User Config\nmodels:\n  - model: gpt-4o\n    apiKey: secret-value\n",
+        );
+        assert!(displayed.contains("User Config"));
+        assert!(displayed.contains("gpt-4o"));
+        assert!(displayed.contains("<redacted>"));
+        assert!(!displayed.contains("secret-value"));
+    }
 }
