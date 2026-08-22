@@ -293,10 +293,14 @@ pub(crate) fn export_model_routing_evidence(
     }
     let captured_at = observations
         .iter()
-        .map(|observation| observation.captured_at.as_str())
-        .max()
-        .unwrap_or_default()
-        .to_string();
+        .filter_map(|observation| {
+            DateTime::parse_from_rfc3339(observation.captured_at.trim())
+                .ok()
+                .map(|parsed| (parsed.with_timezone(&Utc), observation.captured_at.clone()))
+        })
+        .max_by(|left, right| left.0.cmp(&right.0))
+        .map(|(_, captured_at)| captured_at)
+        .ok_or_else(|| "model-routing evidence export contains no valid timestamps".to_string())?;
     let samples = observations.iter().map(|observation| observation.sample()).collect::<Vec<_>>();
     let evidence = aggregate_model_routing_evidence(&samples, &task_class)?;
     let minimum_samples =

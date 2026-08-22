@@ -146,6 +146,9 @@ the current checkout.
 - Public release proof generation and checking now reject corrupt local JSON
   inputs with concise operator diagnostics before writing or accepting proof;
   the corruption harness verifies the generated proof remains untouched.
+- Routing evidence export now compares parsed RFC3339 instants rather than
+  timestamp strings, so timezone-offset observations report the true latest
+  completion while retaining the observe-only boundary.
 
 ### Done — prepared and shipped
 

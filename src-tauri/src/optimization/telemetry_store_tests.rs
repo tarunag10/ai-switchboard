@@ -184,6 +184,56 @@ fn model_routing_evidence_exports_per_arm_success_rates() {
 }
 
 #[test]
+fn model_routing_evidence_export_uses_latest_timestamp_instant() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+
+    reset_for_tests();
+    let day = chrono::Utc::now().date_naive();
+    let base = day
+        .and_hms_opt(12, 0, 0)
+        .expect("valid noon")
+        .and_utc()
+        - chrono::Duration::days(1);
+    let earlier = base
+        .with_timezone(&chrono::FixedOffset::east_opt(14 * 60 * 60).expect("valid offset"))
+        .to_rfc3339();
+    let later = (base + chrono::Duration::hours(1))
+        .with_timezone(&chrono::FixedOffset::west_opt(12 * 60 * 60).expect("valid offset"))
+        .to_rfc3339();
+    for (arm, captured_at) in [
+        (ModelRoutingEvidenceArm::Baseline, earlier),
+        (ModelRoutingEvidenceArm::Candidate, later.clone()),
+    ] {
+        record_model_routing_evidence(&ModelRoutingEvidenceObservation {
+            run_id: "run-offsets".to_string(),
+            captured_at,
+            task_class: "formatting".to_string(),
+            arm,
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
+            succeeded: true,
+            successful_task_cost_microunits: Some(700),
+            quality_score_bps: 9800,
+            latency_ms: 800,
+            follow_up_rework: false,
+        })
+        .expect("record offset timestamp");
+    }
+
+    let artifact = export_model_routing_evidence("run-offsets", "formatting")
+        .expect("export offset evidence");
+    assert_eq!(artifact.provenance.captured_at, later);
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
 fn model_routing_evidence_rejects_overflow_and_invalid_timestamps() {
     let _guard = crate::optimization::telemetry::test_guard();
     let home = tempdir().expect("temp home");
