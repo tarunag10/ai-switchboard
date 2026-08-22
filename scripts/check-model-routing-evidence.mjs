@@ -7,7 +7,14 @@ const root = process.cwd();
 const fixturePath = process.argv[2]
   ? path.resolve(root, process.argv[2])
   : path.join(root, "benchmarks/fixtures/model-routing-quality-evidence.json");
-const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+let fixture;
+try {
+  fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+} catch (error) {
+  const reason = error instanceof SyntaxError ? "contains invalid JSON" : "could not be read";
+  console.error(`model-routing evidence check failed: ${fixturePath} ${reason}`);
+  process.exit(1);
+}
 const metrics = [
   "sampleCount",
   "successfulTaskCount",

@@ -54,6 +54,27 @@ test("rejects missing or non-distinct evidence provenance", () => {
   }
 });
 
+test("rejects corrupt evidence JSON with a concise diagnostic", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-corrupt-"));
+  try {
+    const fixturePath = path.join(tempDir, "corrupt.json");
+    fs.writeFileSync(fixturePath, "{\"schemaVersion\":1,");
+    try {
+      execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      assert.fail("expected corrupt fixture to fail");
+    } catch (error) {
+      assert.equal(error.status, 1);
+      assert.match(error.stderr, /model-routing evidence check failed: .* contains invalid JSON/);
+      assert.doesNotMatch(error.stderr, /SyntaxError|at JSON\.parse/);
+    }
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("requires explicit provider identity for provider-declared costs", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-cost-provenance-"));
   try {

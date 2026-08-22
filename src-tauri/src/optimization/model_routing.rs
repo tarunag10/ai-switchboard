@@ -130,7 +130,7 @@ fn validate_experiment_policy(policy: &ModelRoutingExperimentPolicy) -> Result<(
         }
         let unique = values
             .iter()
-            .map(|value| value.to_ascii_lowercase())
+            .map(|value| value.trim().to_ascii_lowercase())
             .collect::<BTreeSet<_>>();
         if unique.len() != values.len() {
             return Err(format!("{label} entries must be unique"));
@@ -478,7 +478,7 @@ pub(crate) fn decide_model_route_experiment(
     if policy
         .disabled_clients
         .iter()
-        .any(|client| client.eq_ignore_ascii_case(&input.client))
+        .any(|client| client.trim().eq_ignore_ascii_case(&input.client))
     {
         reasons.push(format!("routing_disabled_for_client={}", input.client));
         return decision(
@@ -964,6 +964,16 @@ mod tests {
         };
         assert_eq!(
             decide_model_route_experiment(&input(), &client, true, None).reason,
+            "client_routing_disabled"
+        );
+
+        let whitespace_client = ModelRoutingExperimentPolicy {
+            disabled_clients: vec!["  codex  ".to_string()],
+            stage: ModelRoutingStage::UserApproved,
+            ..Default::default()
+        };
+        assert_eq!(
+            decide_model_route_experiment(&input(), &whitespace_client, true, None).reason,
             "client_routing_disabled"
         );
     }
