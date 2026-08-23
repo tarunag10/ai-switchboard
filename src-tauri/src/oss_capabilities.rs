@@ -81,11 +81,6 @@ pub(crate) fn registry() -> OssCapabilityRegistry {
     }
 }
 
-#[tauri::command]
-pub(crate) fn get_oss_capability_registry() -> OssCapabilityRegistry {
-    registry()
-}
-
 #[cfg(test)]
 mod tests {
     use super::registry;
@@ -97,15 +92,24 @@ mod tests {
         assert_eq!(registry.registry_mode, "metadata_only");
         assert!(!registry.writes_enabled);
         assert_eq!(registry.approval_mode, "fail_closed");
-        assert!(registry.providers.iter().all(|provider| !provider.auth_source.is_empty()));
-        assert!(registry.tools.iter().all(|tool| tool.requires_approval && !tool.writes_enabled));
+        assert!(registry
+            .providers
+            .iter()
+            .all(|provider| !provider.auth_source.is_empty()));
+        assert!(registry
+            .tools
+            .iter()
+            .all(|tool| tool.requires_approval && !tool.writes_enabled));
     }
 
     #[test]
     fn registry_tool_providers_are_known() {
         let registry = registry();
         for tool in &registry.tools {
-            assert!(registry.providers.iter().any(|provider| provider.id == tool.provider_id));
+            assert!(registry
+                .providers
+                .iter()
+                .any(|provider| provider.id == tool.provider_id));
         }
     }
 }

@@ -1,5 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
-
 export interface OssProviderCapability {
   id: string;
   label: string;
@@ -24,8 +22,4 @@ export interface OssCapabilityRegistry {
   approvalMode: "fail_closed";
   providers: OssProviderCapability[];
   tools: OssToolCapability[];
-}
-
-export function loadOssCapabilityRegistry(): Promise<OssCapabilityRegistry> {
-  return invoke<OssCapabilityRegistry>("get_oss_capability_registry");
 }

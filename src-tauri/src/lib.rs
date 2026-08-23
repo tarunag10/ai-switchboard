@@ -881,7 +881,6 @@ pub fn run() {
             activity_commands::get_headroom_request_counts_by_agent,
             optimization_commands::get_optimization_snapshot,
             optimization_commands::get_transport_observations,
-            oss_capabilities::get_oss_capability_registry,
             oss_harness_replay::replay_redacted_route_events,
             workbench_kernel::create_workbench_session,
             workbench_kernel::list_workbench_sessions,

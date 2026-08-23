@@ -62,9 +62,10 @@ The provider/tool registry is implemented in `scripts/oss-provider-registry.mjs`
 It exposes only bounded provider labels, model families, context limits,
 auth-source labels, and tool capabilities. Secrets are rejected, writes remain
 disabled, and approval evaluation fails closed in metadata-only mode.
-The native app command `get_oss_capability_registry` and typed frontend loader
-expose the same metadata-only boundary without importing provider credentials
-or runtimes.
+The typed Workbench capability projection is the sole frontend bridge for this
+native registry. Addons and Workbench render the same metadata-only boundary
+without importing provider credentials or runtimes; it cannot drive lifecycle
+actions, installs, or provider requests.
 
 ## Remaining work and gate
 

@@ -6,7 +6,16 @@ import { mockDashboard } from "../lib/mockData";
 import { AddonsView, type AddonsViewProps } from "./AddonsView";
 
 const invokeMock = vi.fn();
+const getWorkbenchCapabilityProjection = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invokeMock(...args) }));
+vi.mock("../lib/tauriRuntime", () => ({ hasTauriRuntime: () => true }));
+vi.mock("../lib/workbench", async () => {
+  const actual = await vi.importActual<typeof import("../lib/workbench")>("../lib/workbench");
+  return {
+    ...actual,
+    getWorkbenchCapabilityProjection: (...args: unknown[]) => getWorkbenchCapabilityProjection(...args),
+  };
+});
 vi.mock("./AddonHealthStrip", () => ({ AddonHealthStrip: () => null }));
 vi.mock("./MeasuredAddonSavingsForm", () => ({ MeasuredAddonSavingsForm: () => null }));
 vi.mock("./GatewayProfilesCard", () => ({ GatewayProfilesCard: ({ onCopyGuidance }: any) => <button onClick={() => onCopyGuidance("gateway", "Gateway")}>Gateway guidance mock</button> }));
@@ -37,8 +46,43 @@ function props(overrides: Partial<AddonsViewProps> = {}): AddonsViewProps {
   } as AddonsViewProps;
 }
 
+const ossProjection = {
+  schemaVersion: 1,
+  executionMode: "plan_only" as const,
+  writesEnabled: false as const,
+  providerTraffic: "none" as const,
+  registry: {
+    schemaVersion: 1,
+    registryMode: "metadata_only" as const,
+    writesEnabled: false as const,
+    approvalMode: "fail_closed" as const,
+    providers: [{ id: "local", label: "Local", modelFamilies: ["test"], contextLimit: 1, authSource: "none" as const }],
+    tools: [
+      { id: "replay", label: "Redacted replay", providerId: "local", capabilities: ["observe_only"], requiresApproval: true, writesEnabled: false as const },
+      { id: "metadata", label: "Metadata preview", providerId: "local", capabilities: ["observe"], requiresApproval: false, writesEnabled: false as const },
+    ],
+  },
+};
+
 describe("AddonsView integration", () => {
-  beforeEach(() => invokeMock.mockReset());
+  beforeEach(() => {
+    invokeMock.mockReset();
+    getWorkbenchCapabilityProjection.mockReset();
+    getWorkbenchCapabilityProjection.mockResolvedValue(ossProjection);
+  });
+
+  it("renders the shared Workbench capability projection without making lifecycle actions available", async () => {
+    const p = props();
+    render(<AddonsView {...p} />);
+
+    expect(await screen.findByText("Redacted replay")).toBeInTheDocument();
+    expect(screen.getByText("Metadata preview")).toBeInTheDocument();
+    expect(screen.getByText(/schema v1/)).toHaveTextContent("plan_only");
+    expect(screen.getByText(/schema v1/)).toHaveTextContent("provider traffic: none");
+    expect(screen.getByText(/Metadata preview/).parentElement).toHaveTextContent("approval metadata unavailable");
+    expect(getWorkbenchCapabilityProjection).toHaveBeenCalledTimes(1);
+    expect(p.runAddonAction).not.toHaveBeenCalled();
+  });
 
   it("wires RTK lifecycle, source, and planned navigation", async () => {
     const user = userEvent.setup();

@@ -41,7 +41,7 @@ pub struct WorkbenchCapabilityProjection {
     pub execution_mode: String,
     pub writes_enabled: bool,
     pub provider_traffic: String,
-    pub registry: serde_json::Value,
+    pub registry: crate::oss_capabilities::OssCapabilityRegistry,
 }
 
 fn locked_store() -> Result<(std::sync::MutexGuard<'static, ()>, WorkbenchStore), String> {
@@ -114,13 +114,25 @@ pub fn prepare_workbench_run_plan(
 
 #[tauri::command]
 pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjection, String> {
-    let registry = serde_json::to_value(crate::oss_capabilities::registry())
-        .map_err(|error| format!("serializing Workbench capability projection: {error}"))?;
     Ok(WorkbenchCapabilityProjection {
         schema_version: 1,
         execution_mode: "plan_only".into(),
         writes_enabled: false,
         provider_traffic: "none".into(),
-        registry,
+        registry: crate::oss_capabilities::registry(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_workbench_capability_projection;
+
+    #[test]
+    fn capability_projection_reuses_the_native_oss_registry_exactly() {
+        let projection = get_workbench_capability_projection().expect("capability projection");
+        assert_eq!(projection.registry, crate::oss_capabilities::registry());
+        assert_eq!(projection.execution_mode, "plan_only");
+        assert_eq!(projection.provider_traffic, "none");
+        assert!(!projection.writes_enabled);
+    }
 }

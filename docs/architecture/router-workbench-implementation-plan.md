@@ -170,9 +170,10 @@ Deliverables:
   Workbench replaces manual Router ID/digest fields with a native picker. Plan
   preparation resolves the selected ID again in Rust rather than trusting the
   renderer.
-- [ ] Replace the Addons-local OSS registry fetch with the shared Workbench
-  projection only after parity tests prove no capability label or fail-closed
-  state changes.
+- [x] Replace the Addons-local OSS registry fetch with the typed shared
+  Workbench projection. Native equality and UI tests preserve provider/tool
+  labels and fail-closed plan-only/no-traffic/no-write state; registry rows
+  remain display-only and cannot trigger Addons lifecycle actions.
 - [ ] Add reusable Router-only/Workbench presets only when each preset maps to
   an existing non-mutating decision policy and has a visible evidence source.
 - [ ] Add replay selection to Workbench by reusing the existing redacted replay

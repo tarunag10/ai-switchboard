@@ -27,9 +27,13 @@ import { MarkItDownConverterCard } from "./MarkItDownConverterCard";
 import { RTK_TASK_PRESETS } from "../lib/rtkTaskPresets";
 import { hasTauriRuntime } from "../lib/tauriRuntime";
 import {
-  loadOssCapabilityRegistry,
   type OssCapabilityRegistry,
+  type OssToolCapability,
 } from "../lib/ossCapabilities";
+import {
+  getWorkbenchCapabilityProjection,
+  type WorkbenchCapabilityProjection,
+} from "../lib/workbench";
 
 export interface AddonsViewProps {
   activeView: TrayView;
@@ -68,6 +72,12 @@ export interface AddonsViewProps {
   onSelectiveActivationComplete?: (dashboard: DashboardState) => Promise<void>;
 }
 
+function capabilitySafetyLabel(tool: OssToolCapability): string {
+  if (tool.requiresApproval) return "approval required";
+  if (tool.capabilities.includes("read_only")) return "read-only";
+  return "approval metadata unavailable";
+}
+
 export function AddonsView({
   activeView,
   setActiveView,
@@ -96,17 +106,17 @@ export function AddonsView({
   const [showRtkDetails, setShowRtkDetails] = useState(false);
   const [rtkActivityLines, setRtkActivityLines] = useState<string[]>([]);
   const [rtkPresetNotice, setRtkPresetNotice] = useState<string | null>(null);
-  const [ossRegistry, setOssRegistry] = useState<OssCapabilityRegistry | null>(null);
+  const [ossProjection, setOssProjection] = useState<WorkbenchCapabilityProjection | null>(null);
   const [ossRegistryError, setOssRegistryError] = useState<string | null>(null);
   const rtkActivityRef = useRef<HTMLPreElement | null>(null);
 
   useEffect(() => {
     if (activeView !== "addons" || !hasTauriRuntime()) return;
     let active = true;
-    void Promise.resolve(loadOssCapabilityRegistry())
-      .then((registry) => {
+    void Promise.resolve(getWorkbenchCapabilityProjection())
+      .then((projection) => {
         if (active) {
-          setOssRegistry(registry);
+          setOssProjection(projection);
           setOssRegistryError(null);
         }
       })
@@ -119,6 +129,8 @@ export function AddonsView({
       active = false;
     };
   }, [activeView]);
+
+  const ossRegistry: OssCapabilityRegistry | null = ossProjection?.registry ?? null;
 
   useEffect(() => {
     if (!showRtkDetails || !rtkActivityRef.current) {
@@ -155,13 +167,13 @@ export function AddonsView({
                 writes and automatic actions remain fail-closed.
               </p>
             </div>
-            <span className="repo-intelligence-view__badge">{ossRegistry?.registryMode ?? "Loading"}</span>
+            <span className="repo-intelligence-view__badge">{ossProjection?.executionMode ?? "Loading"}</span>
           </div>
           {ossRegistryError ? <p role="status">Could not load OSS capability metadata: {ossRegistryError}</p> : null}
           {ossRegistry ? (
             <>
               <p>
-                <strong>Approval:</strong> {ossRegistry.approvalMode}; <strong>writes:</strong> disabled; schema v{ossRegistry.schemaVersion}.
+                <strong>Execution:</strong> {ossProjection?.executionMode}; <strong>provider traffic:</strong> {ossProjection?.providerTraffic}; <strong>approval:</strong> {ossRegistry.approvalMode}; <strong>writes:</strong> {ossProjection?.writesEnabled ? "enabled" : "disabled"}; schema v{ossRegistry.schemaVersion}.
               </p>
               <div className="optimization-evidence-capture__grid">
                 <section>
@@ -179,7 +191,7 @@ export function AddonsView({
                   <ul>
                     {ossRegistry.tools.map((tool) => (
                       <li key={tool.id}>
-                        <strong>{tool.label}</strong> · {tool.capabilities.join(", ")} · {tool.requiresApproval ? "approval required" : "read-only"}
+                        <strong>{tool.label}</strong> · {tool.capabilities.join(", ")} · {capabilitySafetyLabel(tool)}
                       </li>
                     ))}
                   </ul>
