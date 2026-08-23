@@ -53,7 +53,7 @@ export function SavingsAttributionCountersPanel({ hidden }: { hidden: boolean })
         <ul className="repo-map-tool-list">
           {counters.map((counter) => (
             <li className="repo-map-tool-list__item" key={`${counter.scope}-${counter.source}`}>
-              <span>{label(counter.source)}<small>{counter.eventCount} events · {counter.measuredEventCount} measured</small></span>
+              <span>{label(counter.source)}<small>{counter.scope} · {counter.eventCount} events · {counter.runtimeEventCount} runtime evidence units</small><small>{counter.measuredEventCount} measured · {counter.estimatedEventCount} estimated · {counter.inferredEventCount} inferred</small></span>
               <strong>{number(counter.deltaTokensSaved)} tokens saved<small>{number(counter.totalTokensSent)} sent</small></strong>
             </li>
           ))}

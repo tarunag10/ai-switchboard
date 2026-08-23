@@ -13,6 +13,8 @@ describe("SavingsAttributionCountersPanel", () => {
     render(<SavingsAttributionCountersPanel hidden={false} />);
     expect(await screen.findByText("Headroom")).toBeInTheDocument();
     expect(screen.getByText(/1.2K tokens saved/)).toBeInTheDocument();
+    expect(screen.getByText(/session · 3 events · 3 runtime evidence units/)).toBeInTheDocument();
+    expect(screen.getByText(/2 measured · 1 estimated · 0 inferred/)).toBeInTheDocument();
     load.mockResolvedValueOnce([]);
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
