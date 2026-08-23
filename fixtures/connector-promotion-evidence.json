@@ -9,7 +9,7 @@
     "rollbackImplemented",
     "offCleanupImplemented"
   ],
-  "promotedNativeConnectorIds": ["goose", "grok_cli"],
+  "promotedNativeConnectorIds": ["gemini_cli", "goose", "grok_cli", "opencode", "windsurf", "zed_ai"],
   "gatedNativeConnectorIds": ["cursor"],
   "notes": [
     "Sidecar promotion requires every lifecycle stage to be ready on fixture homes.",

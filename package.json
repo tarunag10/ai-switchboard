@@ -108,7 +108,7 @@
     "check:phase3-maintainability": "node scripts/check-phase3-maintainability.mjs",
     "export:benchmark-leaderboard": "node scripts/export-benchmark-leaderboard.mjs",
     "smoke:world-class-plan:local": "node scripts/local-world-class-token-savings-summary.mjs",
-    "check:connectors": "node scripts/check-planned-connectors.mjs && node scripts/check-connector-manifests.mjs",
+    "check:connectors": "node scripts/check-planned-connectors.mjs && node scripts/check-connector-manifests.mjs && node scripts/check-connector-promotion-consistency.mjs",
     "check:branding": "node scripts/check-branding-assets.mjs",
     "check:colors": "./scripts/check-colors.sh",
     "check:design-system": "node scripts/check-design-system.mjs",

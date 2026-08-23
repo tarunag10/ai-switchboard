@@ -889,8 +889,6 @@ export const promotedNativeConfigConnectorIds = new Set([
   "grok_cli",
   "windsurf",
   "zed_ai",
-  "continue",
-  "aider",
 ]);
 
 export const managedMcpBridgeConnectorIds = new Set(["goose"]);
