@@ -113,7 +113,7 @@ describe("OptimizationEngineProfilesCard", () => {
     const toggle = screen.getByRole("button", { name: "Enable repo-pack compression for Chonkify" });
     await waitFor(() => expect(toggle).not.toBeDisabled());
     fireEvent.click(toggle);
-    expect(window.localStorage.getItem("ai-switchboard.repo-pack-compression.v1")).toBe("chonkify");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_repo_pack_compression_preference", { mode: "chonkify" }));
     expect(screen.getByText(/enables Chonkify for read-only Repo Intelligence pack copies/i)).toBeInTheDocument();
   });
 

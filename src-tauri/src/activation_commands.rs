@@ -82,6 +82,7 @@ pub struct RepoPackCompressionPreference {
     pub blocked: bool,
     pub gate_verdict: String,
     pub evidence_class: String,
+    pub stored: bool,
     pub updated_at: String,
 }
 
@@ -178,6 +179,7 @@ fn read_chonkify_preference(state: &AppState) -> Result<RepoPackCompressionPrefe
             blocked: !eligible,
             gate_verdict,
             evidence_class: "fixture-verified".into(),
+            stored: false,
             updated_at: Utc::now().to_rfc3339(),
         });
     }
@@ -219,6 +221,7 @@ fn set_chonkify_preference(
         blocked: false,
         gate_verdict,
         evidence_class: "fixture-verified".into(),
+        stored: true,
         updated_at: Utc::now().to_rfc3339(),
     };
     let path = config_path(state, CHONKIFY_PREFERENCE_FILE);

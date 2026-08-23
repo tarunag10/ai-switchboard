@@ -19,6 +19,7 @@ import {
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
   loadRepoPackCompressionPreference,
+  repoPackCompressionPreferenceKey,
   normalizeRepoIndexRequest,
   repoAgentPackLabel,
   repoAgentHandoffProfiles,
@@ -31,11 +32,11 @@ import {
   type RepoPackCompressionMode,
   type RepoSavingsEstimate,
 } from "../lib/repoIntelligence";
-import {
-  repoPackCompressionPreferenceEvent,
-  saveRepoPackCompressionPreference,
-} from "../lib/repoIntelligence";
 import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
+import {
+  loadNativeRepoPackCompressionPreference,
+  saveNativeRepoPackCompressionPreference,
+} from "../lib/repoPackCompressionPreference";
 
 type NativeIndexFreshness = {
   label: string;
@@ -123,7 +124,8 @@ export function RepoIntelligencePreview({
   const [selectedTaskType, setSelectedTaskType] =
     useState<AgentSessionTaskType>("verification");
   const [packCompressionMode, setPackCompressionMode] =
-    useState<RepoPackCompressionMode>(loadRepoPackCompressionPreference);
+    useState<RepoPackCompressionMode>("off");
+  const [compressionError, setCompressionError] = useState<string | null>(null);
   const [summary, setSummary] = useState<RepoIntelligenceSummary>(
     repoIntelligencePreview,
   );
@@ -175,12 +177,31 @@ export function RepoIntelligencePreview({
   const chonkifyEligible = canActivateChonkifyRepoPack();
 
   useEffect(() => {
-    const syncCompressionPreference = () => {
-      setPackCompressionMode(loadRepoPackCompressionPreference());
+    let active = true;
+    void loadNativeRepoPackCompressionPreference()
+      .then(async (preference) => {
+        if (!active) return;
+        let effectiveMode = preference?.effectiveMode === "chonkify" ? "chonkify" : "off";
+        if (!preference?.stored && loadRepoPackCompressionPreference() === "chonkify") {
+          if (chonkifyEligible) {
+            try {
+              const migrated = await saveNativeRepoPackCompressionPreference("chonkify");
+              effectiveMode = migrated.effectiveMode === "chonkify" ? "chonkify" : "off";
+            } catch {
+              effectiveMode = "off";
+            }
+          }
+          window.localStorage.removeItem(repoPackCompressionPreferenceKey);
+        }
+        if (active) setPackCompressionMode(effectiveMode);
+      })
+      .catch(() => {
+        if (active) setPackCompressionMode("off");
+      });
+    return () => {
+      active = false;
     };
-    window.addEventListener(repoPackCompressionPreferenceEvent, syncCompressionPreference);
-    return () => window.removeEventListener(repoPackCompressionPreferenceEvent, syncCompressionPreference);
-  }, []);
+  }, [chonkifyEligible]);
   const verificationDetailsId = "repo-intelligence-verification-details";
   const modeReasoningId = "repo-intelligence-mode-reasoning";
   const graphDiagnosticsId = "repo-intelligence-graph-diagnostics";
@@ -603,8 +624,16 @@ export function RepoIntelligencePreview({
             disabled={indexing}
             onChange={(event) => {
               const mode = event.target.value as RepoPackCompressionMode;
-              setPackCompressionMode(mode);
-              if (mode === "off" || chonkifyEligible) saveRepoPackCompressionPreference(mode);
+              setCompressionError(null);
+              void saveNativeRepoPackCompressionPreference(mode)
+                .then((preference) => {
+                  setPackCompressionMode(preference.effectiveMode === "chonkify" ? "chonkify" : "off");
+                  window.localStorage.removeItem(repoPackCompressionPreferenceKey);
+                })
+                .catch((error: unknown) => {
+                  setPackCompressionMode("off");
+                  setCompressionError(error instanceof Error ? error.message : String(error));
+                });
             }}
             value={packCompressionMode}
           >
@@ -614,6 +643,7 @@ export function RepoIntelligencePreview({
             </option>
           </select>
         </label>
+        {compressionError ? <p role="alert">Pack compression: {compressionError}</p> : null}
         {!isPreview ? (
           <>
             <button

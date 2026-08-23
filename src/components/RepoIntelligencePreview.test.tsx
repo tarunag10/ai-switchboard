@@ -1,11 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 
 import { RepoIntelligencePreview } from "./RepoIntelligencePreview";
 
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn().mockResolvedValue(null),
+  invoke,
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn().mockResolvedValue(null),
@@ -18,6 +20,18 @@ function getDisclosureButton(controls: string) {
 }
 
 describe("RepoIntelligencePreview progressive disclosure", () => {
+  beforeEach(() => {
+    invoke.mockImplementation((command: string) => {
+      if (command === "get_repo_pack_compression_preference") {
+        return Promise.resolve({ stored: false, effectiveMode: "off" });
+      }
+      if (command === "set_repo_pack_compression_preference") {
+        return Promise.resolve({ stored: true, effectiveMode: "chonkify" });
+      }
+      return Promise.resolve(null);
+    });
+  });
+
   it("hides verification and mode reasoning copy until the user expands it", async () => {
     const user = userEvent.setup();
     render(<RepoIntelligencePreview />);
@@ -76,7 +90,7 @@ describe("RepoIntelligencePreview progressive disclosure", () => {
     render(<RepoIntelligencePreview />);
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Repo pack compression mode" }), "chonkify");
-    expect(window.localStorage.getItem("ai-switchboard.repo-pack-compression.v1")).toBe("chonkify");
+    expect(invoke).toHaveBeenCalledWith("set_repo_pack_compression_preference", { mode: "chonkify" });
     expect(screen.getByText(/Chonkify is eligible for read-only Repo Intelligence packs/i)).toBeInTheDocument();
     expect(screen.getByText(/savings remain labelled estimated/i)).toBeInTheDocument();
   });

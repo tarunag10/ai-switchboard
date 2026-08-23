@@ -16,10 +16,11 @@ import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
 import { describeSemanticCacheV2Policy } from "../lib/semanticCachePolicy";
 import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
-import {
-  saveRepoPackCompressionPreference,
-} from "../lib/repoIntelligence";
 import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
+import {
+  loadNativeRepoPackCompressionPreference,
+  saveNativeRepoPackCompressionPreference,
+} from "../lib/repoPackCompressionPreference";
 import type { RuntimeStatus, CompressionProfileView } from "../lib/types";
 
 type OptimizationAddonReadinessReport = {
@@ -244,6 +245,35 @@ export function OptimizationEngineProfilesCard({
   const [gateReviewAt, setGateReviewAt] = useState<number | null>(null);
 
   useEffect(() => {
+    let active = true;
+    void loadNativeRepoPackCompressionPreference()
+      .then(async (preference) => {
+        if (!active) return;
+        if (!preference.stored && loadState().enabled.chonkify === true) {
+          try {
+            await saveNativeRepoPackCompressionPreference("chonkify");
+          } catch {
+            // Native state remains fail-closed; the legacy browser value is not authoritative.
+          }
+        }
+        if (active) {
+          setLocalState((current) => ({
+            ...current,
+            enabled: { ...current.enabled, chonkify: preference?.effectiveMode === "chonkify" },
+          }));
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setLocalState((current) => ({ ...current, enabled: { ...current.enabled, chonkify: false } }));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(localState));
   }, [localState]);
 
@@ -438,8 +468,12 @@ function OptimizationEngineRow({
     }
     if (engine.id === "chonkify") {
       const nextEnabled = !enabled;
-      saveRepoPackCompressionPreference(nextEnabled ? "chonkify" : "off");
-      onToggle(engine, nextEnabled);
+      setChecking(true);
+      setActionError(null);
+      void saveNativeRepoPackCompressionPreference(nextEnabled ? "chonkify" : "off")
+        .then(() => onToggle(engine, nextEnabled))
+        .catch((error: unknown) => setActionError(error instanceof Error ? error.message : String(error)))
+        .finally(() => setChecking(false));
       return;
     }
     if (engine.id !== "leanctx") {
