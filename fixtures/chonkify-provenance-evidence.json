@@ -1,8 +1,12 @@
 {
   "schemaVersion": 1,
   "license": "MIT",
-  "sourceRepository": "https://github.com/thom-heinrich/chonkify",
-  "provenanceReviewedAt": "2026-08-05",
+  "sourceRepository": "https://github.com/tarunag10/ai-switchboard",
+  "implementationId": "switchboard-pack-compaction",
+  "legacyCompatibilityId": "chonkify",
+  "implementationOwner": "ai-switchboard",
+  "upstreamCodeEmbedded": false,
+  "provenanceReviewedAt": "2026-08-24",
   "requiredSignals": [
     "license_verified",
     "provenance_fixture_present",
@@ -12,7 +16,9 @@
   "wrongOmissionFixturesPath": "fixtures/chonkify-wrong-omission-fixtures.json",
   "maxWrongOmissionRatePct": 0,
   "notes": [
-    "Chonkify is limited to read-only Repo Intelligence packs with preserved source spans.",
-    "Live provider routing is never performed by the chonkify adapter."
+    "This fixture covers AI Switchboard's own deterministic pack compactor, not upstream Chonkify.",
+    "The chonkify value remains only as a persisted backwards-compatibility identifier.",
+    "Compaction is limited to read-only Repo Intelligence packs with preserved source spans.",
+    "No upstream Chonkify source, model, runtime, or provider routing is used."
   ]
 }

@@ -29,6 +29,13 @@ but cannot launch a shell, call a provider, modify a workspace, or persist a
 prompt/tool result until a later execution backend passes its own consent,
 redaction, rollback, and release gates.
 
+AI Switchboard is developed for private research and published as open source;
+no commercial or monetary use is intended. This project intent does not erase
+upstream copyright, licence, NOTICE, dependency, model, patent, or trademark
+conditions. The distribution target is self-contained: supported capabilities
+must be Switchboard-native or bundled from an exact reviewed source revision,
+without runtime downloads, host checkouts, or mutable `latest` dependencies.
+
 ## Audit basis and status vocabulary
 
 This status was reconciled against committed `main` through `41e402c9` plus the
@@ -71,7 +78,7 @@ Current verification snapshot:
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, and drift-safe rollback cover the managed actions | A run can end `partial`; the UI remembers only the current component's last run ID even though native state is persisted | Restore native selection/last receipt after restart, expose receipt history, and add safe retry/resume for failed tools without reapplying successful tools |
 | Ponytail, Caveman, RTK, MarkItDown | Visible Addons and selective activation paths; exact created/changed artifact fingerprints; narrow restore/removal; external-drift blocking; receipt preservation | Runtime installation or client prerequisites can still fail on a particular machine | Add end-to-end disposable-home matrix tests and an app-visible repair path for partial managed runtimes |
-| Chonkify-labelled pack mode | Promotion gate currently passes (`MIT`, wrong-omission gate `0%`); read-only pack preference and selective activation are usable | The current `switchboard-chonkify` adapter is Switchboard-authored head/tail compaction, not verified upstream Chonkify code | Rename it to Switchboard Pack Compaction and remove upstream attribution, or integrate a pinned upstream adapter with parity/provenance tests |
+| Switchboard Pack Compaction | The deterministic no-model adapter, read-only pack preference, selective activation, native readiness, source spans, hashes, and zero-wrong-omission gate are Switchboard-owned | Persisted mode/tool ID `chonkify` remains accepted only for backwards compatibility | Keep the compatibility alias out of user-visible copy and never attribute this implementation to upstream Chonkify |
 | Leanctx | Loopback-only shadow setup and selective activation/rollback are visible | Requires an already configured executable despite UI copy saying install-and-enable; remains shadow-only | Correct the copy, pin a supported runtime/version if distribution is desired, and pass health/containment/promotion evidence before live routing |
 | OSS harness reuse | Internal pinned DeepSeek Harness preview adapter, maturity audit/context prototype, redacted replay, deterministic strategy fixtures, session-event prototype, and shared metadata-only registry | DeepSeek is not in the normal connector UI; Switchyard and JCode are evaluated references; `twaldin/harness` contributes only a contract idea | Expose DeepSeek honestly as Experimental or remove prototype-only production modules; then choose and prove one optional pinned workflow |
 | UI visibility | Workbench and Routing are top-level routes; selective activation is in Addons; advanced Headroom settings are in Settings; inactive routes use `hidden` as navigation state rather than product concealment | Some controls correctly remain disabled because their backend is absent or unsafe | Maintain a reachability test for every production component and ensure every mounted hidden route suspends polling/subscriptions |
@@ -105,8 +112,8 @@ or provider credentials to the renderer.
 
 | Upstream | Licence/state | Reuse | Explicit non-reuse |
 |---|---|---|---|
-| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | MIT; developer preview with breaking-change risk | Plugin capability vocabulary, durable session/event distinction, scoped capability concepts | No vendored runtime, plugin binary, scheduler, credential flow, or automatic execution. |
-| [NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) | Apache-2.0; reviewed as optional/interoperability-only | Protocol-translation and typed strategy ideas; benchmark fixtures | No second live router, embedded server, automatic install, or configuration rewrite. |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | MIT; developer preview with breaking-change risk | First vendor reviewed, dependency-free content-free contracts; later bundle only the locked runtime subset that passes the same kernel gates | No wholesale scheduler/credential flow import and no automatic execution. |
+| [NVIDIA NeMo Switchyard](https://github.com/NVIDIA-NeMo/Switchyard) | Apache-2.0; pre-alpha | Vendor selected pure protocol-translation modules with the Apache licence, upstream NOTICE, modification record, and golden fixtures | No second live router, embedded server, automatic install, or configuration rewrite. |
 | JCode provenance conflict: [plan target](https://github.com/Ravi-bit-app/jcode), [evaluation target](https://github.com/1jehuang/jcode) | Unresolved; local documents name different repositories | Attach/resume, multi-session lifecycle, adaptive context and resource profiling ideas only | No source, binary, attribution, or claimed pin until one repository/commit/licence is selected and the other reference is corrected. |
 | [twaldin/harness](https://github.com/twaldin/harness) | Evaluate and pin before any dependency use | `RunSpec -> RunResult` adapter boundary and per-CLI isolation | No subprocess execution or instruction-file mutation in the initial kernel. |
 
@@ -114,6 +121,13 @@ Every future OSS addition needs: pinned URL/commit, licence and attribution,
 compatibility matrix, capability declaration, privacy/redaction review,
 rollback/disable path, deterministic tests, and a visible UI disclosure. The
 existing `plugin_promotion_gate.rs` remains the promotion authority.
+
+The authoritative current-state and target-state ledger is
+`third_party/oss-integrations.json`; `THIRD_PARTY_NOTICES.md` is the committed
+notice index. The inventory gate rejects a self-contained-complete component
+that still needs an external runtime or runtime download. Full upstream licence
+files and exact copyright notices must enter the app bundle in the same commit
+that first copies the corresponding source or binary.
 
 ## Kernel contracts
 
@@ -164,11 +178,12 @@ Invariants:
 - [x] Redacted replay, deterministic strategy fixtures, session-event
   prototype, static OSS metadata, and promotion gates.
 - [x] Receipt-owned, drift-safe activation rollback for Headroom, RTK,
-  Ponytail, Caveman, Leanctx, Chonkify, MarkItDown, and master native add-ons.
+  Ponytail, Caveman, Leanctx, Switchboard Pack Compaction, MarkItDown, and
+  master native add-ons.
   MarkItDown rollback removes only run-created artifacts after their exact
   post-activation fingerprints match; broad Addons cleanup remains explicit.
-  Here “Chonkify” names the current local pack preference only; upstream
-  Chonkify implementation provenance is unresolved and is tracked below.
+The stored `chonkify` mode and tool ID are backwards-compatibility values for
+Switchboard Pack Compaction. Upstream Chonkify is not integrated or embedded.
 
 ### Phase 1 — consolidated architecture and provenance — Done
 
@@ -440,33 +455,47 @@ Gate: subagents may propose or run only granted capabilities. They cannot
 escalate privileges, publish, apply external changes, or absorb private prompt
 content into the session ledger.
 
-### Phase 6 — optional upstream interoperability — Prepared, externally gated
+### Phase 6 — self-contained research OSS migration — In progress
 
+- [x] One machine-readable OSS inventory records project intent, source
+  repository, exact commit/version when known, licence evidence, current and
+  target delivery modes, copied paths, notices, runtime/download ownership,
+  migration state, and blockers. The aggregate OSS gate validates it.
+- [x] A committed `THIRD_PARTY_NOTICES.md` index states the research-only
+  project intent while preserving upstream obligations.
+- [x] Correct the false Chonkify/MIT identity: the shipped implementation is
+  Switchboard Pack Compaction, upstream code is not embedded, user-visible
+  labels use the Switchboard name, and `chonkify` remains only a stored
+  compatibility ID/CLI alias.
+- [ ] Copy full upstream licence and NOTICE files into the app bundle in the
+  same phase that each upstream source or binary is first bundled.
 - [ ] A specific pinned DeepSeek/Switchyard/JCode workflow with compatibility,
   licence attribution, privacy, rollback, operational ownership and release
   evidence.
-- [ ] A dedicated optional profile that is disabled by default and removable
+- [ ] A dedicated bundled profile that is disabled by default and removable
   through a receipt-owned rollback.
-- [ ] One machine-readable OSS inventory is the source for product labels and
-  release notices: source repository, exact commit/version, licence,
-  distribution mode, checksums/lockfile, copied code, notices, runtime owner,
-  and rollback authority.
 - [ ] Resolve JCode's conflicting repository references before reuse; expose the
   existing DeepSeek adapter as an explicit Experimental connector with preview,
   consent, apply, verify, rollback, and separate configuration-versus-runtime
   health—or remove its prototype-only modules from the production graph.
-- [ ] Pin Ponytail instead of `latest`, lock/review MarkItDown's `[all]`
-  dependency set, and classify Caveman as Switchboard built-in guidance rather
-  than an external runtime/plugin source.
+- [ ] Replace Ponytail `latest` with reviewed bundled text resources; replace
+  MarkItDown runtime PyPI installation with a minimal locked app-bundled wheel
+  set; bundle leanctx's no-model core; build RTK from an exact reviewed source
+  revision as an app sidecar; and classify Caveman as completed
+  Switchboard-native guidance.
+- [ ] Remove external runtime/download requirements from Headroom and the
+  selected DeepSeek subset only after source-to-bundle hashes, licence closure,
+  offline installation, rollback, and parity tests pass.
 
 The existing DeepSeek adapter is the first experimental integration candidate:
 it already pins `dsh 0.1.0-rc.5` and upstream commit
 `47f943859bef60e4160492346772ded9b24f765a`, uses the normal adapter
 plan/consent/apply/verify/rollback lifecycle, and becomes guided-only for an
 unknown or ambiguous version. It must not silently become a Workbench executor.
-Switchyard remains an external endpoint/protocol interoperability candidate,
-and JCode remains a session/context design reference until an exact workflow is
-selected. Do not combine their routing authority with Switchboard's Router.
+Switchyard remains a selected-module protocol candidate, not a second router,
+and JCode remains a session/context design reference until one exact repository
+and commit are selected. Do not combine their routing authority with
+Switchboard's Router.
 
 ## Prioritized improvements
 
@@ -476,7 +505,7 @@ selected. Do not combine their routing authority with Switchboard's Router.
 | P0 — Done | Strict persisted schemas | Serde previously tolerated unknown fields, weakening the content-free claim | Unknown `prompt`, path, credential, argv, output, and arbitrary envelope fields are rejected from every durable Workbench ledger |
 | P0 — Done | Direct admission tests | `process_supervisor.rs` previously had no native test module | Native and TypeScript bridge matrices cover valid, corrupt, expired, revoked, terminal, drifted, unknown-adapter, full, restart, and concurrent cases |
 | P0 — Done | Restore repository gates | The full build and OSS integration checker were red | Preserve the compression-mode union and validate the shared Workbench capability projection; both gates now pass |
-| P0 | Correct Chonkify identity | The promoted adapter is local head/tail compaction while fixtures attribute upstream Chonkify | Rename/localize the feature and attribution, or pin and integrate upstream code with parity, licence, omission, and source-span tests |
+| P0 — Done | Correct pack-compaction identity | The promoted adapter is local head/tail compaction while the old fixture attributed upstream Chonkify | Product copy and provenance now identify Switchboard Pack Compaction; upstream Chonkify is reference-only and the legacy ID remains accepted without being displayed |
 | P0 | Split planner from live Router status | The policy and endpoint planners are complete but have no production model-routing caller | Inventory and UI say planner/evidence done, live correlation remaining, approval remaining, automatic routing gated |
 | P1 — Done | Historical versus current eligibility | Stored `authorized_not_started` remains visible after grant/session validity changes | Session receipt center derives current state and refreshes at expiry; the future launch boundary must still revalidate native state |
 | P1 — Done | Immutable plan consent | Form edits could visually diverge from the saved plan snapshot | Every visible plan-input edit clears the plan and eligibility snapshot; revision checks discard a late native plan response |
@@ -486,8 +515,8 @@ selected. Do not combine their routing authority with Switchboard's Router.
 | P1 | Transactional routing evidence | Duplicate/retention checks can race across SQLite connections | Unique index plus immediate transaction rejects concurrent duplicate and 128/129-boundary inserts deterministically |
 | P1 | Joint model/endpoint decision | Current endpoint planning proves only the requested model before any candidate substitution | Canonical candidate model is selected first and only an endpoint supporting that exact model/capability/cost/latency envelope is eligible |
 | P1 | Workspace and task privacy seam | Execution needs a working directory and task while durable ledgers prohibit both | Native transient workspace handle and ephemeral task envelope are digest-bound, bounded, consented, and absent from persisted artifacts |
-| P1 | Reproducible add-on supply chain | Ponytail tracks `latest`; MarkItDown pins the top package but `[all]` transitives are not locked | Pin reviewed versions/commits/checksums or lockfiles, verify downloads/install set, and record notices/SBOM without pretending runtime proof |
-| P1 | OSS identity and UI reconciliation | JCode references disagree; DeepSeek is internal; Caveman is presented as external despite having no external runtime | One machine-readable inventory drives docs/UI and records source, exact pin, licence, distribution, checksums, copied code, notices, and built-in versus external classification |
+| P1 | Reproducible self-contained add-on supply chain | Ponytail tracks `latest`; MarkItDown pins the top package but `[all]` transitives are not locked | Replace runtime installs with reviewed bundled resources/artifacts, exact source pins, checksums/locks, licence copies, offline tests, and receipt-owned rollback |
+| P1 — Foundation done | OSS identity and UI reconciliation | JCode references disagree; several features are external while Caveman and pack compaction are native | The machine inventory and notice index now expose current truth and target delivery; remaining entries cannot be marked complete while external/runtime-download flags remain true |
 | P2 | Receipt retention and repair | Grant/admission ledgers fail when they reach 128 records; partial add-on runtimes need recovery | Terminal/inactive record reclamation is deterministic and auditable; UI offers non-destructive export/repair rather than silent deletion |
 | P2 | Route/component reachability contract | A production component can regress into an imported-only or polling-while-hidden state | Test maps every top-level route to navigation and asserts inactive mounted views suspend timers/subscriptions |
 | P2 | OSS optional profile | Evaluations alone do not create user value | One disabled-by-default pinned profile has attribution, compatibility, diagnostics, consent, and receipt-owned uninstall evidence |
@@ -509,9 +538,10 @@ These are not backlog items; adding them would weaken the architecture:
 - Remove genuinely unreachable production components after a reachability
   audit. Keep safety-gated controls visible with the missing prerequisite and
   repair action; a safety gate is not a reason to hide a useful surface.
-- Do not vendor DeepSeek Harness, Switchyard, JCode, or another scheduler merely
-  to duplicate local capabilities. Reuse pinned contracts/adapters and keep
-  optional runtimes removable.
+- Do not wholesale-vendor a scheduler, router, credential flow, or dependency
+  closure merely to claim integration. Bundle only reviewed source slices or
+  artifacts that close a named Switchboard gap, preserve upstream notices, pass
+  deterministic parity/security tests, and remain removable through receipts.
 
 ## Edge-case and harness matrix
 
@@ -552,26 +582,33 @@ started by weakening an earlier gate.
 3. **Admission hardening — Done** — authoritative active-session check, strict
    ledger schemas, cross-ledger failure behavior, direct native and bridge
    tests. Historical/current eligibility remains deliberately in Receipt UX.
-4. **Receipt UX** — derived eligibility, expiry refresh, session receipt center,
-   immutable-plan display/invalidation, restart-safe selective receipt loading.
-5. **Fake process controller** — no real CLI; deterministic resolver, registry,
+4. **Receipt UX — Done (`621b38b3`)** — derived eligibility, expiry refresh,
+   session receipt center, immutable-plan display/invalidation, and stale-plan
+   response rejection.
+5. **Self-contained OSS foundation — Done** — authoritative inventory, notice
+   index, research-only intent, truthful delivery states, aggregate validation,
+   bundled governance resources, and the Switchboard Pack Compaction
+   identity/compatibility migration.
+6. **Fake process controller** — no real CLI; deterministic resolver, registry,
    output/redaction, timeout/cancel/cleanup state machine and tests.
-6. **Codex probe and opt-in manual harness** — fixed binary catalog/version,
+7. **Codex probe and opt-in manual harness** — fixed binary catalog/version,
    disposable workspace, no provider credential, no workspace write.
-7. **Single Codex executor** — new explicit execution capability, ephemeral task
+8. **Single Codex executor** — new explicit execution capability, ephemeral task
    and workspace handle, final revalidation, content-free terminal receipts.
-8. **Live Router shadow binding** — request/completion receipt pair in the real
+9. **Live Router shadow binding** — request/completion receipt pair in the real
    path with actual model unchanged.
-9. **User-approved Router stage** — per-request consent and rollback; no
+10. **User-approved Router stage** — per-request consent and rollback; no
    automatic promotion.
-10. **Evidence-gated automatic Router stage** — only allowlisted task classes
+11. **Evidence-gated automatic Router stage** — only allowlisted task classes
     with trusted passing benchmark/runtime evidence and global/client kill
     switches.
-11. **Goal/subagent orchestration** — queue, locks, budgets, checkpoints,
+12. **Goal/subagent orchestration** — queue, locks, budgets, checkpoints,
     attach/resume/cancel/fork, and capability-separated tools.
-12. **Optional OSS profile** — one pinned, attributed, disabled-by-default,
-    receipt-removable integration.
-13. **Release evidence** — clean build/test/check suite, signed package, and
+13. **Bundled OSS slices** — dependency-ordered DeepSeek contracts, Switchyard
+    protocol conversion, Ponytail resources, minimal MarkItDown, leanctx core,
+    RTK sidecar, and resolved JCode semantics; each separately verified and
+    pushed.
+14. **Release evidence** — clean build/test/check suite, signed package, and
     separate manual runtime/accessibility/security acceptance.
 
 ## Verification and publication
@@ -601,18 +638,24 @@ git diff --check
 
 Current gate truth on 2026-08-24:
 
-- Focused frontend minimum gate: `34 passed` across all seven listed suites.
-- Native Workbench: `46 passed`.
+- Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
+  frontend suites.
+- Native Workbench: `50 passed`; the focused Workbench bridge/view gate has
+  `19 passed`.
 - Model-routing evidence: `13` Node, `35` native routing, and `18` native
   telemetry tests pass.
-- Chonkify-labelled promotion fixture: passes with MIT metadata and zero
-  wrong-omission rate; this does not prove that the local adapter implements or
-  vendors upstream Chonkify.
+- Switchboard Pack Compaction promotion gate: passes with
+  `implementationId: switchboard-pack-compaction`,
+  `upstreamCodeEmbedded: false`, deterministic source-span evidence, and zero
+  wrong-omission rate. Upstream Chonkify remains unintegrated.
 - Full frontend build: passes (`tsc && vite build`).
 - OSS harness integration: passes `13` strategy/session/provider Node tests,
-  `22` shared Workbench/Addons frontend tests, `2` native registry tests, the
+  `25` shared Workbench/Addons frontend tests, `2` native registry tests, the
   exact native Workbench projection test, and the required-file/observe-only
   boundary checker.
+- Self-contained OSS inventory: `4` validator/negative tests pass; the
+  authoritative ledger contains `11` entries (`2` complete, `1` partial, `6`
+  pending, `2` blocked) and forbids runtime downloads in the target state.
 
 Manual acceptance remains separate from automated proof. Before execution is
 called usable, verify cancellation and full child-tree cleanup in a disposable

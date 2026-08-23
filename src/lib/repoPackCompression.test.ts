@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { compressRepoPack, deterministicHash, type RepoPackChonkifyAdapter } from "./repoPackCompression";
+import { compressRepoPack, deterministicHash, type RepoPackCompressionAdapter } from "./repoPackCompression";
 
-const adapter: RepoPackChonkifyAdapter<{ text: string }> = {
-  name: "test-chonkify", version: "0.1.0",
+const adapter: RepoPackCompressionAdapter<{ text: string }> = {
+  name: "test-switchboard-pack-compaction", version: "0.1.0",
   compress: ({ files }) => ({
     pack: { text: files.map((file) => file.content).join("\n") },
     sourceSpans: files.map((file) => ({ repositoryRelativePath: file.repositoryRelativePath, startLine: 1, endLine: file.content.split("\n").length })),
@@ -25,7 +25,7 @@ describe("repoPackCompression", () => {
     const first = compressRepoPack(input);
     const second = compressRepoPack({ ...input, files: [...input.files].reverse() });
     expect(first).toEqual(second);
-    expect(first.metadata).toMatchObject({ compressor: "test-chonkify", compressorVersion: "0.1.0", evidence: { label: "estimated" }, safety: { noNetwork: true, noModel: true }, skippedFiles: [{ reason: "generated file" }] });
+    expect(first.metadata).toMatchObject({ compressor: "test-switchboard-pack-compaction", compressorVersion: "0.1.0", evidence: { label: "estimated" }, safety: { noNetwork: true, noModel: true }, skippedFiles: [{ reason: "generated file" }] });
     expect(first.metadata?.sourceSpans[0]).toEqual({ repositoryRelativePath: "src/a.ts", startLine: 1, endLine: 2 });
     expect(first.metadata?.outputHash).toBe(second.metadata?.outputHash);
   });
@@ -35,7 +35,7 @@ describe("repoPackCompression", () => {
     const result = compressRepoPack({ currentPack, files: [], enabled: true, adapter, licenseMetadata: "NOASSERTION" });
     expect(result.pack).toBe(currentPack);
     expect(result.blocked).toBe(true);
-    expect(result.blockedReason).toBe("Current license metadata is NOASSERTION; compression is blocked.");
+    expect(result.blockedReason).toBe("Switchboard-native provenance is unavailable; pack compaction is blocked.");
     expect(result.metadata).toBeNull();
   });
 });

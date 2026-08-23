@@ -32,7 +32,7 @@ export interface RepoPackCompressionResult<TPack> {
   metadata: RepoPackCompressionMetadata | null;
 }
 
-export interface RepoPackChonkifyAdapter<TPack> {
+export interface RepoPackCompressionAdapter<TPack> {
   readonly name: string;
   readonly version: string;
   compress(input: {
@@ -59,11 +59,14 @@ export interface RepoPackCompressionOptions<TPack> {
   config?: unknown;
   enabled?: boolean;
   licenseMetadata?: string;
-  adapter?: RepoPackChonkifyAdapter<TPack>;
+  adapter?: RepoPackCompressionAdapter<TPack>;
 }
 
-export const CHONKIFY_LICENSE_BLOCKED_REASON = "Current license metadata is NOASSERTION; compression is blocked." as const;
-const LICENSE_EVIDENCE_REASON = "Chonkify license and provenance evidence is required before compression can be enabled." as const;
+/** @deprecated Persisted integrations may still import the historical type name. */
+export type RepoPackChonkifyAdapter<TPack> = RepoPackCompressionAdapter<TPack>;
+
+export const CHONKIFY_LICENSE_BLOCKED_REASON = "Switchboard-native provenance is unavailable; pack compaction is blocked." as const;
+const LICENSE_EVIDENCE_REASON = "AI Switchboard ownership and repository licence evidence are required before pack compaction can be enabled." as const;
 
 /** Stable, synchronous hash for provenance and fixture portability (not cryptographic). */
 export function deterministicHash(value: string): string {
@@ -114,11 +117,11 @@ export function compressRepoPack<TPack>(options: RepoPackCompressionOptions<TPac
       sourceSpans: [...compressed.sourceSpans], sourceContentHash, compressor: adapter.name,
       compressorVersion: adapter.version, configHash, outputHash,
       skippedFiles: [...compressed.skippedFiles], safety: { noNetwork: true, noModel: true },
-      evidence: { label: "estimated" }, license: { status: "verified", reason: "License metadata supplied as MIT; release provenance still requires review." },
+      evidence: { label: "estimated" }, license: { status: "verified", reason: "AI Switchboard-native implementation is covered by the repository MIT licence; no upstream Chonkify source is embedded." },
     },
   };
 }
 
 export function describeRepoPackCompressionState(): string {
-  return "Pack compression: off; deterministic native Repo Intelligence output is preserved. Chonkify is available only for eligible read-only packs and must be enabled explicitly; savings remain estimated.";
+  return "Pack compaction: off; deterministic native Repo Intelligence output is preserved. Switchboard Pack Compaction is available only for eligible read-only packs and must be enabled explicitly; savings remain estimated.";
 }

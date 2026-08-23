@@ -1052,7 +1052,7 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("## Release Handoff Pack");
     expect(markdown).toContain("src/App.tsx");
     expect(markdown).toContain("Estimated savings vs full scan");
-    expect(markdown).toContain("Chonkify is available only for eligible read-only packs");
+    expect(markdown).toContain("Switchboard Pack Compaction is available only for eligible read-only packs");
   });
 
   it("keeps compression off by default and carries an explicit disclosure when requested", () => {
@@ -1085,7 +1085,7 @@ describe("repoIntelligence", () => {
       licenseMetadata: "NOASSERTION",
     });
     expect(blocked.blocked).toBe(true);
-    expect(blocked.blockedReason).toContain("NOASSERTION");
+    expect(blocked.blockedReason).toContain("Switchboard-native provenance is unavailable");
 
     const verified = resolveRepoPackCompression(pack, {
       mode: "chonkify",

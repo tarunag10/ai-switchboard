@@ -69,9 +69,13 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "resources": [
+      "resources": [
+        "../LICENSE",
+        "../NOTICE",
+        "../THIRD_PARTY_NOTICES.md",
       "../scripts/check-repo-memory-mcp.mjs",
-      "../scripts/repo-intelligence.mjs"
+      "../scripts/repo-intelligence.mjs",
+      "../third_party/oss-integrations.json"
     ],
     "targets": "all",
     "icon": [

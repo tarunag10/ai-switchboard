@@ -1,4 +1,4 @@
-import type { RepoPackChonkifyAdapter } from "./repoPackCompression";
+import type { RepoPackCompressionAdapter } from "./repoPackCompression";
 import type { RepoContextPack } from "./repoIntelligence";
 
 const GENERATED_PATH = /(?:^|\/)(?:dist|build|coverage|node_modules|target)\//i;
@@ -13,7 +13,7 @@ function compressFileContent(content: string, maxLines = 24) {
   return {
     text: [
       ...lines.slice(0, head),
-      "... [chonkify omitted middle lines] ...",
+      "... [Switchboard Pack Compaction omitted middle lines] ...",
       ...lines.slice(-tail),
     ].join("\n"),
     startLine: 1,
@@ -28,8 +28,8 @@ function syntheticFileContent(path: string, estimatedTokens: number): string {
   );
 }
 
-export const chonkifyRepoPackAdapter: RepoPackChonkifyAdapter<RepoContextPack> = {
-  name: "switchboard-chonkify",
+export const switchboardPackCompactionAdapter: RepoPackCompressionAdapter<RepoContextPack> = {
+  name: "switchboard-pack-compaction",
   version: "1.0.0",
   compress({ currentPack, files }) {
     const sourceSpans: Array<{
@@ -72,7 +72,7 @@ export const chonkifyRepoPackAdapter: RepoPackChonkifyAdapter<RepoContextPack> =
           role: "unknown" as const,
           language: "unknown",
           includeByDefault: true,
-          reasons: ["chonkify compressed"],
+          reasons: ["Switchboard pack-compaction candidate"],
         }),
         estimatedTokens: Math.max(1, Math.ceil(result.text.length / 4)),
       });
@@ -94,6 +94,9 @@ export const chonkifyRepoPackAdapter: RepoPackChonkifyAdapter<RepoContextPack> =
     };
   },
 };
+
+/** @deprecated Use switchboardPackCompactionAdapter; retained for source compatibility. */
+export const chonkifyRepoPackAdapter = switchboardPackCompactionAdapter;
 
 export function repoPackSourceFilesFromContextPack(
   pack: RepoContextPack,

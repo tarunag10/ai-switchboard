@@ -59,8 +59,8 @@ fn profile_contract(profile_id: &str) -> Option<ProfileContract> {
         },
         "chonkify" => ProfileContract {
             configuration: &[],
-            executable: "CHONKIFY_EXECUTABLE",
-            path: "CHONKIFY_PATH",
+            executable: "",
+            path: "",
             base_url: None,
         },
         "response-cache" | "semantic-cache" => ProfileContract {
@@ -120,6 +120,7 @@ pub fn get_optimization_addon_readiness(
     let contract = profile_contract(&profile_id)
         .ok_or_else(|| "Unknown optimization addon profile.".to_string())?;
     let is_response_cache = matches!(profile_id.as_str(), "response-cache" | "semantic-cache");
+    let is_switchboard_pack_compaction = profile_id == "chonkify";
     let connectivity = if run_local_connectivity.unwrap_or(false) && contract.base_url.is_some() {
         match loopback_socket(contract.base_url.unwrap()) {
             Ok(address) => match TcpStream::connect_timeout(&address, Duration::from_millis(800)) {
@@ -139,13 +140,17 @@ pub fn get_optimization_addon_readiness(
     Ok(OptimizationAddonReadinessReport {
         profile_id,
         configuration: env_presence(contract.configuration),
-        executable_present: !contract.executable.is_empty()
-            && std::env::var_os(contract.executable).is_some_and(|value| !value.is_empty()),
-        path_present: !contract.path.is_empty()
-            && std::env::var_os(contract.path).is_some_and(|value| !value.is_empty()),
+        executable_present: is_switchboard_pack_compaction
+            || (!contract.executable.is_empty()
+                && std::env::var_os(contract.executable).is_some_and(|value| !value.is_empty())),
+        path_present: is_switchboard_pack_compaction
+            || (!contract.path.is_empty()
+                && std::env::var_os(contract.path).is_some_and(|value| !value.is_empty())),
         connectivity,
         live: false,
-        guidance: if is_response_cache {
+        guidance: if is_switchboard_pack_compaction {
+            "Switchboard Pack Compaction is built into AI Switchboard. It needs no external executable, path, model, network, or provider route; the chonkify profile ID is retained only for compatibility.".into()
+        } else if is_response_cache {
             "Built-in Exact Response Cache readiness is exposed separately in Add-ons; this command performs no external connectivity check. The legacy semantic-cache profile ID remains a compatibility alias.".into()
         } else {
             "Advisory presence only. It does not prove installation, authentication, routing, or sidecar health.".into()
@@ -174,6 +179,16 @@ mod tests {
         assert_eq!(legacy.profile_id, "semantic-cache");
         assert!(canonical.guidance.contains("Exact Response Cache"));
         assert!(legacy.guidance.contains("compatibility alias"));
+    }
+    #[test]
+    fn legacy_chonkify_profile_reports_switchboard_native_readiness() {
+        let report = get_optimization_addon_readiness("chonkify".into(), None).unwrap();
+        assert!(report.executable_present);
+        assert!(report.path_present);
+        assert!(report.configuration.is_empty());
+        assert!(report.guidance.contains("built into AI Switchboard"));
+        assert!(report.guidance.contains("compatibility"));
+        assert!(!report.live);
     }
     #[test]
     fn remote_url_is_not_eligible() {

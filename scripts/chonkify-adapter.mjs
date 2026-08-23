@@ -23,7 +23,7 @@ function compressFileContent(content, maxLines = 24) {
   const tail = Math.max(2, maxLines - head);
   const compressed = [
     ...lines.slice(0, head),
-    "... [chonkify omitted middle lines] ...",
+    "... [Switchboard Pack Compaction omitted middle lines] ...",
     ...lines.slice(-tail),
   ];
   return {
@@ -33,7 +33,7 @@ function compressFileContent(content, maxLines = 24) {
   };
 }
 
-export function chonkifyPackFiles(files) {
+export function compactSwitchboardPackFiles(files) {
   const sourceSpans = [];
   const skippedFiles = [];
   const compressedFiles = [];
@@ -71,7 +71,7 @@ export function chonkifyPackFiles(files) {
     files: compressedFiles,
     estimatedTokens,
     metadata: {
-      compressor: "switchboard-chonkify",
+      compressor: "switchboard-pack-compaction",
       compressorVersion: "1.0.0",
       sourceContentHash: deterministicHash(
         files.map((file) => `${file.path}\0${file.content ?? file.preview ?? ""}`).join("\n"),
@@ -79,14 +79,14 @@ export function chonkifyPackFiles(files) {
       sourceSpans,
       skippedFiles,
       evidence: { label: "estimated" },
-      license: { status: "verified", reason: "MIT provenance fixture passed promotion gate." },
+      license: { status: "verified", reason: "AI Switchboard-native implementation is covered by the repository MIT licence; no upstream Chonkify code is embedded." },
     },
   };
 }
 
-export function estimateChonkifySavings(nativeTokens, chonkifiedTokens) {
+export function estimateSwitchboardPackSavings(nativeTokens, compactedTokens) {
   const before = Math.max(0, nativeTokens);
-  const after = Math.max(0, chonkifiedTokens);
+  const after = Math.max(0, compactedTokens);
   return {
     nativeTokens: before,
     chonkifiedTokens: after,
@@ -94,3 +94,8 @@ export function estimateChonkifySavings(nativeTokens, chonkifiedTokens) {
     savingsPct: before > 0 ? Math.round(((before - after) / before) * 1000) / 10 : 0,
   };
 }
+
+/** @deprecated Legacy source compatibility; use compactSwitchboardPackFiles. */
+export const chonkifyPackFiles = compactSwitchboardPackFiles;
+/** @deprecated Legacy source compatibility; use estimateSwitchboardPackSavings. */
+export const estimateChonkifySavings = estimateSwitchboardPackSavings;

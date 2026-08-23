@@ -3,17 +3,17 @@ import type { SwitchboardMode } from "./types";
 import {
   compressRepoPack,
   describeRepoPackCompressionState,
-  type RepoPackChonkifyAdapter,
+  type RepoPackCompressionAdapter,
   type RepoPackCompressionMetadata,
   type RepoPackSourceFile,
 } from "./repoPackCompression";
 import {
-  chonkifyRepoPackAdapter,
+  switchboardPackCompactionAdapter,
   repoPackSourceFilesFromContextPack,
 } from "./chonkifyRepoPackAdapter";
 import {
-  canActivateChonkifyRepoPack,
-  chonkifyLicenseMetadataForRepoPack,
+  canActivateSwitchboardPackCompaction,
+  switchboardPackCompactionLicenseMetadata,
 } from "./chonkifyPromotionGate";
 import {
   getPlannedConnector,
@@ -76,7 +76,7 @@ export interface RepoPackCompressionConfig {
   mode?: RepoPackCompressionMode;
   config?: unknown;
   licenseMetadata?: string;
-  adapter?: RepoPackChonkifyAdapter<RepoContextPack>;
+  adapter?: RepoPackCompressionAdapter<RepoContextPack>;
   sourceFiles?: readonly RepoPackSourceFile[];
 }
 
@@ -1666,8 +1666,8 @@ export function estimateRepoPackCompressionSavings(
     config: compressionConfig.config,
     enabled: true,
     licenseMetadata:
-      compressionConfig.licenseMetadata ?? chonkifyLicenseMetadataForRepoPack(),
-    adapter: compressionConfig.adapter ?? chonkifyRepoPackAdapter,
+      compressionConfig.licenseMetadata ?? switchboardPackCompactionLicenseMetadata(),
+    adapter: compressionConfig.adapter ?? switchboardPackCompactionAdapter,
   });
   if (result.blocked) {
     return {
@@ -1693,8 +1693,8 @@ export function buildRepoPackCompressionConfig(
   }
   return {
     mode: "chonkify",
-    licenseMetadata: chonkifyLicenseMetadataForRepoPack(),
-    adapter: canActivateChonkifyRepoPack() ? chonkifyRepoPackAdapter : undefined,
+    licenseMetadata: switchboardPackCompactionLicenseMetadata(),
+    adapter: canActivateSwitchboardPackCompaction() ? switchboardPackCompactionAdapter : undefined,
   };
 }
 

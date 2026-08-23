@@ -1,5 +1,5 @@
 import { describeSemanticCachePolicy } from "./semanticCachePolicy";
-import { canActivateChonkifyRepoPack } from "./chonkifyPromotionGate";
+import { canActivateSwitchboardPackCompaction } from "./chonkifyPromotionGate";
 
 export const optimizationEngineIds = [
   "headroom-native",
@@ -96,17 +96,17 @@ const guidance = (setup: string, rollback: string, off: string) => ({ setup, rol
 
 const chonkifyEngineBase = {
   id: "chonkify" as const,
-  label: "Chonkify",
-  evidenceRequirements: ["license evidence", "source-provenance evidence", "deterministic pack review"] as const,
+  label: "Switchboard Pack Compaction",
+  evidenceRequirements: ["Switchboard-native provenance", "no-upstream-code evidence", "deterministic pack review"] as const,
   boundary: "local" as const,
   visibility: "prompt" as const,
   lossiness: "lossy" as const,
   supportedScope: "text" as const,
   evidenceType: "manual-review" as const,
   ...guidance(
-    "Enable Chonkify from Repo Intelligence for eligible read-only packs.",
+    "Enable the built-in Switchboard pack compactor for eligible read-only packs.",
     "Restore the original context pack from backup.",
-    "Keep disabled until license and provenance gates pass.",
+    "Keep disabled until native provenance and omission gates pass.",
   ),
   governance: {
     userOptIn: true,
@@ -123,7 +123,7 @@ export const optimizationEngines: readonly OptimizationEngine[] = [
   { id: "rtk", label: "RTK", status: "available", activationMode: "supported", evidenceRequirements: ["local command output"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "command-output", ...guidance("Install or select the local RTK binary.", "Remove the RTK preset from the profile.", "Turn off RTK presets."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
   { id: "leanctx", label: "Lean Context", status: "shadow", activationMode: "experimental", evidenceRequirements: ["shadow quality benchmark", "protected-content checks", "fail-open latency evidence"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "benchmark", ...guidance("Configure a local context budget and observe-only mode.", "Restore the uncompressed context pack.", "Set the engine to disabled."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
   { id: "llmlingua-2", label: "LLMLingua-2", status: "blocked", activationMode: "experimental", evidenceRequirements: ["local model", "quality baseline", "protected-content gates", "fail-open path"], boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "benchmark", ...guidance("Install the local model and record a quality baseline.", "Discard the compressed prompt and use the original.", "Keep the engine blocked until quality gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
-  canActivateChonkifyRepoPack()
+        canActivateSwitchboardPackCompaction()
     ? {
         ...chonkifyEngineBase,
         status: "available",

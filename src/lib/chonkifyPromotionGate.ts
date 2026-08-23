@@ -5,6 +5,10 @@ export interface ChonkifyProvenanceEvidence {
   schemaVersion: number;
   license: string;
   sourceRepository?: string;
+  implementationId?: string;
+  legacyCompatibilityId?: string;
+  implementationOwner?: string;
+  upstreamCodeEmbedded?: boolean;
   provenanceReviewedAt?: string;
   requiredSignals: string[];
   wrongOmissionFixturesPath: string;
@@ -37,7 +41,16 @@ export function evaluateChonkifyPromotionGate(
 ): { verdict: ChonkifyPromotionVerdict; reasons: string[] } {
   const reasons: string[] = [];
   if (evidence.license !== "MIT") {
-    reasons.push("license evidence must be MIT before chonkify repo-pack compression is eligible");
+    reasons.push("the Switchboard-native pack compactor must remain covered by the repository MIT licence");
+  }
+  if (evidence.implementationId !== "switchboard-pack-compaction") {
+    reasons.push("implementation identity must be switchboard-pack-compaction");
+  }
+  if (evidence.implementationOwner !== "ai-switchboard") {
+    reasons.push("implementation owner must be AI Switchboard");
+  }
+  if (evidence.upstreamCodeEmbedded !== false) {
+    reasons.push("upstream Chonkify code must not be claimed by the Switchboard-native compactor");
   }
   if (!Array.isArray(evidence.requiredSignals) || evidence.requiredSignals.length === 0) {
     reasons.push("provenance evidence is missing requiredSignals");
@@ -57,7 +70,7 @@ export function evaluateChonkifyPromotionGate(
   return {
     verdict: "repo_pack_eligible",
     reasons: [
-      "MIT license and provenance fixtures passed review.",
+      "AI Switchboard-native implementation identity and MIT coverage passed review.",
       "Wrong-omission fixtures remain at or below the promotion gate.",
     ],
   };
@@ -72,3 +85,9 @@ export function canActivateChonkifyRepoPack(
 export function chonkifyLicenseMetadataForRepoPack(): string {
   return canActivateChonkifyRepoPack() ? "MIT" : "NOASSERTION";
 }
+
+export type SwitchboardPackCompactionEvidence = ChonkifyProvenanceEvidence;
+export type SwitchboardPackCompactionVerdict = ChonkifyPromotionVerdict;
+export const evaluateSwitchboardPackCompactionGate = evaluateChonkifyPromotionGate;
+export const canActivateSwitchboardPackCompaction = canActivateChonkifyRepoPack;
+export const switchboardPackCompactionLicenseMetadata = chonkifyLicenseMetadataForRepoPack;

@@ -69,10 +69,10 @@ describe("OptimizationEngineProfilesCard", () => {
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
     expect(screen.getByText("Token optimization engines")).toBeInTheDocument();
     expect(screen.getByText("Lean Context")).toBeInTheDocument();
-    expect(screen.getAllByText("Chonkify").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Switchboard Pack Compaction").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("PXPipe Text/Image")).toBeInTheDocument();
     expect(screen.getByLabelText("Headroom Native state: checking")).toBeInTheDocument();
-    expect(screen.getByLabelText("Chonkify state: ready")).toBeInTheDocument();
+    expect(screen.getByLabelText("Switchboard Pack Compaction state: ready")).toBeInTheDocument();
     expect(screen.getByText(/Headroom Native is the only live provider compressor/)).toBeInTheDocument();
     expect(screen.getByText(/no upstream Headroom text_image capability/)).toBeInTheDocument();
     expect(screen.getAllByText(/Individual and master activation are safe no-ops/)).toHaveLength(3);
@@ -108,13 +108,13 @@ describe("OptimizationEngineProfilesCard", () => {
     }));
   });
 
-  it("activates eligible Chonkify only for Repo Intelligence packs", async () => {
+  it("activates Switchboard-native compaction only for Repo Intelligence packs", async () => {
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
-    const toggle = screen.getByRole("button", { name: "Enable repo-pack compression for Chonkify" });
+    const toggle = screen.getByRole("button", { name: "Enable repo-pack compression for Switchboard Pack Compaction" });
     await waitFor(() => expect(toggle).not.toBeDisabled());
     fireEvent.click(toggle);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_repo_pack_compression_preference", { mode: "chonkify" }));
-    expect(screen.getByText(/enables Chonkify for read-only Repo Intelligence pack copies/i)).toBeInTheDocument();
+    expect(screen.getByText(/built-in deterministic compactor for read-only Repo Intelligence pack copies/i)).toBeInTheDocument();
   });
 
   it("surfaces safety scope and blockers without implying live compression", () => {

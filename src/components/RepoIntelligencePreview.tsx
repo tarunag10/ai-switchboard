@@ -32,7 +32,7 @@ import {
   type RepoPackCompressionMode,
   type RepoSavingsEstimate,
 } from "../lib/repoIntelligence";
-import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
+import { canActivateSwitchboardPackCompaction } from "../lib/chonkifyPromotionGate";
 import {
   loadAuthoritativeRepoPackCompressionPreference,
   saveNativeRepoPackCompressionPreference,
@@ -174,7 +174,7 @@ export function RepoIntelligencePreview({
     hasRealIndex,
   );
   const packCompressionConfig = buildRepoPackCompressionConfig(packCompressionMode);
-  const chonkifyEligible = canActivateChonkifyRepoPack();
+  const chonkifyEligible = canActivateSwitchboardPackCompaction();
 
   useEffect(() => {
     let active = true;
@@ -633,7 +633,7 @@ export function RepoIntelligencePreview({
           >
             <option value="off">Native deterministic (recommended)</option>
             <option value="chonkify">
-              Chonkify {chonkifyEligible ? "(repo-pack eligible)" : "(blocked pending license)"}
+              Switchboard Pack Compaction {chonkifyEligible ? "(eligible)" : "(blocked pending provenance)"}
             </option>
           </select>
         </label>
@@ -690,9 +690,9 @@ export function RepoIntelligencePreview({
       <p className="repo-intelligence-preview__path" role="note">
         {packCompressionMode === "chonkify"
           ? chonkifyEligible
-            ? "Chonkify is eligible for read-only Repo Intelligence packs. Copy dialogs show native vs chonkify token estimates; savings remain labelled estimated."
-            : "Chonkify is selected for evidence preview only. Current license metadata is NOASSERTION, so native deterministic packs remain unchanged and savings stay unclaimed."
-          : "Native deterministic packs are the default. Chonkify can be enabled explicitly for eligible read-only packs; source spans are retained and savings are labelled estimated."}
+            ? "Switchboard Pack Compaction is eligible for read-only Repo Intelligence packs. It is built into AI Switchboard, retains source spans, and labels savings as estimated."
+            : "Pack compaction is selected for evidence preview only. Native provenance is incomplete, so deterministic packs remain unchanged and savings stay unclaimed."
+          : "Native deterministic packs are the default. Switchboard Pack Compaction can be enabled explicitly for eligible read-only packs; source spans are retained and savings are labelled estimated."}
       </p>
       {copyNotice ? (
         <p className="repo-intelligence-preview__path" role="status" aria-live="polite">{copyNotice}</p>
@@ -1196,10 +1196,10 @@ export function RepoIntelligencePreview({
               {pack.files.length} files &middot; about{" "}
               {pack.estimatedTokens.toLocaleString()} tokens
               {compressionEstimate && !compressionEstimate.blocked && compressionEstimate.compressedTokens !== null
-                ? ` · chonkify ~${compressionEstimate.compressedTokens.toLocaleString()} tokens`
+                ? ` · Switchboard compacted ~${compressionEstimate.compressedTokens.toLocaleString()} tokens`
                 : ""}
               {compressionEstimate?.blocked
-                ? " · chonkify blocked"
+                ? " · pack compaction blocked"
                 : ""}
             </span>
             {!isPreview ? (

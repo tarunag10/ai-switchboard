@@ -208,7 +208,25 @@ fn chonkify_gate() -> (String, bool) {
         }
     };
     if evidence.get("license").and_then(serde_json::Value::as_str) != Some("MIT") {
-        return ("blocked: MIT provenance is required".into(), false);
+        return ("blocked: repository MIT coverage is required".into(), false);
+    }
+    if evidence
+        .get("implementationId")
+        .and_then(serde_json::Value::as_str)
+        != Some("switchboard-pack-compaction")
+        || evidence
+            .get("implementationOwner")
+            .and_then(serde_json::Value::as_str)
+            != Some("ai-switchboard")
+        || evidence
+            .get("upstreamCodeEmbedded")
+            .and_then(serde_json::Value::as_bool)
+            != Some(false)
+    {
+        return (
+            "blocked: Switchboard-native pack-compaction provenance is invalid".into(),
+            false,
+        );
     }
     if evidence
         .get("requiredSignals")
@@ -257,7 +275,7 @@ fn chonkify_gate() -> (String, bool) {
         }
     }
     (
-        "repo_pack_eligible: MIT provenance and wrong-omission fixtures passed".into(),
+        "repo_pack_eligible: Switchboard-native provenance and wrong-omission fixtures passed".into(),
         true,
     )
 }
@@ -277,9 +295,10 @@ fn read_chonkify_preference(state: &AppState) -> Result<RepoPackCompressionPrefe
             updated_at: Utc::now().to_rfc3339(),
         });
     }
-    let bytes = fs::read(&path).map_err(|error| format!("reading Chonkify preference: {error}"))?;
+    let bytes = fs::read(&path)
+        .map_err(|error| format!("reading Switchboard pack-compaction preference: {error}"))?;
     let mut preference: RepoPackCompressionPreference = serde_json::from_slice(&bytes)
-        .map_err(|error| format!("decoding Chonkify preference: {error}"))?;
+        .map_err(|error| format!("decoding Switchboard pack-compaction preference: {error}"))?;
     if preference.schema_version != 1
         || !matches!(preference.requested_mode.as_str(), "off" | "chonkify")
     {
@@ -465,7 +484,7 @@ fn set_chonkify_preference(
     mode: &str,
 ) -> Result<RepoPackCompressionPreference, String> {
     if !matches!(mode, "off" | "chonkify") {
-        return Err("Chonkify preference must be off or chonkify.".into());
+        return Err("Switchboard pack-compaction preference must be off or the legacy chonkify compatibility value.".into());
     }
     let (gate_verdict, eligible) = chonkify_gate();
     if mode == "chonkify" && !eligible {
@@ -484,17 +503,17 @@ fn set_chonkify_preference(
     let path = config_path(state, CHONKIFY_PREFERENCE_FILE);
     fs::create_dir_all(
         path.parent()
-            .ok_or("Chonkify preference has no config directory")?,
+            .ok_or("Switchboard pack-compaction preference has no config directory")?,
     )
-    .map_err(|error| format!("creating Chonkify config directory: {error}"))?;
+    .map_err(|error| format!("creating Switchboard pack-compaction config directory: {error}"))?;
     let temporary = path.with_extension(format!("json.tmp.{}", std::process::id()));
     fs::write(
         &temporary,
         serde_json::to_vec_pretty(&preference).map_err(|error| error.to_string())?,
     )
-    .map_err(|error| format!("writing Chonkify preference: {error}"))?;
+    .map_err(|error| format!("writing Switchboard pack-compaction preference: {error}"))?;
     fs::rename(&temporary, &path)
-        .map_err(|error| format!("committing Chonkify preference: {error}"))?;
+        .map_err(|error| format!("committing Switchboard pack-compaction preference: {error}"))?;
     Ok(preference)
 }
 
@@ -749,7 +768,7 @@ fn preflight_selected_tools(state: &AppState, selected: &[String]) -> Result<(),
         );
     }
     if selected.iter().any(|id| id == "chonkify") && !chonkify_gate().1 {
-        return Err("Chonkify promotion evidence is not eligible; native deterministic packs remain active.".into());
+        return Err("Switchboard-native pack-compaction evidence is not eligible; native deterministic packs remain active.".into());
     }
     if selected.iter().any(|id| id == "rtk") {
         let snapshot = rtk_snapshot(state)?;
@@ -880,7 +899,7 @@ pub async fn activate_selected_tools(
                 Ok("Content-free local Token X-Ray evidence refreshed.".into())
             }
             "chonkify" => set_chonkify_preference(&state, "chonkify")
-                .map(|_| "Chonkify enabled for read-only Repo Intelligence packs.".into()),
+                .map(|_| "Switchboard Pack Compaction enabled for read-only Repo Intelligence packs.".into()),
             addon => activate_managed_addon(&state, addon),
         };
         match activation {
@@ -1130,9 +1149,9 @@ pub async fn rollback_selective_activation(
             rollback_results.push(SelectiveRollbackResult {
                 tool_id: "chonkify".into(),
                 state: "blocked_external_change".into(),
-                detail: "Current Chonkify preference differs from this run's post-activation state; no overwrite was attempted.".into(),
+                detail: "Current Switchboard pack-compaction preference differs from this run's post-activation state; no overwrite was attempted.".into(),
             });
-            failures.push("Chonkify preference changed after activation".into());
+            failures.push("Switchboard pack-compaction preference changed after activation".into());
         } else if let Err(error) = set_chonkify_preference(&state, mode) {
             failures.push(error.clone());
             rollback_results.push(SelectiveRollbackResult {

@@ -16,7 +16,7 @@ import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
 import { describeSemanticCacheV2Policy } from "../lib/semanticCachePolicy";
 import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
-import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
+import { canActivateSwitchboardPackCompaction } from "../lib/chonkifyPromotionGate";
 import {
   loadAuthoritativeRepoPackCompressionPreference,
   saveNativeRepoPackCompressionPreference,
@@ -128,11 +128,15 @@ type DisplayState =
 
 type LifecycleReceipt = OptimizationReceipt & { action: string };
 
+function displayEngineId(id: string): string {
+  return id === "chonkify" ? "switchboard-pack-compaction" : id;
+}
+
 const promotionMatrix = [
   { id: "headroom-native", label: "Headroom Native", mode: "Live", evidence: "Native runtime metric", gate: "Promotion-ready when runtime is healthy and native compression is enabled." },
   { id: "leanctx", label: "leanctx shadow", mode: "Shadow", evidence: "Benchmark/readiness evidence", gate: "Observe locally; no provider traffic until a reviewed promotion path exists." },
   { id: "semantic-cache", label: "Exact Response Cache", mode: "Live exact replay", evidence: "Observed hit/miss counters", gate: "Byte-identical eligible requests only; semantic reuse remains an unavailable experiment." },
-  { id: "chonkify", label: "Chonkify", mode: "Enabled repo-pack", evidence: "MIT provenance fixture", gate: "Read-only Repo Intelligence packs only; savings remain estimated." },
+  { id: "chonkify", label: "Switchboard Pack Compaction", mode: "Built-in repo-pack", evidence: "Switchboard-native provenance fixture", gate: "Read-only Repo Intelligence packs only; savings remain estimated." },
   { id: "llmlingua-2", label: "LLMLingua-2", mode: "Design-only", evidence: "Benchmark required", gate: "Local model, quality baseline, and protected-content gates required." },
   { id: "pxpipe-text-image", label: "pxpipe", mode: "Design-only", evidence: "Manual review", gate: "Versioned Headroom text_image seam and quality evidence required." },
 ] as const;
@@ -179,7 +183,7 @@ const engineSafety: Record<OptimizationEngineId, string> = {
   rtk: "Applies to local command output; it does not rewrite provider requests.",
   leanctx: "Shadow-only local observation. It never receives live provider traffic.",
   "llmlingua-2": "Blocked until local quality and protected-content gates pass.",
-  chonkify: "Repo/context-pack scope only; original files remain the source of truth.",
+  chonkify: "Switchboard-native repo/context-pack scope only; original files remain the source of truth.",
   "semantic-cache": "Cache hits are cost-saving replays, not compression; protect secrets and tool state.",
   "pxpipe-text-image": "Blocked until Headroom exposes a versioned text_image seam and quality evidence.",
 };
@@ -228,7 +232,7 @@ function formatLifecycleReceipts(receipts: LifecycleReceipt[]): string {
     "# AI Switchboard optimization lifecycle receipts",
     "# These are configuration events, not measured savings.",
     ...receipts.map((receipt) => [
-      `- ${receipt.createdAt} | ${receipt.engine} | ${receipt.action}`,
+      `- ${receipt.createdAt} | ${displayEngineId(receipt.engine)} | ${receipt.action}`,
       `  scope=${receipt.scope}; evidence=${receipt.evidence}; ${receipt.fallbackReason ?? "no additional detail"}`,
     ].join("\n")),
   ].join("\n");
@@ -359,7 +363,7 @@ export function OptimizationEngineProfilesCard({
             <ul className="gateway-profile__receipt-list">
               {localState.receipts.slice(0, 8).map((receipt) => (
                 <li key={receipt.id}>
-                  <strong>{receipt.engine}</strong>
+                    <strong>{displayEngineId(receipt.engine)}</strong>
                   <span>{receipt.action} · {receipt.scope} · {receipt.evidence} evidence</span>
                   <time dateTime={receipt.createdAt}>{formatReceiptTimestamp(receipt.createdAt)}</time>
                 </li>
@@ -575,7 +579,7 @@ function OptimizationEngineRow({
       <div className="gateway-profile__heading">
         <div>
           <strong id={`${engine.id}-title`}>{engine.label}</strong>
-          <span>{engine.id} · {engine.boundary} boundary · {engine.evidenceType} evidence</span>
+          <span>{displayEngineId(engine.id)} · {engine.boundary} boundary · {engine.evidenceType} evidence</span>
         </div>
         <span className={`gateway-profile__state gateway-profile__state--${state}`} role="status" aria-live="polite" aria-label={`${engine.label} state: ${state}`}>{state}</span>
       </div>
@@ -584,7 +588,7 @@ function OptimizationEngineRow({
       {engineBlocker[engine.id] && <p role="note"><strong>{engineBlocker[engine.id]}</strong></p>}
       {activationBlocked && <p role="note"><strong>Activation boundary:</strong> {engine.activationMode === "experimental" ? "Experimental evidence-only profile." : "Blocked profile."} Individual and master activation are safe no-ops. Required evidence: {engine.evidenceRequirements.join("; ")}.</p>}
       {engine.id === "leanctx" && <p role="note"><strong>Setup:</strong> provide LEANCTX_EXECUTABLE and a loopback-only LEANCTX_BASE_URL; optional LEANCTX_ARGS_JSON and LEANCTX_VERSION are user-supplied.</p>}
-      {engine.id === "chonkify" && canActivateChonkifyRepoPack() && <p role="note"><strong>Activation scope:</strong> enables Chonkify for read-only Repo Intelligence pack copies and handoffs. Original files remain authoritative; no provider traffic is changed.</p>}
+      {engine.id === "chonkify" && canActivateSwitchboardPackCompaction() && <p role="note"><strong>Activation scope:</strong> enables AI Switchboard's built-in deterministic compactor for read-only Repo Intelligence pack copies and handoffs. Original files remain authoritative; no provider traffic is changed.</p>}
       {engine.id === "semantic-cache" && <p role="note"><strong>Safety scope:</strong> cache only eligible repeated text requests. Obvious secret markers in requests or responses bypass the cache; response bodies remain local until TTL or clear.</p>}
       <div className="gateway-profile__facts">
         <span>{engine.visibility === "none" ? "No prompt/output visibility" : `${engine.visibility} visibility`}</span>

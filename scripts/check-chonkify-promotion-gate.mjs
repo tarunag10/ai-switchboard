@@ -8,17 +8,17 @@ const requiredSignals = [
   {
     label: "repo pack compression seam",
     file: "src/lib/repoPackCompression.ts",
-    needles: ["compressRepoPack", "RepoPackChonkifyAdapter"],
+    needles: ["compressRepoPack", "RepoPackCompressionAdapter"],
   },
   {
-    label: "chonkify promotion gate",
+    label: "Switchboard pack-compaction promotion gate",
     file: "src/lib/chonkifyPromotionGate.ts",
-    needles: ["evaluateChonkifyPromotionGate", "canActivateChonkifyRepoPack"],
+    needles: ["evaluateSwitchboardPackCompactionGate", "canActivateSwitchboardPackCompaction"],
   },
   {
-    label: "cli chonkify adapter",
+    label: "CLI Switchboard pack-compaction adapter",
     file: "scripts/chonkify-adapter.mjs",
-    needles: ["chonkifyPackFiles", "estimateChonkifySavings"],
+    needles: ["compactSwitchboardPackFiles", "estimateSwitchboardPackSavings"],
   },
   {
     label: "repo intelligence compression flag",
@@ -51,7 +51,16 @@ if (!fs.existsSync(provenancePath)) {
 }
 const provenance = JSON.parse(fs.readFileSync(provenancePath, "utf8"));
 if (provenance.license !== "MIT") {
-  fail("chonkify provenance fixture must declare MIT license");
+  fail("Switchboard pack-compaction fixture must declare the repository MIT license");
+}
+if (provenance.implementationId !== "switchboard-pack-compaction") {
+  fail("pack-compaction fixture must identify switchboard-pack-compaction");
+}
+if (provenance.implementationOwner !== "ai-switchboard") {
+  fail("pack-compaction fixture must identify AI Switchboard as implementation owner");
+}
+if (provenance.upstreamCodeEmbedded !== false) {
+  fail("pack-compaction fixture must not claim embedded upstream Chonkify code");
 }
 
 const benchmarkPath = path.join(root, provenance.wrongOmissionFixturesPath ?? "");
@@ -75,6 +84,8 @@ console.log(
       ok: true,
       signals: requiredSignals.map((signal) => signal.label),
       license: provenance.license,
+      implementationId: provenance.implementationId,
+      upstreamCodeEmbedded: provenance.upstreamCodeEmbedded,
       wrongOmissionGatePct: maxRate,
     },
     null,

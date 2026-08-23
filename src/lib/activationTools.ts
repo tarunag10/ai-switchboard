@@ -36,7 +36,7 @@ export const SELECTIVE_ACTIVATION_TOOLS: readonly ActivationToolDefinition[] = [
   { id: "caveman", label: "Caveman", description: "Enable the selected Caveman output style.", kind: "addon", actionLabel: "Enable Caveman", scope: "Managed local instruction blocks; current Caveman level is preserved." },
   { id: "markitdown", label: "MarkItDown", description: "Enable local document conversion for supported workflows.", kind: "addon", actionLabel: "Enable MarkItDown", scope: "Managed local converter, hook, permission, and cache lifecycle." },
   { id: "response-cache", label: "Exact Response Cache", description: "Enable the local exact-response cache.", kind: "addon", actionLabel: "Enable cache", scope: "Requires Full or Headroom mode; no semantic or provider routing is enabled." },
-  { id: "chonkify", label: "Chonkify Repo Packs", description: "Enable compression for local Repo Intelligence packs.", kind: "local-preference", actionLabel: "Enable pack compression", scope: "Read-only local packs; original repository files remain authoritative." },
+  { id: "chonkify", label: "Switchboard Pack Compaction", description: "Enable AI Switchboard's built-in deterministic compaction for local Repo Intelligence packs.", kind: "local-preference", actionLabel: "Enable pack compaction", scope: "Switchboard-native, read-only local packs; original repository files remain authoritative. The chonkify value is a legacy preference ID only." },
   { id: "leanctx", label: "Leanctx Shadow", description: "Install and enable the loopback-only shadow sidecar when available.", kind: "addon", actionLabel: "Enable shadow", scope: "Shadow preparation only; live provider routing stays disabled until its promotion gate passes." },
 ] as const;
 

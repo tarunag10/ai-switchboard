@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
-import { chonkifyPackFiles } from "./chonkify-adapter.mjs";
+import { compactSwitchboardPackFiles } from "./chonkify-adapter.mjs";
 
 const INDEXER_VERSION = "path-graph-v13";
 const MAX_SCAN_FILES = 2_500;
@@ -693,7 +693,7 @@ Options:
   --task <type>        Session task: implementation, verification, handoff, risk_review, release_handoff
   --query <text>       Optional free-form task query for task-aware context ranking
   --budget <tokens>    Optional token budget for task-aware context ranking (0 = unlimited)
-  --compression <mode> Optional repo pack compression: off or chonkify
+--compression <mode> Optional repo pack compaction: off or switchboard-pack-compaction (legacy alias: chonkify)
   --headroom-healthy   Mark Headroom engine healthy for mode recommendation
   --rtk-healthy        Mark RTK healthy for mode recommendation
   --provider-routing-safe|--provider-routing-unsafe
@@ -1000,18 +1000,23 @@ function normalizedTaskBudget(value, fallback = 8000) {
   return fallback;
 }
 
-function loadChonkifyPromotionPassed() {
+function loadSwitchboardPackCompactionGatePassed() {
   try {
     const fixturePath = path.join(process.cwd(), "fixtures/chonkify-provenance-evidence.json");
     const evidence = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
-    return evidence.license === "MIT";
+    return evidence.license === "MIT"
+      && evidence.implementationId === "switchboard-pack-compaction"
+      && evidence.implementationOwner === "ai-switchboard"
+      && evidence.upstreamCodeEmbedded === false;
   } catch {
     return false;
   }
 }
 
 function applyPackCompression(pack, compressionMode) {
-  if (compressionMode !== "chonkify" || !loadChonkifyPromotionPassed()) {
+  const compactionRequested = compressionMode === "switchboard-pack-compaction"
+    || compressionMode === "chonkify";
+  if (!compactionRequested || !loadSwitchboardPackCompactionGatePassed()) {
     return pack;
   }
   const files = pack.files.map((file) => ({
@@ -1019,7 +1024,7 @@ function applyPackCompression(pack, compressionMode) {
     content: file.preview ?? "",
     estimatedTokens: file.estimatedTokens,
   }));
-  const compressed = chonkifyPackFiles(files);
+  const compressed = compactSwitchboardPackFiles(files);
   const compressedByPath = new Map(compressed.files.map((file) => [file.path, file]));
   return {
     ...pack,

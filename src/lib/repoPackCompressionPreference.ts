@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { RepoPackCompressionMode } from "./repoIntelligence";
 import {
-  canActivateChonkifyRepoPack,
+  canActivateSwitchboardPackCompaction,
 } from "./chonkifyPromotionGate";
 import {
   loadRepoPackCompressionPreference,
@@ -30,7 +30,7 @@ export async function loadAuthoritativeRepoPackCompressionPreference(): Promise<
     window.localStorage.removeItem(repoPackCompressionPreferenceKey);
     return preference;
   }
-  if (loadRepoPackCompressionPreference() !== "chonkify" || !canActivateChonkifyRepoPack()) {
+  if (loadRepoPackCompressionPreference() !== "chonkify" || !canActivateSwitchboardPackCompaction()) {
     return preference;
   }
   const migrated = await saveNativeRepoPackCompressionPreference("chonkify");

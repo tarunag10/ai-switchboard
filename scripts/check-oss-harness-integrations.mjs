@@ -3,6 +3,10 @@ import path from "node:path";
 
 const root = process.cwd();
 const required = [
+  "THIRD_PARTY_NOTICES.md",
+  "third_party/oss-integrations.json",
+  "scripts/check-self-contained-oss-inventory.mjs",
+  "scripts/check-self-contained-oss-inventory.node-test.mjs",
   "docs/integrations/deepseek-harness-maturity-audit.md",
   "docs/integrations/switchyard-evaluation.md",
   "docs/integrations/jcode-evaluation.md",
@@ -27,6 +31,15 @@ const required = [
 const failures = [];
 for (const relative of required) {
   if (!fs.existsSync(path.join(root, relative))) failures.push(`missing ${relative}`);
+}
+const tauriBundle = fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8");
+for (const resource of [
+  "../LICENSE",
+  "../NOTICE",
+  "../THIRD_PARTY_NOTICES.md",
+  "../third_party/oss-integrations.json",
+]) {
+  if (!tauriBundle.includes(resource)) failures.push(`Tauri bundle missing ${resource}`);
 }
 const plan = fs.readFileSync(path.join(root, "docs/integrations/oss-harness-integration-plan.md"), "utf8").toLowerCase();
 for (const phrase of ["redacted", "observe-only", "fail-closed", "licenses", "replay"]) {
