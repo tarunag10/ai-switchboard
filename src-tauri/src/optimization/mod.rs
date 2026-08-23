@@ -1,4 +1,6 @@
 pub(crate) mod action_policy;
+#[cfg(test)]
+mod action_policy_tests;
 pub(crate) mod cache_metrics;
 pub(crate) mod compaction;
 pub(crate) mod compaction_action;
