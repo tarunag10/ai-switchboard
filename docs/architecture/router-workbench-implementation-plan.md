@@ -218,6 +218,14 @@ Deliverables:
   adapter-plan ID only—no executable path, argv, shell, environment, working
   directory, instruction, timeout, prompt, credential, provider traffic, or
   start capability. Canonical `codex` and `claude_code` only are accepted.
+- [x] A native-owned, content-free `ProcessRunSpec` is attached only to those
+  command-ready plans. It is deterministically bound to the session, adapter
+  plan, adapter contract, and workspace digest; records `not_started` and
+  `not_granted`; and requires a future native fixed timeout, app-owned Unix
+  process group, null stdin, bounded redacted output, and TERM-then-KILL group
+  cleanup. It has no command path, argv, shell, environment, cwd, prompt,
+  credential, PID/PGID, user-controlled timeout, process registry, or start
+  endpoint.
 - [ ] Version probing or runnable-binary validation, only after an explicit
   process-start capability and containment/receipt model are available.
 - [ ] Explicit capability approval, bounded timeout/cancel model, process

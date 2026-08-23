@@ -7,6 +7,7 @@
 mod adapter_readiness;
 mod events;
 mod presets;
+mod process_run_spec;
 mod run_contract;
 mod session;
 mod storage;
@@ -19,6 +20,7 @@ use adapter_readiness::all_adapter_readiness;
 pub use adapter_readiness::{WorkbenchAdapterCommandReadiness, WorkbenchAdapterReadiness};
 pub use events::WorkbenchSessionAction;
 use presets::{all_workbench_plan_presets, WorkbenchPlanPreset};
+pub use process_run_spec::ProcessRunSpec;
 pub use run_contract::{WorkbenchRunPlan, WorkbenchRunSpecInput};
 pub use session::{CreateWorkbenchSessionInput, WorkbenchSession};
 use storage::WorkbenchStore;

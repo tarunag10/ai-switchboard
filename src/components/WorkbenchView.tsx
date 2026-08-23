@@ -530,6 +530,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   {runPlan.preset ? <p><strong>Preset:</strong> {runPlan.preset.label} · {runPlan.preset.evidenceSource.replace(/_/g, " ")}</p> : null}
                   {runPlan.replayReference ? <p><strong>Replay receipt:</strong> {runPlan.replayReference.replayId} · {runPlan.replayReference.eventCount} events · observe-only</p> : null}
                   {runPlan.commandReadiness ? <p><strong>Command readiness:</strong> {runPlan.commandReadiness.logicalBinary} · fixed-location metadata only · CLI version not probed · process start disabled</p> : null}
+                  {runPlan.processContainment ? <p><strong>Native containment:</strong> {runPlan.processContainment.state.replace(/_/g, " ")} · {runPlan.processContainment.processGroup.replace(/_/g, " ")} · fixed timeout policy required · start unavailable</p> : null}
                   <p><strong>Execution:</strong> {runPlan.executionMode} · <strong>Provider traffic:</strong> {runPlan.providerTraffic} · <strong>Writes:</strong> disabled</p>
                   <p className="optimize-minimal__meta">Plan ID: {runPlan.planId}</p>
                 </div>

@@ -70,6 +70,27 @@ export interface WorkbenchAdapterCommandReadiness extends WorkbenchAdapterReadin
   adapterPlanId: string;
 }
 
+export interface WorkbenchProcessRunSpec {
+  schemaVersion: number;
+  runId: string;
+  sessionId: string;
+  adapterPlanId: string;
+  adapterId: "codex" | "claude_code";
+  adapterContractVersion: number;
+  workspaceDigest: string;
+  owner: "workbench_native";
+  state: "not_started";
+  startAuthorization: "not_granted";
+  launchMode: "native_adapter_only";
+  processGroup: "required_on_unix";
+  stdin: "null";
+  output: "piped_bounded_redacted";
+  timeoutPolicy: "native_fixed_policy_required";
+  cancellation: "group_sigterm_then_sigkill";
+  providerTraffic: "none";
+  writesEnabled: false;
+}
+
 export interface WorkbenchRunSpecInput {
   sessionId: string;
   adapterId: "claude_code" | "codex" | "gemini_cli";
@@ -104,6 +125,7 @@ export interface WorkbenchRunPlan {
   adapterAction: "apply_managed_routing" | "cleanup_managed_routing";
   adapterReversible: boolean;
   commandReadiness: WorkbenchAdapterCommandReadiness | null;
+  processContainment: WorkbenchProcessRunSpec | null;
   capabilityRequests: WorkbenchCapabilityRequest[];
   executionMode: "plan_only";
   providerTraffic: "none";

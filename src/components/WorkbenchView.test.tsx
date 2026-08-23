@@ -208,6 +208,7 @@ describe("WorkbenchView", () => {
       adapterAction: "apply_managed_routing",
       adapterReversible: true,
       commandReadiness: null,
+      processContainment: null,
       capabilityRequests: [],
       executionMode: "plan_only",
       providerTraffic: "none",
@@ -249,6 +250,7 @@ describe("WorkbenchView", () => {
       adapterAction: "apply_managed_routing",
       adapterReversible: true,
       commandReadiness: null,
+      processContainment: null,
       capabilityRequests: [],
       executionMode: "plan_only",
       providerTraffic: "none",
@@ -305,6 +307,26 @@ describe("WorkbenchView", () => {
         ...capabilityProjection.adapterReadiness[0],
         adapterPlanId: "codex-1234567890ab",
       },
+      processContainment: {
+        schemaVersion: 1,
+        runId: "process-run:1234567890abcdef1234567890abcdef",
+        sessionId: session.sessionId,
+        adapterPlanId: "codex-1234567890ab",
+        adapterId: "codex",
+        adapterContractVersion: 1,
+        workspaceDigest,
+        owner: "workbench_native",
+        state: "not_started",
+        startAuthorization: "not_granted",
+        launchMode: "native_adapter_only",
+        processGroup: "required_on_unix",
+        stdin: "null",
+        output: "piped_bounded_redacted",
+        timeoutPolicy: "native_fixed_policy_required",
+        cancellation: "group_sigterm_then_sigkill",
+        providerTraffic: "none",
+        writesEnabled: false,
+      },
       capabilityRequests: [],
       executionMode: "plan_only",
       providerTraffic: "none",
@@ -322,6 +344,9 @@ describe("WorkbenchView", () => {
       requiredCapabilityIds: expect.arrayContaining(["adapter_command_readiness"]),
     }));
     expect(await screen.findByText(/CLI version not probed/i)).toBeInTheDocument();
+    expect(screen.getByText((_, element) =>
+      element?.tagName === "P" && element.textContent?.includes("Native containment: not started"),
+    )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /execute|start/i })).not.toBeInTheDocument();
   });
 

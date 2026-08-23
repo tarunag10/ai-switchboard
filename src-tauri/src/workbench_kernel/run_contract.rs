@@ -15,6 +15,7 @@ use super::events::validate_identifier;
 use super::presets::{
     resolve_workbench_plan_preset, validate_workbench_plan_preset, WorkbenchPlanPreset,
 };
+use super::process_run_spec::process_run_spec_for;
 use super::session::{validate_digest, WorkbenchSession};
 use super::{
     adapter_readiness::{
@@ -83,6 +84,7 @@ pub struct WorkbenchRunPlan {
     pub adapter_action: String,
     pub adapter_reversible: bool,
     pub command_readiness: Option<WorkbenchAdapterCommandReadiness>,
+    pub process_containment: Option<super::ProcessRunSpec>,
     pub capability_requests: Vec<CapabilityRequest>,
     pub execution_mode: String,
     pub provider_traffic: String,
@@ -244,6 +246,16 @@ fn prepare_run_plan_with_reference(
     } else {
         None
     };
+    let process_containment = if command_readiness.is_some() {
+        Some(process_run_spec_for(
+            &input.session_id,
+            &adapter_plan.plan_id,
+            &input.adapter_id,
+            &input.workspace_digest,
+        )?)
+    } else {
+        None
+    };
     let canonical = serde_json::json!({
         "sessionId": &input.session_id,
         "adapterId": adapter.id(),
@@ -256,6 +268,7 @@ fn prepare_run_plan_with_reference(
         "requestedMode": &input.requested_mode,
         "adapterPlanId": &adapter_plan.plan_id,
         "commandReadiness": &command_readiness,
+        "processContainment": &process_containment,
     });
     let digest = Sha256::digest(
         serde_json::to_vec(&canonical).context("canonicalizing Workbench run plan")?,
@@ -278,6 +291,7 @@ fn prepare_run_plan_with_reference(
         },
         adapter_reversible: adapter_plan.reversible,
         command_readiness,
+        process_containment,
         capability_requests: input
             .required_capability_ids
             .into_iter()
@@ -378,6 +392,7 @@ mod tests {
         assert_eq!(plan.provider_traffic, "none");
         assert!(!plan.writes_enabled);
         assert_eq!(plan.command_readiness, None);
+        assert_eq!(plan.process_containment, None);
         assert!(plan
             .capability_requests
             .iter()
@@ -598,11 +613,17 @@ mod tests {
         let plan =
             prepare_run_plan_with_reference(&session, input.clone(), router.clone(), None, None)
                 .expect("prepare command readiness");
+        let adapter_plan_id = plan.adapter_plan_id.clone();
         let readiness = plan.command_readiness.expect("readiness requested");
         assert_eq!(readiness.adapter_id, "codex");
-        assert_eq!(readiness.adapter_plan_id, plan.adapter_plan_id);
+        assert_eq!(readiness.adapter_plan_id, adapter_plan_id);
         assert_eq!(readiness.cli_version_probe_state, "not_probed");
         assert!(!readiness.process_start_enabled);
+        let containment = plan.process_containment.expect("containment requested");
+        assert_eq!(containment.adapter_plan_id, adapter_plan_id);
+        assert_eq!(containment.state, "not_started");
+        assert_eq!(containment.start_authorization, "not_granted");
+        assert_eq!(containment.process_group, "required_on_unix");
 
         input.required_capability_ids = vec!["router_observe".into()];
         assert!(prepare_run_plan_with_reference(&session, input, router, None, None).is_err());
