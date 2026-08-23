@@ -254,7 +254,8 @@ the current checkout.
 - Router/Workbench architecture: one shared-kernel plan now separates the
   headless Router from the all-in-one Workbench. Existing routing, adapters,
   replay, registry, and promotion contracts are reused; the durable native
-  session/run kernel and visible Workbench remain remaining build.
+  session/run kernel is shipped plan-only, while the visible Workbench and any
+  execution backend remain remaining build.
 
 ### Prepared but externally blocked
 

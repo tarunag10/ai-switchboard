@@ -159,6 +159,7 @@ mod token_xray;
 mod tool_manager;
 mod tray_runtime;
 mod vllm_benchmark_adapter;
+mod workbench_kernel;
 #[cfg(test)]
 mod tray_window;
 
@@ -882,6 +883,14 @@ pub fn run() {
             optimization_commands::get_transport_observations,
             oss_capabilities::get_oss_capability_registry,
             oss_harness_replay::replay_redacted_route_events,
+            workbench_kernel::create_workbench_session,
+            workbench_kernel::list_workbench_sessions,
+            workbench_kernel::get_workbench_session,
+            workbench_kernel::export_workbench_session,
+            workbench_kernel::transition_workbench_session,
+            workbench_kernel::fork_workbench_session,
+            workbench_kernel::prepare_workbench_run_plan,
+            workbench_kernel::get_workbench_capability_projection,
             optimization_commands::run_preemptive_compaction,
             optimization_commands::get_optimization_action_policy,
             optimization_commands::set_optimization_action_policy,

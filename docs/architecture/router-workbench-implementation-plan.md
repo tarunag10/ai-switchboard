@@ -117,25 +117,25 @@ Deliverables:
 Acceptance: the plan names one authority for routing, client mutation,
 promotion, and rollback; no external runtime is silently copied or enabled.
 
-### Phase 2 — native Workbench Kernel — Remaining build, starts now
+### Phase 2 — native Workbench Kernel — Done
 
 Deliverables:
 
-- [ ] `WorkbenchSession` ledger with atomic persistence, retention cap,
+- [x] `WorkbenchSession` ledger with atomic persistence, retention cap,
   migration/version rejection, content-free validation, and deterministic
   `forkAtEvent` lineage.
-- [ ] Typed `WorkbenchEvent`, `RunSpec`, `RunPlan`, `CapabilityGrant`, and
+- [x] Typed `WorkbenchEvent`, `RunSpec`, `RunPlan`, `CapabilityRequest`, and
   `RouterDecisionReference` contracts.
-- [ ] Native commands to create, inspect, transition, fork, and export an
+- [x] Native commands to create, inspect, transition, fork, and export an
   observe-only session/run plan.
-- [ ] Projection of the existing static OSS registry and client-adapter dry
+- [x] Projection of the existing static OSS registry and client-adapter dry
   run into the kernel without duplicate configuration logic.
-- [ ] Rust tests for forbidden keys, transition failures, persistence,
+- [x] Rust tests for forbidden keys, transition failures, persistence,
   idempotency, retention, and adapter/router boundary failures.
 
-Acceptance: a user can create/export/replay an inspectable local plan without
-provider traffic, shell launch, workspace mutation, or secret/content
-persistence.
+Acceptance met: a user can create, inspect, transition, fork, list, and
+prepare an inspectable local plan without provider traffic, shell launch,
+workspace mutation, or secret/content persistence. UI delivery remains Phase 3.
 
 ### Phase 3 — visible Workbench UI — Remaining build
 
