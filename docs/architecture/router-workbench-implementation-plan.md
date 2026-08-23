@@ -38,12 +38,12 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `321d254a` plus the
-Settings reachability repair recorded with this update, and against the visible
-frontend/native command wiring on 2026-08-24. Unrelated concurrent unstaged
-work is not counted as shipped. A check mark therefore means the capability is
-in the committed product boundary, not merely described in another plan or
-present in an unrelated local diff.
+This status was reconciled against committed `main` through `e36ca4b3` plus the
+verified-routing admission test seam recorded with this update, and against the
+visible frontend/native command wiring on 2026-08-24. Unrelated concurrent
+unstaged work is not counted as shipped. A check mark therefore means the
+capability is in the committed product boundary, not merely described in
+another plan or present in an unrelated local diff.
 
 - **Done** — implemented on `main`, reachable through its intended product
   surface, and covered by focused deterministic checks.
@@ -60,9 +60,9 @@ Current verification snapshot:
 
 - `19` focused Workbench bridge/view tests pass, including historical receipt
   visibility and late-plan invalidation.
-- `64` focused native `workbench_kernel` tests pass, including `14` fake
-  process-controller lifecycle, restart, authorization, persistence, and
-  fail-closed CAS tests.
+- `69` focused native `workbench_kernel` tests pass, including `14` fake
+  process-controller lifecycle/restart/CAS tests and `5` deterministic
+  verified-routing admission-orchestration/expiry tests.
 - The model-routing evidence gate passes: `13` Node contract tests, `35`
   native model-routing tests, and `18` native telemetry-store tests.
 - `npm run build` passes after preserving the authoritative
@@ -393,9 +393,14 @@ Deliverables:
   valid/idempotent admission, paused/terminal session, expired/revoked/clock-
   rollback grants, plan drift, unknown adapter, corrupt digest, full ledger,
   restart, and concurrent issue attempts.
-- [ ] Add a command-level fake-adapter test for the already-present
-  verified-routing prerequisite; do not depend on a developer machine's real
-  Codex installation or configuration.
+- [x] Add a deterministic command-orchestration seam for the already-present
+  verified-routing prerequisite. Five fake-verifier/store tests prove verified
+  routing persists one idempotent non-executing admission, false/error results
+  persist nothing, invalid session/plan/grant prerequisites run before the
+  verifier, the grant clock is evaluated after preparation and denies the exact
+  expiry boundary, and `proxyReachable == false` is not confused with failed
+  routing verification. Production still uses the canonical Codex adapter and
+  the same public command.
 - [x] Move authorization/admission history to a session-level receipt center,
   refresh at grant expiry, clear stale data on session changes/errors, and
   invalidate or freeze a prepared plan when any visible input changes. The UI
@@ -617,14 +622,14 @@ started by weakening an earlier gate.
    command; current-grant gate, registry/state transitions, bounded content-free
    stream metadata, exact-byte CAS, launch-epoch reconciliation, terminal
    reclamation/finality, and deterministic tests.
-6. **Settings and route reachability repair — Done with this update** — mount
+6. **Settings and route reachability repair — Done (`e36ca4b3`)** — mount
    the existing support/quit component in production Settings so command errors
    are visible, and include Workbench in the assembled every-sidebar-route
    contract.
-6. **Verified-routing admission test seam — next** — inject only deterministic
-   verifier/storage test dependencies into the existing admission orchestration;
-   prove denied/error verification cannot persist an admission and add no new
-   command or execution authority.
+6. **Verified-routing admission test seam — Done with this update** — inject
+   only deterministic verifier/storage test dependencies into the existing
+   admission orchestration; denied/error verification cannot persist an
+   admission, and no new command or execution authority is added.
 7. **Codex probe and opt-in manual harness** — fixed binary catalog/version,
    disposable workspace, no provider credential, no workspace write.
 8. **Single Codex executor** — new explicit execution capability, ephemeral task
@@ -678,8 +683,9 @@ Current gate truth on 2026-08-24:
   of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `64 passed`, including `14` deterministic fake-controller
-  tests; the focused Workbench bridge/view gate has `19 passed`.
+- Native Workbench: `69 passed`, including `14` deterministic fake-controller
+  tests and `5` verified-routing admission-orchestration/expiry tests; the focused
+  Workbench bridge/view gate has `19 passed`.
 - Model-routing evidence: `13` Node, `35` native routing, and `18` native
   telemetry tests pass.
 - Switchboard Pack Compaction promotion gate: passes with

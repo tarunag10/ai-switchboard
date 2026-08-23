@@ -5,6 +5,7 @@
 //! execution is deliberately disabled until a later, separately gated phase.
 
 mod adapter_readiness;
+mod admission_command;
 mod capability_grant;
 mod events;
 mod presets;
@@ -34,7 +35,7 @@ pub use process_eligibility::{
 };
 pub use process_run_spec::ProcessRunSpec;
 pub use process_supervisor::WorkbenchProcessAdmission;
-use process_supervisor::{admit_process, WorkbenchProcessAdmissionStore};
+use process_supervisor::WorkbenchProcessAdmissionStore;
 pub use run_contract::{
     CapabilityRequest, RouterDecisionReference, WorkbenchRunPlan, WorkbenchRunSpecInput,
 };
@@ -243,53 +244,34 @@ pub fn admit_workbench_process(
     let session = store
         .get(input.run_spec.session_id.trim())
         .map_err(|error| error.to_string())?;
-    if session.status != events::WorkbenchSessionStatus::Active {
-        return Err("Workbench process admission requires an active session".into());
-    }
-    let plan = run_contract::prepare_run_plan(&session, input.run_spec)
-        .map_err(|error| error.to_string())?;
-    events::validate_identifier(&input.expected_plan_id, "plan ID")
-        .map_err(|error| error.to_string())?;
-    events::validate_identifier(&input.expected_process_run_id, "process run ID")
-        .map_err(|error| error.to_string())?;
-    events::validate_identifier(&input.grant_id, "process grant ID")
-        .map_err(|error| error.to_string())?;
-    let process = plan
-        .process_containment
-        .as_ref()
-        .ok_or_else(|| "Workbench process admission requires native containment".to_string())?;
-    if input.expected_plan_id != plan.plan_id || input.expected_process_run_id != process.run_id {
-        return Err(
-            "Workbench process admission no longer matches the prepared native plan".into(),
-        );
-    }
-    if plan.adapter_id != "codex" {
-        return Err("Workbench process admission is currently limited to canonical Codex".into());
-    }
-    let now = chrono::Utc::now();
-    let grant = WorkbenchProcessGrantStore::in_app_storage()
-        .require_active_for(
-            &input.grant_id,
-            &session.session_id,
-            &plan.plan_id,
-            &process.run_id,
-            now,
-        )
-        .map_err(|error| error.to_string())?;
-    let adapter = crate::client_adapter_contract::coding_client_adapter_for_version(
-        "codex",
-        process.adapter_contract_version,
+    let grant_store = WorkbenchProcessGrantStore::in_app_storage();
+    let admission_store = WorkbenchProcessAdmissionStore::in_app_storage();
+    admission_command::admit_workbench_process_with_dependencies(
+        &session,
+        input,
+        |session, run_spec| {
+            run_contract::prepare_run_plan(session, run_spec).map_err(|error| error.to_string())
+        },
+        chrono::Utc::now,
+        |grant_id, session_id, plan_id, process_run_id, now| {
+            grant_store
+                .require_active_for(grant_id, session_id, plan_id, process_run_id, now)
+                .map_err(|error| error.to_string())
+        },
+        |process| {
+            let adapter = crate::client_adapter_contract::coding_client_adapter_for_version(
+                "codex",
+                process.adapter_contract_version,
+            )
+            .map_err(|error| error.to_string())?;
+            adapter.verify().map_err(|error| error.to_string())
+        },
+        |admission| {
+            admission_store
+                .issue(admission)
+                .map_err(|error| error.to_string())
+        },
     )
-    .map_err(|error| error.to_string())?;
-    let verification = adapter.verify().map_err(|error| error.to_string())?;
-    if !verification.verified {
-        return Err("Workbench process admission requires verified existing Codex routing".into());
-    }
-    let admission =
-        admit_process(&session, &plan, process, &grant, now).map_err(|error| error.to_string())?;
-    WorkbenchProcessAdmissionStore::in_app_storage()
-        .issue(admission)
-        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -344,6 +326,9 @@ pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjec
         process_start_grant_policy: process_start_grant_policy(),
     })
 }
+
+#[cfg(test)]
+mod admission_command_tests;
 
 #[cfg(test)]
 mod tests {
