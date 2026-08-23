@@ -4,6 +4,7 @@ import {
   defaultModelRoutingExperimentPolicy,
   loadModelRoutingExperimentPolicy,
   saveModelRoutingExperimentPolicy,
+  modelRoutingEffectiveStageReceipt,
   type ModelRoutingExperimentPolicy,
   type ModelRoutingStage,
 } from "../lib/optimization";
@@ -34,6 +35,8 @@ export function ModelRoutingExperimentCard() {
         : [...current.automaticTaskAllowlist, taskClass],
     }));
   };
+
+  const effectiveStage = modelRoutingEffectiveStageReceipt(policy);
 
   const save = async () => {
     setSaving(true);
@@ -84,8 +87,8 @@ export function ModelRoutingExperimentCard() {
           value={policy.stage}
         >
           <option value="observe">Observe only</option>
-          <option value="userApproved">Ask for each route</option>
-          <option value="automaticAllowlisted">Automatic after evidence gate</option>
+          <option value="userApproved">Ask for each route (configuration only)</option>
+          <option value="automaticAllowlisted">Automatic after evidence gate (configuration only)</option>
         </select>
       </label>
 
@@ -127,6 +130,14 @@ export function ModelRoutingExperimentCard() {
           </label>
         ))}
       </fieldset>
+
+      <div aria-live="polite" aria-label="Model-routing effective stage">
+        <strong>Operational routing status</strong>
+        <p>
+          Configured: <code>{effectiveStage.configuredStage}</code> · Effective: <code>{effectiveStage.effectiveStage}</code> · automatic routing: <code>{effectiveStage.automaticRouting}</code>
+        </p>
+        <p>{effectiveStage.reason}</p>
+      </div>
 
       <p>
         Gate: at least {policy.thresholds.minimumSampleSize} samples, no more than{" "}

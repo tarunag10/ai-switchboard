@@ -16,6 +16,7 @@ import {
   recordModelRoutingEvidence,
   completeModelRoutingCompletion,
   issueModelRoutingCompletionHandle,
+  modelRoutingEffectiveStageReceipt,
   saveModelRoutingExperimentPolicy,
   saveOptimizationActionPolicy,
   validateModelRouting,
@@ -288,6 +289,17 @@ describe("optimization helpers", () => {
     await expect(loadModelRoutingExperimentPolicy()).resolves.toBe(
       defaultModelRoutingExperimentPolicy,
     );
+  });
+
+  it("reports configured versus effective model-routing stages explicitly", () => {
+    expect(modelRoutingEffectiveStageReceipt({
+      ...defaultModelRoutingExperimentPolicy,
+      stage: "automaticAllowlisted",
+    })).toMatchObject({
+      configuredStage: "automaticAllowlisted",
+      effectiveStage: "observe",
+      automaticRouting: "observe_only",
+    });
   });
 
   it("validates routing and runs preemptive compaction", async () => {

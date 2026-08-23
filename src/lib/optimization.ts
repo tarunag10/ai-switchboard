@@ -152,6 +152,28 @@ export interface ModelRoutingExperimentPolicy {
   thresholds: ModelRoutingThresholds;
 }
 
+export interface ModelRoutingEffectiveStageReceipt {
+  configuredStage: ModelRoutingStage;
+  effectiveStage: "observe";
+  automaticRouting: "observe_only";
+  reason: string;
+}
+
+/** The live completion capability remains observe-only until trusted completion evidence is wired. */
+export function modelRoutingEffectiveStageReceipt(
+  policy: ModelRoutingExperimentPolicy,
+): ModelRoutingEffectiveStageReceipt {
+  return {
+    configuredStage: policy.stage,
+    effectiveStage: "observe",
+    automaticRouting: "observe_only",
+    reason:
+      policy.stage === "observe"
+        ? "Evidence collection is active; no model route is executed automatically."
+        : "This stage is saved as configuration only. The current completion path remains observe-only until trusted completion evidence is wired.",
+  };
+}
+
 export interface ModelRoutingInput {
   client: string;
   task: string;

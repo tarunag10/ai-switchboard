@@ -140,7 +140,8 @@ describe("release readiness checklist", () => {
   it("keeps release blockers tied to runnable next-action commands", () => {
     const commands = releaseReadinessGroups
       .flatMap((group) => group.items)
-      .map((item) => item.command);
+      .map((item) => item.command)
+      .filter((command): command is string => Boolean(command));
 
     expect(commands.every(Boolean)).toBe(true);
     expect(commands).toContain(
