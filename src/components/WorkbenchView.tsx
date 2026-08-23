@@ -32,6 +32,7 @@ import {
   transitionWorkbenchSession,
   type WorkbenchCapabilityProjection,
   type WorkbenchRunPlan,
+  type WorkbenchPlanPreset,
   type WorkbenchSession,
   type WorkbenchSessionAction,
   type WorkbenchTaskClass,
@@ -103,6 +104,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const [routerDecisionReferences, setRouterDecisionReferences] = useState<ModelRoutingDecisionReference[]>([]);
   const [replayReferenceId, setReplayReferenceId] = useState("");
   const [replayReferences, setReplayReferences] = useState<OssHarnessReplayReference[]>([]);
+  const [presetId, setPresetId] = useState("");
   const [capabilityIds, setCapabilityIds] = useState<string[]>([
     "router_observe",
     "client_adapter_plan",
@@ -148,6 +150,11 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setReplayReferences(nextReplayReferences);
       setReplayReferenceId((current) =>
         current && nextReplayReferences.some((reference) => reference.replayId === current)
+          ? current
+          : "",
+      );
+      setPresetId((current) =>
+        current && nextProjection.presets.some((preset) => preset.presetId === current)
           ? current
           : "",
       );
@@ -252,6 +259,24 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     if (id === "redacted_replay" && capabilityIds.includes(id)) {
       setReplayReferenceId("");
     }
+    setPresetId("");
+  }
+
+  function loadPreset(nextPresetId: string) {
+    setPresetId(nextPresetId);
+    setRunPlan(null);
+    if (!nextPresetId) return;
+    const preset = projection?.presets.find((candidate) => candidate.presetId === nextPresetId);
+    if (!preset) {
+      setError("Selected Workbench preset is unavailable from the native capability projection.");
+      return;
+    }
+    setCapabilityIds(preset.requiredCapabilityIds);
+    if (!preset.requiredCapabilityIds.includes("redacted_replay")) {
+      setReplayReferenceId("");
+    }
+    setError(null);
+    setNotice(`${preset.label} loaded as a plan draft. It does not save policy, send provider traffic, or execute a plan.`);
   }
 
   async function preparePlan() {
@@ -287,6 +312,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         contextPackDigest: contextDigest || null,
         routerDecisionId: decisionId,
         replayReferenceId: replayId || null,
+        presetId: presetId || null,
         requiredCapabilityIds: capabilityIds,
         requestedMode,
       });
@@ -305,6 +331,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     ? selectedSession.events[selectedSession.events.length - 1] ?? null
     : null;
   const requestsRedactedReplay = capabilityIds.includes("redacted_replay");
+  const selectedPreset = projection?.presets.find((preset) => preset.presetId === presetId) ?? null;
 
   return (
     <div className="tray-content" hidden={hidden}>
@@ -450,12 +477,14 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                 </div>
                 <div className="workbench-plan-fields">
                   <label className="workbench-field"><span>Client adapter</span><select aria-label="Client adapter" onChange={(event) => setAdapterId(event.target.value as (typeof adapters)[number]["id"])} value={adapterId}>{adapters.map((adapter) => <option key={adapter.id} value={adapter.id}>{adapter.label}</option>)}</select></label>
+                  <label className="workbench-field"><span>Plan preset</span><select aria-label="Workbench plan preset" disabled={!projection} onChange={(event) => loadPreset(event.target.value)} value={presetId}><option value="">Custom capability draft</option>{projection?.presets.map((preset: WorkbenchPlanPreset) => <option key={preset.presetId} value={preset.presetId}>{preset.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Requested Switchboard mode</span><select aria-label="Requested Switchboard mode" onChange={(event) => setRequestedMode(event.target.value as SwitchboardMode)} value={requestedMode}>{modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Context pack SHA-256 digest (optional)</span><input aria-label="Context pack SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => setContextPackDigest(event.target.value)} placeholder="sha256:…" spellCheck={false} value={contextPackDigest} /></label>
                   <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => setRouterDecisionId(event.target.value)} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
                   <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => setReplayReferenceId(event.target.value)} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
                 </div>
-                <p className="optimize-minimal__meta">Router and replay references are native-issued, content-free receipts. The Workbench resolves selected IDs again before it creates a plan; replay paths, events, and manually entered digests are not accepted here.</p>
+                <p className="optimize-minimal__meta">Native presets only compose existing plan-only capabilities and evidence sources. Router and replay references are re-resolved before a plan is created; replay paths, events, and manually entered metadata are not accepted here.</p>
+                {selectedPreset ? <p className="optimize-minimal__meta">Preset evidence source: {selectedPreset.evidenceSource.replace(/_/g, " ")}. {selectedPreset.description}</p> : null}
                 <fieldset className="workbench-capabilities">
                   <legend>Required capabilities</legend>
                   {WORKBENCH_CAPABILITIES.map((capability) => <label key={capability.id}><input checked={capabilityIds.includes(capability.id)} onChange={() => toggleCapability(capability.id)} type="checkbox" /><span><strong>{capability.label}</strong><small>{capability.detail}</small></span></label>)}
@@ -473,6 +502,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                 <div className="optimization-evidence-capture__grid">
                   <p><strong>Adapter:</strong> {runPlan.adapterId} · {runPlan.adapterAction.replace(/_/g, " ")} · {runPlan.adapterReversible ? "reversible" : "non-reversible"}</p>
                   <p><strong>Requested mode:</strong> {runPlan.requestedMode} · <strong>Capabilities:</strong> {runPlan.capabilityRequests.length} pending approval</p>
+                  {runPlan.preset ? <p><strong>Preset:</strong> {runPlan.preset.label} · {runPlan.preset.evidenceSource.replace(/_/g, " ")}</p> : null}
                   {runPlan.replayReference ? <p><strong>Replay receipt:</strong> {runPlan.replayReference.replayId} · {runPlan.replayReference.eventCount} events · observe-only</p> : null}
                   <p><strong>Execution:</strong> {runPlan.executionMode} · <strong>Provider traffic:</strong> {runPlan.providerTraffic} · <strong>Writes:</strong> disabled</p>
                   <p className="optimize-minimal__meta">Plan ID: {runPlan.planId}</p>

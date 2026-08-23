@@ -154,7 +154,7 @@ Acceptance met: the non-autonomous Workbench kernel is visible and usable from
 the desktop UI; unavailable execution is labelled as unavailable rather than
 hidden.
 
-### Phase 3.1 — verified Router and replay references — In progress
+### Phase 3.1 — verified Router and replay references — Done
 
 Deliverables:
 
@@ -184,14 +184,23 @@ Deliverables:
   includes it in the plan digest, and rejects capability/receipt mismatches or
   caller-supplied replay metadata. Replay remains provider-free, plan-only,
   non-promoting, and non-executable.
-- [ ] Add reusable Router-only/Workbench presets only when each preset maps to
-  an existing non-mutating decision policy and has a visible evidence source.
+- [x] Add native-owned Router and Workbench presets only as inspectable drafts:
+  Router presets load existing observe-only policy into the form without saving;
+  Workbench presets compose only existing Router/replay receipts and adapter
+  plan capabilities. Preset evidence source, no-write/no-traffic state, and
+  plan-only execution state are visible. Presets cannot issue handles, validate
+  routes, promote routes, save policy, or execute a plan.
+- [x] Harden Workbench plan contracts so every plan declares the existing
+  `router_observe` and `client_adapter_plan` capabilities, while replay and
+  repository-context capabilities are paired exactly with their native receipt
+  or digest inputs. Native preset IDs must resolve and match their capability
+  composition exactly.
 
 Acceptance met: an observe-only Router completion now supplies a verifiable,
 durable Workbench selection without creating a second Router, accepting manual
 evidence claims, or exposing route content. A separately verified redacted
 replay can now be selected with the same native re-resolution boundary; presets
-remain separately gated.
+are native-issued plan/policy drafts with no promotion path.
 
 Gate: do not collapse existing Addons, Router, or replay authorities into a
 new Workbench copy. Each remaining link must retain its current promotion and

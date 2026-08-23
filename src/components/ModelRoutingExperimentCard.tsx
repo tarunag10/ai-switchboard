@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 
 import {
   defaultModelRoutingExperimentPolicy,
+  getModelRoutingEffectiveStageReceipt,
+  listModelRoutingPolicyPresets,
   loadModelRoutingExperimentPolicy,
-  saveModelRoutingExperimentPolicy,
   modelRoutingEffectiveStageReceipt,
+  saveModelRoutingExperimentPolicy,
+  type ModelRoutingEffectiveStageReceipt,
   type ModelRoutingExperimentPolicy,
+  type ModelRoutingPolicyPreset,
   type ModelRoutingStage,
 } from "../lib/optimization";
 import { ModelRoutingEvidenceCapture } from "./ModelRoutingEvidenceCapture";
@@ -16,16 +20,29 @@ export function ModelRoutingExperimentCard() {
   const [policy, setPolicy] = useState<ModelRoutingExperimentPolicy>(
     defaultModelRoutingExperimentPolicy,
   );
+  const [presets, setPresets] = useState<ModelRoutingPolicyPreset[]>([]);
+  const [effectiveStage, setEffectiveStage] = useState<ModelRoutingEffectiveStageReceipt>(
+    () => modelRoutingEffectiveStageReceipt(defaultModelRoutingExperimentPolicy),
+  );
   const [disabledClients, setDisabledClients] = useState("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    void loadModelRoutingExperimentPolicy().then((loaded) => {
+    void Promise.all([loadModelRoutingExperimentPolicy(), listModelRoutingPolicyPresets()]).then(([loaded, availablePresets]) => {
       setPolicy(loaded);
       setDisabledClients(loaded.disabledClients.join(", "));
+      setPresets(availablePresets);
     });
   }, []);
+
+  useEffect(() => {
+    let current = true;
+    void getModelRoutingEffectiveStageReceipt(policy).then((receipt) => {
+      if (current) setEffectiveStage(receipt);
+    });
+    return () => { current = false; };
+  }, [policy]);
 
   const toggleTaskClass = (taskClass: string) => {
     setPolicy((current) => ({
@@ -36,7 +53,11 @@ export function ModelRoutingExperimentCard() {
     }));
   };
 
-  const effectiveStage = modelRoutingEffectiveStageReceipt(policy);
+  const loadPreset = (preset: ModelRoutingPolicyPreset) => {
+    setPolicy(preset.policy);
+    setDisabledClients(preset.policy.disabledClients.join(", "));
+    setNotice(`${preset.label} loaded as an unsaved draft. Save routing policy explicitly to persist it.`);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -92,6 +113,26 @@ export function ModelRoutingExperimentCard() {
         </select>
       </label>
 
+      {presets.length > 0 ? (
+        <fieldset>
+          <legend>Observe-only policy drafts</legend>
+          <p>These native templates update this form only. They do not validate routes, issue handles, save policy, or change provider traffic.</p>
+          {presets.map((preset) => (
+            <div key={preset.presetId}>
+              <button
+                className="addon-card__action"
+                disabled={saving}
+                onClick={() => loadPreset(preset)}
+                type="button"
+              >
+                Load {preset.label}
+              </button>
+              <small>{preset.description}</small>
+            </div>
+          ))}
+        </fieldset>
+      ) : null}
+
       <label>
         <input
           checked={policy.globalEnabled}
@@ -141,7 +182,7 @@ export function ModelRoutingExperimentCard() {
 
       <p>
         Gate: at least {policy.thresholds.minimumSampleSize} samples, no more than{" "}
-        {policy.thresholds.maximumSuccessRegressionBps / 100}% success regression, at least{" "}
+        {policy.thresholds.maximumSuccessRegressionBps / 100}% success regression, no more than{" "}
         {policy.thresholds.maximumQualityRegressionBps / 100}% quality regression, at least{" "}
         {policy.thresholds.minimumCostImprovementBps / 100}% successful-task cost improvement,
         no more than {policy.thresholds.maximumLatencyRegressionMs}ms p95 latency regression,

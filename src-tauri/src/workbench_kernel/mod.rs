@@ -5,6 +5,7 @@
 //! execution is deliberately disabled until a later, separately gated phase.
 
 mod events;
+mod presets;
 mod run_contract;
 mod session;
 mod storage;
@@ -14,6 +15,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 pub use events::WorkbenchSessionAction;
+use presets::{all_workbench_plan_presets, WorkbenchPlanPreset};
 pub use run_contract::{WorkbenchRunPlan, WorkbenchRunSpecInput};
 pub use session::{CreateWorkbenchSessionInput, WorkbenchSession};
 use storage::WorkbenchStore;
@@ -42,6 +44,7 @@ pub struct WorkbenchCapabilityProjection {
     pub writes_enabled: bool,
     pub provider_traffic: String,
     pub registry: crate::oss_capabilities::OssCapabilityRegistry,
+    pub presets: Vec<WorkbenchPlanPreset>,
 }
 
 fn locked_store() -> Result<(std::sync::MutexGuard<'static, ()>, WorkbenchStore), String> {
@@ -120,6 +123,7 @@ pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjec
         writes_enabled: false,
         provider_traffic: "none".into(),
         registry: crate::oss_capabilities::registry(),
+        presets: all_workbench_plan_presets(),
     })
 }
 
@@ -134,5 +138,8 @@ mod tests {
         assert_eq!(projection.execution_mode, "plan_only");
         assert_eq!(projection.provider_traffic, "none");
         assert!(!projection.writes_enabled);
+        assert!(projection.presets.iter().all(|preset| {
+            crate::workbench_kernel::presets::validate_workbench_plan_preset(preset).is_ok()
+        }));
     }
 }

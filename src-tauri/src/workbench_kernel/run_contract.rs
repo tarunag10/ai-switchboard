@@ -12,6 +12,9 @@ use crate::oss_harness_replay::{
 };
 
 use super::events::validate_identifier;
+use super::presets::{
+    resolve_workbench_plan_preset, validate_workbench_plan_preset, WorkbenchPlanPreset,
+};
 use super::session::{validate_digest, WorkbenchSession};
 
 const RUN_SPEC_SCHEMA_VERSION: u32 = 1;
@@ -31,6 +34,9 @@ pub struct WorkbenchRunSpecInput {
     /// Optional only when the redacted replay capability is requested. The
     /// native receipt is resolved again before a plan is created.
     pub replay_reference_id: Option<String>,
+    /// Optional native-owned template. When set, its capability composition
+    /// must match exactly; callers cannot supply preset metadata.
+    pub preset_id: Option<String>,
     pub required_capability_ids: Vec<String>,
     pub requested_mode: SwitchboardMode,
 }
@@ -64,6 +70,7 @@ pub struct WorkbenchRunPlan {
     pub context_pack_digest: Option<String>,
     pub router_decision: RouterDecisionReference,
     pub replay_reference: Option<OssHarnessReplayReference>,
+    pub preset: Option<WorkbenchPlanPreset>,
     pub requested_mode: SwitchboardMode,
     pub adapter_plan_id: String,
     pub adapter_action: String,
@@ -137,6 +144,7 @@ fn prepare_run_plan_with_reference(
     input: WorkbenchRunSpecInput,
     router_decision: RouterDecisionReference,
     replay_reference: Option<OssHarnessReplayReference>,
+    preset: Option<WorkbenchPlanPreset>,
 ) -> Result<WorkbenchRunPlan> {
     if input.session_id != session.session_id {
         return Err(anyhow!("Workbench run spec belongs to another session"));
@@ -153,6 +161,43 @@ fn prepare_run_plan_with_reference(
     }
     validate_router_reference(&router_decision)?;
     validate_capability_ids(&input.required_capability_ids)?;
+    let requests_router_observe = input
+        .required_capability_ids
+        .iter()
+        .any(|capability_id| capability_id == "router_observe");
+    if !requests_router_observe {
+        bail!(
+            "Workbench plans require the router observe capability for their native Router receipt"
+        );
+    }
+    let requests_adapter_plan = input
+        .required_capability_ids
+        .iter()
+        .any(|capability_id| capability_id == "client_adapter_plan");
+    if !requests_adapter_plan {
+        bail!("Workbench plans require the client adapter plan capability before adapter planning");
+    }
+    let requests_repo_context = input
+        .required_capability_ids
+        .iter()
+        .any(|capability_id| capability_id == "repo_context");
+    match (requests_repo_context, input.context_pack_digest.as_ref()) {
+        (true, Some(_)) | (false, None) => {}
+        (true, None) => bail!("Workbench repo context capability requires a context pack digest"),
+        (false, Some(_)) => {
+            bail!("Workbench context pack digest requires the repo context capability")
+        }
+    }
+    match (input.preset_id.as_deref(), preset.as_ref()) {
+        (Some(preset_id), Some(resolved)) if preset_id == resolved.preset_id => {
+            validate_workbench_plan_preset(resolved)?;
+            if resolved.required_capability_ids != input.required_capability_ids {
+                bail!("Workbench preset capabilities must match the native preset exactly");
+            }
+        }
+        (None, None) => {}
+        _ => bail!("Workbench preset must be resolved from its native preset ID"),
+    }
     let requests_redacted_replay = input
         .required_capability_ids
         .iter()
@@ -179,6 +224,7 @@ fn prepare_run_plan_with_reference(
         "contextPackDigest": &input.context_pack_digest,
         "routerDecision": &router_decision,
         "replayReference": &replay_reference,
+        "preset": &preset,
         "capabilityIds": &input.required_capability_ids,
         "requestedMode": &input.requested_mode,
         "adapterPlanId": &adapter_plan.plan_id,
@@ -195,6 +241,7 @@ fn prepare_run_plan_with_reference(
         context_pack_digest: input.context_pack_digest,
         router_decision,
         replay_reference,
+        preset,
         requested_mode: input.requested_mode,
         adapter_plan_id: adapter_plan.plan_id,
         adapter_action: match adapter_plan.action {
@@ -227,7 +274,11 @@ pub(crate) fn prepare_run_plan(
         Some(replay_id) => Some(resolved_replay_reference(replay_id)?),
         None => None,
     };
-    prepare_run_plan_with_reference(session, input, router_decision, replay_reference)
+    let preset = match input.preset_id.as_deref() {
+        Some(preset_id) => Some(resolve_workbench_plan_preset(preset_id)?),
+        None => None,
+    };
+    prepare_run_plan_with_reference(session, input, router_decision, replay_reference, preset)
 }
 
 #[cfg(test)]
@@ -276,7 +327,9 @@ mod tests {
                 context_pack_digest: Some(digest('d')),
                 router_decision_id: "routing-decision-test-1".into(),
                 replay_reference_id: None,
+                preset_id: None,
                 required_capability_ids: vec![
+                    "repo_context".into(),
                     "router_observe".into(),
                     "client_adapter_plan".into(),
                 ],
@@ -288,6 +341,7 @@ mod tests {
                 routing_mode: "observe_only".into(),
                 evidence_digest: digest('e'),
             },
+            None,
             None,
         )
         .expect("prepare plan");
@@ -314,6 +368,7 @@ mod tests {
             context_pack_digest: None,
             router_decision_id: "routing-decision-test-2".into(),
             replay_reference_id: None,
+            preset_id: None,
             required_capability_ids: vec!["router_observe".into()],
             requested_mode: SwitchboardMode::Off,
         };
@@ -323,13 +378,17 @@ mod tests {
             routing_mode: "automatic".into(),
             evidence_digest: digest('a'),
         };
-        assert!(
-            prepare_run_plan_with_reference(&session, input.clone(), reference.clone(), None)
-                .is_err()
-        );
+        assert!(prepare_run_plan_with_reference(
+            &session,
+            input.clone(),
+            reference.clone(),
+            None,
+            None
+        )
+        .is_err());
         reference.routing_mode = "observe_only".into();
         input.required_capability_ids = vec!["arbitrary_shell".into()];
-        assert!(prepare_run_plan_with_reference(&session, input, reference, None).is_err());
+        assert!(prepare_run_plan_with_reference(&session, input, reference, None, None).is_err());
     }
 
     #[test]
@@ -348,7 +407,12 @@ mod tests {
             replay_reference_id: Some(
                 "replay-reference-00000000-0000-4000-8000-000000000001".into(),
             ),
-            required_capability_ids: vec!["router_observe".into(), "redacted_replay".into()],
+            preset_id: None,
+            required_capability_ids: vec![
+                "router_observe".into(),
+                "redacted_replay".into(),
+                "client_adapter_plan".into(),
+            ],
             requested_mode: SwitchboardMode::Off,
         };
         let router = RouterDecisionReference {
@@ -359,7 +423,7 @@ mod tests {
         };
         let reference = replay_reference();
         let plan =
-            prepare_run_plan_with_reference(&session, input, router, Some(reference.clone()))
+            prepare_run_plan_with_reference(&session, input, router, Some(reference.clone()), None)
                 .expect("prepare plan with replay receipt");
         assert_eq!(plan.replay_reference, Some(reference));
         assert_eq!(plan.execution_mode, "plan_only");
@@ -387,16 +451,130 @@ mod tests {
             context_pack_digest: None,
             router_decision_id: "routing-decision-test-4".into(),
             replay_reference_id: None,
-            required_capability_ids: vec!["router_observe".into(), "redacted_replay".into()],
+            preset_id: None,
+            required_capability_ids: vec![
+                "router_observe".into(),
+                "redacted_replay".into(),
+                "client_adapter_plan".into(),
+            ],
             requested_mode: SwitchboardMode::Off,
         };
+        assert!(prepare_run_plan_with_reference(
+            &session,
+            input.clone(),
+            router.clone(),
+            None,
+            None
+        )
+        .is_err());
+        input.required_capability_ids = vec!["router_observe".into(), "client_adapter_plan".into()];
+        assert!(prepare_run_plan_with_reference(
+            &session,
+            input,
+            router,
+            Some(replay_reference()),
+            None
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn run_plan_requires_capabilities_for_each_existing_plan_input() {
+        let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
+            workspace_digest: digest('f'),
+            task_class: "planning".into(),
+        })
+        .expect("create session");
+        let router = RouterDecisionReference {
+            decision_id: "routing-decision-test-5".into(),
+            decision_stage: "observe".into(),
+            routing_mode: "observe_only".into(),
+            evidence_digest: digest('2'),
+        };
+        let mut input = WorkbenchRunSpecInput {
+            session_id: session.session_id.clone(),
+            adapter_id: "codex".into(),
+            workspace_digest: session.workspace_digest.clone(),
+            context_pack_digest: None,
+            router_decision_id: "routing-decision-test-5".into(),
+            replay_reference_id: None,
+            preset_id: None,
+            required_capability_ids: vec!["router_observe".into()],
+            requested_mode: SwitchboardMode::Off,
+        };
+        assert!(prepare_run_plan_with_reference(
+            &session,
+            input.clone(),
+            router.clone(),
+            None,
+            None
+        )
+        .is_err());
+        input.required_capability_ids = vec!["client_adapter_plan".into()];
+        assert!(prepare_run_plan_with_reference(
+            &session,
+            input.clone(),
+            router.clone(),
+            None,
+            None
+        )
+        .is_err());
+        input.required_capability_ids = vec![
+            "router_observe".into(),
+            "client_adapter_plan".into(),
+            "repo_context".into(),
+        ];
+        assert!(prepare_run_plan_with_reference(
+            &session,
+            input.clone(),
+            router.clone(),
+            None,
+            None
+        )
+        .is_err());
+        input.required_capability_ids = vec!["router_observe".into(), "client_adapter_plan".into()];
+        input.context_pack_digest = Some(digest('3'));
+        assert!(prepare_run_plan_with_reference(&session, input, router, None, None).is_err());
+    }
+
+    #[test]
+    fn run_plan_binds_only_exact_native_workbench_presets() {
+        let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
+            workspace_digest: digest('f'),
+            task_class: "planning".into(),
+        })
+        .expect("create session");
+        let preset = super::resolve_workbench_plan_preset("adapter-plan-review")
+            .expect("resolve native preset");
+        let mut input = WorkbenchRunSpecInput {
+            session_id: session.session_id.clone(),
+            adapter_id: "codex".into(),
+            workspace_digest: session.workspace_digest.clone(),
+            context_pack_digest: None,
+            router_decision_id: "routing-decision-test-6".into(),
+            replay_reference_id: None,
+            preset_id: Some(preset.preset_id.clone()),
+            required_capability_ids: preset.required_capability_ids.clone(),
+            requested_mode: SwitchboardMode::Off,
+        };
+        let router = RouterDecisionReference {
+            decision_id: "routing-decision-test-6".into(),
+            decision_stage: "observe".into(),
+            routing_mode: "observe_only".into(),
+            evidence_digest: digest('2'),
+        };
+        let plan = prepare_run_plan_with_reference(
+            &session,
+            input.clone(),
+            router.clone(),
+            None,
+            Some(preset.clone()),
+        )
+        .expect("prepare native preset plan");
+        assert_eq!(plan.preset, Some(preset.clone()));
+        input.required_capability_ids.reverse();
         assert!(
-            prepare_run_plan_with_reference(&session, input.clone(), router.clone(), None).is_err()
-        );
-        input.required_capability_ids = vec!["router_observe".into()];
-        assert!(
-            prepare_run_plan_with_reference(&session, input, router, Some(replay_reference()))
-                .is_err()
+            prepare_run_plan_with_reference(&session, input, router, None, Some(preset)).is_err()
         );
     }
 
@@ -414,6 +592,7 @@ mod tests {
             context_pack_digest: None,
             router_decision_id: "routing-decision-unknown".into(),
             replay_reference_id: None,
+            preset_id: None,
             required_capability_ids: vec!["router_observe".into()],
             requested_mode: SwitchboardMode::Off,
         };
@@ -446,6 +625,15 @@ mod tests {
             r#"{{"sessionId":"workbench:test","adapterId":"codex","workspaceDigest":"sha256:{}","routerDecisionId":"routing-decision-test","replayDigest":"sha256:{}","requiredCapabilityIds":[],"requestedMode":"off"}}"#,
             "a".repeat(64),
             "b".repeat(64),
+        );
+        assert!(serde_json::from_str::<WorkbenchRunSpecInput>(&payload).is_err());
+    }
+
+    #[test]
+    fn run_spec_rejects_manually_supplied_preset_metadata() {
+        let payload = format!(
+            r#"{{"sessionId":"workbench:test","adapterId":"codex","workspaceDigest":"sha256:{}","routerDecisionId":"routing-decision-test","preset":{{"presetId":"adapter-plan-review"}},"requiredCapabilityIds":[],"requestedMode":"off"}}"#,
+            "a".repeat(64),
         );
         assert!(serde_json::from_str::<WorkbenchRunSpecInput>(&payload).is_err());
     }

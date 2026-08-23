@@ -64,6 +64,28 @@ pub(crate) struct ModelRoutingExperimentPolicy {
     pub(crate) thresholds: ModelRoutingThresholds,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingPolicyPreset {
+    pub(crate) schema_version: u32,
+    pub(crate) preset_id: String,
+    pub(crate) label: String,
+    pub(crate) description: String,
+    pub(crate) policy: ModelRoutingExperimentPolicy,
+    pub(crate) routing_mode: String,
+    pub(crate) provider_traffic: String,
+    pub(crate) writes_enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingEffectiveStageReceipt {
+    pub(crate) configured_stage: ModelRoutingStage,
+    pub(crate) effective_stage: String,
+    pub(crate) automatic_routing: String,
+    pub(crate) reason: String,
+}
+
 impl Default for ModelRoutingExperimentPolicy {
     fn default() -> Self {
         Self {
@@ -74,6 +96,52 @@ impl Default for ModelRoutingExperimentPolicy {
             thresholds: ModelRoutingThresholds::default(),
         }
     }
+}
+
+pub(crate) fn all_model_routing_policy_presets() -> Vec<ModelRoutingPolicyPreset> {
+    let observe = ModelRoutingExperimentPolicy::default();
+    let paused = ModelRoutingExperimentPolicy {
+        global_enabled: false,
+        ..ModelRoutingExperimentPolicy::default()
+    };
+    vec![
+        ModelRoutingPolicyPreset {
+            schema_version: 1,
+            preset_id: "observe-baseline".into(),
+            label: "Observe baseline".into(),
+            description: "Load the default evidence-collection draft. It remains observe-only until explicitly saved.".into(),
+            policy: observe,
+            routing_mode: "observe_only".into(),
+            provider_traffic: "none".into(),
+            writes_enabled: false,
+        },
+        ModelRoutingPolicyPreset {
+            schema_version: 1,
+            preset_id: "pause-experiments".into(),
+            label: "Pause experiments".into(),
+            description: "Load a draft that disables routing experiments while retaining default safety thresholds. Save explicitly to persist it.".into(),
+            policy: paused,
+            routing_mode: "observe_only".into(),
+            provider_traffic: "none".into(),
+            writes_enabled: false,
+        },
+    ]
+}
+
+pub(crate) fn effective_stage_receipt(
+    policy: &ModelRoutingExperimentPolicy,
+) -> Result<ModelRoutingEffectiveStageReceipt, String> {
+    validate_experiment_policy(policy)?;
+    Ok(ModelRoutingEffectiveStageReceipt {
+        configured_stage: policy.stage,
+        effective_stage: "observe".into(),
+        automatic_routing: "observe_only".into(),
+        reason: if policy.stage == ModelRoutingStage::Observe {
+            "Evidence collection is active; no model route is executed automatically.".into()
+        } else {
+            "This stage is configuration only. The current completion path remains observe-only until trusted completion evidence is wired.".into()
+        },
+    })
 }
 
 pub(crate) fn load_model_routing_experiment_policy() -> ModelRoutingExperimentPolicy {
@@ -144,6 +212,26 @@ fn validate_experiment_policy(policy: &ModelRoutingExperimentPolicy) -> Result<(
         }
     }
     Ok(())
+}
+
+fn validate_model_routing_policy_preset(preset: &ModelRoutingPolicyPreset) -> Result<(), String> {
+    if preset.schema_version != 1
+        || preset.preset_id.trim().is_empty()
+        || preset.preset_id.len() > 64
+        || preset.label.trim().is_empty()
+        || preset.label.len() > 96
+        || preset.description.trim().is_empty()
+        || preset.description.len() > 256
+        || preset.routing_mode != "observe_only"
+        || preset.provider_traffic != "none"
+        || preset.writes_enabled
+        || preset.policy.stage != ModelRoutingStage::Observe
+    {
+        return Err(
+            "model-routing policy preset violates the observe-only draft boundary".to_string(),
+        );
+    }
+    validate_experiment_policy(&preset.policy)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1291,5 +1379,21 @@ mod tests {
             ..Default::default()
         };
         assert!(validate_experiment_policy(&duplicate_client).is_err());
+    }
+
+    #[test]
+    fn policy_presets_are_observe_only_unsaved_drafts() {
+        let presets = all_model_routing_policy_presets();
+        assert_eq!(presets.len(), 2);
+        assert!(presets.iter().all(|preset| {
+            validate_model_routing_policy_preset(preset).is_ok()
+                && preset.policy.stage == ModelRoutingStage::Observe
+                && preset.routing_mode == "observe_only"
+                && preset.provider_traffic == "none"
+                && !preset.writes_enabled
+        }));
+        let receipt = effective_stage_receipt(&presets[1].policy).expect("project effective stage");
+        assert_eq!(receipt.effective_stage, "observe");
+        assert_eq!(receipt.automatic_routing, "observe_only");
     }
 }

@@ -152,6 +152,17 @@ export interface ModelRoutingExperimentPolicy {
   thresholds: ModelRoutingThresholds;
 }
 
+export interface ModelRoutingPolicyPreset {
+  schemaVersion: number;
+  presetId: string;
+  label: string;
+  description: string;
+  policy: ModelRoutingExperimentPolicy;
+  routingMode: "observe_only";
+  providerTraffic: "none";
+  writesEnabled: false;
+}
+
 export interface ModelRoutingEffectiveStageReceipt {
   configuredStage: ModelRoutingStage;
   effectiveStage: "observe";
@@ -507,6 +518,27 @@ export async function saveModelRoutingExperimentPolicy(
   policy: ModelRoutingExperimentPolicy,
 ): Promise<ModelRoutingExperimentPolicy> {
   return invoke<ModelRoutingExperimentPolicy>("set_model_routing_experiment_policy", { policy });
+}
+
+export async function listModelRoutingPolicyPresets(): Promise<ModelRoutingPolicyPreset[]> {
+  try {
+    return await invoke<ModelRoutingPolicyPreset[]>("get_model_routing_policy_presets");
+  } catch {
+    return [];
+  }
+}
+
+export async function getModelRoutingEffectiveStageReceipt(
+  policy: ModelRoutingExperimentPolicy,
+): Promise<ModelRoutingEffectiveStageReceipt> {
+  try {
+    return await invoke<ModelRoutingEffectiveStageReceipt>(
+      "get_model_routing_effective_stage_receipt",
+      { policy },
+    );
+  } catch {
+    return modelRoutingEffectiveStageReceipt(policy);
+  }
 }
 
 export function issueModelRoutingCompletionHandle(

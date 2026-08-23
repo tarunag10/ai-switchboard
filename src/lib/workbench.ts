@@ -39,6 +39,19 @@ export interface RouterDecisionReference {
   evidenceDigest: string;
 }
 
+export interface WorkbenchPlanPreset {
+  schemaVersion: number;
+  presetId: string;
+  label: string;
+  description: string;
+  requiredCapabilityIds: string[];
+  evidenceSource: "native_router_decision_receipt" | "native_router_and_replay_receipts";
+  routingMode: "observe_only";
+  executionMode: "plan_only";
+  providerTraffic: "none";
+  writesEnabled: false;
+}
+
 export interface WorkbenchRunSpecInput {
   sessionId: string;
   adapterId: "claude_code" | "codex" | "gemini_cli";
@@ -46,6 +59,7 @@ export interface WorkbenchRunSpecInput {
   contextPackDigest: string | null;
   routerDecisionId: string;
   replayReferenceId: string | null;
+  presetId: string | null;
   requiredCapabilityIds: string[];
   requestedMode: SwitchboardMode;
 }
@@ -66,6 +80,7 @@ export interface WorkbenchRunPlan {
   contextPackDigest: string | null;
   routerDecision: RouterDecisionReference;
   replayReference: OssHarnessReplayReference | null;
+  preset: WorkbenchPlanPreset | null;
   requestedMode: SwitchboardMode;
   adapterPlanId: string;
   adapterAction: "apply_managed_routing" | "cleanup_managed_routing";
@@ -82,6 +97,7 @@ export interface WorkbenchCapabilityProjection {
   writesEnabled: false;
   providerTraffic: "none";
   registry: OssCapabilityRegistry;
+  presets: WorkbenchPlanPreset[];
 }
 
 export const WORKBENCH_CAPABILITIES = [

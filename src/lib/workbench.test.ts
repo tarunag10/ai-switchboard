@@ -34,6 +34,7 @@ describe("workbench bridge", () => {
       contextPackDigest: null,
       routerDecisionId: "routing-decision-1",
       replayReferenceId: null,
+      presetId: null,
       requiredCapabilityIds: ["router_observe"],
       requestedMode: "full",
     });

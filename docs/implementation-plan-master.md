@@ -257,8 +257,9 @@ the current checkout.
   session/run kernel, visible plan-only Workbench, and native Router
   decision-receipt picker are shipped. The Workbench also selects only
   receipt-backed, source-path-free redacted replays through the existing native
-  validator; every execution backend and reusable preset remain separately
-  gated build.
+  validator. Native Router and Workbench presets now load only observe-only
+  drafts or receipt-backed plan templates; every execution backend remains
+  separately gated build.
 
 ### Prepared but externally blocked
 

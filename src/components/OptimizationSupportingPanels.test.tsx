@@ -8,6 +8,7 @@ import { OptimizationStatusIcon, PromptCacheClientProofList, RoutingValidationPa
 const mocks = vi.hoisted(() => ({
   loadAction: vi.fn(), saveAction: vi.fn(), compact: vi.fn(), validate: vi.fn(),
   loadRouting: vi.fn(), saveRouting: vi.fn(),
+  listRoutingPresets: vi.fn(), getEffectiveRoutingStage: vi.fn(),
   exportEvidenceForHandle: vi.fn(),
   issueCompletionHandle: vi.fn(), completeCompletion: vi.fn(),
 }));
@@ -20,6 +21,8 @@ vi.mock("../lib/optimization", async (importOriginal) => ({
   validateModelRouting: mocks.validate,
   loadModelRoutingExperimentPolicy: mocks.loadRouting,
   saveModelRoutingExperimentPolicy: mocks.saveRouting,
+  listModelRoutingPolicyPresets: mocks.listRoutingPresets,
+  getModelRoutingEffectiveStageReceipt: mocks.getEffectiveRoutingStage,
   exportModelRoutingEvidenceForHandle: mocks.exportEvidenceForHandle,
   issueModelRoutingCompletionHandle: mocks.issueCompletionHandle,
   completeModelRoutingCompletion: mocks.completeCompletion,
@@ -46,6 +49,17 @@ const routingPolicy = {
   },
 };
 
+const routingPreset = {
+  schemaVersion: 1,
+  presetId: "pause-experiments",
+  label: "Pause experiments",
+  description: "Draft only",
+  policy: { ...routingPolicy, globalEnabled: false },
+  routingMode: "observe_only" as const,
+  providerTraffic: "none" as const,
+  writesEnabled: false as const,
+};
+
 describe("optimization supporting panels", () => {
   beforeEach(() => {
     for (const mock of Object.values(mocks)) mock.mockReset();
@@ -53,6 +67,13 @@ describe("optimization supporting panels", () => {
     mocks.saveAction.mockImplementation(async (value) => value);
     mocks.loadRouting.mockResolvedValue(routingPolicy);
     mocks.saveRouting.mockImplementation(async (value) => value);
+    mocks.listRoutingPresets.mockResolvedValue([routingPreset]);
+    mocks.getEffectiveRoutingStage.mockImplementation(async (policy) => ({
+      configuredStage: policy.stage,
+      effectiveStage: "observe",
+      automaticRouting: "observe_only",
+      reason: "observe-only",
+    }));
   });
 
   it("toggles individual action policy controls and enables all", async () => {
@@ -115,6 +136,17 @@ describe("optimization supporting panels", () => {
     render(<ModelRoutingExperimentCard />);
     fireEvent.click(await screen.findByRole("button", { name: "Save routing policy" }));
     expect(await screen.findByRole("status")).toHaveTextContent("storage blocked");
+  });
+
+  it("loads a native policy preset as a draft without saving or validating routes", async () => {
+    render(<ModelRoutingExperimentCard />);
+    await screen.findByRole("button", { name: "Load Pause experiments" });
+    fireEvent.click(screen.getByRole("button", { name: "Load Pause experiments" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/unsaved draft/i);
+    expect(mocks.saveRouting).not.toHaveBeenCalled();
+    expect(mocks.validate).not.toHaveBeenCalled();
+    expect(mocks.issueCompletionHandle).not.toHaveBeenCalled();
   });
 
   it("wires the native completion handle lifecycle into the routing UI", async () => {

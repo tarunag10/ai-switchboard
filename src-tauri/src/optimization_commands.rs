@@ -46,6 +46,23 @@ pub fn set_model_routing_experiment_policy(
     optimization::model_routing::save_model_routing_experiment_policy(&policy)
 }
 
+/// Returns the native-owned, non-persistent policy drafts. Selecting one in
+/// the UI must still use the explicit save command before storage changes.
+#[tauri::command]
+pub fn get_model_routing_policy_presets(
+) -> Vec<optimization::model_routing::ModelRoutingPolicyPreset> {
+    optimization::model_routing::all_model_routing_policy_presets()
+}
+
+/// Projects the effective current contract for an editable policy draft. This
+/// never persists policy or enables non-observe routing.
+#[tauri::command]
+pub fn get_model_routing_effective_stage_receipt(
+    policy: optimization::model_routing::ModelRoutingExperimentPolicy,
+) -> Result<optimization::model_routing::ModelRoutingEffectiveStageReceipt, String> {
+    optimization::model_routing::effective_stage_receipt(&policy)
+}
+
 #[tauri::command]
 pub fn validate_model_routing(
 ) -> Result<optimization::model_routing_validation::ModelRoutingValidationReceipt, String> {

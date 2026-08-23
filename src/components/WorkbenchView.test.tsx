@@ -63,6 +63,18 @@ const replayReference = {
   replayDigest: `sha256:${"c".repeat(64)}`,
   receiptDigest: `sha256:${"d".repeat(64)}`,
 };
+const workbenchPreset = {
+  schemaVersion: 1,
+  presetId: "adapter-plan-review",
+  label: "Adapter plan review",
+  description: "Draft only",
+  requiredCapabilityIds: ["router_observe", "client_adapter_plan"],
+  evidenceSource: "native_router_decision_receipt" as const,
+  routingMode: "observe_only" as const,
+  executionMode: "plan_only" as const,
+  providerTraffic: "none" as const,
+  writesEnabled: false as const,
+};
 const session = {
   schemaVersion: 1,
   sessionId: "workbench:test",
@@ -90,14 +102,15 @@ const capabilityProjection = {
   executionMode: "plan_only" as const,
   writesEnabled: false as const,
   providerTraffic: "none" as const,
-  registry: {
+    registry: {
     schemaVersion: 1,
     registryMode: "metadata_only" as const,
     writesEnabled: false as const,
     approvalMode: "fail_closed" as const,
     providers: [{ id: "local", label: "Local", modelFamilies: ["test"], contextLimit: 1, authSource: "none" as const }],
-    tools: [{ id: "router", label: "Router", providerId: "local", capabilities: ["observe"], requiresApproval: true, writesEnabled: false as const }],
-  },
+      tools: [{ id: "router", label: "Router", providerId: "local", capabilities: ["observe"], requiresApproval: true, writesEnabled: false as const }],
+    },
+    presets: [workbenchPreset],
 };
 
 describe("WorkbenchView", () => {
@@ -160,6 +173,7 @@ describe("WorkbenchView", () => {
       contextPackDigest: null,
       routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
       replayReference: null,
+      preset: null,
       requestedMode: "full",
       adapterPlanId: "adapter-plan:test",
       adapterAction: "apply_managed_routing",
@@ -180,6 +194,7 @@ describe("WorkbenchView", () => {
       adapterId: "codex",
       routerDecisionId: "routing-decision-1",
       replayReferenceId: null,
+      presetId: null,
     }));
     expect(await screen.findByText(/plan id: run-plan:test/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
@@ -198,6 +213,7 @@ describe("WorkbenchView", () => {
       contextPackDigest: null,
       routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
       replayReference,
+      preset: null,
       requestedMode: "full",
       adapterPlanId: "adapter-plan:test",
       adapterAction: "apply_managed_routing",
@@ -223,6 +239,18 @@ describe("WorkbenchView", () => {
     expect(await screen.findByText((_, element) =>
       element?.tagName === "P" && element.textContent?.includes(replayReference.replayId),
     )).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
+  });
+
+  it("loads native Workbench presets as drafts without preparing or executing a plan", async () => {
+    const user = userEvent.setup();
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.selectOptions(screen.getByLabelText("Workbench plan preset"), workbenchPreset.presetId);
+
+    expect(await screen.findByText(/loaded as a plan draft/i)).toBeInTheDocument();
+    expect(preparePlan).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
   });
 });
