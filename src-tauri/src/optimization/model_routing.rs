@@ -464,7 +464,7 @@ pub(crate) fn decide_model_route_experiment(
     user_approved: bool,
     evidence: Option<&ModelRoutingBenchmarkEvidence>,
 ) -> ModelRouteDecision {
-    let task_class = classify_task(&input.task).to_string();
+    let task_class = bounded_task_class(&input.task).to_string();
     let proposed_model = if is_low_risk_task_class(&task_class) {
         input.cheap_model.clone()
     } else {
@@ -645,15 +645,18 @@ fn decision(
     }
 }
 
-fn classify_task(task: &str) -> &'static str {
+pub(crate) fn bounded_task_class(task: &str) -> &'static str {
     let task = task.to_ascii_lowercase();
     if task.contains("format") || task.contains("lint") {
         "formatting"
-    } else if task.contains("commit message") {
+    } else if task == "commit_message" || task.contains("commit message") {
         "commit_message"
     } else if task.contains("rename") || task.contains("typo") {
         "rename"
-    } else if task.contains("summarize diff") || task.contains("diff summary") {
+    } else if task == "diff_summary"
+        || task.contains("summarize diff")
+        || task.contains("diff summary")
+    {
         "diff_summary"
     } else {
         "general"

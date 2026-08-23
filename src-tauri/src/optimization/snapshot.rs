@@ -163,7 +163,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
         }],
         routing: vec![
             ModelRoutingSnapshot {
-                task: "Lint fixes and commit copy".to_string(),
+                task_class: "formatting".to_string(),
                 current_model: "frontier".to_string(),
                 selected_model: lint_route.selected_model,
                 fallback_model: "frontier".to_string(),
@@ -171,7 +171,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
                 estimated_savings_percent: 64,
             },
             ModelRoutingSnapshot {
-                task: "Implementation planning".to_string(),
+                task_class: "general".to_string(),
                 current_model: "frontier".to_string(),
                 selected_model: plan_route.selected_model,
                 fallback_model: "fast/local".to_string(),
@@ -293,7 +293,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
             .routing_decisions
             .into_iter()
             .map(|record| ModelRoutingSnapshot {
-                task: record.task,
+                task_class: record.task_class,
                 current_model: record.current_model,
                 selected_model: record.selected_model,
                 fallback_model: record.fallback_model,

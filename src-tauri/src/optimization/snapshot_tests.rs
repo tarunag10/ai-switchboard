@@ -82,7 +82,7 @@ fn snapshot_uses_live_telemetry_when_observed() {
             8,
         );
         telemetry::record_routing_decision(telemetry::RoutingDecisionRecord {
-            task: "lint".to_string(),
+            task_class: "lint".to_string(),
             current_model: "frontier".to_string(),
             selected_model: "fast/local".to_string(),
             fallback_model: "frontier".to_string(),

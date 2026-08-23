@@ -73,7 +73,7 @@ fn routing_decisions_round_trip_through_sqlite() {
 
     reset_for_tests();
     record_routing_decision(&RoutingDecisionRecord {
-        task: "commit message".to_string(),
+        task_class: "commit message".to_string(),
         current_model: "gpt-5".to_string(),
         selected_model: "gpt-5-mini".to_string(),
         fallback_model: "gpt-5".to_string(),
@@ -83,8 +83,40 @@ fn routing_decisions_round_trip_through_sqlite() {
 
     let decisions = recent_routing_decisions(8);
     assert_eq!(decisions.len(), 1);
+    assert_eq!(decisions[0].task_class, "commit_message");
     assert_eq!(decisions[0].selected_model, "gpt-5-mini");
     assert_eq!(decisions[0].estimated_savings_percent, 42);
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn legacy_free_form_routing_tasks_are_scrubbed_on_open() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+
+    reset_for_tests();
+    let conn = open_connection_for_tests().expect("open telemetry database");
+    conn.execute(
+        "INSERT INTO routing_decisions (task, current_model, selected_model, fallback_model, reason, estimated_savings_percent)
+         VALUES (?1, 'gpt-5', 'gpt-5-mini', 'gpt-5', 'legacy', 0)",
+        rusqlite::params!["secret prompt text"],
+    )
+    .expect("insert legacy row");
+    drop(conn);
+
+    let decisions = recent_routing_decisions(8);
+    assert_eq!(decisions[0].task_class, "general");
+    let conn = open_connection_for_tests().expect("reopen telemetry database");
+    let stored: String = conn
+        .query_row("SELECT task FROM routing_decisions LIMIT 1", [], |row| row.get(0))
+        .expect("read scrubbed row");
+    assert_eq!(stored, "general");
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),

@@ -90,7 +90,26 @@ fn open_connection() -> rusqlite::Result<Connection> {
             follow_up_rework INTEGER NOT NULL
         );",
     )?;
+    scrub_legacy_routing_tasks(&conn)?;
     Ok(conn)
+}
+
+/// Older local databases stored free-form task text in the `task` column.
+/// Keep that column for on-disk compatibility, but rewrite every value to its
+/// bounded class before any legacy row can be returned or retained.
+fn scrub_legacy_routing_tasks(conn: &Connection) -> rusqlite::Result<()> {
+    let legacy_rows: Vec<(i64, String)> = {
+        let mut statement = conn.prepare("SELECT id, task FROM routing_decisions")?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    for (id, task) in legacy_rows {
+        conn.execute(
+            "UPDATE routing_decisions SET task = ?1 WHERE id = ?2",
+            params![super::model_routing::bounded_task_class(&task), id],
+        )?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -199,7 +218,7 @@ fn try_record_routing_decision(decision: &RoutingDecisionRecord) -> rusqlite::Re
             estimated_savings_percent
         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
-            decision.task,
+            super::model_routing::bounded_task_class(&decision.task_class),
             decision.current_model,
             decision.selected_model,
             decision.fallback_model,
@@ -227,7 +246,7 @@ fn try_recent_routing_decisions(limit: usize) -> rusqlite::Result<Vec<RoutingDec
     )?;
     let rows = stmt.query_map([limit as i64], |row| {
         Ok(RoutingDecisionRecord {
-            task: row.get(0)?,
+            task_class: super::model_routing::bounded_task_class(&row.get::<_, String>(0)?).to_string(),
             current_model: row.get(1)?,
             selected_model: row.get(2)?,
             fallback_model: row.get(3)?,

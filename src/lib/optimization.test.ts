@@ -216,7 +216,7 @@ describe("optimization helpers", () => {
       compaction: { contextUsedPercent: 1, nextAction: "Compact now" },
       agentPack: { enabled: false, packName: "Custom", message: "Idle" },
       bypass: { anthropic: true, openai: false, any: false },
-      routing: [{ task: "test" } as never],
+      routing: [{ taskClass: "general" } as never],
       rtkPresets: [{ id: "x", label: "X", command: "rtk x", purpose: "x" }],
       generatedAt: "now",
     });

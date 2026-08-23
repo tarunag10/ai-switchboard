@@ -1,7 +1,7 @@
 use super::action_policy::{
     actionable_model_route, load_action_policy, plan_prompt_cache_order, PromptSegmentPlan,
 };
-use super::model_routing::ModelRouteInput;
+use super::model_routing::{bounded_task_class, ModelRouteInput};
 use super::snapshot_types::{ModelRoutingSnapshot, PromptCacheSegmentSnapshot};
 
 pub(super) fn order_prompt_cache_segments(
@@ -34,10 +34,10 @@ fn route_with_policy(input: ModelRouteInput) -> super::model_routing::ModelRoute
 pub(super) fn route_to_snapshot(input: ModelRouteInput) -> ModelRoutingSnapshot {
     let current_model = input.requested_model.clone();
     let fallback_model = input.capable_model.clone();
-    let task = input.task.clone();
+    let task_class = bounded_task_class(&input.task).to_string();
     let decision = route_with_policy(input);
     ModelRoutingSnapshot {
-        task,
+        task_class,
         current_model,
         selected_model: decision.selected_model,
         fallback_model,

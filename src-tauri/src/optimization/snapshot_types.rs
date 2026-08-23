@@ -83,7 +83,7 @@ pub(crate) struct RedundancyFindingSnapshot {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ModelRoutingSnapshot {
-    pub(crate) task: String,
+    pub(crate) task_class: String,
     pub(crate) current_model: String,
     pub(crate) selected_model: String,
     pub(crate) fallback_model: String,

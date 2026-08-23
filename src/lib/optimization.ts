@@ -48,7 +48,7 @@ export interface PromptCacheClientProof {
 }
 
 export interface ModelRoutingDecision {
-  task: string;
+  taskClass: string;
   selectedModel: string;
   fallbackModel: string;
   reason: string;

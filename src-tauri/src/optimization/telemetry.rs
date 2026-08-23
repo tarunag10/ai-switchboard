@@ -46,7 +46,7 @@ pub(crate) struct CompactionDecisionRecord {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RoutingDecisionRecord {
-    pub(crate) task: String,
+    pub(crate) task_class: String,
     pub(crate) current_model: String,
     pub(crate) selected_model: String,
     pub(crate) fallback_model: String,
@@ -159,6 +159,10 @@ pub(crate) fn record_compaction_decision(decision: CompactionDecisionRecord) {
 }
 
 pub(crate) fn record_routing_decision(decision: RoutingDecisionRecord) {
+    let decision = RoutingDecisionRecord {
+        task_class: super::model_routing::bounded_task_class(&decision.task_class).to_string(),
+        ..decision
+    };
     telemetry_store::record_routing_decision(&decision);
     with_collector(|collector| {
         push_bounded(
@@ -318,7 +322,7 @@ mod tests {
             reset_for_tests();
 
             record_routing_decision(RoutingDecisionRecord {
-                task: "lint fix".to_string(),
+                task_class: "lint fix".to_string(),
                 current_model: "gpt-5".to_string(),
                 selected_model: "gpt-5-mini".to_string(),
                 fallback_model: "gpt-5".to_string(),

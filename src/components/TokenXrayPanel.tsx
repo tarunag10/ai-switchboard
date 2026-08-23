@@ -64,7 +64,7 @@ export function RoutingDecisionList({
   decisions
 }: {
   decisions: Array<{
-    task: string;
+    taskClass: string;
     selectedModel: string;
     fallbackModel: string;
     reason: string;
@@ -84,9 +84,9 @@ export function RoutingDecisionList({
       </div>
       <div className="optimize-projects">
         {decisions.map((decision) => (
-          <div className="optimize-project-row" key={decision.task}>
+          <div className="optimize-project-row" key={decision.taskClass}>
             <div className="optimize-project-row__main">
-              <span className="optimize-project-row__name">{decision.task}</span>
+              <span className="optimize-project-row__name">{decision.taskClass}</span>
               <span className="optimize-project-row__training">
                 {decision.selectedModel} / fallback {decision.fallbackModel} / saves{" "}
                 {decision.estimatedSavingsPercent}%
