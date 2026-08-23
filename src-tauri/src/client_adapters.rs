@@ -27,6 +27,10 @@ pub use crate::client_integrations::{
     disable_markitdown_integration, enable_caveman_integration, enable_markitdown_integration,
     restore_caveman_client_if_unchanged, CavemanIntegrationSnapshot, CavemanManagedBlockSnapshot,
 };
+pub use crate::client_rtk_integration::{
+    newly_created_rtk_artifacts, remove_rtk_artifact_if_unchanged, restore_rtk_disabled_if_unchanged,
+    rtk_integration_snapshot, validate_rtk_integration_snapshot, RtkIntegrationSnapshot,
+};
 pub use crate::client_setup_apply::{
     apply_client_setup, clear_client_setups, codex_provider_block_matches, disable_client_setup,
     restore_client_setups, verify_client_setup,

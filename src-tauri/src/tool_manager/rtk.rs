@@ -5,8 +5,9 @@ use std::process::Command;
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::Local;
 use flate2::read::GzDecoder;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::models::{RtkCommandFamilyStats, RtkDailyStats, RtkTodayStats};
@@ -19,6 +20,38 @@ struct RtkDailyGainOutput {
     summary: Option<RtkGainSummary>,
     #[serde(default)]
     daily: Vec<RtkDailyEntry>,
+}
+
+/// Content-free RTK runtime ownership proof for selective activation receipts.
+/// The hashes cover only the managed binary and tool receipt; their paths and
+/// receipt contents never leave the local ToolManager boundary.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RtkInstallationSnapshot {
+    pub binary_fingerprint: Option<String>,
+    pub receipt_fingerprint: Option<String>,
+}
+
+impl RtkInstallationSnapshot {
+    pub fn is_absent(&self) -> bool {
+        self.binary_fingerprint.is_none() && self.receipt_fingerprint.is_none()
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.binary_fingerprint.is_some() && self.receipt_fingerprint.is_some()
+    }
+}
+
+fn installation_fingerprint(path: &Path) -> Result<Option<String>> {
+    match std::fs::read(path) {
+        Ok(bytes) => {
+            let mut hasher = Sha256::new();
+            hasher.update(bytes);
+            Ok(Some(format!("sha256:{:x}", hasher.finalize())))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error).with_context(|| format!("reading {}", path.display())),
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -226,6 +259,32 @@ impl ToolManager {
         self.runtime.bin_dir.join("rtk")
     }
 
+    fn rtk_receipt_path(&self) -> PathBuf {
+        self.runtime.tools_dir.join("rtk.json")
+    }
+
+    pub fn rtk_installation_snapshot(&self) -> Result<RtkInstallationSnapshot> {
+        Ok(RtkInstallationSnapshot {
+            binary_fingerprint: installation_fingerprint(&self.rtk_entrypoint())?,
+            receipt_fingerprint: installation_fingerprint(&self.rtk_receipt_path())?,
+        })
+    }
+
+    /// Reject a partial runtime before selective activation can overwrite it.
+    /// A normal install is either absent or has both the managed binary and
+    /// receipt; preserving partial state requires an explicit Addons repair.
+    pub fn validate_rtk_installation_snapshot(
+        &self,
+        snapshot: &RtkInstallationSnapshot,
+    ) -> Result<()> {
+        if snapshot.is_absent() || snapshot.is_complete() {
+            return Ok(());
+        }
+        bail!(
+            "RTK has a partial managed runtime; repair it from Addons before selective activation so no existing artifact is overwritten"
+        )
+    }
+
     pub fn read_rtk_activity(&self, max_lines: usize) -> Result<Vec<String>> {
         if !self.rtk_installed() {
             return Ok(vec!["RTK is not installed yet.".into()]);
@@ -261,7 +320,7 @@ impl ToolManager {
     }
 
     pub fn rtk_installed(&self) -> bool {
-        self.rtk_entrypoint().exists() && self.runtime.tools_dir.join("rtk.json").exists()
+        self.rtk_entrypoint().exists() && self.rtk_receipt_path().exists()
     }
 
     pub fn installed_rtk_version(&self) -> Option<String> {
@@ -436,11 +495,70 @@ impl ToolManager {
             std::fs::remove_file(&binary)
                 .with_context(|| format!("removing {}", binary.display()))?;
         }
-        let receipt = self.runtime.tools_dir.join("rtk.json");
+        let receipt = self.rtk_receipt_path();
         if receipt.exists() {
             std::fs::remove_file(&receipt)
                 .with_context(|| format!("removing {}", receipt.display()))?;
         }
         Ok(())
+    }
+
+    /// Removes a runtime created by one selective activation only when both
+    /// artifacts still match its recorded post-activation fingerprints.
+    pub fn uninstall_rtk_if_unchanged(&self, after: &RtkInstallationSnapshot) -> Result<()> {
+        if !after.is_complete() {
+            bail!("RTK selective rollback has no complete runtime ownership metadata");
+        }
+        let current = self.rtk_installation_snapshot()?;
+        if &current != after {
+            bail!(
+                "RTK runtime changed after activation; the managed binary and receipt were preserved"
+            );
+        }
+        self.uninstall_rtk()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{installation_fingerprint, RtkInstallationSnapshot};
+
+    #[test]
+    fn runtime_snapshot_distinguishes_absent_partial_and_complete() {
+        let absent = RtkInstallationSnapshot {
+            binary_fingerprint: None,
+            receipt_fingerprint: None,
+        };
+        assert!(absent.is_absent());
+        assert!(!absent.is_complete());
+
+        let partial = RtkInstallationSnapshot {
+            binary_fingerprint: Some("sha256:binary".into()),
+            receipt_fingerprint: None,
+        };
+        assert!(!partial.is_absent());
+        assert!(!partial.is_complete());
+
+        let complete = RtkInstallationSnapshot {
+            binary_fingerprint: Some("sha256:binary".into()),
+            receipt_fingerprint: Some("sha256:receipt".into()),
+        };
+        assert!(!complete.is_absent());
+        assert!(complete.is_complete());
+    }
+
+    #[test]
+    fn runtime_fingerprint_changes_with_file_contents() {
+        let directory = tempfile::tempdir().expect("create temporary directory");
+        let artifact = directory.path().join("rtk");
+        std::fs::write(&artifact, "first").expect("write first artifact");
+        let first = installation_fingerprint(&artifact)
+            .expect("fingerprint first artifact")
+            .expect("artifact present");
+        std::fs::write(&artifact, "second").expect("write replacement artifact");
+        let second = installation_fingerprint(&artifact)
+            .expect("fingerprint replacement artifact")
+            .expect("artifact present");
+        assert_ne!(first, second);
     }
 }

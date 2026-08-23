@@ -238,7 +238,7 @@ fn ensure_claude_code_rtk_hook(
     Ok((changed_files, backup_files))
 }
 
-fn build_rtk_codex_nudge(managed_rtk_path: &Path) -> String {
+pub(crate) fn build_rtk_codex_nudge(managed_rtk_path: &Path) -> String {
     let bin = managed_rtk_path.display();
     format!(
         "## Token-saving shell commands (Headroom RTK)\n\
@@ -302,4 +302,3 @@ json.dump({{"hookSpecificOutput": {{"hookEventName": "PreToolUse", "permissionDe
 "#
     )
 }
-

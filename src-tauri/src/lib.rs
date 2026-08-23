@@ -79,6 +79,7 @@ mod client_detection;
 mod client_footprint;
 mod client_paths;
 mod client_provider_configs;
+mod client_rtk_integration;
 mod aider_provider_configs;
 mod continue_provider_configs;
 mod client_setup_commands;

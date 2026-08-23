@@ -88,6 +88,14 @@ pub struct CavemanActivationSnapshot {
     pub integration: client_adapters::CavemanIntegrationSnapshot,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RtkActivationSnapshot {
+    pub disabled: bool,
+    pub integration: client_adapters::RtkIntegrationSnapshot,
+    pub installation: crate::tool_manager::RtkInstallationSnapshot,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectiveActivationReceipt {
@@ -119,6 +127,16 @@ pub struct SelectiveActivationReceipt {
     pub after_caveman: Option<CavemanActivationSnapshot>,
     #[serde(default)]
     pub caveman_changed_clients: Vec<String>,
+    #[serde(default)]
+    pub previous_rtk: Option<RtkActivationSnapshot>,
+    #[serde(default)]
+    pub after_rtk: Option<RtkActivationSnapshot>,
+    /// Logical RTK integration artifacts first introduced by this run. Values
+    /// are opaque content fingerprints, never configuration paths or content.
+    #[serde(default)]
+    pub rtk_created_artifacts: BTreeMap<String, String>,
+    #[serde(default)]
+    pub rtk_runtime_created: bool,
     pub owned_changes: Vec<String>,
     pub rollback_status: Option<String>,
     pub rollback_results: Vec<SelectiveRollbackResult>,
@@ -286,6 +304,30 @@ fn caveman_snapshot(state: &AppState) -> Result<CavemanActivationSnapshot, Strin
     })
 }
 
+fn rtk_snapshot(state: &AppState) -> Result<RtkActivationSnapshot, String> {
+    Ok(RtkActivationSnapshot {
+        disabled: client_adapters::is_rtk_disabled(),
+        integration: client_adapters::rtk_integration_snapshot().map_err(|error| error.to_string())?,
+        installation: state
+            .tool_manager
+            .rtk_installation_snapshot()
+            .map_err(|error| error.to_string())?,
+    })
+}
+
+fn validate_rtk_snapshot(state: &AppState, snapshot: &RtkActivationSnapshot) -> Result<(), String> {
+    state
+        .tool_manager
+        .validate_rtk_installation_snapshot(&snapshot.installation)
+        .map_err(|error| error.to_string())?;
+    client_adapters::validate_rtk_integration_snapshot(
+        &snapshot.integration,
+        &state.tool_manager.rtk_entrypoint(),
+        &state.tool_manager.managed_python(),
+    )
+    .map_err(|error| error.to_string())
+}
+
 fn validate_caveman_snapshot(snapshot: &CavemanActivationSnapshot) -> Result<(), String> {
     let unknown_clients: Vec<&str> = snapshot
         .integration
@@ -331,6 +373,25 @@ fn changed_caveman_clients(
             previous.integration.blocks.get(client_id) != after.integration.blocks.get(client_id)
         })
         .collect()
+}
+
+fn ordered_rtk_artifacts(artifacts: &BTreeMap<String, String>) -> Vec<(String, String)> {
+    let mut ordered = Vec::new();
+    for id in ["claude-settings-hook", "claude-hook"] {
+        if let Some(fingerprint) = artifacts.get(id) {
+            ordered.push((id.to_string(), fingerprint.clone()));
+        }
+    }
+    ordered.extend(
+        artifacts
+            .iter()
+            .filter(|(id, _)| id.starts_with("shell:"))
+            .map(|(id, fingerprint)| (id.clone(), fingerprint.clone())),
+    );
+    if let Some(fingerprint) = artifacts.get("codex-nudge") {
+        ordered.push(("codex-nudge".to_string(), fingerprint.clone()));
+    }
+    ordered
 }
 
 fn set_chonkify_preference(
@@ -624,6 +685,10 @@ fn preflight_selected_tools(state: &AppState, selected: &[String]) -> Result<(),
     if selected.iter().any(|id| id == "chonkify") && !chonkify_gate().1 {
         return Err("Chonkify promotion evidence is not eligible; native deterministic packs remain active.".into());
     }
+    if selected.iter().any(|id| id == "rtk") {
+        let snapshot = rtk_snapshot(state)?;
+        validate_rtk_snapshot(state, &snapshot)?;
+    }
     Ok(())
 }
 
@@ -677,6 +742,11 @@ pub async fn activate_selected_tools(
     if let Some(snapshot) = previous_caveman.as_ref() {
         validate_caveman_snapshot(snapshot)?;
     }
+    let previous_rtk = selected_tool_ids
+        .iter()
+        .any(|id| id == "rtk")
+        .then(|| rtk_snapshot(&state))
+        .transpose()?;
     let mut owned_changes = Vec::new();
     if selected_tool_ids
         .iter()
@@ -698,6 +768,9 @@ pub async fn activate_selected_tools(
     }
     if previous_caveman.is_some() {
         owned_changes.push("caveman_state".into());
+    }
+    if previous_rtk.is_some() {
+        owned_changes.push("rtk_ownership".into());
     }
     let mut results = Vec::new();
     let mut failed = false;
@@ -800,6 +873,27 @@ pub async fn activate_selected_tools(
         .zip(after_caveman.as_ref())
         .map(|(previous, after)| changed_caveman_clients(previous, after))
         .unwrap_or_default();
+    let after_rtk = previous_rtk
+        .as_ref()
+        .map(|_| rtk_snapshot(&state))
+        .transpose()?;
+    let rtk_created_artifacts = previous_rtk
+        .as_ref()
+        .zip(after_rtk.as_ref())
+        .map(|(previous, after)| {
+            client_adapters::newly_created_rtk_artifacts(
+                &previous.integration,
+                &after.integration,
+            )
+        })
+        .unwrap_or_default();
+    let rtk_runtime_created = previous_rtk
+        .as_ref()
+        .zip(after_rtk.as_ref())
+        .map(|(previous, after)| {
+            previous.installation.is_absent() && after.installation.is_complete()
+        })
+        .unwrap_or(false);
     let receipt = SelectiveActivationReceipt {
         schema_version: 2,
         run_id,
@@ -821,6 +915,10 @@ pub async fn activate_selected_tools(
         previous_caveman,
         after_caveman,
         caveman_changed_clients,
+        previous_rtk,
+        after_rtk,
+        rtk_created_artifacts,
+        rtk_runtime_created,
         owned_changes,
         rollback_status: None,
         rollback_results: Vec::new(),
@@ -985,6 +1083,116 @@ pub async fn rollback_selective_activation(
                     });
                 }
             }
+        }
+    }
+    if receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "rtk_ownership")
+    {
+        let previously_restored_artifacts: BTreeSet<String> = receipt
+            .rollback_results
+            .iter()
+            .filter(|result| result.state == "restored")
+            .filter_map(|result| result.tool_id.strip_prefix("rtk:").map(str::to_string))
+            .collect();
+        if let (Some(previous), Some(after)) = (receipt.previous_rtk.clone(), receipt.after_rtk.clone()) {
+            let mut integrations_reconciled = true;
+            for (artifact_id, fingerprint) in ordered_rtk_artifacts(&receipt.rtk_created_artifacts) {
+                let tool_id = format!("rtk:{artifact_id}");
+                if previously_restored_artifacts.contains(&artifact_id) {
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "RTK artifact was already restored by an earlier rollback attempt.".into(),
+                    });
+                    continue;
+                }
+                match client_adapters::remove_rtk_artifact_if_unchanged(&artifact_id, &fingerprint) {
+                    Ok(_) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Run-created RTK artifact was removed after its post-activation fingerprint matched; unrelated client configuration was preserved.".into(),
+                    }),
+                    Err(error) => {
+                        integrations_reconciled = false;
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id,
+                            state: "blocked_external_change".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+                if let Err(error) = persist_rollback_progress(&state, &mut receipt, &rollback_results) {
+                    integrations_reconciled = false;
+                    failures.push(error.clone());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "rtk".into(),
+                        state: "failed".into(),
+                        detail: format!("Recording RTK rollback progress failed: {error}"),
+                    });
+                }
+            }
+            let disabled_restored = if previous.disabled == after.disabled {
+                true
+            } else {
+                match client_adapters::restore_rtk_disabled_if_unchanged(previous.disabled, after.disabled) {
+                    Ok(()) => {
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "rtk:disabled-state".into(),
+                            state: "restored".into(),
+                            detail: "RTK enabled preference restored without running broad integration cleanup.".into(),
+                        });
+                        true
+                    }
+                    Err(error) => {
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "rtk:disabled-state".into(),
+                            state: "blocked_external_change".into(),
+                            detail: error.to_string(),
+                        });
+                        false
+                    }
+                }
+            };
+            if receipt.rtk_runtime_created {
+                if integrations_reconciled && disabled_restored {
+                    match state
+                        .tool_manager
+                        .uninstall_rtk_if_unchanged(&after.installation)
+                    {
+                        Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "rtk:runtime".into(),
+                            state: "restored".into(),
+                            detail: "Run-created RTK binary and receipt were removed after fingerprint validation; downloads, history, and backups were preserved.".into(),
+                        }),
+                        Err(error) => {
+                            failures.push(error.to_string());
+                            rollback_results.push(SelectiveRollbackResult {
+                                tool_id: "rtk:runtime".into(),
+                                state: "blocked_external_change".into(),
+                                detail: error.to_string(),
+                            });
+                        }
+                    }
+                } else {
+                    failures.push("RTK integration reconciliation was incomplete".into());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "rtk:runtime".into(),
+                        state: "blocked_external_change".into(),
+                        detail: "Run-created RTK runtime was preserved because one or more integration artifacts changed after activation.".into(),
+                    });
+                }
+            }
+        } else {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "rtk".into(),
+                state: "failed".into(),
+                detail: "RTK rollback metadata is missing from this activation receipt.".into(),
+            });
+            failures.push("RTK rollback metadata is missing".into());
         }
     }
     if receipt
@@ -1191,7 +1399,7 @@ pub async fn rollback_selective_activation(
     for tool_id in receipt.selected_tool_ids.iter().filter(|id| {
         !matches!(
             id.as_str(),
-            "headroom" | "rtk" | "response-cache" | "chonkify" | "leanctx" | "ponytail" | "caveman"
+            "headroom" | "response-cache" | "chonkify" | "leanctx" | "ponytail" | "caveman"
         )
     }) {
         rollback_results.push(SelectiveRollbackResult {
@@ -1279,7 +1487,7 @@ pub fn save_selective_activation_selection(
 mod tests {
     use super::{
         changed_caveman_clients, chonkify_gate, newly_created_ponytail_hosts,
-        validate_caveman_snapshot, validate_ids, validate_rollback_request,
+        ordered_rtk_artifacts, validate_caveman_snapshot, validate_ids, validate_rollback_request,
         CavemanActivationSnapshot, PonytailActivationSnapshot, SelectiveActivationReceipt,
     };
     use crate::client_adapters::{CavemanIntegrationSnapshot, CavemanManagedBlockSnapshot};
@@ -1413,6 +1621,28 @@ mod tests {
         assert!(validate_caveman_snapshot(&snapshot).is_err());
     }
 
+    #[test]
+    fn rtk_rollback_order_preserves_markitdown_and_runtime_dependencies() {
+        let artifacts = BTreeMap::from([
+            ("shell:.zshrc".into(), "shell".into()),
+            ("codex-nudge".into(), "codex".into()),
+            ("claude-hook".into(), "hook".into()),
+            ("claude-settings-hook".into(), "settings".into()),
+        ]);
+        assert_eq!(
+            ordered_rtk_artifacts(&artifacts)
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect::<Vec<_>>(),
+            vec![
+                "claude-settings-hook",
+                "claude-hook",
+                "shell:.zshrc",
+                "codex-nudge",
+            ]
+        );
+    }
+
     fn receipt() -> SelectiveActivationReceipt {
         SelectiveActivationReceipt {
             schema_version: 2,
@@ -1435,6 +1665,10 @@ mod tests {
             previous_caveman: None,
             after_caveman: None,
             caveman_changed_clients: Vec::new(),
+            previous_rtk: None,
+            after_rtk: None,
+            rtk_created_artifacts: Default::default(),
+            rtk_runtime_created: false,
             owned_changes: vec!["switchboard_mode".into()],
             rollback_status: None,
             rollback_results: Vec::new(),

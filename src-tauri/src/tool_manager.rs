@@ -161,6 +161,7 @@ use repo_memory::{
     write_mcp_server_to_claude_json,
 };
 pub use rtk::RtkGainSummary;
+pub(crate) use rtk::RtkInstallationSnapshot;
 #[cfg(test)]
 pub(crate) use rtk::{
     aggregate_rtk_command_families, command_family, read_rtk_command_families_from_db,
