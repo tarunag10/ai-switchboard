@@ -236,7 +236,7 @@ The app has local-only guards, but the public repo still contains remote-service
 
 ### Problem
 
-The project aims to support many agentic coding tools, but managed support currently exists for Claude Code and Codex. Other tools are detected, planned, or guided.
+The project aims to support many agentic coding tools. Promoted managed support currently exists for Claude Code, Codex, Gemini CLI, OpenCode, Goose, Grok/xAI CLI, Windsurf, and Zed AI; Cursor, Aider, Continue, Qwen Code, and Amazon Q remain detected/guided with native writes gated until provider-specific evidence is complete.
 
 ### Files to change
 
@@ -1725,5 +1725,5 @@ Use labels to keep the roadmap organized:
 - Full docs.
 - Recovery scripts.
 - Benchmarks.
-- Clear managed support for Claude Code and Codex.
+- Clear managed support for Claude Code, Codex, Gemini CLI, OpenCode, Goose, Grok/xAI CLI, Windsurf, and Zed AI, with remaining connector-native writes explicitly gated.
 - Stable local-free privacy guarantee.
