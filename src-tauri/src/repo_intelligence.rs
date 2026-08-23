@@ -2814,6 +2814,7 @@ fn extract_js_import_bindings(content: &str) -> Vec<RepoImportBinding> {
     let mut bindings = Vec::new();
     for statement in joined.split(';') {
         let statement = statement.trim();
+        bindings.extend(extract_commonjs_destructuring_bindings(statement));
         let Some(rest) = statement.strip_prefix("import ") else {
             continue;
         };
@@ -2876,6 +2877,64 @@ fn extract_js_import_bindings(content: &str) -> Vec<RepoImportBinding> {
         }
     }
     bindings
+}
+
+/// Resolve only static CommonJS object destructuring declarations. This keeps
+/// the semantic graph useful for legacy JS without pretending to understand
+/// dynamic require(), computed properties, reassignment, or module.exports
+/// runtime behavior.
+fn extract_commonjs_destructuring_bindings(statement: &str) -> Vec<RepoImportBinding> {
+    let Some(rest) = ["const ", "let ", "var "]
+        .iter()
+        .find_map(|prefix| statement.strip_prefix(prefix))
+    else {
+        return Vec::new();
+    };
+    let Some(open) = rest.find('{') else {
+        return Vec::new();
+    };
+    let Some(close) = rest[open + 1..].find('}').map(|offset| open + 1 + offset) else {
+        return Vec::new();
+    };
+    let Some(equals) = rest[close + 1..].find('=').map(|offset| close + 1 + offset) else {
+        return Vec::new();
+    };
+    let pattern = rest[open + 1..close].trim();
+    let initializer = rest[equals + 1..].trim();
+    if pattern.is_empty() || !initializer.starts_with("require(") {
+        return Vec::new();
+    }
+    let Some(specifier) = quoted_import_specifier(initializer) else {
+        return Vec::new();
+    };
+    let mut bindings = Vec::new();
+    for item in pattern.split(',') {
+        let item = item.trim();
+        if item.is_empty() || item.starts_with("...") {
+            continue;
+        }
+        let parts = item.split(':').map(str::trim).collect::<Vec<_>>();
+        if parts.len() > 2 || parts.iter().any(|part| !is_js_identifier(part)) {
+            continue;
+        }
+        let imported = parts[0];
+        let local = parts.get(1).copied().unwrap_or(imported);
+        bindings.push(RepoImportBinding {
+            local: local.to_string(),
+            imported: Some(imported.to_string()),
+            specifier: specifier.clone(),
+        });
+    }
+    bindings
+}
+
+fn is_js_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first == '_' || first == '$' || first.is_ascii_alphabetic())
+        && chars.all(|ch| ch == '_' || ch == '$' || ch.is_ascii_alphanumeric())
 }
 
 fn extract_python_import_bindings(content: &str) -> Vec<RepoImportBinding> {
@@ -4595,6 +4654,38 @@ export const mapValues = <T>(items: T[]) => items;
                 "missing semantically resolved call edge {caller} -> {callee}"
             );
         }
+    }
+
+    #[test]
+    fn resolves_static_commonjs_destructuring_aliases_without_dynamic_require_guesses() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("helpers.js"), "export function runTask() {}\n")
+            .expect("write commonjs helper");
+        std::fs::write(
+            src.join("consumer.js"),
+            "const { runTask: execute } = require('./helpers');\nfunction start() { execute(); }\n",
+        )
+        .expect("write commonjs consumer");
+        std::fs::write(
+            src.join("dynamic.js"),
+            "const { runTask } = require(path);\nfunction start() { runTask(); }\n",
+        )
+        .expect("write dynamic consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/consumer.js#start"
+                && edge.to == "src/helpers.js#runTask"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+                && edge.reason == "AST call expression resolved through local import binding"
+        }));
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/dynamic.js#start"
+                && edge.to == "src/helpers.js#runTask"
+                && edge.reason == "AST call expression resolved through local import binding"
+        }));
     }
 
     #[test]
