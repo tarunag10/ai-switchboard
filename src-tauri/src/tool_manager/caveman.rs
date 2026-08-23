@@ -12,6 +12,31 @@ impl ToolManager {
         self.runtime.tools_dir.join("caveman.json").exists()
     }
 
+    /// The receipt is Switchboard-owned state. Selective rollback stores the
+    /// complete logical value so it can restore an already-disabled or
+    /// custom-level Caveman configuration without rewriting user files.
+    pub fn caveman_receipt_snapshot(&self) -> Option<Value> {
+        self.read_tool_receipt("caveman")
+    }
+
+    pub fn restore_caveman_receipt_if_unchanged(
+        &self,
+        previous_receipt: Option<&Value>,
+        after_receipt: Option<&Value>,
+    ) -> Result<()> {
+        if self.caveman_receipt_snapshot().as_ref() != after_receipt {
+            bail!("Caveman managed receipt changed after activation");
+        }
+        let receipt_path = self.runtime.tools_dir.join("caveman.json");
+        if let Some(previous_receipt) = previous_receipt {
+            self.write_tool_receipt("caveman", previous_receipt.clone())?;
+        } else if receipt_path.exists() {
+            std::fs::remove_file(&receipt_path)
+                .with_context(|| format!("removing {}", receipt_path.display()))?;
+        }
+        Ok(())
+    }
+
     /// Persisted guidance level for the managed nudge body. Defaults to scoped.
     pub fn caveman_level(&self) -> String {
         self.read_tool_receipt("caveman")

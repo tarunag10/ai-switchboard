@@ -81,6 +81,13 @@ pub struct PonytailActivationSnapshot {
     pub host_fingerprints: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CavemanActivationSnapshot {
+    pub receipt: Option<Value>,
+    pub integration: client_adapters::CavemanIntegrationSnapshot,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectiveActivationReceipt {
@@ -106,6 +113,12 @@ pub struct SelectiveActivationReceipt {
     /// narrow rollback target without storing host paths or marketplace state.
     #[serde(default)]
     pub ponytail_created_hosts: BTreeMap<String, String>,
+    #[serde(default)]
+    pub previous_caveman: Option<CavemanActivationSnapshot>,
+    #[serde(default)]
+    pub after_caveman: Option<CavemanActivationSnapshot>,
+    #[serde(default)]
+    pub caveman_changed_clients: Vec<String>,
     pub owned_changes: Vec<String>,
     pub rollback_status: Option<String>,
     pub rollback_results: Vec<SelectiveRollbackResult>,
@@ -265,6 +278,14 @@ fn ponytail_snapshot(state: &AppState) -> PonytailActivationSnapshot {
     }
 }
 
+fn caveman_snapshot(state: &AppState) -> Result<CavemanActivationSnapshot, String> {
+    Ok(CavemanActivationSnapshot {
+        receipt: state.tool_manager.caveman_receipt_snapshot(),
+        integration: client_adapters::caveman_integration_snapshot()
+            .map_err(|error| error.to_string())?,
+    })
+}
+
 fn newly_created_ponytail_hosts(
     previous: &PonytailActivationSnapshot,
     after: &PonytailActivationSnapshot,
@@ -274,6 +295,25 @@ fn newly_created_ponytail_hosts(
         .iter()
         .filter(|(host_id, _)| !previous.host_fingerprints.contains_key(*host_id))
         .map(|(host_id, fingerprint)| (host_id.clone(), fingerprint.clone()))
+        .collect()
+}
+
+fn changed_caveman_clients(
+    previous: &CavemanActivationSnapshot,
+    after: &CavemanActivationSnapshot,
+) -> Vec<String> {
+    let client_ids: BTreeSet<String> = previous
+        .integration
+        .blocks
+        .keys()
+        .chain(after.integration.blocks.keys())
+        .cloned()
+        .collect();
+    client_ids
+        .into_iter()
+        .filter(|client_id| {
+            previous.integration.blocks.get(client_id) != after.integration.blocks.get(client_id)
+        })
         .collect()
 }
 
@@ -613,6 +653,11 @@ pub async fn activate_selected_tools(
         .iter()
         .any(|id| id == "ponytail")
         .then(|| ponytail_snapshot(&state));
+    let previous_caveman = selected_tool_ids
+        .iter()
+        .any(|id| id == "caveman")
+        .then(|| caveman_snapshot(&state))
+        .transpose()?;
     let mut owned_changes = Vec::new();
     if selected_tool_ids
         .iter()
@@ -631,6 +676,9 @@ pub async fn activate_selected_tools(
     }
     if previous_ponytail.is_some() {
         owned_changes.push("ponytail_ownership".into());
+    }
+    if previous_caveman.is_some() {
+        owned_changes.push("caveman_state".into());
     }
     let mut results = Vec::new();
     let mut failed = false;
@@ -724,6 +772,15 @@ pub async fn activate_selected_tools(
         .zip(after_ponytail.as_ref())
         .map(|(previous, after)| newly_created_ponytail_hosts(previous, after))
         .unwrap_or_default();
+    let after_caveman = previous_caveman
+        .as_ref()
+        .map(|_| caveman_snapshot(&state))
+        .transpose()?;
+    let caveman_changed_clients = previous_caveman
+        .as_ref()
+        .zip(after_caveman.as_ref())
+        .map(|(previous, after)| changed_caveman_clients(previous, after))
+        .unwrap_or_default();
     let receipt = SelectiveActivationReceipt {
         schema_version: 2,
         run_id,
@@ -742,6 +799,9 @@ pub async fn activate_selected_tools(
         previous_ponytail,
         after_ponytail,
         ponytail_created_hosts,
+        previous_caveman,
+        after_caveman,
+        caveman_changed_clients,
         owned_changes,
         rollback_status: None,
         rollback_results: Vec::new(),
@@ -911,6 +971,106 @@ pub async fn rollback_selective_activation(
     if receipt
         .owned_changes
         .iter()
+        .any(|change| change == "caveman_state")
+    {
+        let previously_restored_clients: BTreeSet<String> = receipt
+            .rollback_results
+            .iter()
+            .filter(|result| result.state == "restored")
+            .filter_map(|result| result.tool_id.strip_prefix("caveman:").map(str::to_string))
+            .collect();
+        let caveman_changed_clients = receipt.caveman_changed_clients.clone();
+        if let (Some(previous), Some(after)) = (
+            receipt.previous_caveman.clone(),
+            receipt.after_caveman.clone(),
+        ) {
+            let mut clients_restored = true;
+            for client_id in caveman_changed_clients {
+                let tool_id = format!("caveman:{client_id}");
+                if previously_restored_clients.contains(&client_id) {
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail:
+                            "Caveman block was already restored by an earlier rollback attempt."
+                                .into(),
+                    });
+                    continue;
+                }
+                match client_adapters::restore_caveman_client_if_unchanged(
+                    &client_id,
+                    previous
+                        .integration
+                        .blocks
+                        .get(&client_id)
+                        .map(String::as_str),
+                    after
+                        .integration
+                        .blocks
+                        .get(&client_id)
+                        .map(String::as_str),
+                ) {
+                    Ok(_) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Caveman guidance block restored without changing unrelated client instructions."
+                            .into(),
+                    }),
+                    Err(error) => {
+                        clients_restored = false;
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id,
+                            state: "blocked_external_change".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+                if let Err(error) =
+                    persist_rollback_progress(&state, &mut receipt, &rollback_results)
+                {
+                    clients_restored = false;
+                    failures.push(error.clone());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "caveman".into(),
+                        state: "failed".into(),
+                        detail: format!("Recording Caveman rollback progress failed: {error}"),
+                    });
+                }
+            }
+            if clients_restored {
+                match state.tool_manager.restore_caveman_receipt_if_unchanged(
+                    previous.receipt.as_ref(),
+                    after.receipt.as_ref(),
+                ) {
+                    Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "caveman".into(),
+                        state: "restored".into(),
+                        detail: "Caveman receipt restored after its run-owned guidance blocks were reconciled."
+                            .into(),
+                    }),
+                    Err(error) => {
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "caveman".into(),
+                            state: "blocked_external_change".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+            }
+        } else {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "caveman".into(),
+                state: "failed".into(),
+                detail: "Caveman rollback metadata is missing from this activation receipt.".into(),
+            });
+            failures.push("Caveman rollback metadata is missing".into());
+        }
+    }
+    if receipt
+        .owned_changes
+        .iter()
         .any(|change| change == "ponytail_ownership")
     {
         let previously_restored_hosts: BTreeSet<String> = receipt
@@ -1014,7 +1174,7 @@ pub async fn rollback_selective_activation(
     for tool_id in receipt.selected_tool_ids.iter().filter(|id| {
         !matches!(
             id.as_str(),
-            "headroom" | "rtk" | "response-cache" | "chonkify" | "leanctx" | "ponytail"
+            "headroom" | "rtk" | "response-cache" | "chonkify" | "leanctx" | "ponytail" | "caveman"
         )
     }) {
         rollback_results.push(SelectiveRollbackResult {
@@ -1101,9 +1261,11 @@ pub fn save_selective_activation_selection(
 #[cfg(test)]
 mod tests {
     use super::{
-        chonkify_gate, newly_created_ponytail_hosts, validate_ids, validate_rollback_request,
-        PonytailActivationSnapshot, SelectiveActivationReceipt,
+        changed_caveman_clients, chonkify_gate, newly_created_ponytail_hosts, validate_ids,
+        validate_rollback_request, CavemanActivationSnapshot, PonytailActivationSnapshot,
+        SelectiveActivationReceipt,
     };
+    use crate::client_adapters::CavemanIntegrationSnapshot;
     use crate::models::SwitchboardMode;
     use serde_json::json;
     use std::collections::BTreeMap;
@@ -1167,6 +1329,32 @@ mod tests {
         );
     }
 
+    #[test]
+    fn caveman_delta_tracks_only_changed_managed_blocks() {
+        let previous = CavemanActivationSnapshot {
+            receipt: Some(json!({ "enabled": false })),
+            integration: CavemanIntegrationSnapshot {
+                blocks: BTreeMap::from([
+                    ("claude-code".into(), "existing".into()),
+                    ("codex".into(), "unchanged".into()),
+                ]),
+            },
+        };
+        let after = CavemanActivationSnapshot {
+            receipt: Some(json!({ "enabled": true })),
+            integration: CavemanIntegrationSnapshot {
+                blocks: BTreeMap::from([
+                    ("claude-code".into(), "rewritten".into()),
+                    ("codex".into(), "unchanged".into()),
+                ]),
+            },
+        };
+        assert_eq!(
+            changed_caveman_clients(&previous, &after),
+            vec!["claude-code"]
+        );
+    }
+
     fn receipt() -> SelectiveActivationReceipt {
         SelectiveActivationReceipt {
             schema_version: 2,
@@ -1186,6 +1374,9 @@ mod tests {
             previous_ponytail: None,
             after_ponytail: None,
             ponytail_created_hosts: Default::default(),
+            previous_caveman: None,
+            after_caveman: None,
+            caveman_changed_clients: Vec::new(),
             owned_changes: vec!["switchboard_mode".into()],
             rollback_status: None,
             rollback_results: Vec::new(),

@@ -23,8 +23,9 @@ use crate::models::ClientStatus;
 
 pub use crate::client_connector_list::list_client_connectors;
 pub use crate::client_integrations::{
-    caveman_integration_matches_level, disable_caveman_integration, disable_markitdown_integration,
-    enable_caveman_integration, enable_markitdown_integration,
+    caveman_integration_matches_level, caveman_integration_snapshot, disable_caveman_integration,
+    disable_markitdown_integration, enable_caveman_integration, enable_markitdown_integration,
+    restore_caveman_client_if_unchanged, CavemanIntegrationSnapshot,
 };
 pub use crate::client_setup_apply::{
     apply_client_setup, clear_client_setups, codex_provider_block_matches, disable_client_setup,

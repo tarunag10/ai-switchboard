@@ -1,7 +1,10 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::client_detection::codex_home;
 use crate::client_paths::{claude_settings_path, headroom_markitdown_hook_path, home_dir};
@@ -10,9 +13,10 @@ use crate::client_setup_apply::{
 };
 use crate::client_setup_state::{is_claude_code_enabled, is_codex_enabled};
 use crate::managed_files::{
-    backup_if_exists, parse_json_object, remove_managed_block, upsert_managed_block,
-    write_file_if_changed,
+    backup_if_exists, managed_marker_end, managed_marker_start, parse_json_object,
+    remove_managed_block, upsert_managed_block, write_file_if_changed,
 };
+use crate::switchboard_identity::SwitchboardIdentitySlug;
 
 fn markitdown_claude_md_path() -> PathBuf {
     home_dir().join(".claude").join("CLAUDE.md")
@@ -164,6 +168,101 @@ fn caveman_codex_agents_path() -> PathBuf {
     codex_home().join("AGENTS.md")
 }
 
+/// The exact Switchboard-owned Caveman blocks for configured clients. The
+/// snapshot stores no absolute paths: client IDs are stable and the blocks are
+/// narrowly limited to the managed guidance that selective rollback owns.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CavemanIntegrationSnapshot {
+    pub blocks: BTreeMap<String, String>,
+}
+
+fn configured_caveman_clients() -> Vec<(&'static str, PathBuf)> {
+    let mut clients = Vec::new();
+    if is_claude_code_enabled() {
+        clients.push(("claude-code", caveman_claude_md_path()));
+    }
+    if is_codex_enabled() {
+        clients.push(("codex", caveman_codex_agents_path()));
+    }
+    clients
+}
+
+fn caveman_client_path(client_id: &str) -> Option<PathBuf> {
+    match client_id {
+        "claude-code" => Some(caveman_claude_md_path()),
+        "codex" => Some(caveman_codex_agents_path()),
+        _ => None,
+    }
+}
+
+fn caveman_block_range(content: &str) -> Option<(usize, usize)> {
+    for slug in SwitchboardIdentitySlug::marker_prefixes() {
+        let start = managed_marker_start(slug.as_str(), "caveman");
+        let end = managed_marker_end(slug.as_str(), "caveman");
+        if let (Some(start_index), Some(end_index)) = (content.find(&start), content.find(&end)) {
+            if start_index < end_index {
+                return Some((start_index, end_index + end.len()));
+            }
+        }
+    }
+    None
+}
+
+fn caveman_block_at(path: &Path) -> Result<Option<String>> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
+    };
+    Ok(caveman_block_range(&content).map(|(start, end)| content[start..end].to_string()))
+}
+
+fn replace_caveman_block(path: &Path, replacement: Option<&str>) -> Result<bool> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
+    };
+    let Some((start, end)) = caveman_block_range(&content) else {
+        if replacement.is_none() {
+            return Ok(false);
+        }
+        return Err(anyhow!(
+            "Caveman marker is missing from {} after fingerprint validation",
+            path.display()
+        ));
+    };
+    let updated = if let Some(replacement) = replacement {
+        format!("{}{}{}", &content[..start], replacement, &content[end..])
+    } else {
+        let before = content[..start].trim_end();
+        let after = content[end..].trim_start_matches('\n');
+        match (before.is_empty(), after.is_empty()) {
+            (true, true) => String::new(),
+            (true, false) => format!("{after}\n"),
+            (false, true) => format!("{before}\n"),
+            (false, false) => format!("{before}\n{after}"),
+        }
+    };
+    if updated == content {
+        return Ok(false);
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let _ = backup_if_exists(path)?;
+    std::fs::write(path, updated).with_context(|| format!("writing {}", path.display()))?;
+    Ok(true)
+}
+
+fn caveman_block_fingerprint(block: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(block.as_bytes());
+    format!("sha256:{:x}", hasher.finalize())
+}
+
 /// Terse-output guidance body keyed by level. Scoped is the conservative
 /// default: terse only where short output is safe, never hiding required
 /// legal, safety, or debugging detail. Aggressive asks for terseness broadly.
@@ -230,6 +329,39 @@ pub fn enable_caveman_integration(level: &str) -> Result<(Vec<String>, Vec<Strin
     }
 
     Ok((changed_files, backup_files))
+}
+
+pub fn caveman_integration_snapshot() -> Result<CavemanIntegrationSnapshot> {
+    let mut blocks = BTreeMap::new();
+    for (client_id, path) in configured_caveman_clients() {
+        if let Some(block) = caveman_block_at(&path)? {
+            blocks.insert(client_id.to_string(), block);
+        }
+    }
+    Ok(CavemanIntegrationSnapshot { blocks })
+}
+
+/// Restores one logical client's previous Caveman block only when the current
+/// block still exactly matches the activation's post-state. This protects a
+/// user edit while allowing unrelated instructions in the same file to evolve.
+pub fn restore_caveman_client_if_unchanged(
+    client_id: &str,
+    previous_block: Option<&str>,
+    after_block: Option<&str>,
+) -> Result<bool> {
+    let path = caveman_client_path(client_id)
+        .ok_or_else(|| anyhow!("unknown Caveman client identifier: {client_id}"))?;
+    let current = caveman_block_at(&path)?;
+    if current.as_deref() != after_block {
+        let expected = after_block.map(caveman_block_fingerprint);
+        let actual = current.as_deref().map(caveman_block_fingerprint);
+        bail!(
+            "Caveman block changed after activation for {client_id} (expected {}, found {})",
+            expected.as_deref().unwrap_or("absent"),
+            actual.as_deref().unwrap_or("absent")
+        );
+    }
+    replace_caveman_block(&path, previous_block)
 }
 
 pub fn caveman_integration_matches_level(level: &str) -> Result<bool> {
@@ -382,7 +514,10 @@ fn shell_double_quote(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{remove_markitdown_cache_if_present, remove_markitdown_hook_if_present};
+    use super::{
+        caveman_block_fingerprint, caveman_block_range, remove_markitdown_cache_if_present,
+        remove_markitdown_hook_if_present,
+    };
 
     #[test]
     fn orphaned_markitdown_hook_removal_reports_change() {
@@ -405,5 +540,25 @@ mod tests {
         assert!(remove_markitdown_cache_if_present(&cache).expect("remove cache"));
         assert!(!cache.exists());
         assert!(!remove_markitdown_cache_if_present(&cache).expect("missing cache is a no-op"));
+    }
+
+    #[test]
+    fn caveman_fingerprint_isolated_to_the_managed_block() {
+        let content = concat!(
+            "# User instruction\n",
+            "# >>> headroom:caveman >>>\n",
+            "## Terse output\n",
+            "# <<< headroom:caveman <<<\n",
+            "# More user instruction\n"
+        );
+        let (start, end) = caveman_block_range(content).expect("managed Caveman block");
+        assert_eq!(
+            &content[start..end],
+            "# >>> headroom:caveman >>>\n## Terse output\n# <<< headroom:caveman <<<"
+        );
+        assert_ne!(
+            caveman_block_fingerprint(&content[start..end]),
+            caveman_block_fingerprint(content)
+        );
     }
 }
