@@ -304,6 +304,49 @@ fn model_routing_evidence_rejects_exact_duplicate_callbacks() {
         None => std::env::remove_var("HOME"),
     }
 }
+
+#[test]
+fn model_routing_evidence_rejects_cross_task_or_model_reuse_of_a_run() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+    reset_for_tests();
+
+    let base = ModelRoutingEvidenceObservation {
+        run_id: "run-boundary".to_string(),
+        captured_at: chrono::Utc::now().to_rfc3339(),
+        task_class: "formatting".to_string(),
+        arm: ModelRoutingEvidenceArm::Baseline,
+        baseline_model: "frontier".to_string(),
+        candidate_model: "fast/local".to_string(),
+        succeeded: true,
+        successful_task_cost_microunits: Some(1000),
+        quality_score_bps: 9800,
+        latency_ms: 800,
+        follow_up_rework: false,
+    };
+    record_model_routing_evidence(&base).expect("first bound observation should persist");
+
+    let mut changed_task = base.clone();
+    changed_task.task_class = "general".to_string();
+    changed_task.captured_at = (chrono::Utc::now() + chrono::Duration::seconds(1)).to_rfc3339();
+    assert!(record_model_routing_evidence(&changed_task)
+        .expect_err("run cannot mix task classes")
+        .contains("cannot mix task or model identities"));
+
+    let mut changed_model = base;
+    changed_model.candidate_model = "other-model".to_string();
+    changed_model.captured_at = (chrono::Utc::now() + chrono::Duration::seconds(2)).to_rfc3339();
+    assert!(record_model_routing_evidence(&changed_model)
+        .expect_err("run cannot mix model identities")
+        .contains("cannot mix task or model identities"));
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
 #[test]
 fn token_xray_buckets_round_trip_through_sqlite() {
     let _guard = crate::optimization::telemetry::test_guard();

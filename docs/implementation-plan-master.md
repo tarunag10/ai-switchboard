@@ -173,6 +173,9 @@ the current checkout.
 - Confirmed installed-app smoke now records an explicit public artifact
   SHA-256, and release readiness requires it to match the selected DMG before
   installed evidence can be considered ready.
+- Routing evidence persistence now rejects reuse of one run ID across task
+  classes or baseline/candidate model pairs, preventing cross-experiment
+  aggregation while keeping local evidence observe-only.
 
 ### Done — prepared and shipped
 

@@ -193,6 +193,24 @@ fn try_record_model_routing_evidence(
             "model-routing evidence run exceeds its bounded event limit".to_string(),
         ));
     }
+    let mut run_rows = conn.prepare(
+        "SELECT task_class, baseline_model, candidate_model
+         FROM model_routing_evidence_events WHERE run_id = ?1",
+    )?;
+    let mut rows = run_rows.query(params![observation.run_id.trim()])?;
+    while let Some(row) = rows.next()? {
+        let existing_task: String = row.get(0)?;
+        let existing_baseline: String = row.get(1)?;
+        let existing_candidate: String = row.get(2)?;
+        if existing_task != observation.task_class.trim().to_ascii_lowercase()
+            || existing_baseline != observation.baseline_model.trim()
+            || existing_candidate != observation.candidate_model.trim()
+        {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "model-routing evidence run cannot mix task or model identities".to_string(),
+            ));
+        }
+    }
     let duplicate: i64 = conn.query_row(
         "SELECT COUNT(*) FROM model_routing_evidence_events
          WHERE run_id = ?1 AND captured_at = ?2 AND task_class = ?3 AND arm = ?4",
