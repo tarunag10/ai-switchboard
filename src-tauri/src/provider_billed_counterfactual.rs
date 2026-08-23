@@ -182,6 +182,8 @@ pub fn build_provider_billed_attribution_event(
             "Optimized evidence: {}.",
             request.optimized_evidence.trim()
         )],
+        measurement_id: None,
+        measurement_provenance: None,
     })
 }
 

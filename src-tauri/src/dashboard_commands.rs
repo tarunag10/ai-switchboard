@@ -114,6 +114,10 @@ pub struct MeasuredSavingsAttributionRequest {
     request_delta: usize,
     #[serde(default)]
     detail: String,
+    #[serde(default)]
+    measurement_id: String,
+    #[serde(default)]
+    measurement_provenance: Option<crate::models::MeasuredAddonProvenance>,
 }
 
 fn default_request_delta() -> usize {
@@ -135,6 +139,8 @@ pub async fn record_measured_savings_attribution(
                 request.optimized_tokens,
                 request.request_delta,
                 request.detail,
+                &request.measurement_id,
+                request.measurement_provenance,
             )
             .map_err(|err| err.to_string())
     })

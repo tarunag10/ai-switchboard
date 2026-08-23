@@ -136,6 +136,14 @@ export interface MeasuredSavingsAttributionRequest {
   optimizedTokens: number;
   requestDelta?: number;
   detail?: string;
+  measurementId: string;
+  measurementProvenance?: {
+    sessionId?: string;
+    provider?: string;
+    model?: string;
+    baselineObservedAt?: string;
+    optimizedObservedAt?: string;
+  };
 }
 
 export interface DashboardState {

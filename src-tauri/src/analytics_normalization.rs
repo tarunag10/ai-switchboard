@@ -178,6 +178,8 @@ mod tests {
             total_tokens_sent: 100,
             request_delta: 1,
             evidence: vec!["fixture".into()],
+            measurement_id: None,
+            measurement_provenance: None,
         }
     }
 

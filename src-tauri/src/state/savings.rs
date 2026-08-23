@@ -136,6 +136,8 @@ pub(super) fn build_repo_intelligence_attribution_event(
             "Repo Intelligence savings estimate is local context avoided, not provider-spend dollars."
                 .to_string(),
         ],
+        measurement_id: None,
+        measurement_provenance: None,
     })
 }
 
@@ -175,6 +177,8 @@ pub(super) fn build_agent_memory_attribution_event(
             "Estimated from a safe Agent Memory preview for {} selected source(s): {before} before to {after} after.",
             manifest.source_count
         )],
+        measurement_id: None,
+        measurement_provenance: None,
     })
 }
 
@@ -317,6 +321,8 @@ pub(super) fn build_addon_attribution_event(
         total_tokens_sent: 0,
         request_delta: runtime_event_count.max(1),
         evidence,
+        measurement_id: None,
+        measurement_provenance: None,
     })
 }
 
@@ -383,6 +389,8 @@ pub(super) fn maybe_append_measured_headroom_attribution(
                 .preset_id
                 .as_str()
         )],
+        measurement_id: None,
+        measurement_provenance: None,
     };
 
     tracker.append_attribution_event(&event)
@@ -621,6 +629,8 @@ impl SavingsTracker {
                 total_tokens_sent: 0,
                 request_delta: delta_commands as usize,
                 evidence,
+                measurement_id: None,
+                measurement_provenance: None,
             };
             let _ = self.append_attribution_event(&event);
         }
@@ -826,6 +836,8 @@ impl SavingsTracker {
                     "Measured from positive Headroom /stats session deltas.".to_string(),
                     "Source excludes RTK, Repo Intelligence, Ponytail, Caveman, Compact Chinese, and MarkItDown until those emit source-specific counters.".to_string(),
                 ],
+                measurement_id: None,
+                measurement_provenance: None,
             };
             let _ = self.append_attribution_event(&event);
         }
@@ -1124,14 +1136,18 @@ impl SavingsTracker {
         );
         if is_addon_source
             && self.attribution_events().iter().any(|existing| {
-                existing.source == event.source
+                (event.measurement_id.is_some()
+                    && existing.measurement_id == event.measurement_id)
+                    || (event.measurement_id.is_none()
+                        && existing.measurement_id.is_none()
+                        && existing.source == event.source
                     && existing.scope == event.scope
                     && existing.confidence == event.confidence
                     && existing.delta_tokens_saved == event.delta_tokens_saved
                     && existing.delta_usd == event.delta_usd
                     && existing.total_tokens_sent == event.total_tokens_sent
                     && existing.request_delta == event.request_delta
-                    && existing.evidence == event.evidence
+                    && existing.evidence == event.evidence)
             })
         {
             return Ok(());
@@ -2743,6 +2759,8 @@ mod tests {
             total_tokens_sent: 100,
             request_delta: 1,
             evidence: vec!["Measured from test fixture.".into()],
+            measurement_id: None,
+            measurement_provenance: None,
         };
         std::fs::write(
             &tracker.attribution_events_path,
@@ -2978,6 +2996,38 @@ mod tests {
     }
 
     #[test]
+    fn measured_addon_measurement_id_blocks_changed_evidence_replays() {
+        let changed_files = vec!["/tmp/CLAUDE.md".to_string()];
+        let backups = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let mut first = build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(&changed_files),
+            Some(&backups),
+            None,
+        )
+        .expect("first attribution");
+        first.measurement_id = Some("measurement-replay-1".to_string());
+        let mut replay = first.clone();
+        replay.evidence.push("replayed with changed wording".to_string());
+        let mut distinct = first.clone();
+        distinct.measurement_id = Some("measurement-replay-2".to_string());
+
+        let tracker = make_tracker();
+        tracker.append_attribution_event(&first).expect("append first");
+        tracker.append_attribution_event(&replay).expect("ignore replay");
+        tracker
+            .append_attribution_event(&distinct)
+            .expect("append distinct sample");
+
+        let events = tracker.attribution_events();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].measurement_id.as_deref(), Some("measurement-replay-1"));
+        assert_eq!(events[1].measurement_id.as_deref(), Some("measurement-replay-2"));
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+    }
+
+    #[test]
     fn addon_attribution_event_separates_compact_chinese_from_caveman() {
         let changed_files = vec!["/tmp/CLAUDE.md".to_string(), "/tmp/AGENTS.md".to_string()];
         let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
@@ -3036,6 +3086,8 @@ mod tests {
                 total_tokens_sent: 1_000,
                 request_delta: 1,
                 evidence: vec!["measured caveman delta".to_string()],
+                measurement_id: None,
+                measurement_provenance: None,
             },
             SavingsAttributionEvent {
                 schema_version: 1,
@@ -3049,6 +3101,8 @@ mod tests {
                 total_tokens_sent: 500,
                 request_delta: 1,
                 evidence: vec!["estimated caveman delta".to_string()],
+                measurement_id: None,
+                measurement_provenance: None,
             },
         ];
 

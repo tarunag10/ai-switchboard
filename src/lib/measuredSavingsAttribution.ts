@@ -26,6 +26,14 @@ export interface AddonMeasurementEvidence {
   optimized: string;
 }
 
+export interface AddonMeasurementProvenance {
+  sessionId?: string;
+  provider?: string;
+  model?: string;
+  baselineObservedAt?: string;
+  optimizedObservedAt?: string;
+}
+
 export type AddonMeasurementValidationReason =
   | "unsupported_source"
   | "invalid_baseline_tokens"
@@ -52,6 +60,8 @@ export interface MeasuredAddonSavingsInput {
    * it, an add-on remains estimated and cannot be recorded as measured.
    */
   measurementEvidence?: Partial<AddonMeasurementEvidence>;
+  measurementId?: string;
+  measurementProvenance?: AddonMeasurementProvenance;
   detail?: string;
 }
 
@@ -176,7 +186,26 @@ export function buildMeasuredAddonSavingsRequest(
     optimizedTokens: normalizedCount(input.optimizedTokens),
     requestDelta: normalizedCount(input.requestDelta ?? 1),
     detail: measurementDetail(input),
+    measurementId: input.measurementId?.trim() || stableMeasurementId(input),
+    measurementProvenance: input.measurementProvenance,
   };
+}
+
+function stableMeasurementId(input: MeasuredAddonSavingsInput) {
+  const seed = [
+    input.source,
+    normalizedCount(input.baselineTokens),
+    normalizedCount(input.optimizedTokens),
+    normalizedCount(input.requestDelta ?? 1),
+    input.measurementEvidence?.baseline?.trim() ?? "",
+    input.measurementEvidence?.optimized?.trim() ?? "",
+  ].join("|");
+  let hash = 2166136261;
+  for (const character of seed) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return `addon-measurement-${hash.toString(16).padStart(8, "0")}`;
 }
 
 export async function recordMeasuredAddonSavings(

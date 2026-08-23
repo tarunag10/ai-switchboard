@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 
 import {
   recordMeasuredAddonSavings,
+  type AddonMeasurementProvenance,
   type MeasuredAddonSavingsSource,
 } from "../lib/measuredSavingsAttribution";
 import { loadTokenXraySnapshot, type TokenXraySnapshot } from "../lib/usageAnalytics";
@@ -20,10 +21,12 @@ export function MeasuredAddonSavingsForm({
   disabled = false,
 }: MeasuredAddonSavingsFormProps) {
   const evidenceId = useId();
+  const [measurementId, setMeasurementId] = useState(() => `addon-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
   const [baselineTokens, setBaselineTokens] = useState("");
   const [optimizedTokens, setOptimizedTokens] = useState("");
   const [baselineEvidence, setBaselineEvidence] = useState("");
   const [optimizedEvidence, setOptimizedEvidence] = useState("");
+  const [measurementProvenance, setMeasurementProvenance] = useState<AddonMeasurementProvenance>({});
   const [requestDelta, setRequestDelta] = useState("1");
   const [xraySnapshot, setXraySnapshot] = useState<TokenXraySnapshot | null>(null);
   const [xrayError, setXrayError] = useState<string | null>(null);
@@ -50,11 +53,21 @@ export function MeasuredAddonSavingsForm({
     xrayInput?.value !== undefined &&
     xrayInput.confidence !== "unavailable";
 
-  function xrayEvidence(snapshot: TokenXraySnapshot, capturedAt: number) {
+  function xrayEvidence(snapshot: TokenXraySnapshot, capturedAt: number, side: "baseline" | "optimized") {
     const input = snapshot.metrics.inputTokens;
     const observedAt = input.observedAt ?? snapshot.generatedAt;
     const timestamp = observedAt > 0 ? new Date(observedAt).toISOString() : "unavailable";
-    return `Token X-Ray input metric: ${input.value!.toLocaleString()} tokens · session ${snapshot.sessionId ?? "unavailable"} · provider ${snapshot.provider ?? "unavailable"} · model ${snapshot.model ?? "unavailable"} · observed ${timestamp} · captured ${new Date(capturedAt).toISOString()}`;
+    return {
+      evidence: `Token X-Ray input metric: ${input.value!.toLocaleString()} tokens · session ${snapshot.sessionId ?? "unavailable"} · provider ${snapshot.provider ?? "unavailable"} · model ${snapshot.model ?? "unavailable"} · observed ${timestamp} · captured ${new Date(capturedAt).toISOString()}`,
+      provenance: {
+        sessionId: snapshot.sessionId ?? undefined,
+        provider: snapshot.provider ?? undefined,
+        model: snapshot.model ?? undefined,
+        ...(side === "baseline"
+          ? { baselineObservedAt: timestamp }
+          : { optimizedObservedAt: timestamp }),
+      },
+    };
   }
 
   async function captureXray(side: "baseline" | "optimized") {
@@ -69,14 +82,15 @@ export function MeasuredAddonSavingsForm({
       }
       setXraySnapshot(snapshot);
       const capturedAt = Date.now();
-      const evidence = xrayEvidence(snapshot, capturedAt);
+      const captured = xrayEvidence(snapshot, capturedAt, side);
       if (side === "baseline") {
         setBaselineTokens(String(Math.floor(input.value)));
-        setBaselineEvidence(evidence);
+        setBaselineEvidence(captured.evidence);
       } else {
         setOptimizedTokens(String(Math.floor(input.value)));
-        setOptimizedEvidence(evidence);
+        setOptimizedEvidence(captured.evidence);
       }
+      setMeasurementProvenance((current) => ({ ...current, ...captured.provenance }));
     } catch {
       setXrayError("Token X-Ray input evidence is unavailable.");
       setStatus("Token X-Ray input tokens are unavailable; enter a credible counter manually.");
@@ -97,6 +111,8 @@ export function MeasuredAddonSavingsForm({
           baseline: baselineEvidence,
           optimized: optimizedEvidence,
         },
+        measurementId,
+        measurementProvenance,
         detail: `${label} before/after token sample recorded from the Addons panel.`,
       });
       if (!result.recorded) {
@@ -109,6 +125,8 @@ export function MeasuredAddonSavingsForm({
       setOptimizedTokens("");
       setBaselineEvidence("");
       setOptimizedEvidence("");
+      setMeasurementProvenance({});
+      setMeasurementId(`addon-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
       setRequestDelta("1");
     } catch (error) {
       setStatus(

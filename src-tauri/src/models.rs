@@ -744,6 +744,21 @@ pub enum SavingsAttributionConfidence {
     Inferred,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MeasuredAddonProvenance {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline_observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub optimized_observed_at: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SavingsAttributionEvent {
@@ -758,6 +773,10 @@ pub struct SavingsAttributionEvent {
     pub total_tokens_sent: u64,
     pub request_delta: usize,
     pub evidence: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measurement_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measurement_provenance: Option<MeasuredAddonProvenance>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

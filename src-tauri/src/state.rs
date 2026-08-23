@@ -1789,6 +1789,8 @@ impl AppState {
         optimized_tokens: u64,
         request_delta: usize,
         detail: impl Into<String>,
+        measurement_id: &str,
+        measurement_provenance: Option<crate::models::MeasuredAddonProvenance>,
     ) -> Result<()> {
         if !matches!(
             source,
@@ -1804,6 +1806,34 @@ impl AppState {
             return Err(anyhow!(
                 "measured attribution requires a positive before/after token delta and request count"
             ));
+        }
+        let measurement_id = measurement_id.trim();
+        if measurement_id.is_empty()
+            || measurement_id.len() > 128
+            || measurement_id.chars().any(char::is_control)
+        {
+            return Err(anyhow!("measured attribution requires a stable measurement ID"));
+        }
+        if let Some(provenance) = &measurement_provenance {
+            for (label, value) in [
+                ("session ID", provenance.session_id.as_deref()),
+                ("provider", provenance.provider.as_deref()),
+                ("model", provenance.model.as_deref()),
+                ("baseline timestamp", provenance.baseline_observed_at.as_deref()),
+                ("optimized timestamp", provenance.optimized_observed_at.as_deref()),
+            ] {
+                if let Some(value) = value {
+                    if value.trim().is_empty()
+                        || value != value.trim()
+                        || value.len() > 256
+                        || value.chars().any(char::is_control)
+                    {
+                        return Err(anyhow!(
+                            "measured attribution has invalid {label} provenance"
+                        ));
+                    }
+                }
+            }
         }
         let detail = detail.into();
         if detail.trim().is_empty() {
@@ -1828,6 +1858,8 @@ impl AppState {
                 "{label} measured {delta_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after. {}",
                 detail.trim()
             )],
+            measurement_id: Some(measurement_id.to_string()),
+            measurement_provenance,
         };
 
         self.append_savings_attribution(&event)

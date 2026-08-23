@@ -13,16 +13,15 @@ const evidence = {
 
 describe("measured savings attribution", () => {
   it("builds a measured add-on request with stable labels", () => {
-    expect(
-      buildMeasuredAddonSavingsRequest({
+    const request = buildMeasuredAddonSavingsRequest({
         source: "markitdown",
         baselineTokens: 3_200.9,
         optimizedTokens: 900.2,
         requestDelta: 3,
         measurementEvidence: evidence,
         detail: "Converted PDF to Markdown before attaching it.",
-      }),
-    ).toEqual({
+      });
+    expect(request).toMatchObject({
       source: "markitdown",
       label: "MarkItDown",
       baselineTokens: 3_200,
@@ -31,6 +30,7 @@ describe("measured savings attribution", () => {
       detail:
         "Converted PDF to Markdown before attaching it. Baseline evidence: Captured the unoptimized handoff token count from the local client.. Optimized evidence: Captured the optimized handoff token count from the same local client..",
     });
+    expect(request?.measurementId).toMatch(/^addon-measurement-[0-9a-f]{8}$/);
   });
 
   it("uses explicit labels for scoped Caveman profiles", () => {
@@ -159,6 +159,8 @@ describe("measured savings attribution", () => {
         requestDelta: 2,
         detail:
           "Measured narrower changed-file handoff. Baseline evidence: Captured the unoptimized handoff token count from the local client.. Optimized evidence: Captured the optimized handoff token count from the same local client..",
+        measurementId: "addon-measurement-b08edf76",
+        measurementProvenance: undefined,
       },
     });
   });
