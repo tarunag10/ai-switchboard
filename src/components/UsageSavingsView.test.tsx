@@ -8,6 +8,8 @@ vi.mock("./SavingsCalculatorCard", () => ({ SavingsCalculatorCard: ({ onScopeCha
 vi.mock("./ClientSavingsTrendsCard", () => ({ ClientSavingsTrendsCard: () => <div>trends child</div> }));
 vi.mock("./DailySavingsChart", () => ({ DailySavingsChart: ({ chartMode }: { chartMode: string }) => <div>chart {chartMode}</div> }));
 vi.mock("./OutputReductionChip", () => ({ OutputReductionChip: () => <span>reduction child</span> }));
+vi.mock("./SavingsAttributionCountersPanel", () => ({ SavingsAttributionCountersPanel: () => <div>counters child</div> }));
+vi.mock("./ClaudeUsageCard", () => ({ ClaudeUsageCard: () => <div>claude usage child</div> }));
 
 const dashboard = { lifetimeEstimatedSavingsUsd: 12, lifetimeEstimatedTokensSaved: 5000, outputReduction: { reductionPercent: 20 }, savingsHistoryLoaded: true, dailySavings: [], hourlySavings: [] } as unknown as DashboardState;
 const base = {
