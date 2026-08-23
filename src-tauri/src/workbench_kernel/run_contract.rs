@@ -16,6 +16,13 @@ use super::presets::{
     resolve_workbench_plan_preset, validate_workbench_plan_preset, WorkbenchPlanPreset,
 };
 use super::session::{validate_digest, WorkbenchSession};
+use super::{
+    adapter_readiness::{
+        command_readiness_for, validate_adapter_command_readiness_adapter_id,
+        ADAPTER_COMMAND_READINESS_CAPABILITY_ID,
+    },
+    WorkbenchAdapterCommandReadiness,
+};
 
 const RUN_SPEC_SCHEMA_VERSION: u32 = 1;
 const PLAN_ONLY: &str = "plan_only";
@@ -75,6 +82,7 @@ pub struct WorkbenchRunPlan {
     pub adapter_plan_id: String,
     pub adapter_action: String,
     pub adapter_reversible: bool,
+    pub command_readiness: Option<WorkbenchAdapterCommandReadiness>,
     pub capability_requests: Vec<CapabilityRequest>,
     pub execution_mode: String,
     pub provider_traffic: String,
@@ -128,7 +136,11 @@ fn validate_capability_ids(ids: &[String]) -> Result<()> {
         validate_identifier(id, "capability ID")?;
         if !matches!(
             id.as_str(),
-            "repo_context" | "redacted_replay" | "router_observe" | "client_adapter_plan"
+            "repo_context"
+                | "redacted_replay"
+                | "router_observe"
+                | "client_adapter_plan"
+                | ADAPTER_COMMAND_READINESS_CAPABILITY_ID
         ) {
             bail!("Workbench capability is not available in plan-only mode: {id}");
         }
@@ -177,6 +189,13 @@ fn prepare_run_plan_with_reference(
     if !requests_adapter_plan {
         bail!("Workbench plans require the client adapter plan capability before adapter planning");
     }
+    let requests_adapter_command_readiness = input
+        .required_capability_ids
+        .iter()
+        .any(|capability_id| capability_id == ADAPTER_COMMAND_READINESS_CAPABILITY_ID);
+    if requests_adapter_command_readiness {
+        validate_adapter_command_readiness_adapter_id(&input.adapter_id)?;
+    }
     let requests_repo_context = input
         .required_capability_ids
         .iter()
@@ -217,6 +236,14 @@ fn prepare_run_plan_with_reference(
         CODING_CLIENT_ADAPTER_CONTRACT_VERSION,
     )?;
     let adapter_plan = adapter.plan(input.requested_mode.clone())?;
+    let command_readiness = if requests_adapter_command_readiness {
+        Some(command_readiness_for(
+            &input.adapter_id,
+            &adapter_plan.plan_id,
+        )?)
+    } else {
+        None
+    };
     let canonical = serde_json::json!({
         "sessionId": &input.session_id,
         "adapterId": adapter.id(),
@@ -228,6 +255,7 @@ fn prepare_run_plan_with_reference(
         "capabilityIds": &input.required_capability_ids,
         "requestedMode": &input.requested_mode,
         "adapterPlanId": &adapter_plan.plan_id,
+        "commandReadiness": &command_readiness,
     });
     let digest = Sha256::digest(
         serde_json::to_vec(&canonical).context("canonicalizing Workbench run plan")?,
@@ -249,6 +277,7 @@ fn prepare_run_plan_with_reference(
             ConfigPlanAction::CleanupManagedRouting => "cleanup_managed_routing".into(),
         },
         adapter_reversible: adapter_plan.reversible,
+        command_readiness,
         capability_requests: input
             .required_capability_ids
             .into_iter()
@@ -348,6 +377,7 @@ mod tests {
         assert_eq!(plan.execution_mode, "plan_only");
         assert_eq!(plan.provider_traffic, "none");
         assert!(!plan.writes_enabled);
+        assert_eq!(plan.command_readiness, None);
         assert!(plan
             .capability_requests
             .iter()
@@ -538,6 +568,95 @@ mod tests {
     }
 
     #[test]
+    fn command_readiness_is_bound_to_a_canonical_adapter_plan_only() {
+        let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
+            workspace_digest: digest('f'),
+            task_class: "planning".into(),
+        })
+        .expect("create session");
+        let router = RouterDecisionReference {
+            decision_id: "routing-decision-test-readiness".into(),
+            decision_stage: "observe".into(),
+            routing_mode: "observe_only".into(),
+            evidence_digest: digest('2'),
+        };
+        let mut input = WorkbenchRunSpecInput {
+            session_id: session.session_id.clone(),
+            adapter_id: "codex".into(),
+            workspace_digest: session.workspace_digest.clone(),
+            context_pack_digest: None,
+            router_decision_id: "routing-decision-test-readiness".into(),
+            replay_reference_id: None,
+            preset_id: None,
+            required_capability_ids: vec![
+                "router_observe".into(),
+                "client_adapter_plan".into(),
+                "adapter_command_readiness".into(),
+            ],
+            requested_mode: SwitchboardMode::Off,
+        };
+        let plan =
+            prepare_run_plan_with_reference(&session, input.clone(), router.clone(), None, None)
+                .expect("prepare command readiness");
+        let readiness = plan.command_readiness.expect("readiness requested");
+        assert_eq!(readiness.adapter_id, "codex");
+        assert_eq!(readiness.adapter_plan_id, plan.adapter_plan_id);
+        assert_eq!(readiness.cli_version_probe_state, "not_probed");
+        assert!(!readiness.process_start_enabled);
+
+        input.required_capability_ids = vec!["router_observe".into()];
+        assert!(prepare_run_plan_with_reference(&session, input, router, None, None).is_err());
+    }
+
+    #[test]
+    fn command_readiness_rejects_aliases_and_changes_the_plan_digest() {
+        let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
+            workspace_digest: digest('f'),
+            task_class: "planning".into(),
+        })
+        .expect("create session");
+        let router = RouterDecisionReference {
+            decision_id: "routing-decision-test-readiness-alias".into(),
+            decision_stage: "observe".into(),
+            routing_mode: "observe_only".into(),
+            evidence_digest: digest('2'),
+        };
+        let mut input = WorkbenchRunSpecInput {
+            session_id: session.session_id.clone(),
+            adapter_id: "codex".into(),
+            workspace_digest: session.workspace_digest.clone(),
+            context_pack_digest: None,
+            router_decision_id: "routing-decision-test-readiness-alias".into(),
+            replay_reference_id: None,
+            preset_id: None,
+            required_capability_ids: vec!["router_observe".into(), "client_adapter_plan".into()],
+            requested_mode: SwitchboardMode::Off,
+        };
+        let without_readiness =
+            prepare_run_plan_with_reference(&session, input.clone(), router.clone(), None, None)
+                .expect("prepare baseline plan");
+        input
+            .required_capability_ids
+            .push("adapter_command_readiness".into());
+        let with_readiness =
+            prepare_run_plan_with_reference(&session, input.clone(), router.clone(), None, None)
+                .expect("prepare readiness plan");
+        assert_ne!(without_readiness.plan_id, with_readiness.plan_id);
+
+        for adapter_id in ["codex_cli", "gemini_cli", "deepseek_harness", "unknown"] {
+            input.adapter_id = adapter_id.into();
+            assert!(prepare_run_plan_with_reference(
+                &session,
+                input.clone(),
+                router.clone(),
+                None,
+                None,
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
     fn run_plan_binds_only_exact_native_workbench_presets() {
         let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
             workspace_digest: digest('f'),
@@ -633,6 +752,15 @@ mod tests {
     fn run_spec_rejects_manually_supplied_preset_metadata() {
         let payload = format!(
             r#"{{"sessionId":"workbench:test","adapterId":"codex","workspaceDigest":"sha256:{}","routerDecisionId":"routing-decision-test","preset":{{"presetId":"adapter-plan-review"}},"requiredCapabilityIds":[],"requestedMode":"off"}}"#,
+            "a".repeat(64),
+        );
+        assert!(serde_json::from_str::<WorkbenchRunSpecInput>(&payload).is_err());
+    }
+
+    #[test]
+    fn run_spec_rejects_caller_supplied_command_details() {
+        let payload = format!(
+            r#"{{"sessionId":"workbench:test","adapterId":"codex","workspaceDigest":"sha256:{}","routerDecisionId":"routing-decision-test","requiredCapabilityIds":[],"requestedMode":"off","command":["codex"],"environment":{{"TOKEN":"private"}},"workingDirectory":"/tmp"}}"#,
             "a".repeat(64),
         );
         assert!(serde_json::from_str::<WorkbenchRunSpecInput>(&payload).is_err());

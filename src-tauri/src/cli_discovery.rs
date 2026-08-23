@@ -15,6 +15,22 @@ pub fn detect_codex_cli() -> Option<PathBuf> {
     detect_cli("codex")
 }
 
+/// Checks only whether a fixed, known CLI candidate exists as a regular file.
+///
+/// This intentionally does not consult the login shell, resolve `PATH`, read a
+/// CLI version, or start a process. Callers must not treat a positive result
+/// as proof that the candidate is runnable.
+pub fn known_cli_candidate_present_without_start(name: &str) -> bool {
+    if !matches!(name, "claude" | "claude-code" | "codex") {
+        return false;
+    }
+    has_regular_file_candidate(known_path_candidates(home_dir(), name))
+}
+
+fn has_regular_file_candidate(candidates: impl IntoIterator<Item = PathBuf>) -> bool {
+    candidates.into_iter().any(|candidate| candidate.is_file())
+}
+
 fn detect_cli(name: &str) -> Option<PathBuf> {
     if let Some(path) = probe_known_paths(name) {
         return Some(path);
@@ -381,6 +397,17 @@ mod tests {
             .position(|p| p == Path::new("/usr/local/bin/claude"));
         assert!(opt.is_some() && usr.is_some());
         assert!(opt.unwrap() < usr.unwrap());
+    }
+
+    #[test]
+    fn metadata_only_candidate_check_never_requires_a_runnable_binary() {
+        let tmp = ScopedTempDir::new("metadata_only_candidate");
+        let candidate = tmp.path().join("codex");
+        fs::write(&candidate, "not executable").unwrap();
+
+        assert!(has_regular_file_candidate(vec![candidate.clone()]));
+        assert!(!is_executable(&candidate));
+        assert!(!known_cli_candidate_present_without_start("arbitrary-name"));
     }
 
     #[test]

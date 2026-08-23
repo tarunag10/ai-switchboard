@@ -52,6 +52,24 @@ export interface WorkbenchPlanPreset {
   writesEnabled: false;
 }
 
+export interface WorkbenchAdapterReadiness {
+  schemaVersion: number;
+  adapterId: "codex" | "claude_code";
+  adapterContractVersion: number;
+  logicalBinary: "codex" | "claude";
+  knownCandidatePresent: boolean;
+  discoveryMode: "fixed_known_location_metadata_only";
+  cliVersionProbeState: "not_probed";
+  versionProbeReason: string;
+  processStartEnabled: false;
+  providerTraffic: "none";
+  writesEnabled: false;
+}
+
+export interface WorkbenchAdapterCommandReadiness extends WorkbenchAdapterReadiness {
+  adapterPlanId: string;
+}
+
 export interface WorkbenchRunSpecInput {
   sessionId: string;
   adapterId: "claude_code" | "codex" | "gemini_cli";
@@ -85,6 +103,7 @@ export interface WorkbenchRunPlan {
   adapterPlanId: string;
   adapterAction: "apply_managed_routing" | "cleanup_managed_routing";
   adapterReversible: boolean;
+  commandReadiness: WorkbenchAdapterCommandReadiness | null;
   capabilityRequests: WorkbenchCapabilityRequest[];
   executionMode: "plan_only";
   providerTraffic: "none";
@@ -98,6 +117,7 @@ export interface WorkbenchCapabilityProjection {
   providerTraffic: "none";
   registry: OssCapabilityRegistry;
   presets: WorkbenchPlanPreset[];
+  adapterReadiness: WorkbenchAdapterReadiness[];
 }
 
 export const WORKBENCH_CAPABILITIES = [
@@ -120,6 +140,11 @@ export const WORKBENCH_CAPABILITIES = [
     id: "client_adapter_plan",
     label: "Client adapter plan",
     detail: "Prepare an existing client adapter plan without applying it.",
+  },
+  {
+    id: "adapter_command_readiness",
+    label: "Adapter command readiness",
+    detail: "Metadata-only Codex or Claude Code readiness; it never probes a CLI or starts a process.",
   },
 ] as const;
 

@@ -4,6 +4,7 @@
 //! tool arguments. Its commands create inspectable session/run plans only;
 //! execution is deliberately disabled until a later, separately gated phase.
 
+mod adapter_readiness;
 mod events;
 mod presets;
 mod run_contract;
@@ -14,6 +15,8 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
+use adapter_readiness::all_adapter_readiness;
+pub use adapter_readiness::{WorkbenchAdapterCommandReadiness, WorkbenchAdapterReadiness};
 pub use events::WorkbenchSessionAction;
 use presets::{all_workbench_plan_presets, WorkbenchPlanPreset};
 pub use run_contract::{WorkbenchRunPlan, WorkbenchRunSpecInput};
@@ -45,6 +48,7 @@ pub struct WorkbenchCapabilityProjection {
     pub provider_traffic: String,
     pub registry: crate::oss_capabilities::OssCapabilityRegistry,
     pub presets: Vec<WorkbenchPlanPreset>,
+    pub adapter_readiness: Vec<WorkbenchAdapterReadiness>,
 }
 
 fn locked_store() -> Result<(std::sync::MutexGuard<'static, ()>, WorkbenchStore), String> {
@@ -124,6 +128,7 @@ pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjec
         provider_traffic: "none".into(),
         registry: crate::oss_capabilities::registry(),
         presets: all_workbench_plan_presets(),
+        adapter_readiness: all_adapter_readiness(),
     })
 }
 
@@ -140,6 +145,12 @@ mod tests {
         assert!(!projection.writes_enabled);
         assert!(projection.presets.iter().all(|preset| {
             crate::workbench_kernel::presets::validate_workbench_plan_preset(preset).is_ok()
+        }));
+        assert!(projection.adapter_readiness.iter().all(|readiness| {
+            readiness.cli_version_probe_state == "not_probed"
+                && !readiness.process_start_enabled
+                && readiness.provider_traffic == "none"
+                && !readiness.writes_enabled
         }));
     }
 }

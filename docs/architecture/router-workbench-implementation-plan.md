@@ -206,13 +206,20 @@ Gate: do not collapse existing Addons, Router, or replay authorities into a
 new Workbench copy. Each remaining link must retain its current promotion and
 rollback rules.
 
-### Phase 4 — execution adapter readiness — Prepared, gated
+### Phase 4 — execution adapter readiness — In progress, gated
 
 Deliverables:
 
-- [ ] Adapter discovery/version matrix for Codex and Claude Code.
-- [ ] A command-builder-only `RunSpec -> RunPlan` implementation using the
-  existing client adapter contracts and the narrowed external harness pattern.
+- [x] Metadata-only Codex and Claude Code compatibility matrix: fixed known
+  candidate-location presence is returned without a path; CLI version state is
+  explicitly `not_probed` because a version probe would start a process.
+- [x] A command-builder-only `RunSpec -> RunPlan` readiness projection using
+  the existing dry-run client adapter contract. It has a logical binary and
+  adapter-plan ID only—no executable path, argv, shell, environment, working
+  directory, instruction, timeout, prompt, credential, provider traffic, or
+  start capability. Canonical `codex` and `claude_code` only are accepted.
+- [ ] Version probing or runnable-binary validation, only after an explicit
+  process-start capability and containment/receipt model are available.
 - [ ] Explicit capability approval, bounded timeout/cancel model, process
   containment, content-free metrics, and a receipt-backed cleanup plan.
 - [ ] Deterministic fake-adapter tests, then a separate opt-in local manual

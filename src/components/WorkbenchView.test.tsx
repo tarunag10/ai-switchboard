@@ -111,6 +111,34 @@ const capabilityProjection = {
       tools: [{ id: "router", label: "Router", providerId: "local", capabilities: ["observe"], requiresApproval: true, writesEnabled: false as const }],
     },
     presets: [workbenchPreset],
+    adapterReadiness: [
+      {
+        schemaVersion: 1,
+        adapterId: "codex" as const,
+        adapterContractVersion: 1,
+        logicalBinary: "codex" as const,
+        knownCandidatePresent: false,
+        discoveryMode: "fixed_known_location_metadata_only" as const,
+        cliVersionProbeState: "not_probed" as const,
+        versionProbeReason: "CLI version probing is deferred because it would start a process.",
+        processStartEnabled: false as const,
+        providerTraffic: "none" as const,
+        writesEnabled: false as const,
+      },
+      {
+        schemaVersion: 1,
+        adapterId: "claude_code" as const,
+        adapterContractVersion: 1,
+        logicalBinary: "claude" as const,
+        knownCandidatePresent: false,
+        discoveryMode: "fixed_known_location_metadata_only" as const,
+        cliVersionProbeState: "not_probed" as const,
+        versionProbeReason: "CLI version probing is deferred because it would start a process.",
+        processStartEnabled: false as const,
+        providerTraffic: "none" as const,
+        writesEnabled: false as const,
+      },
+    ],
 };
 
 describe("WorkbenchView", () => {
@@ -128,6 +156,7 @@ describe("WorkbenchView", () => {
     expect(await screen.findByText(/approval mode: fail_closed/i)).toBeInTheDocument();
     expect(screen.getByText(/provider traffic: none/i)).toBeInTheDocument();
     expect(screen.getByText(/writes: disabled/i)).toBeInTheDocument();
+    expect(screen.getByText(/CLI versions are not probed/i)).toBeInTheDocument();
     expect(screen.getAllByText("workbench:test").length).toBeGreaterThan(0);
   });
 
@@ -178,6 +207,7 @@ describe("WorkbenchView", () => {
       adapterPlanId: "adapter-plan:test",
       adapterAction: "apply_managed_routing",
       adapterReversible: true,
+      commandReadiness: null,
       capabilityRequests: [],
       executionMode: "plan_only",
       providerTraffic: "none",
@@ -218,6 +248,7 @@ describe("WorkbenchView", () => {
       adapterPlanId: "adapter-plan:test",
       adapterAction: "apply_managed_routing",
       adapterReversible: true,
+      commandReadiness: null,
       capabilityRequests: [],
       executionMode: "plan_only",
       providerTraffic: "none",
@@ -252,5 +283,57 @@ describe("WorkbenchView", () => {
     expect(await screen.findByText(/loaded as a plan draft/i)).toBeInTheDocument();
     expect(preparePlan).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
+  });
+
+  it("prepares canonical adapter command readiness without probing or starting a process", async () => {
+    const user = userEvent.setup();
+    preparePlan.mockResolvedValue({
+      schemaVersion: 1,
+      planId: "run-plan:readiness",
+      sessionId: session.sessionId,
+      adapterId: "codex",
+      workspaceDigest,
+      contextPackDigest: null,
+      routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
+      replayReference: null,
+      preset: null,
+      requestedMode: "full",
+      adapterPlanId: "codex-1234567890ab",
+      adapterAction: "apply_managed_routing",
+      adapterReversible: true,
+      commandReadiness: {
+        ...capabilityProjection.adapterReadiness[0],
+        adapterPlanId: "codex-1234567890ab",
+      },
+      capabilityRequests: [],
+      executionMode: "plan_only",
+      providerTraffic: "none",
+      writesEnabled: false,
+    });
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.click(screen.getByRole("checkbox", { name: /adapter command readiness/i }));
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
+    await user.click(screen.getByRole("button", { name: "Prepare plan only" }));
+
+    expect(preparePlan).toHaveBeenCalledWith(expect.objectContaining({
+      adapterId: "codex",
+      requiredCapabilityIds: expect.arrayContaining(["adapter_command_readiness"]),
+    }));
+    expect(await screen.findByText(/CLI version not probed/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /execute|start/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps command readiness unavailable for adapters outside the canonical Phase 4 matrix", async () => {
+    const user = userEvent.setup();
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.selectOptions(screen.getByLabelText("Client adapter"), "gemini_cli");
+
+    expect(screen.getByRole("checkbox", { name: /adapter command readiness/i })).toBeDisabled();
+    expect(screen.getByText(/Gemini remains adapter-plan-only/i)).toBeInTheDocument();
+    expect(preparePlan).not.toHaveBeenCalled();
   });
 });
