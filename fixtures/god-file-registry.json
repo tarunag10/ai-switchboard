@@ -9,7 +9,38 @@
     "app-shell": { "lines": 5990, "bytes": 209091 },
     "global-styles": { "lines": 11994, "bytes": 241836 }
   },
-  "godFiles": [],
+  "godFiles": [
+    {
+      "id": "optimization-model-routing",
+      "path": "src-tauri/src/optimization/model_routing.rs",
+      "domain": "model-routing-policy-and-evidence",
+      "splitSlice": "P3.4-model-routing-split",
+      "baselineLines": 1384,
+      "baselineBytes": 54917,
+      "maxGrowthLines": 0,
+      "reason": "Intentional routing boundary retained while completion-handle and evidence contracts are split into provider-bound modules."
+    },
+    {
+      "id": "optimization-telemetry-store",
+      "path": "src-tauri/src/optimization/telemetry_store.rs",
+      "domain": "optimization-telemetry-persistence",
+      "splitSlice": "P3.4-telemetry-store-split",
+      "baselineLines": 746,
+      "baselineBytes": 27858,
+      "maxGrowthLines": 0,
+      "reason": "Intentional persistence boundary retained while evidence validation and export storage are split."
+    },
+    {
+      "id": "optimization-telemetry-store-tests",
+      "path": "src-tauri/src/optimization/telemetry_store_tests.rs",
+      "domain": "optimization-telemetry-tests",
+      "splitSlice": "P3.4-telemetry-tests-split",
+      "baselineLines": 504,
+      "baselineBytes": 19961,
+      "maxGrowthLines": 0,
+      "reason": "Test-only monolith retained temporarily while export, persistence, and corruption fixtures are separated."
+    }
+  ],
   "splitModules": [
     {
       "id": "client-adapters-core",
