@@ -215,7 +215,6 @@ pub(crate) struct ModelRoutingCompletionMetrics {
 pub(crate) struct PendingModelRoutingCompletion {
     pub(crate) run_id: String,
     pub(crate) decision: ModelRouteDecision,
-    pub(crate) issued_at: DateTime<Utc>,
     pub(crate) expires_at: DateTime<Utc>,
     pub(crate) expires_monotonic: Instant,
 }
@@ -240,7 +239,6 @@ pub(crate) fn new_completion_handle(
         PendingModelRoutingCompletion {
             run_id,
             decision,
-            issued_at: now,
             expires_at,
             expires_monotonic: Instant::now()
                 + Duration::from_secs(MODEL_ROUTING_COMPLETION_HANDLE_TTL_SECS as u64),

@@ -165,7 +165,6 @@ mod tests {
         ModelRouteInput, ModelRoutingCompletionMetrics, ModelRoutingEvidenceArm,
         ModelRoutingEvidenceObservation,
     };
-    use crate::optimization::telemetry_store::export_model_routing_evidence;
 
     #[test]
     fn record_model_routing_evidence_propagates_validation_errors() {
