@@ -882,6 +882,8 @@ pub fn run() {
             optimization_commands::get_optimization_snapshot,
             optimization_commands::get_transport_observations,
             oss_harness_replay::replay_redacted_route_events,
+            oss_harness_replay::list_oss_harness_replay_references,
+            oss_harness_replay::resolve_oss_harness_replay_reference,
             workbench_kernel::create_workbench_session,
             workbench_kernel::list_workbench_sessions,
             workbench_kernel::get_workbench_session,

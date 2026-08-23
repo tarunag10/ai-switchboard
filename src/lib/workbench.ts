@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { OssCapabilityRegistry } from "./ossCapabilities";
+import type { OssHarnessReplayReference } from "./ossHarnessReplay";
 import type { SwitchboardMode } from "./types";
 
 export type WorkbenchTaskClass = "coding" | "review" | "analysis" | "planning";
@@ -44,6 +45,7 @@ export interface WorkbenchRunSpecInput {
   workspaceDigest: string;
   contextPackDigest: string | null;
   routerDecisionId: string;
+  replayReferenceId: string | null;
   requiredCapabilityIds: string[];
   requestedMode: SwitchboardMode;
 }
@@ -63,6 +65,7 @@ export interface WorkbenchRunPlan {
   workspaceDigest: string;
   contextPackDigest: string | null;
   routerDecision: RouterDecisionReference;
+  replayReference: OssHarnessReplayReference | null;
   requestedMode: SwitchboardMode;
   adapterPlanId: string;
   adapterAction: "apply_managed_routing" | "cleanup_managed_routing";

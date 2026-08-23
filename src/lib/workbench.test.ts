@@ -33,6 +33,7 @@ describe("workbench bridge", () => {
       workspaceDigest: `sha256:${"a".repeat(64)}`,
       contextPackDigest: null,
       routerDecisionId: "routing-decision-1",
+      replayReferenceId: null,
       requiredCapabilityIds: ["router_observe"],
       requestedMode: "full",
     });

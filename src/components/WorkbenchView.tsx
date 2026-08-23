@@ -15,6 +15,10 @@ import {
   listModelRoutingDecisionReferences,
   type ModelRoutingDecisionReference,
 } from "../lib/optimization";
+import {
+  listOssHarnessReplayReferences,
+  type OssHarnessReplayReference,
+} from "../lib/ossHarnessReplay";
 import { hasTauriRuntime } from "../lib/tauriRuntime";
 import {
   WORKBENCH_CAPABILITIES,
@@ -97,6 +101,8 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const [contextPackDigest, setContextPackDigest] = useState("");
   const [routerDecisionId, setRouterDecisionId] = useState("");
   const [routerDecisionReferences, setRouterDecisionReferences] = useState<ModelRoutingDecisionReference[]>([]);
+  const [replayReferenceId, setReplayReferenceId] = useState("");
+  const [replayReferences, setReplayReferences] = useState<OssHarnessReplayReference[]>([]);
   const [capabilityIds, setCapabilityIds] = useState<string[]>([
     "router_observe",
     "client_adapter_plan",
@@ -122,10 +128,11 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     setLoading(true);
     setError(null);
     try {
-      const [nextSessions, nextProjection, nextRouterDecisionReferences] = await Promise.all([
+      const [nextSessions, nextProjection, nextRouterDecisionReferences, nextReplayReferences] = await Promise.all([
         listWorkbenchSessions(),
         getWorkbenchCapabilityProjection(),
         listModelRoutingDecisionReferences(),
+        listOssHarnessReplayReferences(),
       ]);
       const ordered = [...nextSessions].sort((left, right) =>
         right.updatedAt.localeCompare(left.updatedAt),
@@ -135,6 +142,12 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setRouterDecisionReferences(nextRouterDecisionReferences);
       setRouterDecisionId((current) =>
         current && nextRouterDecisionReferences.some((reference) => reference.decisionId === current)
+          ? current
+          : "",
+      );
+      setReplayReferences(nextReplayReferences);
+      setReplayReferenceId((current) =>
+        current && nextReplayReferences.some((reference) => reference.replayId === current)
           ? current
           : "",
       );
@@ -236,18 +249,31 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         ? current.filter((capabilityId) => capabilityId !== id)
         : [...current, id],
     );
+    if (id === "redacted_replay" && capabilityIds.includes(id)) {
+      setReplayReferenceId("");
+    }
   }
 
   async function preparePlan() {
     if (!selectedSession) return;
     const contextDigest = contextPackDigest.trim();
     const decisionId = routerDecisionId.trim();
+    const replayId = replayReferenceId.trim();
+    const requestsRedactedReplay = capabilityIds.includes("redacted_replay");
     if (!decisionId) {
       setError("Select a native observe-only Router decision before preparing a plan.");
       return;
     }
     if (contextDigest && !isWorkbenchDigest(contextDigest)) {
       setError("Context packs must be referenced by a SHA-256 digest, not a path or raw context.");
+      return;
+    }
+    if (requestsRedactedReplay && !replayId) {
+      setError("Select a native validated replay receipt when requesting redacted replay.");
+      return;
+    }
+    if (!requestsRedactedReplay && replayId) {
+      setError("Select the redacted replay capability before attaching a replay receipt.");
       return;
     }
     setBusyAction("plan");
@@ -260,6 +286,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         workspaceDigest: selectedSession.workspaceDigest,
         contextPackDigest: contextDigest || null,
         routerDecisionId: decisionId,
+        replayReferenceId: replayId || null,
         requiredCapabilityIds: capabilityIds,
         requestedMode,
       });
@@ -277,6 +304,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const latestEvent = selectedSession
     ? selectedSession.events[selectedSession.events.length - 1] ?? null
     : null;
+  const requestsRedactedReplay = capabilityIds.includes("redacted_replay");
 
   return (
     <div className="tray-content" hidden={hidden}>
@@ -416,8 +444,8 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
               <article className="soft-card panel-card" aria-labelledby="workbench-plan-title">
                 <div className="panel-card__header">
                   <div>
-                    <h2 id="workbench-plan-title">Router and adapter plan</h2>
-                    <p>References a Router decision in observe-only mode, then calls the existing adapter <code>plan()</code> contract only.</p>
+                    <h2 id="workbench-plan-title">Router, replay, and adapter plan</h2>
+                    <p>References a Router decision and, when requested, a validated replay receipt; then calls the existing adapter <code>plan()</code> contract only.</p>
                   </div>
                 </div>
                 <div className="workbench-plan-fields">
@@ -425,8 +453,9 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   <label className="workbench-field"><span>Requested Switchboard mode</span><select aria-label="Requested Switchboard mode" onChange={(event) => setRequestedMode(event.target.value as SwitchboardMode)} value={requestedMode}>{modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Context pack SHA-256 digest (optional)</span><input aria-label="Context pack SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => setContextPackDigest(event.target.value)} placeholder="sha256:…" spellCheck={false} value={contextPackDigest} /></label>
                   <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => setRouterDecisionId(event.target.value)} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
+                  <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => setReplayReferenceId(event.target.value)} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
                 </div>
-                <p className="optimize-minimal__meta">Router references are native-issued, content-free receipts. The Workbench resolves the selected ID again before it creates a plan; replay digests are not accepted here.</p>
+                <p className="optimize-minimal__meta">Router and replay references are native-issued, content-free receipts. The Workbench resolves selected IDs again before it creates a plan; replay paths, events, and manually entered digests are not accepted here.</p>
                 <fieldset className="workbench-capabilities">
                   <legend>Required capabilities</legend>
                   {WORKBENCH_CAPABILITIES.map((capability) => <label key={capability.id}><input checked={capabilityIds.includes(capability.id)} onChange={() => toggleCapability(capability.id)} type="checkbox" /><span><strong>{capability.label}</strong><small>{capability.detail}</small></span></label>)}
@@ -444,6 +473,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                 <div className="optimization-evidence-capture__grid">
                   <p><strong>Adapter:</strong> {runPlan.adapterId} · {runPlan.adapterAction.replace(/_/g, " ")} · {runPlan.adapterReversible ? "reversible" : "non-reversible"}</p>
                   <p><strong>Requested mode:</strong> {runPlan.requestedMode} · <strong>Capabilities:</strong> {runPlan.capabilityRequests.length} pending approval</p>
+                  {runPlan.replayReference ? <p><strong>Replay receipt:</strong> {runPlan.replayReference.replayId} · {runPlan.replayReference.eventCount} events · observe-only</p> : null}
                   <p><strong>Execution:</strong> {runPlan.executionMode} · <strong>Provider traffic:</strong> {runPlan.providerTraffic} · <strong>Writes:</strong> disabled</p>
                   <p className="optimize-minimal__meta">Plan ID: {runPlan.planId}</p>
                 </div>

@@ -9,6 +9,7 @@ const projection = vi.fn();
 const createSession = vi.fn();
 const preparePlan = vi.fn();
 const listRouterDecisionReferences = vi.fn();
+const listReplayReferences = vi.fn();
 
 vi.mock("../lib/tauriRuntime", () => ({ hasTauriRuntime: () => true }));
 vi.mock("../lib/optimization", async () => {
@@ -16,6 +17,13 @@ vi.mock("../lib/optimization", async () => {
   return {
     ...actual,
     listModelRoutingDecisionReferences: (...args: unknown[]) => listRouterDecisionReferences(...args),
+  };
+});
+vi.mock("../lib/ossHarnessReplay", async () => {
+  const actual = await vi.importActual<typeof import("../lib/ossHarnessReplay")>("../lib/ossHarnessReplay");
+  return {
+    ...actual,
+    listOssHarnessReplayReferences: (...args: unknown[]) => listReplayReferences(...args),
   };
 });
 vi.mock("../lib/workbench", async () => {
@@ -43,6 +51,17 @@ const routerDecisionReference = {
   decisionStage: "observe" as const,
   routingMode: "observe_only" as const,
   evidenceDigest: routerDigest,
+};
+const replayReference = {
+  schemaVersion: 1 as const,
+  replayId: "replay-reference-00000000-0000-4000-8000-000000000001",
+  validatedAt: "2026-08-23T00:00:00Z",
+  replayMode: "redacted_observe_only" as const,
+  automaticPromotion: "disabled" as const,
+  providerTraffic: "none" as const,
+  eventCount: 2,
+  replayDigest: `sha256:${"c".repeat(64)}`,
+  receiptDigest: `sha256:${"d".repeat(64)}`,
 };
 const session = {
   schemaVersion: 1,
@@ -87,6 +106,7 @@ describe("WorkbenchView", () => {
     listSessions.mockResolvedValue([session]);
     projection.mockResolvedValue(capabilityProjection);
     listRouterDecisionReferences.mockResolvedValue([routerDecisionReference]);
+    listReplayReferences.mockResolvedValue([replayReference]);
   });
 
   it("surfaces the local plan-only boundary and shared capability registry", async () => {
@@ -139,6 +159,7 @@ describe("WorkbenchView", () => {
       workspaceDigest,
       contextPackDigest: null,
       routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
+      replayReference: null,
       requestedMode: "full",
       adapterPlanId: "adapter-plan:test",
       adapterAction: "apply_managed_routing",
@@ -158,10 +179,50 @@ describe("WorkbenchView", () => {
       sessionId: "workbench:test",
       adapterId: "codex",
       routerDecisionId: "routing-decision-1",
+      replayReferenceId: null,
     }));
     expect(await screen.findByText(/plan id: run-plan:test/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Observe-only Router decision ID")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Router evidence SHA-256 digest")).not.toBeInTheDocument();
+  });
+
+  it("attaches a native replay receipt only when redacted replay is selected", async () => {
+    const user = userEvent.setup();
+    preparePlan.mockResolvedValue({
+      schemaVersion: 1,
+      planId: "run-plan:replay",
+      sessionId: session.sessionId,
+      adapterId: "codex",
+      workspaceDigest,
+      contextPackDigest: null,
+      routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
+      replayReference,
+      requestedMode: "full",
+      adapterPlanId: "adapter-plan:test",
+      adapterAction: "apply_managed_routing",
+      adapterReversible: true,
+      capabilityRequests: [],
+      executionMode: "plan_only",
+      providerTraffic: "none",
+      writesEnabled: false,
+    });
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    expect(screen.getByLabelText("Validated redacted replay")).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: /redacted replay/i }));
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
+    await user.selectOptions(screen.getByLabelText("Validated redacted replay"), replayReference.replayId);
+    await user.click(screen.getByRole("button", { name: "Prepare plan only" }));
+
+    expect(preparePlan).toHaveBeenCalledWith(expect.objectContaining({
+      replayReferenceId: replayReference.replayId,
+      requiredCapabilityIds: expect.arrayContaining(["redacted_replay"]),
+    }));
+    expect(await screen.findByText((_, element) =>
+      element?.tagName === "P" && element.textContent?.includes(replayReference.replayId),
+    )).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
   });
 });

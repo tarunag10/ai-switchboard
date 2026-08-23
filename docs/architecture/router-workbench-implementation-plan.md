@@ -154,7 +154,7 @@ Acceptance met: the non-autonomous Workbench kernel is visible and usable from
 the desktop UI; unavailable execution is labelled as unavailable rather than
 hidden.
 
-### Phase 3.1 — verified Router decision references — Done
+### Phase 3.1 — verified Router and replay references — In progress
 
 Deliverables:
 
@@ -174,15 +174,24 @@ Deliverables:
   Workbench projection. Native equality and UI tests preserve provider/tool
   labels and fail-closed plan-only/no-traffic/no-write state; registry rows
   remain display-only and cannot trigger Addons lifecycle actions.
+- [x] Reuse the existing native redacted-replay validator as the sole parser,
+  then issue a separate bounded content-free replay receipt. Its atomic local
+  ledger contains only an opaque ID, validation time, counts, fixed
+  observe-only flags, and verifiable source/receipt digests—never a path, raw
+  event, task class, route/outcome data, prompt, response, or credential.
+- [x] Add native replay receipt list/resolve commands and a Workbench picker
+  that sends only `replayReferenceId`; native plan creation resolves it again,
+  includes it in the plan digest, and rejects capability/receipt mismatches or
+  caller-supplied replay metadata. Replay remains provider-free, plan-only,
+  non-promoting, and non-executable.
 - [ ] Add reusable Router-only/Workbench presets only when each preset maps to
   an existing non-mutating decision policy and has a visible evidence source.
-- [ ] Add replay selection to Workbench by reusing the existing redacted replay
-  validator; it must not introduce a second file parser or automatic promotion.
 
 Acceptance met: an observe-only Router completion now supplies a verifiable,
 durable Workbench selection without creating a second Router, accepting manual
-evidence claims, or exposing route content. Addons registry parity, presets,
-and replay selection remain separately gated.
+evidence claims, or exposing route content. A separately verified redacted
+replay can now be selected with the same native re-resolution boundary; presets
+remain separately gated.
 
 Gate: do not collapse existing Addons, Router, or replay authorities into a
 new Workbench copy. Each remaining link must retain its current promotion and

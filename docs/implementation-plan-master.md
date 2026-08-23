@@ -255,8 +255,10 @@ the current checkout.
   headless Router from the all-in-one Workbench. Existing routing, adapters,
   replay, registry, and promotion contracts are reused; the durable native
   session/run kernel, visible plan-only Workbench, and native Router
-  decision-receipt picker are shipped. Cross-surface registry/replay links and
-  every execution backend remain separately gated build.
+  decision-receipt picker are shipped. The Workbench also selects only
+  receipt-backed, source-path-free redacted replays through the existing native
+  validator; every execution backend and reusable preset remain separately
+  gated build.
 
 ### Prepared but externally blocked
 
