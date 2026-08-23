@@ -38,12 +38,12 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `2b12ce13` plus the
-pure Codex catalog/evaluator contract recorded with this update, and against
-the visible frontend/native command wiring on 2026-08-24. Unrelated concurrent
-unstaged work is not counted as shipped. A check mark therefore means the
-capability is in the committed product boundary, not merely described in
-another plan or present in an unrelated local diff.
+This status was reconciled against committed `main` through `1901a74c` plus the
+restart-safe selective activation recovery recorded with this update, and
+against the visible frontend/native command wiring on 2026-08-24. Unrelated
+concurrent unstaged work is not counted as shipped. A check mark therefore
+means the capability is in the committed product boundary, not merely
+described in another plan or present in an unrelated local diff.
 
 - **Done** — implemented on `main`, reachable through its intended product
   surface, and covered by focused deterministic checks.
@@ -64,6 +64,9 @@ Current verification snapshot:
   process-controller lifecycle/restart/CAS tests and `5` deterministic
   verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
   catalog/probe-contract tests.
+- Selective activation recovery passes `12` focused frontend tests and `15`
+  native activation-command tests; no recovery path automatically retries or
+  reapplies a tool.
 - The model-routing evidence gate passes: `13` Node contract tests, `35`
   native model-routing tests, and `18` native telemetry-store tests.
 - `npm run build` passes after preserving the authoritative
@@ -79,7 +82,7 @@ Current verification snapshot:
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
 | Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | The controller models lifecycle and persistence only; no binary, task payload, workspace handle, PID, output, provider request, Tauri command, or actual process exists | Native supervisor, version probe, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
-| Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, and drift-safe rollback cover the managed actions | A run can end `partial`; the UI remembers only the current component's last run ID even though native state is persisted | Restore native selection/last receipt after restart, expose receipt history, and add safe retry/resume for failed tools without reapplying successful tools |
+| Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, drift-safe rollback, native selection hydration, and a sanitized restart recovery view cover the managed actions | A run can end `partial`; restart restores rollback access but never retries automatically | Expose bounded receipt history and add a checkpointed safe retry/resume design that cannot reapply successful tools or overwrite ownership |
 | Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
 | Caveman, RTK, MarkItDown | Visible Addons and selective activation paths; exact created/changed artifact fingerprints; narrow restore/removal; external-drift blocking; receipt preservation | RTK and MarkItDown still install managed external artifacts; client prerequisites can fail on a particular machine | Add end-to-end disposable-home matrix tests, app-visible repair for partial runtimes, and complete their separate source-bundling phases |
 | Switchboard Pack Compaction | The deterministic no-model adapter, read-only pack preference, selective activation, native readiness, source spans, hashes, and zero-wrong-omission gate are Switchboard-owned | Persisted mode/tool ID `chonkify` remains accepted only for backwards compatibility | Keep the compatibility alias out of user-visible copy and never attribute this implementation to upstream Chonkify |
@@ -547,7 +550,7 @@ Switchboard's Router.
 | P0 | Split planner from live Router status | The policy and endpoint planners are complete but have no production model-routing caller | Inventory and UI say planner/evidence done, live correlation remaining, approval remaining, automatic routing gated |
 | P1 — Done | Historical versus current eligibility | Stored `authorized_not_started` remains visible after grant/session validity changes | Session receipt center derives current state and refreshes at expiry; the future launch boundary must still revalidate native state |
 | P1 — Done | Immutable plan consent | Form edits could visually diverge from the saved plan snapshot | Every visible plan-input edit clears the plan and eligibility snapshot; revision checks discard a late native plan response |
-| P1 | Restart-safe selective rollback | The persisted selective run cannot be rediscovered by the current card after restart | Native selection and last receipt load on mount; safe retry and drift-aware rollback remain available after relaunch |
+| P1 — Recovery done; retry open | Restart-safe selective rollback | The persisted selective run could not be rediscovered by the current card after restart | Native selection and a sanitized last-receipt view load on mount; drift-aware rollback remains available, while automatic retry stays disabled pending checkpointed ownership semantics |
 | P1 | Workbench-specific process controller | The generic runner can retain arguments/stdout/stderr and does not implement the declared graceful cleanup contract | Fake-process tests prove fixed command catalog, null stdin, allowlisted environment, bounded redaction, timeout, cancel, TERM/KILL, reaping, and restart cleanup |
 | P1 | Live Router provenance | Manual metrics are integrity-checked but not request-bound | One decision and completion receipt pair is generated by the same intercepted request lifecycle while model substitution stays off |
 | P1 | Transactional routing evidence | Duplicate/retention checks can race across SQLite connections | Unique index plus immediate transaction rejects concurrent duplicate and 128/129-boundary inserts deterministically |
@@ -639,10 +642,15 @@ started by weakening an earlier gate.
    only deterministic verifier/storage test dependencies into the existing
    admission orchestration; denied/error verification cannot persist an
    admission, and no new command or execution authority is added.
-7. **Pure fixed Codex catalog/evaluator — Done with this update** — native-only
+7. **Pure fixed Codex catalog/evaluator — Done (`1901a74c`)** — native-only
    fixed candidate IDs/location templates, complete-snapshot state evaluation,
    identity-bound bounded `--version` protocol metadata, and no collector,
    process, provider, workspace, renderer command, or compatibility claim.
+7. **Restart-safe selective activation recovery — Done with this update** —
+   restore the native exact-five selection and a bounded receipt view on mount;
+   expose only run/status/time/rollback discovery fields, preserve receipt-owned
+   initial rollback after relaunch, classify interrupted rollback as
+   repair-required, and never auto-retry or reapply successful tools.
 7. **Fixed-location collector and opt-in manual version harness** — resolve only
    the catalogued locations, use a disposable workspace, inherit no provider
    credentials, write no user workspace, and preserve pre/post-probe identity.
@@ -701,6 +709,9 @@ Current gate truth on 2026-08-24:
   tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
   fixed Codex catalog/probe-contract tests; the focused Workbench bridge/view
   gate has `19 passed`.
+- Selective activation restart recovery: `12` frontend tests and `15` native
+  activation-command tests pass; malformed/oversized/symlinked recovery state
+  fails closed and dashboard-refresh failure preserves the native undo handle.
 - Model-routing evidence: `13` Node, `35` native routing, and `18` native
   telemetry tests pass.
 - Switchboard Pack Compaction promotion gate: passes with
@@ -716,7 +727,7 @@ Current gate truth on 2026-08-24:
   authoritative ledger contains `11` entries (`3` complete, `1` partial, `5`
   pending, `2` blocked) and forbids runtime downloads in the target state.
 - Bundled Ponytail: the `ponytail` native selector passes `17` tests, the
-  activation-command selector passes `12`, and `8` managed-file tests pass,
+  activation-command selector passes `15`, and `8` managed-file tests pass,
   covering atomic replacement and failure preservation, resource integrity,
   frontmatter stripping, managed-block parsing, schema-2/3 plugin versus
   schema-4 guidance ownership, status, attribution, and selective rollback

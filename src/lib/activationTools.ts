@@ -42,6 +42,19 @@ export const SELECTIVE_ACTIVATION_TOOLS: readonly ActivationToolDefinition[] = [
 
 const knownToolIds = new Set<ActivationToolId>(SELECTIVE_ACTIVATION_TOOLS.map((tool) => tool.id));
 
+export interface SelectiveActivationRecoveryView {
+  version: 1;
+  runId: string;
+  selectedToolIds: ActivationToolId[];
+  overallStatus: "succeeded" | "partial" | "failed";
+  updatedAt: string;
+  rollbackStatus: "in_progress" | "partial" | "succeeded" | null;
+  rollbackAvailable: boolean;
+}
+const recoveryViewKeys = new Set<keyof SelectiveActivationRecoveryView>([
+  "version", "runId", "selectedToolIds", "overallStatus", "updatedAt", "rollbackStatus", "rollbackAvailable",
+]);
+
 export function normalizeActivationSelection(value: unknown): ActivationToolId[] {
   if (!Array.isArray(value)) return [];
   const normalized: ActivationToolId[] = [];
@@ -59,6 +72,38 @@ export function validateActivationSelection(value: unknown): string | null {
   if (normalized.length !== value.length) return "Selection contains an unknown or duplicate tool.";
   if (normalized.length !== SELECTIVE_ACTIVATION_LIMIT) return "Choose exactly five tools.";
   return null;
+}
+
+export function normalizeActivationRecovery(value: unknown): SelectiveActivationRecoveryView | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<Record<keyof SelectiveActivationRecoveryView, unknown>>;
+  const selectedToolIds = normalizeActivationSelection(candidate.selectedToolIds);
+  if (
+    Object.keys(value).some((key) => !recoveryViewKeys.has(key as keyof SelectiveActivationRecoveryView))
+    ||
+    candidate.version !== 1
+    || typeof candidate.runId !== "string"
+    || candidate.runId.length === 0
+    || candidate.runId.length > 96
+    || !/^selective-[A-Za-z0-9-]+$/.test(candidate.runId)
+    || validateActivationSelection(candidate.selectedToolIds)
+    || !["succeeded", "partial", "failed"].includes(String(candidate.overallStatus))
+    || typeof candidate.updatedAt !== "string"
+    || candidate.updatedAt.length > 64
+    || Number.isNaN(Date.parse(candidate.updatedAt))
+    || ![null, "in_progress", "partial", "succeeded"].includes(candidate.rollbackStatus as null | string)
+    || typeof candidate.rollbackAvailable !== "boolean"
+    || (candidate.rollbackStatus !== null && candidate.rollbackAvailable)
+  ) return null;
+  return {
+    version: 1,
+    runId: candidate.runId,
+    selectedToolIds,
+    overallStatus: candidate.overallStatus as SelectiveActivationRecoveryView["overallStatus"],
+    updatedAt: candidate.updatedAt,
+    rollbackStatus: candidate.rollbackStatus as SelectiveActivationRecoveryView["rollbackStatus"],
+    rollbackAvailable: candidate.rollbackAvailable,
+  };
 }
 
 export function getActivationTool(id: ActivationToolId): ActivationToolDefinition {

@@ -844,6 +844,7 @@ pub fn run() {
             addon_commands::get_leanctx_sidecar_status,
             activation_commands::validate_selective_activation_selection,
             activation_commands::get_selective_activation_selection,
+            activation_commands::get_selective_activation_recovery,
             activation_commands::save_selective_activation_selection,
             activation_commands::activate_selected_tools,
             activation_commands::rollback_selective_activation,

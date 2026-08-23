@@ -67,6 +67,7 @@ const ossProjection = {
 describe("AddonsView integration", () => {
   beforeEach(() => {
     invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
     getWorkbenchCapabilityProjection.mockReset();
     getWorkbenchCapabilityProjection.mockResolvedValue(ossProjection);
   });
@@ -102,14 +103,18 @@ describe("AddonsView integration", () => {
 
   it("invokes the exact RTK activity command and renders success and error states", async () => {
     const user = userEvent.setup();
-    invokeMock.mockResolvedValueOnce(["saved 42 tokens"]);
+    invokeMock.mockImplementation((command: string) => command === "get_rtk_activity"
+      ? Promise.resolve(["saved 42 tokens"])
+      : Promise.resolve(null));
     const view = render(<AddonsView {...props()} />);
     await user.click(screen.getByRole("button", { name: "Show RTK activity" }));
     expect(invokeMock).toHaveBeenCalledWith("get_rtk_activity", { maxLines: 80 });
     expect(await screen.findByText("saved 42 tokens")).toBeInTheDocument();
 
     view.unmount();
-    invokeMock.mockRejectedValueOnce(new Error("offline"));
+    invokeMock.mockImplementation((command: string) => command === "get_rtk_activity"
+      ? Promise.reject(new Error("offline"))
+      : Promise.resolve(null));
     render(<AddonsView {...props()} />);
     await user.click(screen.getByRole("button", { name: "Show RTK activity" }));
     await waitFor(() => expect(screen.getByText("Failed to load RTK activity.")).toBeInTheDocument());

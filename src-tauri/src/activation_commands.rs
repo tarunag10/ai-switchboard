@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::PathBuf;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use chrono::Utc;
@@ -25,6 +26,7 @@ impl Drop for ActivationGuard {
 pub const SELECTIVE_ACTIVATION_LIMIT: usize = 5;
 const SELECTION_VERSION: u32 = 1;
 const SELECTION_FILE: &str = "selective-activation.json";
+const MAX_RECOVERY_RECEIPT_BYTES: u64 = 1_048_576;
 const CHONKIFY_PREFERENCE_FILE: &str = "repo-pack-compression.json";
 const TOOL_IDS: [&str; 10] = [
     "headroom",
@@ -37,6 +39,17 @@ const TOOL_IDS: [&str; 10] = [
     "response-cache",
     "chonkify",
     "leanctx",
+];
+const ROLLBACK_OWNERSHIP_IDS: [&str; 9] = [
+    "switchboard_mode",
+    "response_cache_enabled",
+    "chonkify_preference",
+    "leanctx_state",
+    "ponytail_ownership",
+    "ponytail_bundled_guidance",
+    "caveman_state",
+    "rtk_ownership",
+    "markitdown_ownership",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -179,6 +192,18 @@ pub struct SelectiveActivationReceipt {
 pub struct SelectiveActivationResult {
     pub receipt: SelectiveActivationReceipt,
     pub dashboard: DashboardState,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectiveActivationRecoveryView {
+    pub version: u32,
+    pub run_id: String,
+    pub selected_tool_ids: Vec<String>,
+    pub overall_status: String,
+    pub updated_at: String,
+    pub rollback_status: Option<String>,
+    pub rollback_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -616,8 +641,165 @@ fn persist_rollback_progress(
 
 fn read_receipt(state: &AppState) -> Result<SelectiveActivationReceipt, String> {
     let path = receipt_path(state);
-    let bytes = fs::read(&path).map_err(|error| format!("reading activation receipt: {error}"))?;
-    serde_json::from_slice(&bytes).map_err(|error| format!("decoding activation receipt: {error}"))
+    read_bounded_receipt(&path)?.ok_or_else(|| "No activation receipt exists to roll back.".into())
+}
+
+fn selective_activation_recovery_view(
+    receipt: &SelectiveActivationReceipt,
+) -> Result<SelectiveActivationRecoveryView, String> {
+    validate_rollback_request(receipt, &receipt.run_id)?;
+    validate_ids(&receipt.selected_tool_ids)?;
+    if receipt.run_id.len() > 96
+        || !receipt.run_id.starts_with("selective-")
+        || !receipt
+            .run_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    {
+        return Err("Activation recovery receipt has an invalid run ID.".into());
+    }
+    if !matches!(
+        receipt.overall_status.as_str(),
+        "succeeded" | "partial" | "failed"
+    ) {
+        return Err("Activation recovery receipt has an invalid overall status.".into());
+    }
+    if !matches!(
+        receipt.rollback_status.as_deref(),
+        None | Some("in_progress" | "partial" | "succeeded")
+    ) {
+        return Err("Activation recovery receipt has an invalid rollback status.".into());
+    }
+    if receipt.updated_at.len() > 64 {
+        return Err("Activation recovery receipt has an invalid timestamp.".into());
+    }
+    chrono::DateTime::parse_from_rfc3339(&receipt.updated_at)
+        .map_err(|_| "Activation recovery receipt has an invalid timestamp.".to_string())?;
+    let owned = validate_rollback_ownership_metadata(receipt)?;
+    validate_recovery_ownership_snapshots(receipt, &owned)?;
+    Ok(SelectiveActivationRecoveryView {
+        version: 1,
+        run_id: receipt.run_id.clone(),
+        selected_tool_ids: receipt.selected_tool_ids.clone(),
+        overall_status: receipt.overall_status.clone(),
+        updated_at: receipt.updated_at.clone(),
+        rollback_status: receipt.rollback_status.clone(),
+        rollback_available: !owned.is_empty() && receipt.rollback_status.is_none(),
+    })
+}
+
+fn validate_recovery_ownership_snapshots(
+    receipt: &SelectiveActivationReceipt,
+    owned: &BTreeSet<&String>,
+) -> Result<(), String> {
+    let complete = |ownership: &str, before: bool, after: bool| {
+        if owned.iter().any(|change| change.as_str() == ownership) && (!before || !after) {
+            Err(format!(
+                "Activation recovery receipt is missing {ownership} rollback checkpoints."
+            ))
+        } else {
+            Ok(())
+        }
+    };
+    complete(
+        "switchboard_mode",
+        receipt.previous_mode.is_some(),
+        receipt.after_mode.is_some(),
+    )?;
+    complete(
+        "response_cache_enabled",
+        receipt.previous_response_cache_enabled.is_some(),
+        receipt.after_response_cache_enabled.is_some(),
+    )?;
+    complete(
+        "chonkify_preference",
+        receipt.previous_chonkify_mode.is_some(),
+        receipt.after_chonkify_mode.is_some(),
+    )?;
+    complete(
+        "leanctx_state",
+        receipt.previous_leanctx.is_some(),
+        receipt.after_leanctx.is_some(),
+    )?;
+    complete(
+        "ponytail_ownership",
+        receipt.previous_ponytail.is_some(),
+        receipt.after_ponytail.is_some(),
+    )?;
+    complete(
+        "ponytail_bundled_guidance",
+        receipt.previous_ponytail_bundled.is_some(),
+        receipt.after_ponytail_bundled.is_some(),
+    )?;
+    complete(
+        "caveman_state",
+        receipt.previous_caveman.is_some(),
+        receipt.after_caveman.is_some(),
+    )?;
+    complete(
+        "rtk_ownership",
+        receipt.previous_rtk.is_some(),
+        receipt.after_rtk.is_some(),
+    )?;
+    complete(
+        "markitdown_ownership",
+        receipt.previous_markitdown.is_some(),
+        receipt.after_markitdown.is_some(),
+    )
+}
+
+fn read_bounded_receipt(path: &Path) -> Result<Option<SelectiveActivationReceipt>, String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("inspecting activation recovery receipt: {error}")),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("Activation recovery receipt is not a regular managed file.".into());
+    }
+    if metadata.len() > MAX_RECOVERY_RECEIPT_BYTES {
+        return Err("Activation recovery receipt exceeds the safe read bound.".into());
+    }
+    let file = {
+        let mut options = fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NOFOLLOW);
+        }
+        options
+            .open(path)
+            .map_err(|error| format!("opening activation recovery receipt: {error}"))?
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let opened = file
+            .metadata()
+            .map_err(|error| format!("inspecting opened activation recovery receipt: {error}"))?;
+        if metadata.dev() != opened.dev() || metadata.ino() != opened.ino() {
+            return Err("Activation recovery receipt changed before it could be opened.".into());
+        }
+    }
+    let mut bytes = Vec::with_capacity(metadata.len().min(MAX_RECOVERY_RECEIPT_BYTES) as usize);
+    file.take(MAX_RECOVERY_RECEIPT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("reading activation recovery receipt: {error}"))?;
+    if bytes.len() as u64 > MAX_RECOVERY_RECEIPT_BYTES {
+        return Err("Activation recovery receipt exceeds the safe read bound.".into());
+    }
+    let receipt = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("decoding activation recovery receipt: {error}"))?;
+    Ok(Some(receipt))
+}
+
+fn read_selective_activation_recovery(
+    path: &Path,
+) -> Result<Option<SelectiveActivationRecoveryView>, String> {
+    read_bounded_receipt(path)?
+        .map(|receipt| selective_activation_recovery_view(&receipt))
+        .transpose()
 }
 
 fn validate_rollback_request(
@@ -631,7 +813,56 @@ fn validate_rollback_request(
         return Err("Activation run ID does not match the stored receipt.".into());
     }
     validate_ponytail_rollback_schema(receipt)?;
+    let owned = validate_rollback_ownership_metadata(receipt)?;
+    validate_recovery_ownership_snapshots(receipt, &owned)?;
     Ok(())
+}
+
+fn rollback_mutation_allowed(receipt: &SelectiveActivationReceipt) -> Result<bool, String> {
+    match receipt.rollback_status.as_deref() {
+        None => Ok(true),
+        Some("succeeded") => Ok(false),
+        Some("in_progress" | "partial") => Err("This rollback was interrupted or partial and requires repair; automatic resume is disabled so no changes were made.".into()),
+        Some(_) => Err("This activation receipt has an invalid rollback status; no changes were made.".into()),
+    }
+}
+
+fn validate_rollback_ownership_metadata<'a>(
+    receipt: &'a SelectiveActivationReceipt,
+) -> Result<BTreeSet<&'a String>, String> {
+    let owned = receipt.owned_changes.iter().collect::<BTreeSet<_>>();
+    if owned.len() != receipt.owned_changes.len()
+        || owned
+            .iter()
+            .any(|change| !ROLLBACK_OWNERSHIP_IDS.contains(&change.as_str()))
+    {
+        return Err("Activation receipt has invalid rollback ownership metadata.".into());
+    }
+    let selected = receipt
+        .selected_tool_ids
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    for ownership in &owned {
+        let has_owner = match ownership.as_str() {
+            "switchboard_mode" => selected.contains("headroom") || selected.contains("rtk"),
+            "response_cache_enabled" => selected.contains("response-cache"),
+            "chonkify_preference" => selected.contains("chonkify"),
+            "leanctx_state" => selected.contains("leanctx"),
+            "ponytail_ownership" | "ponytail_bundled_guidance" => selected.contains("ponytail"),
+            "caveman_state" => selected.contains("caveman"),
+            "rtk_ownership" => selected.contains("rtk"),
+            "markitdown_ownership" => selected.contains("markitdown"),
+            _ => false,
+        };
+        if !has_owner {
+            return Err(format!(
+                "Activation receipt ownership {} is not associated with a selected tool.",
+                ownership
+            ));
+        }
+    }
+    Ok(owned)
 }
 
 fn validate_ponytail_rollback_schema(receipt: &SelectiveActivationReceipt) -> Result<(), String> {
@@ -890,7 +1121,7 @@ pub async fn activate_selected_tools(
         Utc::now().timestamp_millis(),
         std::process::id()
     );
-    let previous_mode = client_adapters::load_switchboard_mode();
+    let previous_mode = client_adapters::load_switchboard_mode().or(Some(SwitchboardMode::Off));
     let previous_response_cache_enabled = selected_tool_ids
         .iter()
         .any(|id| id == "response-cache")
@@ -902,8 +1133,8 @@ pub async fn activate_selected_tools(
             read_chonkify_preference(&state)
                 .ok()
                 .map(|preference| preference.effective_mode)
-        })
-        .flatten();
+                .unwrap_or_else(|| "off".into())
+        });
     let previous_leanctx = selected_tool_ids
         .iter()
         .any(|id| id == "leanctx")
@@ -1038,10 +1269,11 @@ pub async fn activate_selected_tools(
     let after_mode = client_adapters::load_switchboard_mode();
     let after_response_cache_enabled =
         previous_response_cache_enabled.map(|_| state.semantic_cache.enabled());
-    let after_chonkify_mode = previous_chonkify_mode.as_ref().and_then(|_| {
+    let after_chonkify_mode = previous_chonkify_mode.as_ref().map(|_| {
         read_chonkify_preference(&state)
             .ok()
             .map(|preference| preference.effective_mode)
+            .unwrap_or_else(|| "off".into())
     });
     let after_leanctx = previous_leanctx.as_ref().map(|_| leanctx_snapshot(&state));
     let after_ponytail_bundled = previous_ponytail_bundled
@@ -1159,7 +1391,7 @@ pub async fn rollback_selective_activation(
     let state: State<'_, AppState> = app.state();
     let mut receipt = read_receipt(&state)?;
     validate_rollback_request(&receipt, &run_id)?;
-    if matches!(receipt.rollback_status.as_deref(), Some("succeeded")) {
+    if !rollback_mutation_allowed(&receipt)? {
         return Ok(SelectiveActivationResult {
             receipt,
             dashboard: state.dashboard(),
@@ -2005,6 +2237,13 @@ pub fn get_selective_activation_selection(
 }
 
 #[tauri::command]
+pub fn get_selective_activation_recovery(
+    state: State<'_, AppState>,
+) -> Result<Option<SelectiveActivationRecoveryView>, String> {
+    read_selective_activation_recovery(&receipt_path(&state))
+}
+
+#[tauri::command]
 pub fn save_selective_activation_selection(
     state: State<'_, AppState>,
     selected_tool_ids: Vec<String>,
@@ -2031,9 +2270,10 @@ mod tests {
     use super::{
         changed_caveman_clients, chonkify_gate, newly_created_ponytail_clients,
         newly_created_ponytail_hosts, ordered_markitdown_artifacts, ordered_rtk_artifacts,
-        validate_caveman_snapshot, validate_ids, validate_rollback_request,
-        CavemanActivationSnapshot, PonytailActivationSnapshot, PonytailBundledActivationSnapshot,
-        SelectiveActivationReceipt,
+        read_selective_activation_recovery, rollback_mutation_allowed,
+        selective_activation_recovery_view, validate_caveman_snapshot, validate_ids,
+        validate_rollback_request, CavemanActivationSnapshot, PonytailActivationSnapshot,
+        PonytailBundledActivationSnapshot, SelectiveActivationReceipt, MAX_RECOVERY_RECEIPT_BYTES,
     };
     use crate::client_adapters::{CavemanIntegrationSnapshot, CavemanManagedBlockSnapshot};
     use crate::models::SwitchboardMode;
@@ -2270,6 +2510,132 @@ mod tests {
         }
     }
 
+    fn recovery_receipt() -> SelectiveActivationReceipt {
+        let mut receipt = receipt();
+        receipt.run_id = "selective-1720000000000-42".into();
+        receipt.selected_tool_ids = five();
+        receipt.updated_at = "2026-08-24T06:00:00Z".into();
+        receipt
+    }
+
+    #[test]
+    fn recovery_view_exposes_only_bounded_rollback_discovery_fields() {
+        let receipt = recovery_receipt();
+        let view = selective_activation_recovery_view(&receipt).expect("recovery view");
+        assert_eq!(view.run_id, receipt.run_id);
+        assert_eq!(view.selected_tool_ids, five());
+        assert!(view.rollback_available);
+
+        let object = serde_json::to_value(view).expect("serialize recovery view");
+        for forbidden in [
+            "results",
+            "ownedChanges",
+            "previousMode",
+            "afterMode",
+            "rollbackResults",
+            "previousRtk",
+            "previousMarkitdown",
+        ] {
+            assert!(object.get(forbidden).is_none(), "unexpected {forbidden}");
+        }
+    }
+
+    #[test]
+    fn recovery_view_rejects_corruption_and_hides_completed_rollback() {
+        let mut completed = recovery_receipt();
+        completed.rollback_status = Some("succeeded".into());
+        assert!(
+            !selective_activation_recovery_view(&completed)
+                .expect("completed recovery view")
+                .rollback_available
+        );
+
+        for status in ["in_progress", "partial"] {
+            let mut interrupted = recovery_receipt();
+            interrupted.rollback_status = Some(status.into());
+            assert!(
+                !selective_activation_recovery_view(&interrupted)
+                    .expect("interrupted rollback is visible but not resumable")
+                    .rollback_available
+            );
+            assert!(rollback_mutation_allowed(&interrupted).is_err());
+        }
+        assert!(!rollback_mutation_allowed(&completed).expect("completed rollback is final"));
+
+        let mut unknown_ownership = recovery_receipt();
+        unknown_ownership
+            .owned_changes
+            .push("unknown_change".into());
+        assert!(selective_activation_recovery_view(&unknown_ownership).is_err());
+
+        let mut duplicate_ownership = recovery_receipt();
+        duplicate_ownership
+            .owned_changes
+            .push("switchboard_mode".into());
+        assert!(selective_activation_recovery_view(&duplicate_ownership).is_err());
+
+        let mut invalid_status = recovery_receipt();
+        invalid_status.rollback_status = Some("automatic_retry".into());
+        assert!(selective_activation_recovery_view(&invalid_status).is_err());
+
+        let mut missing_checkpoint = recovery_receipt();
+        missing_checkpoint.after_mode = None;
+        assert!(selective_activation_recovery_view(&missing_checkpoint).is_err());
+
+        let mut mismatched_ownership = recovery_receipt();
+        mismatched_ownership.selected_tool_ids = [
+            "caveman",
+            "markitdown",
+            "response-cache",
+            "chonkify",
+            "leanctx",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+        assert!(selective_activation_recovery_view(&mismatched_ownership).is_err());
+    }
+
+    #[test]
+    fn recovery_reader_is_bounded_and_rejects_symlink_substitution() {
+        let directory = tempfile::tempdir().expect("temporary recovery directory");
+        let receipt_path = directory.path().join("receipt.json");
+        assert!(read_selective_activation_recovery(&receipt_path)
+            .expect("missing receipt is not an error")
+            .is_none());
+
+        std::fs::write(
+            &receipt_path,
+            serde_json::to_vec(&recovery_receipt()).expect("encode receipt"),
+        )
+        .expect("write receipt");
+        assert!(read_selective_activation_recovery(&receipt_path)
+            .expect("valid receipt")
+            .is_some());
+
+        std::fs::remove_file(&receipt_path).expect("remove receipt");
+        let oversized = std::fs::File::create(&receipt_path).expect("create oversized receipt");
+        oversized
+            .set_len(MAX_RECOVERY_RECEIPT_BYTES + 1)
+            .expect("size oversized receipt");
+        assert!(read_selective_activation_recovery(&receipt_path).is_err());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+
+            std::fs::remove_file(&receipt_path).expect("remove oversized receipt");
+            let target_path = directory.path().join("target.json");
+            std::fs::write(
+                &target_path,
+                serde_json::to_vec(&recovery_receipt()).expect("encode target receipt"),
+            )
+            .expect("write target receipt");
+            symlink(&target_path, &receipt_path).expect("replace receipt with symlink");
+            assert!(read_selective_activation_recovery(&receipt_path).is_err());
+        }
+    }
+
     #[test]
     fn rollback_rejects_wrong_run_id_and_legacy_receipts() {
         let receipt = receipt();
@@ -2318,6 +2684,7 @@ mod tests {
     #[test]
     fn rollback_accepts_complete_schema_four_ponytail_ownership() {
         let mut bundled = receipt();
+        bundled.selected_tool_ids = five();
         bundled.owned_changes = vec!["ponytail_bundled_guidance".into()];
         bundled.previous_ponytail_bundled = Some(PonytailBundledActivationSnapshot {
             receipt: None,
