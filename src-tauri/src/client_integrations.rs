@@ -120,6 +120,8 @@ pub fn disable_markitdown_integration(markitdown_shim: &Path) -> Result<bool> {
         remove_pre_tool_use_markers(&claude_settings_path(), &["headroom-markitdown-read.sh"])?;
     let hook_path = headroom_markitdown_hook_path();
     changed |= remove_markitdown_hook_if_present(&hook_path)?;
+    changed |=
+        remove_markitdown_cache_if_present(&std::env::temp_dir().join("headroom-markitdown"))?;
     changed |= remove_managed_block(&markitdown_claude_md_path(), "markitdown_office")?;
     changed |= set_markitdown_bash_permission(markitdown_shim, false)?;
     changed |= remove_managed_block(&markitdown_codex_agents_path(), "markitdown")?;
@@ -132,6 +134,25 @@ fn remove_markitdown_hook_if_present(path: &Path) -> Result<bool> {
     }
     std::fs::remove_file(path)
         .with_context(|| format!("removing MarkItDown hook {}", path.display()))?;
+    Ok(true)
+}
+
+fn remove_markitdown_cache_if_present(path: &Path) -> Result<bool> {
+    let metadata = match std::fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("inspecting MarkItDown cache {}", path.display()))
+        }
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        std::fs::remove_file(path)
+            .with_context(|| format!("removing MarkItDown cache {}", path.display()))?;
+    } else {
+        std::fs::remove_dir_all(path)
+            .with_context(|| format!("removing MarkItDown cache {}", path.display()))?;
+    }
     Ok(true)
 }
 
@@ -361,7 +382,7 @@ fn shell_double_quote(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::remove_markitdown_hook_if_present;
+    use super::{remove_markitdown_cache_if_present, remove_markitdown_hook_if_present};
 
     #[test]
     fn orphaned_markitdown_hook_removal_reports_change() {
@@ -372,5 +393,17 @@ mod tests {
         assert!(remove_markitdown_hook_if_present(&hook).expect("remove hook"));
         assert!(!hook.exists());
         assert!(!remove_markitdown_hook_if_present(&hook).expect("missing hook is a no-op"));
+    }
+
+    #[test]
+    fn markitdown_cache_cleanup_is_bounded_and_idempotent() {
+        let directory = tempfile::tempdir().expect("create temporary directory");
+        let cache = directory.path().join("headroom-markitdown");
+        std::fs::create_dir(&cache).expect("create cache");
+        std::fs::write(cache.join("converted.md"), "local document").expect("write cache entry");
+
+        assert!(remove_markitdown_cache_if_present(&cache).expect("remove cache"));
+        assert!(!cache.exists());
+        assert!(!remove_markitdown_cache_if_present(&cache).expect("missing cache is a no-op"));
     }
 }

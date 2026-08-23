@@ -28,6 +28,10 @@ Usage and pricing helpers may query provider-owned account usage endpoints when 
 
 Repo Intelligence is read-only by default. It indexes local repository metadata, estimates token counts, builds bounded context packs, and excludes secret-like paths and generated/vendor-heavy surfaces where configured. Sharing context packs is a user action.
 
+## MarkItDown Add-on
+
+When the user installs or upgrades MarkItDown, the app downloads its pinned package into the app-managed Python runtime; that installation step may use the network. Document conversion itself runs locally through the managed runtime. The optional Claude Code Read hook can write converted document content to the app-owned `${TMPDIR:-/tmp}/headroom-markitdown` cache so repeated reads can reuse it. The hook adds one app-owned, scoped Claude permission for the conversion shim. Disabling or uninstalling the add-on removes the hook, permission, managed blocks, and app-owned conversion cache. The cache may contain sensitive document content until that cleanup occurs.
+
 ## Children
 
 Mac AI Switchboard is a developer tool and is not directed to children.

@@ -11,7 +11,7 @@ describe("MarkItDown tray copy", () => {
   });
 
   it("explains cleanup on disable and uninstall", () => {
-    expect(addonCopy.markitdown.disabling).toMatch(/managed Read hook and permission/);
+    expect(addonCopy.markitdown.disabling).toMatch(/managed Read hook, permission, and local conversion cache/);
     expect(addonCopy.markitdown.uninstalling).toMatch(/permission/);
     expect(addonCopy.markitdown.uninstalling).toMatch(/local conversion cache/);
   });

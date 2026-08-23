@@ -40,9 +40,9 @@ export const addonCopy: Record<string, AddonCopy> = {
     uninstalled:
       "MarkItDown removed. Your agent reads documents in their original format again.",
     enabling: "Enabling MarkItDown...",
-    disabling: "Disabling MarkItDown and removing its managed Read hook and permission...",
+    disabling: "Disabling MarkItDown and removing its managed Read hook, permission, and local conversion cache...",
     disabled:
-      "MarkItDown is off. Its managed Read hook and permission are removed; the package stays installed but no longer converts documents.",
+      "MarkItDown is off. Its managed Read hook, permission, and local conversion cache are removed; the package stays installed but no longer converts documents.",
   },
   caveman: {
     whatItDoes:
