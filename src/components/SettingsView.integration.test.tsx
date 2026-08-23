@@ -40,6 +40,9 @@ vi.mock("./SettingsRuntimeStatusCard", () => ({
     <button onClick={checkForAppUpdate}>Update check mock</button>
   </div>,
 }));
+vi.mock("./SettingsHeadroomAdvancedCard", () => ({
+  SettingsHeadroomAdvancedCard: () => <article>Advanced Headroom settings mock</article>,
+}));
 
 function props(overrides: Partial<SettingsViewProps> = {}): SettingsViewProps {
   return {
@@ -87,6 +90,11 @@ describe("SettingsView integration", () => {
     expect(p.applySettingsImport).toHaveBeenCalledOnce();
     expect(p.setUninstallError).toHaveBeenCalledWith(null);
     expect(p.setShowUninstallDialog).toHaveBeenCalledWith(true);
+  });
+
+  it("mounts the advanced Headroom settings card in production Settings", () => {
+    render(<SettingsView {...props()} />);
+    expect(screen.getByText("Advanced Headroom settings mock")).toBeVisible();
   });
 
   it("invokes exact native commands and loads logs", async () => {

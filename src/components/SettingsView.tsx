@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ProxySessionAuthCard } from "./ProxySessionAuthCard";
 import { RollbackCenter } from "./RollbackCenter";
 import { SettingsConnectorPanel } from "./SettingsConnectorPanel";
+import { SettingsHeadroomAdvancedCard } from "./SettingsHeadroomAdvancedCard";
 import { SettingsLegalPanel } from "./SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./SettingsOpenLoginCard";
 import { SettingsReleaseReadinessCard } from "./SettingsReleaseReadinessCard";
@@ -297,6 +298,7 @@ export function SettingsView({
           showHeadroomDetails={showHeadroomDetails}
           showLogsLabel="Show headroom logs"
         />
+        <SettingsHeadroomAdvancedCard />
         <SettingsReleaseReadinessCard
           copyReleaseReadinessReport={() => void copyReleaseReadinessReport()}
           formatLocalReleaseEvidenceSequenceCopy={
