@@ -433,6 +433,37 @@ fn ordered_ids(selected: &[String]) -> Vec<String> {
         .collect()
 }
 
+fn preflight_selected_tools(state: &AppState, selected: &[String]) -> Result<(), String> {
+    if selected.iter().any(|id| id == "response-cache")
+        && !selected.iter().any(|id| id == "headroom")
+        && matches!(
+            client_adapters::load_switchboard_mode(),
+            Some(SwitchboardMode::Off | SwitchboardMode::Rtk) | None
+        )
+    {
+        return Err("Exact Response Cache requires Headroom or Full mode; select Headroom or enable a compatible mode first.".into());
+    }
+    if selected.iter().any(|id| id == "leanctx") {
+        let status = state.tool_manager.leanctx_sidecar_status();
+        if !status.configured || !status.executable_present || !status.loopback_only {
+            return Err("Leanctx must be configured with an executable and loopback-only endpoint before batch activation.".into());
+        }
+    }
+    if selected.iter().any(|id| id == "repo-intelligence")
+        && crate::repo_intelligence::load_latest_summary()
+            .map_err(|error| error.to_string())?
+            .is_none()
+    {
+        return Err(
+            "Repo Intelligence has no indexed repository summary; index a repository first.".into(),
+        );
+    }
+    if selected.iter().any(|id| id == "chonkify") && !chonkify_gate().1 {
+        return Err("Chonkify promotion evidence is not eligible; native deterministic packs remain active.".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn activate_selected_tools(
     app: AppHandle,
@@ -447,6 +478,7 @@ pub async fn activate_selected_tools(
     }
     let _guard = ActivationGuard;
     let state: State<'_, AppState> = app.state();
+    preflight_selected_tools(&state, &selected_tool_ids)?;
     let run_id = format!(
         "selective-{}-{}",
         Utc::now().timestamp_millis(),
