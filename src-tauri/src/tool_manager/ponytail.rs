@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use crate::models::ToolStatus;
 use crate::process_runner::run_command_streaming;
@@ -43,6 +45,28 @@ impl ToolManager {
             .filter(|host| host.plugin_present())
             .map(|host| host.label().to_string())
             .collect()
+    }
+
+    /// Fingerprints of the exact Ponytail plugin entries currently configured
+    /// by each supported host. The map intentionally contains no paths or
+    /// marketplace metadata: those belong to the user and are never rollback
+    /// targets.
+    pub fn ponytail_host_fingerprints(&self) -> BTreeMap<String, String> {
+        PluginHost::ALL
+            .iter()
+            .copied()
+            .filter_map(|host| {
+                host.plugin_fingerprint()
+                    .map(|fingerprint| (host.id().to_string(), fingerprint))
+            })
+            .collect()
+    }
+
+    /// The managed Ponytail receipt is Switchboard-owned state. A selective
+    /// rollback may restore it only when it still exactly matches the receipt
+    /// written by that activation.
+    pub fn ponytail_receipt_snapshot(&self) -> Option<Value> {
+        self.read_tool_receipt("ponytail")
     }
 
     pub fn ponytail_receipt_exists(&self) -> bool {
@@ -219,6 +243,57 @@ impl ToolManager {
         Ok(())
     }
 
+    /// Removes a single plugin entry only when the host's current entry still
+    /// has the exact fingerprint captured after activation. This deliberately
+    /// leaves marketplace registrations untouched.
+    pub fn remove_ponytail_host_if_unchanged(
+        &self,
+        host_id: &str,
+        expected_fingerprint: &str,
+    ) -> Result<()> {
+        let host = PluginHost::from_id(host_id)
+            .with_context(|| format!("unknown Ponytail host identifier: {host_id}"))?;
+        let current = host
+            .plugin_fingerprint()
+            .context("Ponytail plugin entry is no longer present")?;
+        if current != expected_fingerprint {
+            bail!(
+                "Ponytail plugin entry for {} changed after activation",
+                host.label()
+            );
+        }
+        self.uninstall_ponytail_plugin(host)?;
+        if host.plugin_fingerprint().is_some() {
+            bail!(
+                "Ponytail plugin entry for {} remains after removal",
+                host.label()
+            );
+        }
+        Ok(())
+    }
+
+    /// Restores only the Switchboard-owned Ponytail receipt. Host plugin
+    /// entries must be rolled back separately, first, with their own exact
+    /// fingerprints. JSON equality intentionally ignores formatting changes
+    /// while rejecting any content change.
+    pub fn restore_ponytail_receipt_if_unchanged(
+        &self,
+        previous_receipt: Option<&Value>,
+        after_receipt: Option<&Value>,
+    ) -> Result<()> {
+        if self.ponytail_receipt_snapshot().as_ref() != after_receipt {
+            bail!("Ponytail managed receipt changed after activation");
+        }
+        let receipt_path = self.runtime.tools_dir.join("ponytail.json");
+        if let Some(previous_receipt) = previous_receipt {
+            self.write_tool_receipt("ponytail", previous_receipt.clone())?;
+        } else if receipt_path.exists() {
+            std::fs::remove_file(&receipt_path)
+                .with_context(|| format!("removing {}", receipt_path.display()))?;
+        }
+        Ok(())
+    }
+
     pub(super) fn ponytail_status(&self) -> ToolStatus {
         let Some(receipt) = self.read_tool_receipt("ponytail") else {
             return ToolStatus::NotInstalled;
@@ -267,6 +342,21 @@ impl PluginHost {
         }
     }
 
+    fn id(self) -> &'static str {
+        match self {
+            PluginHost::ClaudeCode => "claude-code",
+            PluginHost::Codex => "codex",
+        }
+    }
+
+    fn from_id(value: &str) -> Option<Self> {
+        match value {
+            "claude-code" => Some(PluginHost::ClaudeCode),
+            "codex" => Some(PluginHost::Codex),
+            _ => None,
+        }
+    }
+
     fn cli(self) -> Option<PathBuf> {
         match self {
             PluginHost::ClaudeCode => crate::claude_cli::detect_claude_cli(),
@@ -295,9 +385,13 @@ impl PluginHost {
     }
 
     fn plugin_present(self) -> bool {
+        self.plugin_fingerprint().is_some()
+    }
+
+    fn plugin_fingerprint(self) -> Option<String> {
         match self {
-            PluginHost::ClaudeCode => claude_ponytail_present(),
-            PluginHost::Codex => codex_ponytail_present(),
+            PluginHost::ClaudeCode => claude_ponytail_fingerprint(),
+            PluginHost::Codex => codex_ponytail_fingerprint(),
         }
     }
 }
@@ -312,26 +406,62 @@ fn ponytail_installed_plugins() -> Option<Value> {
 
 /// Claude Code records installs in `~/.claude/plugins/installed_plugins.json`
 /// under `plugins["ponytail@ponytail"]` as a non-empty array of install records.
-fn claude_ponytail_present() -> bool {
-    ponytail_installed_plugins()
-        .and_then(|v| v.get("plugins")?.get(PONYTAIL_PLUGIN_REF).cloned())
-        .and_then(|entry| entry.as_array().map(|installs| !installs.is_empty()))
-        .unwrap_or(false)
+fn claude_ponytail_fingerprint() -> Option<String> {
+    claude_ponytail_entry(ponytail_installed_plugins()?).map(|entry| json_fingerprint(&entry))
 }
 
 /// Codex records installs in `~/.codex/config.toml` under a
 /// `[plugins."ponytail@ponytail"]` table. Keys containing `@` are always
 /// quoted, so a header substring match is reliable and avoids a TOML parse
 /// dependency (matching how client_adapters edits this file).
-fn codex_ponytail_present() -> bool {
+fn codex_ponytail_fingerprint() -> Option<String> {
     let Some(path) = dirs::home_dir().map(|h| h.join(".codex").join("config.toml")) else {
-        return false;
+        return None;
     };
     let Ok(text) = std::fs::read_to_string(path) else {
-        return false;
+        return None;
     };
+    codex_ponytail_block(&text).map(text_fingerprint)
+}
+
+fn claude_ponytail_entry(plugins: Value) -> Option<Value> {
+    let entry = plugins.get("plugins")?.get(PONYTAIL_PLUGIN_REF)?.clone();
+    let has_installs = entry
+        .as_array()
+        .is_some_and(|installs| !installs.is_empty());
+    has_installs.then_some(entry)
+}
+
+fn codex_ponytail_block(text: &str) -> Option<&str> {
     let header = format!("[plugins.\"{PONYTAIL_PLUGIN_REF}\"]");
-    text.lines().any(|line| line.trim_start() == header)
+    let mut offset = 0;
+    let mut start = None;
+    for segment in text.split_inclusive('\n') {
+        let line = segment.trim_end_matches(['\r', '\n']);
+        if start.is_some() && line.trim_start().starts_with('[') {
+            return start.map(|start| &text[start..offset]);
+        }
+        if start.is_none() && line.trim_start() == header {
+            start = Some(offset);
+        }
+        offset += segment.len();
+    }
+    start.map(|start| &text[start..])
+}
+
+fn json_fingerprint(value: &Value) -> String {
+    let payload = serde_json::to_vec(value).expect("serializing JSON value for fingerprint");
+    bytes_fingerprint(&payload)
+}
+
+fn text_fingerprint(value: &str) -> String {
+    bytes_fingerprint(value.as_bytes())
+}
+
+fn bytes_fingerprint(value: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value);
+    format!("sha256:{:x}", hasher.finalize())
 }
 
 fn installed_ponytail_version() -> Option<String> {
@@ -345,4 +475,43 @@ fn installed_ponytail_version() -> Option<String> {
         .get("version")?
         .as_str()
         .map(str::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{claude_ponytail_entry, codex_ponytail_block, text_fingerprint, PluginHost};
+    use serde_json::json;
+
+    #[test]
+    fn ponytail_hosts_have_stable_receipt_identifiers() {
+        assert_eq!(PluginHost::ClaudeCode.id(), "claude-code");
+        assert_eq!(PluginHost::Codex.id(), "codex");
+        assert!(PluginHost::from_id("unknown").is_none());
+    }
+
+    #[test]
+    fn claude_fingerprint_ignores_an_empty_plugin_array() {
+        assert!(claude_ponytail_entry(json!({
+            "plugins": { "ponytail@ponytail": [] }
+        }))
+        .is_none());
+    }
+
+    #[test]
+    fn codex_fingerprint_targets_only_the_ponytail_table() {
+        let config = concat!(
+            "[plugins.\"ponytail@ponytail\"]\n",
+            "enabled = true\n",
+            "[plugins.\"another@plugin\"]\n",
+            "enabled = true\n"
+        );
+        assert_eq!(
+            codex_ponytail_block(config),
+            Some("[plugins.\"ponytail@ponytail\"]\nenabled = true\n")
+        );
+        assert_ne!(
+            text_fingerprint(codex_ponytail_block(config).unwrap()),
+            text_fingerprint(config)
+        );
+    }
 }

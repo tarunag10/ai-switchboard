@@ -1,9 +1,11 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
 
 use crate::client_adapters;
@@ -72,6 +74,13 @@ pub struct LeanctxActivationSnapshot {
     pub mode: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PonytailActivationSnapshot {
+    pub receipt: Option<Value>,
+    pub host_fingerprints: BTreeMap<String, String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectiveActivationReceipt {
@@ -89,6 +98,14 @@ pub struct SelectiveActivationReceipt {
     pub after_chonkify_mode: Option<String>,
     pub previous_leanctx: Option<LeanctxActivationSnapshot>,
     pub after_leanctx: Option<LeanctxActivationSnapshot>,
+    #[serde(default)]
+    pub previous_ponytail: Option<PonytailActivationSnapshot>,
+    #[serde(default)]
+    pub after_ponytail: Option<PonytailActivationSnapshot>,
+    /// Exact host entries created by this activation. Fingerprints prove the
+    /// narrow rollback target without storing host paths or marketplace state.
+    #[serde(default)]
+    pub ponytail_created_hosts: BTreeMap<String, String>,
     pub owned_changes: Vec<String>,
     pub rollback_status: Option<String>,
     pub rollback_results: Vec<SelectiveRollbackResult>,
@@ -241,6 +258,25 @@ fn leanctx_snapshot(state: &AppState) -> LeanctxActivationSnapshot {
     }
 }
 
+fn ponytail_snapshot(state: &AppState) -> PonytailActivationSnapshot {
+    PonytailActivationSnapshot {
+        receipt: state.tool_manager.ponytail_receipt_snapshot(),
+        host_fingerprints: state.tool_manager.ponytail_host_fingerprints(),
+    }
+}
+
+fn newly_created_ponytail_hosts(
+    previous: &PonytailActivationSnapshot,
+    after: &PonytailActivationSnapshot,
+) -> BTreeMap<String, String> {
+    after
+        .host_fingerprints
+        .iter()
+        .filter(|(host_id, _)| !previous.host_fingerprints.contains_key(*host_id))
+        .map(|(host_id, fingerprint)| (host_id.clone(), fingerprint.clone()))
+        .collect()
+}
+
 fn set_chonkify_preference(
     state: &AppState,
     mode: &str,
@@ -328,6 +364,17 @@ fn persist_receipt(state: &AppState, receipt: &SelectiveActivationReceipt) -> Re
     fs::rename(&temporary, &path)
         .map_err(|error| format!("committing activation receipt: {error}"))?;
     Ok(())
+}
+
+fn persist_rollback_progress(
+    state: &AppState,
+    receipt: &mut SelectiveActivationReceipt,
+    rollback_results: &[SelectiveRollbackResult],
+) -> Result<(), String> {
+    receipt.rollback_status = Some("in_progress".into());
+    receipt.rollback_results = rollback_results.to_vec();
+    receipt.updated_at = Utc::now().to_rfc3339();
+    persist_receipt(state, receipt)
 }
 
 fn read_receipt(state: &AppState) -> Result<SelectiveActivationReceipt, String> {
@@ -562,6 +609,10 @@ pub async fn activate_selected_tools(
         .iter()
         .any(|id| id == "leanctx")
         .then(|| leanctx_snapshot(&state));
+    let previous_ponytail = selected_tool_ids
+        .iter()
+        .any(|id| id == "ponytail")
+        .then(|| ponytail_snapshot(&state));
     let mut owned_changes = Vec::new();
     if selected_tool_ids
         .iter()
@@ -577,6 +628,9 @@ pub async fn activate_selected_tools(
     }
     if previous_leanctx.is_some() {
         owned_changes.push("leanctx_state".into());
+    }
+    if previous_ponytail.is_some() {
+        owned_changes.push("ponytail_ownership".into());
     }
     let mut results = Vec::new();
     let mut failed = false;
@@ -662,6 +716,14 @@ pub async fn activate_selected_tools(
             .map(|preference| preference.effective_mode)
     });
     let after_leanctx = previous_leanctx.as_ref().map(|_| leanctx_snapshot(&state));
+    let after_ponytail = previous_ponytail
+        .as_ref()
+        .map(|_| ponytail_snapshot(&state));
+    let ponytail_created_hosts = previous_ponytail
+        .as_ref()
+        .zip(after_ponytail.as_ref())
+        .map(|(previous, after)| newly_created_ponytail_hosts(previous, after))
+        .unwrap_or_default();
     let receipt = SelectiveActivationReceipt {
         schema_version: 2,
         run_id,
@@ -677,6 +739,9 @@ pub async fn activate_selected_tools(
         after_chonkify_mode,
         previous_leanctx,
         after_leanctx,
+        previous_ponytail,
+        after_ponytail,
+        ponytail_created_hosts,
         owned_changes,
         rollback_status: None,
         rollback_results: Vec::new(),
@@ -843,10 +908,113 @@ pub async fn rollback_selective_activation(
             }
         }
     }
+    if receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "ponytail_ownership")
+    {
+        let previously_restored_hosts: BTreeSet<String> = receipt
+            .rollback_results
+            .iter()
+            .filter(|result| result.state == "restored")
+            .filter_map(|result| result.tool_id.strip_prefix("ponytail:").map(str::to_string))
+            .collect();
+        let ponytail_created_hosts = receipt.ponytail_created_hosts.clone();
+        if let (Some(previous), Some(after)) = (
+            receipt.previous_ponytail.clone(),
+            receipt.after_ponytail.clone(),
+        ) {
+            let mut hosts_restored = true;
+            for (host_id, expected_fingerprint) in &ponytail_created_hosts {
+                let tool_id = format!("ponytail:{host_id}");
+                if previously_restored_hosts.contains(host_id) {
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Ponytail plugin entry was already removed by an earlier rollback attempt.".into(),
+                    });
+                    continue;
+                }
+                let current = state
+                    .tool_manager
+                    .ponytail_host_fingerprints()
+                    .get(host_id)
+                    .cloned();
+                if current.as_deref() != Some(expected_fingerprint) {
+                    hosts_restored = false;
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "blocked_external_change".into(),
+                        detail: "Current Ponytail plugin entry differs from this run's recorded post-activation fingerprint; it was preserved.".into(),
+                    });
+                    failures.push(format!("Ponytail {host_id} entry changed after activation"));
+                    continue;
+                }
+                match state
+                    .tool_manager
+                    .remove_ponytail_host_if_unchanged(host_id, expected_fingerprint)
+                {
+                    Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Ponytail plugin entry created by this activation was removed; marketplace registration was preserved.".into(),
+                    }),
+                    Err(error) => {
+                        hosts_restored = false;
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id,
+                            state: "failed".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+                if let Err(error) =
+                    persist_rollback_progress(&state, &mut receipt, &rollback_results)
+                {
+                    hosts_restored = false;
+                    failures.push(error.clone());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "ponytail".into(),
+                        state: "failed".into(),
+                        detail: format!("Recording Ponytail rollback progress failed: {error}"),
+                    });
+                }
+            }
+            if hosts_restored {
+                match state.tool_manager.restore_ponytail_receipt_if_unchanged(
+                    previous.receipt.as_ref(),
+                    after.receipt.as_ref(),
+                ) {
+                    Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "ponytail".into(),
+                        state: "restored".into(),
+                        detail: "Ponytail receipt restored; only plugin entries created by this activation were removed and marketplaces were preserved.".into(),
+                    }),
+                    Err(error) => {
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "ponytail".into(),
+                            state: "blocked_external_change".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+            }
+        } else {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "ponytail".into(),
+                state: "failed".into(),
+                detail: "Ponytail rollback metadata is missing from this activation receipt."
+                    .into(),
+            });
+            failures.push("Ponytail rollback metadata is missing".into());
+        }
+    }
     for tool_id in receipt.selected_tool_ids.iter().filter(|id| {
         !matches!(
             id.as_str(),
-            "headroom" | "rtk" | "response-cache" | "chonkify" | "leanctx"
+            "headroom" | "rtk" | "response-cache" | "chonkify" | "leanctx" | "ponytail"
         )
     }) {
         rollback_results.push(SelectiveRollbackResult {
@@ -933,9 +1101,12 @@ pub fn save_selective_activation_selection(
 #[cfg(test)]
 mod tests {
     use super::{
-        chonkify_gate, validate_ids, validate_rollback_request, SelectiveActivationReceipt,
+        chonkify_gate, newly_created_ponytail_hosts, validate_ids, validate_rollback_request,
+        PonytailActivationSnapshot, SelectiveActivationReceipt,
     };
     use crate::models::SwitchboardMode;
+    use serde_json::json;
+    use std::collections::BTreeMap;
 
     fn five() -> Vec<String> {
         [
@@ -977,6 +1148,25 @@ mod tests {
         assert!(verdict.starts_with("repo_pack_eligible:"));
     }
 
+    #[test]
+    fn ponytail_delta_tracks_only_new_host_entries() {
+        let before = PonytailActivationSnapshot {
+            receipt: Some(json!({ "enabled": false })),
+            host_fingerprints: BTreeMap::from([("claude-code".into(), "before".into())]),
+        };
+        let after = PonytailActivationSnapshot {
+            receipt: Some(json!({ "enabled": true })),
+            host_fingerprints: BTreeMap::from([
+                ("claude-code".into(), "changed-but-preexisting".into()),
+                ("codex".into(), "created".into()),
+            ]),
+        };
+        assert_eq!(
+            newly_created_ponytail_hosts(&before, &after),
+            BTreeMap::from([("codex".into(), "created".into())])
+        );
+    }
+
     fn receipt() -> SelectiveActivationReceipt {
         SelectiveActivationReceipt {
             schema_version: 2,
@@ -993,6 +1183,9 @@ mod tests {
             after_chonkify_mode: None,
             previous_leanctx: None,
             after_leanctx: None,
+            previous_ponytail: None,
+            after_ponytail: None,
+            ponytail_created_hosts: Default::default(),
             owned_changes: vec!["switchboard_mode".into()],
             rollback_status: None,
             rollback_results: Vec::new(),
