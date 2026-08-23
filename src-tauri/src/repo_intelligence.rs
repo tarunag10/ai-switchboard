@@ -2328,7 +2328,7 @@ fn build_call_reference_edges(
         matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
             && matches!(
                 file.language.as_str(),
-                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Swift"
             )
     }) {
         let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
@@ -4213,6 +4213,16 @@ export const mapValues = <T>(items: T[]) => items;
             "import SwiftUI\npublic struct AppView: View {}\nfinal class AppViewModel {}\nfunc makeAppView() -> AppView { AppView() }\n",
         )
         .expect("write swift");
+        std::fs::write(
+            swift_dir.join("SwiftWorker.swift"),
+            "func makeWidget() {}\n",
+        )
+        .expect("write swift worker");
+        std::fs::write(
+            swift_dir.join("SwiftCaller.swift"),
+            "func useWidget() { makeWidget() }\n",
+        )
+        .expect("write swift caller");
         let scripts_dir = root.path().join("scripts");
         std::fs::create_dir_all(&scripts_dir).expect("create scripts dir");
         std::fs::write(
@@ -4242,6 +4252,11 @@ export const mapValues = <T>(items: T[]) => items;
             .iter()
             .any(|symbol| symbol.name == "AppView"
                 && symbol.file == "Sources/Switchboard/AppView.swift"));
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "Sources/Switchboard/SwiftCaller.swift"
+                && edge.to == "Sources/Switchboard/SwiftWorker.swift#makeWidget"
+                && matches!(edge.kind, RepoGraphEdgeKind::CallReference)
+        }));
         assert!(graph
             .symbols
             .iter()

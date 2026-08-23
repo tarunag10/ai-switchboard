@@ -128,6 +128,9 @@ the current checkout.
 - Backend response-body and streaming reads now share a bounded idle timeout;
   stalled local providers produce truthful timeout outcomes instead of holding
   proxy tasks indefinitely.
+- Repo Intelligence native fallback call traversal now includes Swift with the
+  same ambiguity and receiver-qualified suppression already used by CLI and
+  frontend surfaces; type inference and dynamic dispatch remain out of scope.
 - Repo Intelligence now has a shared bounded JavaScript/TypeScript golden graph
   corpus with normalized CLI, frontend, and native projections; the parity gate
   runs all three surfaces instead of only the CLI.

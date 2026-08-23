@@ -33,6 +33,27 @@ test("CLI graph suppresses ambiguous and receiver-qualified fallback calls", () 
   }
 });
 
+test("CLI graph keeps bounded Swift fallback call edges", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-swift-"));
+  try {
+    fs.mkdirSync(path.join(repo, "Sources", "App"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "Sources", "App", "SwiftWorker.swift"), "func makeWidget() {}\n");
+    fs.writeFileSync(path.join(repo, "Sources", "App", "SwiftCaller.swift"), "func useWidget() { makeWidget() }\n");
+    const summary = JSON.parse(
+      execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], {
+        encoding: "utf8",
+      }),
+    );
+    assert.ok(summary.graph.symbolEdges.some(
+      (edge) => edge.from === "Sources/App/SwiftCaller.swift"
+        && edge.to === "Sources/App/SwiftWorker.swift#makeWidget"
+        && edge.kind === "call_reference",
+    ));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("CLI graph resolves one-hop named and wildcard re-exports", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-reexport-"));
   try {

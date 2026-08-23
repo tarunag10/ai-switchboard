@@ -764,6 +764,27 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("keeps bounded Swift fallback call edges aligned with native indexing", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "Sources/App/SwiftWorker.swift", bytes: 80, content: "func makeWidget() {}" },
+      {
+        path: "Sources/App/SwiftCaller.swift",
+        bytes: 110,
+        content: "func useWidget() { makeWidget() }",
+      },
+    ]);
+
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "Sources/App/SwiftCaller.swift",
+          to: "Sources/App/SwiftWorker.swift#makeWidget",
+          kind: "call_reference",
+        }),
+      ]),
+    );
+  });
+
   it("resolves one-hop named and wildcard local re-exports", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
