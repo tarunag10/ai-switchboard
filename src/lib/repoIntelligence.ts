@@ -3139,7 +3139,7 @@ function resolveLocalReexportBindingAtDepth(
           if (defaultTarget) return { file: target.path, name: defaultTarget };
         } else if (isExplicitlyExportedSymbol(target, original, contentByPath)) {
           return { file: target.path, name: original };
-        } else if (depth < 1 && !visited.has(target.path)) {
+        } else if (depth < 2 && !visited.has(target.path)) {
           const nextVisited = new Set(visited);
           nextVisited.add(target.path);
           const nested = resolveLocalReexportBindingAtDepth(
@@ -3161,7 +3161,7 @@ function resolveLocalReexportBindingAtDepth(
     if (!target || imported === "default") continue;
     if (isExplicitlyExportedSymbol(target, imported, contentByPath)) {
       candidates.push({ file: target.path, name: imported });
-    } else if (depth < 1 && !visited.has(target.path)) {
+    } else if (depth < 2 && !visited.has(target.path)) {
       const nextVisited = new Set(visited);
       nextVisited.add(target.path);
       const nested = resolveLocalReexportBindingAtDepth(

@@ -2580,7 +2580,7 @@ fn build_semantic_call_reference_edges(
     edges
 }
 
-/// Resolve up to two static local TypeScript/JavaScript re-exports from barrel
+/// Resolve up to three static local TypeScript/JavaScript re-exports from barrel
 /// files. It follows only `export { ... } from` and `export * from` declarations,
 /// rejects cycles/ambiguity, and never evaluates dynamic exports.
 fn resolve_local_reexport(
@@ -2636,7 +2636,7 @@ fn resolve_local_reexport_at_depth(
             if imported != "default" && !visited.contains(&target.path) {
                 if explicitly_exports_symbol(repo_root, &target.path, imported) {
                     wildcard_candidates.push((target.path.clone(), imported.to_string()));
-                } else if depth < 1 {
+                } else if depth < 2 {
                     if let Some(nested) = resolve_local_reexport_at_depth(
                         repo_root,
                         &target,
@@ -2673,7 +2673,7 @@ fn resolve_local_reexport_at_depth(
                     }
                 } else if explicitly_exports_symbol(repo_root, &target.path, original) {
                     return Some((target.path.clone(), (*original).to_string()));
-                } else if depth < 1 && !visited.contains(&target.path) {
+                } else if depth < 2 && !visited.contains(&target.path) {
                     if let Some(nested) = resolve_local_reexport_at_depth(
                         repo_root,
                         &target,
@@ -4644,7 +4644,7 @@ export const mapValues = <T>(items: T[]) => items;
     }
 
     #[test]
-    fn resolves_one_hop_named_and_wildcard_typescript_reexports() {
+    fn resolves_bounded_three_hop_named_and_wildcard_typescript_reexports() {
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
@@ -4654,9 +4654,17 @@ export const mapValues = <T>(items: T[]) => items;
             .expect("write named barrel");
         std::fs::write(src.join("star.ts"), "export * from './worker';\n")
             .expect("write wildcard barrel");
+        std::fs::write(src.join("inner.ts"), "export { runTask } from './worker';\n")
+            .expect("write inner barrel");
+        std::fs::write(src.join("outer.ts"), "export { runTask } from './inner';\n")
+            .expect("write outer barrel");
+        std::fs::write(src.join("final.ts"), "export * from './outer';\n")
+            .expect("write final barrel");
+        std::fs::write(src.join("too-deep.ts"), "export * from './final';\n")
+            .expect("write deep barrel");
         std::fs::write(
             src.join("consumer.ts"),
-            "import { execute } from './named';\nimport { runTask } from './star';\nexport function start() { execute(); runTask(); }\n",
+            "import { execute } from './named';\nimport { runTask } from './star';\nimport { runTask as chained } from './final';\nimport { runTask as tooDeep } from './too-deep';\nexport function start() { execute(); runTask(); chained(); tooDeep(); }\n",
         )
         .expect("write consumer");
 
@@ -4671,6 +4679,11 @@ export const mapValues = <T>(items: T[]) => items;
                     && candidate.reason == "AST call expression resolved through local import binding"
             }), "missing re-export edge {} -> {}", edge.0, edge.1);
         }
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/consumer.ts#start"
+                && edge.to == "src/too-deep.ts#runTask"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
     }
 
     #[test]

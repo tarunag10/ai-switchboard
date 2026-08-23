@@ -799,19 +799,22 @@ describe("repoIntelligence", () => {
     );
   });
 
-  it("resolves bounded two-hop named re-exports", () => {
+  it("resolves bounded three-hop named and wildcard re-exports", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
       { path: "src/inner.ts", bytes: 120, content: "export { runTask } from './worker';" },
       { path: "src/outer.ts", bytes: 120, content: "export { runTask } from './inner';" },
-      { path: "src/consumer.ts", bytes: 140, content: "import { runTask } from './outer'; export function start() { runTask(); }" },
+      { path: "src/final.ts", bytes: 120, content: "export * from './outer';" },
+      { path: "src/too-deep.ts", bytes: 120, content: "export * from './final';" },
+      { path: "src/consumer.ts", bytes: 180, content: "import { runTask } from './final'; import { runTask as tooDeep } from './too-deep'; export function start() { runTask(); tooDeep(); }" },
     ]);
-
-    expect(summary.graph?.symbolEdges).toEqual(
+    const callEdges = summary.graph?.symbolEdges?.filter((edge) => edge.kind === "call_reference") ?? [];
+    expect(callEdges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
       ]),
     );
+    expect(callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/too-deep.ts#runTask")).toBe(false);
   });
 
   it("resolves named default imports without global-name ambiguity", () => {

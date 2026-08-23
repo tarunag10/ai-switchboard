@@ -1670,7 +1670,7 @@ function resolveLocalReexportBindingAtDepth(repoRoot, barrel, imported, files, d
           if (defaultTarget) return { file: target.path, name: defaultTarget };
         } else if (isExplicitlyExportedSymbol(repoRoot, target, original)) {
           return { file: target.path, name: original };
-        } else if (depth < 1 && !visited.has(target.path)) {
+        } else if (depth < 2 && !visited.has(target.path)) {
           const nextVisited = new Set(visited);
           nextVisited.add(target.path);
           const nested = resolveLocalReexportBindingAtDepth(
@@ -1693,7 +1693,7 @@ function resolveLocalReexportBindingAtDepth(repoRoot, barrel, imported, files, d
     if (!target || imported === "default") continue;
     if (isExplicitlyExportedSymbol(repoRoot, target, imported)) {
       candidates.push({ file: target.path, name: imported });
-    } else if (depth < 1 && !visited.has(target.path)) {
+    } else if (depth < 2 && !visited.has(target.path)) {
       const nextVisited = new Set(visited);
       nextVisited.add(target.path);
       const nested = resolveLocalReexportBindingAtDepth(

@@ -62,7 +62,7 @@ the current checkout.
 - Repo Intelligence now preserves a direct same-file call when the same file
   also contains a member call with that name; the object-member cross-file
   guard remains in place.
-- Repo Intelligence now resolves bounded two-hop local TypeScript/JavaScript
+- Repo Intelligence now resolves bounded three-hop local TypeScript/JavaScript
   named and wildcard re-exports, while dynamic exports and deeper chains remain
   unresolved; indexer version is `path-graph-v13`.
 - Repo Intelligence CommonJS fallback parsing now extracts only the quoted
@@ -309,9 +309,9 @@ the current checkout.
 - Native Repo Intelligence re-export scanning now uses Tree-sitter export
   nodes, handles semicolonless declarations, and continues after unresolved
   external exports; focused native coverage is 41 tests.
-- CLI and frontend Repo Intelligence now resolve bounded two-hop named and
+- CLI and frontend Repo Intelligence now resolve bounded three-hop named and
   wildcard local re-exports for static imported calls; dynamic, namespace,
-  default, cyclic, and deeper-than-two-hop inference remain intentionally
+  default, cyclic, and deeper-than-three-hop inference remain intentionally
   unresolved.
 - Connector lifecycle evidence now requires adjacent Rust
   `lifecycle-intent` markers for every fixture-linked stage; combined tests may
@@ -321,9 +321,9 @@ the current checkout.
   checksum content against the signed DMG digest; a blocked proof with no
   external release snapshot remains a valid blocked artifact instead of being
   rejected as malformed.
-- Repo Intelligence CLI/frontend parity now has fixtures proving bounded
-  two-hop named/wildcard resolution while dynamic, unresolved, cyclic, and
-  deeper-than-two-hop re-exports produce no false call edges.
+- Repo Intelligence CLI/frontend/native parity now has fixtures proving bounded
+  three-hop named/wildcard resolution while dynamic, unresolved, cyclic, and
+  deeper-than-three-hop re-exports produce no false call edges.
 - Public checksum blockers now depend on verified digest content, not merely
   an uploaded asset name; an uploaded-but-mismatched checksum is covered by a
   fail-closed regression.

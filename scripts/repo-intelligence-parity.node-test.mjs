@@ -78,12 +78,15 @@ test("CLI graph leaves dynamic and unresolved re-exports unresolved", () => {
     fs.writeFileSync(path.join(repo, "src/dynamic.ts"), "const target = './worker'; export { target };\n");
     fs.writeFileSync(path.join(repo, "src/inner.ts"), "export { runTask } from './worker';\n");
     fs.writeFileSync(path.join(repo, "src/outer.ts"), "export { runTask } from './inner';\n");
-    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import { runTask as dynamic } from './dynamic'; import { runTask as chained } from './outer'; export function start() { dynamic(); chained(); }\n");
+    fs.writeFileSync(path.join(repo, "src/final.ts"), "export * from './outer';\n");
+    fs.writeFileSync(path.join(repo, "src/too-deep.ts"), "export * from './final';\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import { runTask as dynamic } from './dynamic'; import { runTask as chained } from './final'; import { runTask as tooDeep } from './too-deep'; export function start() { dynamic(); chained(); tooDeep(); }\n");
     const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
     const callEdges = summary.graph.symbolEdges.filter((edge) => edge.kind === "call_reference");
     assert.ok(callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/worker.ts#runTask"));
     assert.ok(!callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/dynamic.ts#runTask"));
     assert.ok(!callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/duplicate.ts#runTask"));
+    assert.ok(!callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/too-deep.ts#runTask"));
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }
