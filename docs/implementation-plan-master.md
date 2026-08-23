@@ -421,6 +421,9 @@ the current checkout.
    quality, rework, and provider-billed cost context.
    The completion adapter now also rejects invalid run identity, task class,
    timestamp metadata, and out-of-range latency before persistence.
+   Native evidence storage canonicalizes RFC3339 instants before duplicate
+   detection, so equivalent timezone-offset representations cannot inflate a
+   run in the harness.
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
    canonical app identity, report freshness contract, local source-lineage

@@ -173,6 +173,9 @@ fn try_record_model_routing_evidence(
             "invalid redacted model-routing evidence observation".to_string(),
         ));
     }
+    let captured_at = captured_at
+        .expect("validated model-routing evidence timestamp")
+        .to_rfc3339();
     if observation.succeeded && observation.successful_task_cost_microunits.is_none() {
         return Err(rusqlite::Error::InvalidParameterName(
             "successful model-routing observations require cost evidence".to_string(),
@@ -216,7 +219,7 @@ fn try_record_model_routing_evidence(
          WHERE run_id = ?1 AND captured_at = ?2 AND task_class = ?3 AND arm = ?4",
         params![
             observation.run_id.trim(),
-            observation.captured_at.trim(),
+            captured_at,
             observation.task_class.trim().to_ascii_lowercase(),
             arm,
         ],
@@ -235,7 +238,7 @@ fn try_record_model_routing_evidence(
         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             observation.run_id.trim(),
-            observation.captured_at.trim(),
+            captured_at,
             observation.task_class.trim().to_ascii_lowercase(),
             arm,
             observation.baseline_model.trim(),

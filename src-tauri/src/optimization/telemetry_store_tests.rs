@@ -225,7 +225,47 @@ fn model_routing_evidence_export_uses_latest_timestamp_instant() {
 
     let artifact = export_model_routing_evidence("run-offsets", "formatting")
         .expect("export offset evidence");
-    assert_eq!(artifact.provenance.captured_at, later);
+    assert_eq!(
+        artifact.provenance.captured_at,
+        chrono::DateTime::parse_from_rfc3339(&later)
+            .expect("valid latest timestamp")
+            .with_timezone(&chrono::Utc)
+            .to_rfc3339()
+    );
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn model_routing_evidence_rejects_duplicate_instants_with_different_offsets() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+    reset_for_tests();
+    let base = ModelRoutingEvidenceObservation {
+        run_id: "run-equivalent-instant".to_string(),
+        captured_at: "2026-08-21T12:00:00Z".to_string(),
+        task_class: "formatting".to_string(),
+        arm: ModelRoutingEvidenceArm::Baseline,
+        baseline_model: "base-model".to_string(),
+        candidate_model: "candidate-model".to_string(),
+        succeeded: true,
+        successful_task_cost_microunits: Some(100),
+        quality_score_bps: 9_000,
+        latency_ms: 100,
+        follow_up_rework: false,
+    };
+    record_model_routing_evidence(&base).expect("first instant should persist");
+
+    let mut equivalent = base;
+    equivalent.captured_at = "2026-08-21T13:00:00+01:00".to_string();
+    let error = record_model_routing_evidence(&equivalent)
+        .expect_err("equivalent timestamp instant must be treated as duplicate");
+    assert!(error.to_string().contains("duplicate"));
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),
