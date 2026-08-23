@@ -55,6 +55,7 @@ const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 const CODEX_USAGE_POLL_MIN_INTERVAL_SECS: u64 = 60;
 const CODEX_USAGE_POLL_TIMEOUT: Duration = Duration::from_secs(10);
 const DIRECT_UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const DIRECT_UPSTREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 /// Epoch-seconds of the last usage-poll attempt; throttles the fire-and-forget
 /// GET to at most one per `CODEX_USAGE_POLL_MIN_INTERVAL_SECS`.
 static CODEX_USAGE_LAST_POLL: AtomicU64 = AtomicU64::new(0);
@@ -1596,8 +1597,11 @@ async fn forward_direct_to_anthropic(
             let mut body = Vec::with_capacity(total);
             body.extend_from_slice(leftover_body);
             let mut remaining = vec![0u8; total - leftover_body.len()];
-            if client.read_exact(&mut remaining).await.is_err() {
-                return (None, TransportOutcome::ReadFailure);
+            match tokio::time::timeout(HEADER_READ_TIMEOUT, client.read_exact(&mut remaining)).await
+            {
+                Ok(Ok(_)) => {}
+                Ok(Err(_)) => return (None, TransportOutcome::ReadFailure),
+                Err(_) => return (None, TransportOutcome::Timeout),
             }
             body.extend_from_slice(&remaining);
             body
@@ -1665,8 +1669,21 @@ async fn forward_direct_to_anthropic(
     }
 
     loop {
-        match resp.chunk().await {
-            Ok(Some(bytes)) if !bytes.is_empty() => {
+        match tokio::time::timeout(DIRECT_UPSTREAM_IDLE_TIMEOUT, resp.chunk()).await {
+            Err(_) => {
+                log::debug!("[proxy_intercept] bypass body stream idle timeout");
+                return (Some(resp.status().as_u16()), TransportOutcome::Timeout);
+            }
+            Ok(Err(e)) => {
+                log::debug!("[proxy_intercept] bypass body stream error: {e}");
+                let outcome = if e.is_timeout() {
+                    TransportOutcome::Timeout
+                } else {
+                    TransportOutcome::ReadFailure
+                };
+                return (Some(resp.status().as_u16()), outcome);
+            }
+            Ok(Ok(Some(bytes))) if !bytes.is_empty() => {
                 let header = format!("{:X}\r\n", bytes.len());
                 if client.write_all(header.as_bytes()).await.is_err() {
                     return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
@@ -1678,17 +1695,8 @@ async fn forward_direct_to_anthropic(
                     return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
                 }
             }
-            Ok(Some(_)) => {}
-            Ok(None) => break,
-            Err(e) => {
-                log::debug!("[proxy_intercept] bypass body stream error: {e}");
-                let outcome = if e.is_timeout() {
-                    TransportOutcome::Timeout
-                } else {
-                    TransportOutcome::ReadFailure
-                };
-                return (Some(resp.status().as_u16()), outcome);
-            }
+            Ok(Ok(Some(_))) => {}
+            Ok(Ok(None)) => break,
         }
     }
     if client.write_all(b"0\r\n\r\n").await.is_err() {
