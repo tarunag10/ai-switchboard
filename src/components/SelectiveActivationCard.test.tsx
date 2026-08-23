@@ -3,18 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SelectiveActivationCard } from "./SelectiveActivationCard";
 
 const invoke = vi.fn();
-const loadTokenXraySnapshot = vi.fn();
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
-vi.mock("../lib/usageAnalytics", () => ({ loadTokenXraySnapshot: (...args: unknown[]) => loadTokenXraySnapshot(...args) }));
 
 describe("SelectiveActivationCard", () => {
   beforeEach(() => {
     window.localStorage.clear();
     invoke.mockReset();
-    invoke.mockResolvedValue({ configured: true });
-    loadTokenXraySnapshot.mockReset();
-    loadTokenXraySnapshot.mockResolvedValue({});
+    invoke.mockImplementation((command: string) => command === "activate_selected_tools"
+      ? Promise.resolve({ receipt: { overallStatus: "succeeded", results: ["headroom", "rtk", "repo-intelligence", "token-xray", "ponytail"].map((toolId) => ({ toolId, state: toolId === "repo-intelligence" || toolId === "token-xray" ? "refreshed" : "enabled", detail: `${toolId} ready` })) } })
+      : Promise.resolve({}));
   });
 
   it("requires five tools and activates the selected tools in one click", async () => {
@@ -28,9 +26,8 @@ describe("SelectiveActivationCard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Activate selected 5" }));
     await waitFor(() => expect(screen.getByText("Activated all 5 selected tools.")).toBeInTheDocument());
-    expect(invoke).toHaveBeenCalledWith("set_switchboard_mode", { mode: "full" });
-    expect(invoke).toHaveBeenCalledWith("install_addon", { id: "rtk" });
-    expect(loadTokenXraySnapshot).toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("activate_selected_tools", { selectedToolIds: ["headroom", "rtk", "repo-intelligence", "token-xray", "ponytail"] });
+    expect(invoke.mock.calls.filter(([command]) => command === "activate_selected_tools")).toHaveLength(1);
   });
 
   it("caps selection at five and persists the chosen ids", () => {

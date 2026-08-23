@@ -841,6 +841,7 @@ pub fn run() {
             activation_commands::validate_selective_activation_selection,
             activation_commands::get_selective_activation_selection,
             activation_commands::save_selective_activation_selection,
+            activation_commands::activate_selected_tools,
             semantic_cache::get_semantic_cache_status,
             semantic_cache::get_response_cache_diagnostics,
             semantic_cache::set_semantic_cache_enabled,

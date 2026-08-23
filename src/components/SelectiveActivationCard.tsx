@@ -9,7 +9,6 @@ import {
   type ActivationToolId,
 } from "../lib/activationTools";
 import { saveRepoPackCompressionPreference } from "../lib/repoIntelligence";
-import { loadTokenXraySnapshot } from "../lib/usageAnalytics";
 
 const STORAGE_KEY = "ai-switchboard.selective-activation.v1";
 type ToolResult = { state: "success" | "failed"; detail: string };
@@ -31,42 +30,12 @@ function writeSelection(selectedToolIds: ActivationToolId[]) {
   }
 }
 
-async function activateTool(id: ActivationToolId, selected: ActivationToolId[]): Promise<string> {
-  switch (id) {
-    case "headroom":
-      await invoke("set_switchboard_mode", { mode: selected.includes("rtk") ? "full" : "headroom" });
-      return selected.includes("rtk")
-        ? "Full local optimization mode enabled with RTK selected."
-        : "Headroom mode enabled without activating RTK.";
-    case "rtk":
-      await invoke("install_addon", { id: "rtk" });
-      return "RTK installed and enabled.";
-    case "repo-intelligence":
-      await invoke("get_latest_repo_intelligence_summary");
-      return "Local repository intelligence summary refreshed.";
-    case "token-xray":
-      await loadTokenXraySnapshot();
-      return "Token X-Ray evidence refreshed.";
-    case "ponytail":
-    case "caveman":
-    case "markitdown":
-      await invoke("install_addon", { id });
-      await invoke("set_addon_enabled", { id, enabled: true });
-      return `${id === "markitdown" ? "MarkItDown" : id[0].toUpperCase() + id.slice(1)} installed and enabled.`;
-    case "response-cache":
-      await invoke("set_addon_enabled", { id: "response-cache", enabled: true });
-      return "Exact Response Cache enabled.";
-    case "chonkify":
-      saveRepoPackCompressionPreference("chonkify");
-      return "Repo-pack compression enabled for local packs.";
-    case "leanctx": {
-      const status = await invoke<{ configured?: boolean }>("get_leanctx_sidecar_status");
-      if (!status?.configured) await invoke("install_addon", { id: "leanctx" });
-      await invoke("set_addon_enabled", { id: "leanctx", enabled: true });
-      return status?.configured ? "Leanctx shadow enabled." : "Leanctx installed and shadow enabled.";
-    }
-  }
-}
+type NativeActivationResult = {
+  receipt: {
+    overallStatus: "succeeded" | "partial" | "failed";
+    results: Array<{ toolId: ActivationToolId; state: string; detail: string }>;
+  };
+};
 
 export function SelectiveActivationCard() {
   const [selected, setSelected] = useState<ActivationToolId[]>(() => readSelection());
@@ -105,24 +74,29 @@ export function SelectiveActivationCard() {
       setRunSummary(reason instanceof Error ? reason.message : String(reason));
       return;
     }
-    let succeeded = 0;
+    let response: NativeActivationResult;
+    try {
+      response = await invoke<NativeActivationResult>("activate_selected_tools", { selectedToolIds: selected });
+    } catch (reason) {
+      setBusy(false);
+      setRunSummary(reason instanceof Error ? reason.message : String(reason));
+      return;
+    }
     const nextResults: Partial<Record<ActivationToolId, ToolResult>> = {};
-    const ordered = SELECTIVE_ACTIVATION_TOOLS
-      .map((tool) => tool.id)
-      .filter((id) => selected.includes(id));
-    for (const id of ordered) {
-      try {
-        nextResults[id] = { state: "success", detail: await activateTool(id, ordered) };
-        succeeded += 1;
-      } catch (reason) {
-        nextResults[id] = { state: "failed", detail: reason instanceof Error ? reason.message : String(reason) };
-      }
-      setResults({ ...nextResults });
+    for (const item of response.receipt.results) {
+      nextResults[item.toolId] = {
+        state: item.state === "failed" ? "failed" : "success",
+        detail: item.detail,
+      };
+    }
+    setResults(nextResults);
+    if (selected.includes("chonkify") && response.receipt.overallStatus === "succeeded") {
+      saveRepoPackCompressionPreference("chonkify");
     }
     setBusy(false);
-    setRunSummary(succeeded === selected.length
-      ? `Activated all ${succeeded} selected tools.`
-      : `Activated ${succeeded} of ${selected.length}. Failed tools are shown below; no destructive automatic rollback was attempted.`);
+    setRunSummary(response.receipt.overallStatus === "succeeded"
+      ? `Activated all ${selected.length} selected tools.`
+      : `Selective activation finished with status ${response.receipt.overallStatus}. Failed tools are shown below; retry after correcting the reported prerequisite.`);
   };
 
   return (
