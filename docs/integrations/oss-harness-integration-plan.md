@@ -58,6 +58,11 @@ It enforces bounded contiguous metadata events, redaction, attach/pause/resume/
 cancel/complete lifecycle transitions, and deterministic fork-at-event IDs;
 all outputs remain observe-only and local.
 
+The provider/tool registry is implemented in `scripts/oss-provider-registry.mjs`.
+It exposes only bounded provider labels, model families, context limits,
+auth-source labels, and tool capabilities. Secrets are rejected, writes remain
+disabled, and approval evaluation fails closed in metadata-only mode.
+
 ## Current next slice
 
 The first local replay slice is `scripts/oss-harness-replay.mjs`. It consumes

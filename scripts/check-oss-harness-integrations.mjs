@@ -14,6 +14,8 @@ const required = [
   "scripts/oss-harness-strategies.node-test.mjs",
   "scripts/oss-session-events.mjs",
   "scripts/oss-session-events.node-test.mjs",
+  "scripts/oss-provider-registry.mjs",
+  "scripts/oss-provider-registry.node-test.mjs",
 ];
 const failures = [];
 for (const relative of required) {
