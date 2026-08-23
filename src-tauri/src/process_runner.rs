@@ -1,11 +1,13 @@
+use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
-use std::io::Read;
 
 use anyhow::{Context, Result};
 
 const MAX_CAPTURE_BYTES: usize = 2 * 1024 * 1024;
+const DEFAULT_STREAMING_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+const STREAM_DRAIN_GRACE: Duration = Duration::from_millis(500);
 
 /// Prepend a binary's own directory to PATH so an `#!/usr/bin/env node`
 /// shebang (or similar) resolves the interpreter that nvm installs alongside
@@ -94,6 +96,19 @@ pub(crate) fn run_command_streaming<F>(
 where
     F: FnMut(&str),
 {
+    run_command_streaming_with_timeout(binary, args, cwd, DEFAULT_STREAMING_TIMEOUT, on_line)
+}
+
+pub(crate) fn run_command_streaming_with_timeout<F>(
+    binary: &Path,
+    args: &[&str],
+    cwd: &Path,
+    timeout: Duration,
+    on_line: &mut F,
+) -> Result<()>
+where
+    F: FnMut(&str),
+{
     use std::io::{BufRead, BufReader};
     use std::sync::mpsc;
 
@@ -113,42 +128,175 @@ where
     drop(tx);
 
     let stdout_handle = std::thread::spawn(move || {
-        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-            let _ = tx_stdout.send(StreamedLine {
-                line,
-                is_stderr: false,
-            });
+        let mut reader = BufReader::new(stdout);
+        let mut raw = Vec::new();
+        loop {
+            raw.clear();
+            match reader.read_until(b'\n', &mut raw) {
+                Ok(0) => break,
+                Ok(_) => {
+                    let line = String::from_utf8_lossy(&raw)
+                        .trim_end_matches(['\r', '\n'])
+                        .to_string();
+                    let _ = tx_stdout.send(StreamedLine {
+                        line,
+                        is_stderr: false,
+                    });
+                }
+                Err(_) => break,
+            }
         }
     });
     let stderr_handle = std::thread::spawn(move || {
-        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-            let _ = tx_stderr.send(StreamedLine {
-                line,
-                is_stderr: true,
-            });
+        let mut reader = BufReader::new(stderr);
+        let mut raw = Vec::new();
+        loop {
+            raw.clear();
+            match reader.read_until(b'\n', &mut raw) {
+                Ok(0) => break,
+                Ok(_) => {
+                    let line = String::from_utf8_lossy(&raw)
+                        .trim_end_matches(['\r', '\n'])
+                        .to_string();
+                    let _ = tx_stderr.send(StreamedLine {
+                        line,
+                        is_stderr: true,
+                    });
+                }
+                Err(_) => break,
+            }
         }
     });
 
     let mut stdout_buf = String::new();
     let mut stderr_buf = String::new();
+    let mut stdout_truncated = false;
+    let mut stderr_truncated = false;
+    let started = Instant::now();
+    let mut child_status = None;
+    let mut drain_deadline = None;
+    let mut timed_out = false;
+    let mut forced_pipe_cleanup = false;
 
-    while let Ok(streamed) = rx.recv() {
-        on_line(&streamed.line);
-        let sink = if streamed.is_stderr {
-            &mut stderr_buf
-        } else {
-            &mut stdout_buf
-        };
-        sink.push_str(&streamed.line);
-        sink.push('\n');
+    loop {
+        if child_status.is_none() {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    child_status = Some(status);
+                    drain_deadline = Some(Instant::now() + STREAM_DRAIN_GRACE);
+                }
+                Ok(None) if started.elapsed() >= timeout => {
+                    timed_out = true;
+                    terminate_process_tree(&mut child);
+                    child_status = Some(child.wait().with_context(|| {
+                        format!("waiting for {} {}", binary.display(), args.join(" "))
+                    })?);
+                    break;
+                }
+                Ok(None) => {}
+                Err(err) => {
+                    terminate_process_tree(&mut child);
+                    let _ = child.wait();
+                    return Err(err).with_context(|| {
+                        format!("waiting for {} {}", binary.display(), args.join(" "))
+                    });
+                }
+            }
+        } else if drain_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            // The launcher exited but a descendant may still hold a pipe.
+            // Kill the app-owned group and detach the reader threads instead
+            // of allowing a GUI command to wait forever for EOF.
+            forced_pipe_cleanup = true;
+            terminate_process_tree(&mut child);
+            break;
+        }
+
+        match rx.recv_timeout(Duration::from_millis(25)) {
+            Ok(streamed) => {
+                on_line(&streamed.line);
+                let sink = if streamed.is_stderr {
+                    &mut stderr_buf
+                } else {
+                    &mut stdout_buf
+                };
+                if sink.len() < MAX_CAPTURE_BYTES {
+                    let remaining = MAX_CAPTURE_BYTES - sink.len();
+                    if streamed.line.len() + 1 <= remaining {
+                        sink.push_str(&streamed.line);
+                        sink.push('\n');
+                    } else {
+                        let copy = remaining.min(streamed.line.len());
+                        sink.push_str(&String::from_utf8_lossy(&streamed.line.as_bytes()[..copy]));
+                        sink.truncate(MAX_CAPTURE_BYTES);
+                        if streamed.is_stderr {
+                            stderr_truncated = true;
+                        } else {
+                            stdout_truncated = true;
+                        }
+                    }
+                } else if streamed.is_stderr {
+                    stderr_truncated = true;
+                } else {
+                    stdout_truncated = true;
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
     }
 
-    let _ = stdout_handle.join();
-    let _ = stderr_handle.join();
+    if !timed_out && !forced_pipe_cleanup {
+        let _ = stdout_handle.join();
+        let _ = stderr_handle.join();
+    }
 
-    let status = child
-        .wait()
-        .with_context(|| format!("waiting for {} {}", binary.display(), args.join(" ")))?;
+    let status = child_status.unwrap_or(
+        child
+            .wait()
+            .with_context(|| format!("waiting for {} {}", binary.display(), args.join(" ")))?,
+    );
+
+    if timed_out {
+        stderr_buf.push_str(&format!(
+            "\ncommand timed out after {}ms",
+            timeout.as_millis()
+        ));
+        return Err(anyhow::Error::new(CommandFailure {
+            program: binary.display().to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            stdout: stdout_buf,
+            stderr: stderr_buf,
+            exit_code: None,
+            signal: exit_status_signal(&status),
+        }));
+    }
+
+    if forced_pipe_cleanup {
+        stderr_buf.push_str("\nstream output pipes did not close after the process exited");
+        return Err(anyhow::Error::new(CommandFailure {
+            program: binary.display().to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            stdout: stdout_buf,
+            stderr: stderr_buf,
+            exit_code: status.code(),
+            signal: exit_status_signal(&status),
+        }));
+    }
+
+    if stdout_truncated || stderr_truncated {
+        stderr_buf.push_str(&format!(
+            "\ncommand output exceeded the {} byte capture limit",
+            MAX_CAPTURE_BYTES
+        ));
+        return Err(anyhow::Error::new(CommandFailure {
+            program: binary.display().to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            stdout: stdout_buf,
+            stderr: stderr_buf,
+            exit_code: status.code(),
+            signal: exit_status_signal(&status),
+        }));
+    }
 
     if !status.success() {
         return Err(anyhow::Error::new(CommandFailure {
@@ -408,7 +556,10 @@ mod tests {
         let path_text = path.to_string_lossy().into_owned();
         let result = run_command_with_timeout(
             Path::new("/bin/sh"),
-            &["-c", &format!("sleep 30 & echo $! > '{}' ; wait", path_text)],
+            &[
+                "-c",
+                &format!("sleep 30 & echo $! > '{}' ; wait", path_text),
+            ],
             Path::new("/tmp"),
             Duration::from_millis(100),
         );
@@ -431,7 +582,10 @@ mod tests {
             .args(["-c", &format!("kill -0 {}", pid)])
             .status()
             .expect("probe descendant");
-        assert!(!status.success(), "timed-out descendant survived process-group cleanup");
+        assert!(
+            !status.success(),
+            "timed-out descendant survived process-group cleanup"
+        );
     }
 
     #[cfg(unix)]
@@ -445,5 +599,39 @@ mod tests {
         )
         .expect_err("oversized output must fail closed");
         assert!(result.to_string().contains("capture limit"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn streaming_runner_times_out_and_preserves_lossy_output() {
+        let mut lines = Vec::new();
+        let result = run_command_streaming_with_timeout(
+            Path::new("/bin/sh"),
+            &["-c", "printf '\\377tail\\n'; sleep 30"],
+            Path::new("/tmp"),
+            Duration::from_millis(100),
+            &mut |line| lines.push(line.to_string()),
+        );
+        let error = result
+            .expect_err("streaming command must time out")
+            .to_string();
+        assert!(error.contains("timed out"));
+        assert!(lines.iter().any(|line| line.contains("tail")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn streaming_runner_rejects_retained_output_above_the_bound() {
+        let result = run_command_streaming_with_timeout(
+            Path::new("/bin/sh"),
+            &["-c", "yes x | head -c 3000000"],
+            Path::new("/tmp"),
+            Duration::from_secs(2),
+            &mut |_| {},
+        );
+        assert!(result
+            .expect_err("streaming output must fail closed")
+            .to_string()
+            .contains("capture limit"));
     }
 }
