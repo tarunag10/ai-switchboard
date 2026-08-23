@@ -165,6 +165,9 @@ the current checkout.
   filename, a regular file, and an exact semantic version token; ambiguous
   duplicate exact-version candidates fail closed before freshness/tie-break
   selection.
+- The local DMG install harness now uses that same selector instead of taking
+  the first matching or fallback DMG, and its CLI has deterministic ambiguity,
+  regular-file, and exact-version regression coverage.
 - Native managed-config previews now redact secret-keyed values in JSON and
   TOML surfaces as well as YAML, while raw state remains internal for
   confirmation hashing and apply preservation.

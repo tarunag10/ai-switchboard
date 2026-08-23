@@ -21,30 +21,6 @@ esac
 
 APP_NAME_CANDIDATES=("AI Switchboard" "AI Switchboard for Mac" "Mac AI Switchboard" "Mac Switchboard" Switchboard)
 
-discover_raw_dmg() {
-  local app_name candidate
-  for app_name in "${APP_NAME_CANDIDATES[@]}"; do
-    candidate="src-tauri/target/release/bundle/dmg/${app_name}_${APP_VERSION}_${DMG_ARCH}.dmg"
-    if [[ -f "${candidate}" ]]; then
-      printf '%s\n' "${candidate}"
-      return 0
-    fi
-  done
-
-  local dmg_matches=()
-  shopt -s nullglob
-  dmg_matches=(src-tauri/target/release/bundle/dmg/*_"${APP_VERSION}"_"${DMG_ARCH}".dmg)
-  if [[ ${#dmg_matches[@]} -eq 0 ]]; then
-    dmg_matches=(src-tauri/target/release/bundle/dmg/*_"${APP_VERSION}"_*.dmg)
-  fi
-  if [[ ${#dmg_matches[@]} -eq 0 ]]; then
-    dmg_matches=(src-tauri/target/release/bundle/dmg/*.dmg)
-  fi
-  shopt -u nullglob
-
-  printf '%s\n' "${dmg_matches[0]:-}"
-}
-
 LOCAL_DIR="dist/release-artifacts"
 LOCAL_DMG="${LOCAL_DIR}/Mac-AI-Switchboard_${APP_VERSION}-local-unsigned-${DMG_ARCH}.dmg"
 APP_DEST="${MAC_AI_SWITCHBOARD_LOCAL_APP_DEST:-/Applications/AI Switchboard.app}"
@@ -53,13 +29,7 @@ LEGACY_APP_DEST="/Applications/AI Switchboard for Mac.app"
 echo "Building local unsigned/ad-hoc DMG..."
 CI=true npx tauri build --bundles dmg --ci
 
-RAW_DMG="$(discover_raw_dmg)"
-if [[ -z "${RAW_DMG}" ]]; then
-  echo "Expected DMG not found for any app name: ${APP_NAME_CANDIDATES[*]}" >&2
-  echo "Available DMGs:" >&2
-  find src-tauri/target/release/bundle/dmg -maxdepth 1 -name "*.dmg" -print >&2
-  exit 1
-fi
+RAW_DMG="$(node scripts/release-artifact-cli.mjs "src-tauri/target/release/bundle/dmg" "${APP_VERSION}")"
 
 mkdir -p "${LOCAL_DIR}"
 cp -f "${RAW_DMG}" "${LOCAL_DMG}"
