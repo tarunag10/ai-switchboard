@@ -879,6 +879,7 @@ pub fn run() {
             optimization_commands::issue_model_routing_completion_handle,
             optimization_commands::complete_model_routing_completion,
             optimization_commands::export_model_routing_evidence,
+            optimization_commands::export_model_routing_evidence_for_handle,
             activity_commands::get_rtk_activity,
             activity_commands::get_tool_logs,
             activity_commands::get_claude_code_projects,

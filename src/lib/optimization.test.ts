@@ -3,6 +3,7 @@ import {
   defaultModelRoutingExperimentPolicy,
   defaultOptimizationActionPolicy,
   exportModelRoutingEvidence,
+  exportModelRoutingEvidenceForHandle,
   formatCompactNumber,
   getPromptCacheAction,
   getRedundancyTokens,
@@ -359,6 +360,17 @@ describe("optimization helpers", () => {
       ["complete_model_routing_completion", { handleId: handle.handleId, metrics }],
       ["export_model_routing_evidence", { runId: handle.runId, taskClass: "formatting" }],
     ]);
+  });
+
+  it("exports completion evidence through the native handle capability", async () => {
+    const artifact = { evidenceClass: "local_runtime_observation", promotionEligible: false };
+    invokeMock.mockResolvedValueOnce(artifact);
+    await expect(exportModelRoutingEvidenceForHandle("opaque-handle", "formatting"))
+      .resolves.toEqual(artifact);
+    expect(invokeMock).toHaveBeenCalledWith("export_model_routing_evidence_for_handle", {
+      handleId: "opaque-handle",
+      taskClass: "formatting",
+    });
   });
 
   it("returns a safe local compaction preview on native failure", async () => {

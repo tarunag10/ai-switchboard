@@ -148,15 +148,83 @@ fn complete_model_routing_completion_for_state(
             .ok_or_else(|| "model-routing completion handle is unknown, expired, or already consumed".to_string())?
         ;
     }
-    optimization::telemetry_store::record_model_routing_evidence(&observation)
+    let run_id = observation.run_id.clone();
+    let task_class = observation.task_class.clone();
+    let result = optimization::telemetry_store::record_model_routing_evidence(&observation);
+    if result.is_ok() {
+        let mut completed = state.completed_model_routing_runs.lock();
+        let now_monotonic = Instant::now();
+        completed.retain(|_, value| value.expires_monotonic > now_monotonic);
+        if completed.len() >= optimization::model_routing::MAX_COMPLETED_MODEL_ROUTING_RUNS {
+            if let Some(oldest) = completed
+                .iter()
+                .min_by_key(|(_, value)| value.expires_monotonic)
+                .map(|(key, _)| key.clone())
+            {
+                completed.remove(&oldest);
+            }
+        }
+        completed.insert(
+            handle_id.to_string(),
+            optimization::model_routing::CompletedModelRoutingRun {
+                run_id,
+                task_class,
+                expires_monotonic: now_monotonic
+                    + std::time::Duration::from_secs(
+                        optimization::model_routing::MODEL_ROUTING_COMPLETION_HANDLE_TTL_SECS
+                            as u64,
+                    ),
+            },
+        );
+    }
+    result
 }
 
+/// Manual/diagnostic export by an explicit run ID. Production callers should
+/// use `export_model_routing_evidence_for_handle` so native provenance is
+/// checked before the export is allowed.
 #[tauri::command]
 pub fn export_model_routing_evidence(
     run_id: String,
     task_class: String,
 ) -> Result<optimization::telemetry_store::ModelRoutingEvidenceArtifact, String> {
     optimization::telemetry_store::export_model_routing_evidence(&run_id, &task_class)
+}
+
+#[tauri::command]
+pub fn export_model_routing_evidence_for_handle(
+    handle_id: String,
+    task_class: String,
+    state: State<'_, AppState>,
+) -> Result<optimization::telemetry_store::ModelRoutingEvidenceArtifact, String> {
+    export_model_routing_evidence_for_handle_for_state(handle_id, task_class, &state)
+}
+
+fn export_model_routing_evidence_for_handle_for_state(
+    handle_id: String,
+    task_class: String,
+    state: &AppState,
+) -> Result<optimization::telemetry_store::ModelRoutingEvidenceArtifact, String> {
+    let handle_id = handle_id.trim();
+    let task_class = task_class.trim().to_ascii_lowercase();
+    if handle_id.is_empty() || handle_id.len() > 128 || task_class.is_empty() {
+        return Err("model-routing export capability is invalid".to_string());
+    }
+    let mut completed = state.completed_model_routing_runs.lock();
+    let now = Instant::now();
+    completed.retain(|_, value| value.expires_monotonic > now);
+    let capability = completed
+        .get(handle_id)
+        .ok_or_else(|| "model-routing export capability is unknown, expired, or consumed".to_string())?;
+    if capability.task_class != task_class {
+        return Err("model-routing export capability task class does not match".to_string());
+    }
+    let artifact = optimization::telemetry_store::export_model_routing_evidence(
+        &capability.run_id,
+        &task_class,
+    )?;
+    completed.remove(handle_id);
+    Ok(artifact)
 }
 
 #[cfg(test)]
@@ -167,6 +235,7 @@ mod tests {
 
     use super::{
         complete_model_routing_completion_for_state, export_model_routing_evidence,
+        export_model_routing_evidence_for_handle_for_state,
         issue_model_routing_completion_handle_for_state, record_model_routing_evidence,
     };
     use crate::optimization::model_routing::{
@@ -257,6 +326,20 @@ mod tests {
         assert_eq!(artifact.provenance.run_id, handle.run_id);
         assert_eq!(artifact.provenance.task_class, "formatting");
         assert!(!artifact.promotion_eligible);
+        let capability_artifact = export_model_routing_evidence_for_handle_for_state(
+            handle.handle_id.clone(),
+            "formatting".to_string(),
+            &state,
+        )
+        .expect("native completion capability should export evidence");
+        assert_eq!(capability_artifact.provenance.run_id, handle.run_id);
+        let capability_error = export_model_routing_evidence_for_handle_for_state(
+            handle.handle_id.clone(),
+            "formatting".to_string(),
+            &state,
+        )
+        .expect_err("export capability must be one-shot");
+        assert!(capability_error.contains("unknown, expired, or consumed"));
         let duplicate_error = complete_model_routing_completion_for_state(
             handle.handle_id,
             ModelRoutingCompletionMetrics {

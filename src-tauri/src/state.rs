@@ -139,6 +139,12 @@ pub struct AppState {
     pub(crate) model_routing_completion_handles: Mutex<
         BTreeMap<String, crate::optimization::model_routing::PendingModelRoutingCompletion>,
     >,
+    /// Short-lived, one-shot export capabilities created only after a native
+    /// completion persisted successfully. Raw run-ID export remains a manual
+    /// diagnostic path.
+    pub(crate) completed_model_routing_runs: Mutex<
+        BTreeMap<String, crate::optimization::model_routing::CompletedModelRoutingRun>,
+    >,
     /// Dedicated content-free analytics snapshots. This never aliases the
     /// savings ledger, so clearing analytics cannot remove attribution evidence.
     analytics_dir: PathBuf,
@@ -333,6 +339,7 @@ impl AppState {
             semantic_cache,
             proxy_session_auth,
             model_routing_completion_handles: Mutex::new(BTreeMap::new()),
+            completed_model_routing_runs: Mutex::new(BTreeMap::new()),
             analytics_dir: base_dir.join("analytics"),
             recent_usage: Mutex::new(Vec::new()),
             token_xray_revision: AtomicU64::new(0),

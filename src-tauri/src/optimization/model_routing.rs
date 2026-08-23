@@ -220,8 +220,19 @@ pub(crate) struct PendingModelRoutingCompletion {
     pub(crate) expires_monotonic: Instant,
 }
 
+/// Process-local capability retained briefly after a successful completion so
+/// evidence export can resolve the native run without accepting a caller-made
+/// run identifier.
+#[derive(Debug, Clone)]
+pub(crate) struct CompletedModelRoutingRun {
+    pub(crate) run_id: String,
+    pub(crate) task_class: String,
+    pub(crate) expires_monotonic: Instant,
+}
+
 pub(crate) const MODEL_ROUTING_COMPLETION_HANDLE_TTL_SECS: i64 = 15 * 60;
 pub(crate) const MAX_PENDING_MODEL_ROUTING_COMPLETION_HANDLES: usize = 256;
+pub(crate) const MAX_COMPLETED_MODEL_ROUTING_RUNS: usize = 256;
 
 pub(crate) fn new_completion_handle(
     decision: ModelRouteDecision,

@@ -519,6 +519,16 @@ export function exportModelRoutingEvidence(
   });
 }
 
+export function exportModelRoutingEvidenceForHandle(
+  handleId: string,
+  taskClass: string,
+): Promise<ModelRoutingEvidenceArtifact> {
+  return invoke<ModelRoutingEvidenceArtifact>("export_model_routing_evidence_for_handle", {
+    handleId,
+    taskClass,
+  });
+}
+
 function normalizeTokenXray(
   tokenXray: Partial<TokenXraySnapshot> | undefined,
   promptCache: PromptCacheEfficiency
