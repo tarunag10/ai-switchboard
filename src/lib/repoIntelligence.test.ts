@@ -785,6 +785,52 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("resolves bounded Python direct and aliased imports", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.py", bytes: 120, content: "def run_task():\n    pass\n" },
+      { path: "src/consumer.py", bytes: 180, content: "from .worker import run_task as execute\ndef start():\n    execute()\n" },
+    ]);
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src/consumer.py",
+          to: "src/worker.py#run_task",
+          kind: "call_reference",
+        }),
+      ]),
+    );
+  });
+
+  it("resolves bounded Rust crate imports without ambiguous fallback edges", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.rs", bytes: 120, content: "pub fn run_task() {}\n" },
+      { path: "src/other.rs", bytes: 120, content: "pub fn run_task() {}\n" },
+      { path: "src/consumer.rs", bytes: 180, content: "use crate::worker::run_task as execute;\nfn start() { execute(); }\n" },
+    ]);
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src/consumer.rs",
+          to: "src/worker.rs#run_task",
+          kind: "call_reference",
+        }),
+      ]),
+    );
+    expect(summary.graph?.symbolEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/other.rs#run_task", kind: "call_reference" }),
+      ]),
+    );
+  });
+
+  it("fails closed for unresolved Python and Rust imports", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/consumer.py", bytes: 140, content: "from .missing import run_task\ndef start():\n    run_task()\n" },
+      { path: "src/consumer.rs", bytes: 140, content: "use crate::missing::run_task;\nfn start() { run_task(); }\n" },
+    ]);
+    expect(summary.graph?.symbolEdges?.some((edge) => edge.kind === "call_reference")).toBe(false);
+  });
+
   it("resolves one-hop named and wildcard local re-exports", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },

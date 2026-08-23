@@ -3010,11 +3010,11 @@ function buildImportCallReferenceEdges(
   );
   const edges: RepoGraphEdge[] = [];
   for (const file of files.filter((candidate) =>
-    ["TypeScript", "JavaScript", "React"].includes(candidate.language),
+    ["TypeScript", "JavaScript", "React", "Python", "Rust"].includes(candidate.language),
   )) {
     const content = contentByPath.get(file.path);
     if (!content) continue;
-    for (const binding of extractStaticImportBindings(content)) {
+    for (const binding of extractStaticImportBindings(content, file.language)) {
       const importedFile = resolveImportSpecifier(file.path, binding.specifier, byPath);
       if (!importedFile) continue;
       const memberNames: string[] = binding.imported
@@ -3065,8 +3065,53 @@ function buildImportCallReferenceEdges(
   return edges;
 }
 
-function extractStaticImportBindings(content: string): Array<{ local: string; imported: string | null; specifier: string }> {
+function extractStaticImportBindings(
+  content: string,
+  language: string,
+): Array<{ local: string; imported: string | null; specifier: string }> {
   const bindings: Array<{ local: string; imported: string | null; specifier: string }> = [];
+  if (language === "Python") {
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.split("#")[0]?.trim() ?? "";
+      const fromMatch = line.match(/^from\s+([.A-Za-z_][A-Za-z0-9_.]*)\s+import\s+(.+)$/);
+      if (fromMatch) {
+        for (const item of fromMatch[2].split(",")) {
+          const parts = item.trim().split(/\s+as\s+/);
+          const imported = parts[0]?.trim();
+          const local = parts[1]?.trim() || imported;
+          if (imported && local) bindings.push({ imported, local, specifier: `py:${fromMatch[1]}` });
+        }
+        continue;
+      }
+      const importMatch = line.match(/^import\s+(.+)$/);
+      if (!importMatch) continue;
+      for (const item of importMatch[1].split(",")) {
+        const parts = item.trim().split(/\s+as\s+/);
+        const module = parts[0]?.trim();
+        const local = parts[1]?.trim() || module?.split(".").pop();
+        if (module && local) bindings.push({ imported: null, local, specifier: `py:${module}` });
+      }
+    }
+    return bindings;
+  }
+  if (language === "Rust") {
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.replace(/\/\/.*$/, "").trim();
+      const useMatch = line.match(/^use\s+crate::([A-Za-z_][A-Za-z0-9_:]*)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*;/);
+      if (!useMatch) continue;
+      const segments = useMatch[1].split("::");
+      const imported = segments.pop();
+      const local = useMatch[2] || imported;
+      if (imported && local) {
+        bindings.push({
+          imported: segments.length ? imported : null,
+          local,
+          specifier: `crate:${segments.join("::") || imported}`,
+        });
+      }
+    }
+    return bindings;
+  }
   const joined = content.replace(/[\r\n]/g, " ");
   for (const match of joined.matchAll(/\bimport\s+\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+)["']/g)) {
     bindings.push({ local: match[1], imported: null, specifier: match[2] });
@@ -3186,6 +3231,13 @@ function isExplicitlyExportedSymbol(
   if (name === "default") return false;
   const content = contentByPath.get(file.path);
   if (!content) return false;
+  if (file.language === "Python") {
+    if (name.startsWith("_")) return false;
+    return new RegExp(`^(?:async\\s+)?(?:def|class)\\s+${escapeRegExp(name)}\\b`, "m").test(content);
+  }
+  if (file.language === "Rust") {
+    return new RegExp(`^(?:pub(?:\\([^)]*\\))?\\s+)?(?:fn|struct|enum|trait|const)\\s+${escapeRegExp(name)}\\b`, "m").test(content);
+  }
   const declaration = new RegExp(`\\bexport\\s+(?:default\\s+)?(?:async\\s+)?(?:function|class|const|let|var)\\s+${escapeRegExp(name)}\\b`);
   if (declaration.test(content)) return true;
   for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}(?!\s*from\b)/g)) {

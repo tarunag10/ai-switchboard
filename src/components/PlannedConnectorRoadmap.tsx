@@ -25,11 +25,15 @@ export function PlannedConnectorRoadmap({
   onCopyConfigPlan: (connector: PlannedConnector) => void;
 }) {
   return (
-    <div className="planned-connectors" aria-label="Connector roadmap">
+    <div className="planned-connectors" aria-label="Connector readiness">
       <div className="planned-connectors__intro">
-        <span>Expansion path</span>
+        <span>Connector readiness</span>
         <strong>Detect first, adapt only when reversible.</strong>
       </div>
+      <p>
+        Safe sidecar and managed paths are usable now; provider, account, and
+        model mutation remains explicitly gated.
+      </p>
       <div
         className="planned-connectors__steps"
         aria-label="Connector setup phases"

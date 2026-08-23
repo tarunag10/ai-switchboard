@@ -87,7 +87,7 @@ describe("planned add-ons", () => {
     expect(repoIntelligence?.bullets.join(" ")).toContain(
       "Sample preview stays non-copyable",
     );
-    expect(repoIntelligence?.bullets.join(" ")).toContain("Still planned");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("Research backlog");
     expect(repoIntelligence?.bullets.join(" ")).toContain("reverse hubs");
     expect(repoIntelligence?.bullets.join(" ")).toContain(
       "direct repo-memory MCP controls and Doctor repair integration are available now",
