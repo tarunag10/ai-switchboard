@@ -57,6 +57,7 @@ const CODEX_USAGE_POLL_TIMEOUT: Duration = Duration::from_secs(10);
 const DIRECT_UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const DIRECT_UPSTREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 const BACKEND_REQUEST_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+const BACKEND_RESPONSE_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 /// Epoch-seconds of the last usage-poll attempt; throttles the fire-and-forget
 /// GET to at most one per `CODEX_USAGE_POLL_MIN_INTERVAL_SECS`.
 static CODEX_USAGE_LAST_POLL: AtomicU64 = AtomicU64::new(0);
@@ -565,14 +566,22 @@ async fn splice_with_headroom_capture(
             let mut tail = vec![0_u8; remaining];
             let mut tail_len = 0;
             let mut body_complete = true;
+            let mut body_timed_out = false;
             while tail_len < tail.len() {
-                match backend_rd.read(&mut tail[tail_len..]).await {
+                match read_with_idle_timeout(
+                    &mut backend_rd,
+                    &mut tail[tail_len..],
+                    BACKEND_RESPONSE_IDLE_TIMEOUT,
+                )
+                .await
+                {
                     Ok(0) => {
                         body_complete = false;
                         break;
                     }
                     Ok(read) => tail_len += read,
-                    Err(_) => {
+                    Err(error) => {
+                        body_timed_out = error.kind() == std::io::ErrorKind::TimedOut;
                         body_complete = false;
                         break;
                     }
@@ -594,7 +603,14 @@ async fn splice_with_headroom_capture(
                     return (status_code, TransportOutcome::ClientDisconnect);
                 }
                 let _ = client_wr.shutdown().await;
-                return (status_code, TransportOutcome::ReadFailure);
+                return (
+                    status_code,
+                    if body_timed_out {
+                        TransportOutcome::Timeout
+                    } else {
+                        TransportOutcome::ReadFailure
+                    },
+                );
             }
             {
                 if let Some(metrics) =
@@ -672,10 +688,25 @@ async fn splice_with_headroom_capture(
         }
         let mut buffer = [0_u8; 16 * 1024];
         loop {
-            let read = match backend_rd.read(&mut buffer).await {
+            let read = match read_with_idle_timeout(
+                &mut backend_rd,
+                &mut buffer,
+                BACKEND_RESPONSE_IDLE_TIMEOUT,
+            )
+            .await
+            {
                 Ok(0) => break,
                 Ok(read) => read,
-                Err(_) => return (status_code, TransportOutcome::ReadFailure),
+                Err(error) => {
+                    return (
+                        status_code,
+                        if error.kind() == std::io::ErrorKind::TimedOut {
+                            TransportOutcome::Timeout
+                        } else {
+                            TransportOutcome::ReadFailure
+                        },
+                    )
+                }
             };
             if client_wr.write_all(&buffer[..read]).await.is_err() {
                 return (status_code, TransportOutcome::ClientDisconnect);
@@ -716,16 +747,25 @@ where
 {
     let mut buffer = [0_u8; 16 * 1024];
     loop {
-        let read = tokio::time::timeout(idle_timeout, reader.read(&mut buffer))
-            .await
-            .map_err(|_| {
-                std::io::Error::new(std::io::ErrorKind::TimedOut, "request body idle timeout")
-            })??;
+        let read = read_with_idle_timeout(reader, &mut buffer, idle_timeout).await?;
         if read == 0 {
             return Ok(());
         }
         writer.write_all(&buffer[..read]).await?;
     }
+}
+
+async fn read_with_idle_timeout<R>(
+    reader: &mut R,
+    buffer: &mut [u8],
+    idle_timeout: Duration,
+) -> std::io::Result<usize>
+where
+    R: AsyncRead + Unpin,
+{
+    tokio::time::timeout(idle_timeout, reader.read(buffer))
+        .await
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "stream idle timeout"))?
 }
 
 fn enable_compression_fail_open(is_codex: bool, codex_bypass: &BypassFlag) {

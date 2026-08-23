@@ -125,6 +125,9 @@ the current checkout.
 - Provider usage parsing now captures OpenAI Responses nested cached-input
   metrics from `usage.input_tokens_details.cached_tokens`, while retaining
   top-level compatibility and content-free cache attribution.
+- Backend response-body and streaming reads now share a bounded idle timeout;
+  stalled local providers produce truthful timeout outcomes instead of holding
+  proxy tasks indefinitely.
 - Repo Intelligence now has a shared bounded JavaScript/TypeScript golden graph
   corpus with normalized CLI, frontend, and native projections; the parity gate
   runs all three surfaces instead of only the CLI.
