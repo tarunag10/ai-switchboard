@@ -18,7 +18,7 @@ describe("TokenXrayView", () => {
     loadTokenXraySnapshot.mockResolvedValue({
       schemaVersion: 1, generatedAt: Date.now(), sessionId: "session-1", agent: "Codex", provider: "Provider A", model: "Model A", freshness: "live",
       metrics: Object.fromEntries(["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "savedTokens", "avoidedTokens", "estimatedCostUsd", "estimatedSavingsUsd"].map((key) => [key, { value: key === "savedTokens" ? null : 10, confidence: key === "savedTokens" ? "unavailable" : "measured", source: "local runtime", observedAt: null, caveat: null }])),
-      contextPressure: { usedTokens: 10, limitTokens: 100, percent: 10, projectedPercent: null, band: "low", limitSource: "local runtime", caveat: null }, sources: [], timeline: [], anomalies: [],
+      contextPressure: { usedTokens: 10, limitTokens: 100, percent: 10, projectedPercent: null, band: "low", limitSource: "local runtime", caveat: null }, sources: [{ id: "Caveman", label: "Caveman", tokensSaved: { value: 12, confidence: "estimated", source: "local", observedAt: null, caveat: null }, detail: "template evidence", caveat: null, eventCount: 3, runtimeEvidenceUnits: 2, measuredEventCount: 0, estimatedEventCount: 3, inferredEventCount: 0, totalTokensSent: 200 }], timeline: [], anomalies: [],
     });
   });
 
@@ -27,6 +27,11 @@ describe("TokenXrayView", () => {
     expect(await screen.findByText(/Current session provider: Provider A/)).toBeInTheDocument();
     expect(screen.getByText(/Provider-specific breakdown: unavailable/)).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(1);
+  });
+
+  it("shows local evidence counters without presenting them as billed tokens", async () => {
+    render(<TokenXrayView hidden={false} />);
+    expect(await screen.findByText(/3 events · 2 runtime evidence units · 0 measured · 3 estimated · 0 inferred/)).toBeInTheDocument();
   });
 
   it("provides an accessible evidence refresh control", async () => {

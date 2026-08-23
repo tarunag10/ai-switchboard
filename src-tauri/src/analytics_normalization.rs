@@ -98,6 +98,23 @@ pub(crate) fn normalize(
                 tokens_saved: Some(events.iter().map(|event| event.delta_tokens_saved).sum()),
                 estimated_savings_usd: Some(events.iter().map(|event| event.delta_usd).sum()),
                 event_count: events.len() as u64,
+                runtime_evidence_units: events
+                    .iter()
+                    .map(|event| event.request_delta as u64)
+                    .sum(),
+                measured_event_count: events
+                    .iter()
+                    .filter(|event| matches!(event.confidence, SavingsAttributionConfidence::Measured))
+                    .count() as u64,
+                estimated_event_count: events
+                    .iter()
+                    .filter(|event| matches!(event.confidence, SavingsAttributionConfidence::Estimated))
+                    .count() as u64,
+                inferred_event_count: events
+                    .iter()
+                    .filter(|event| matches!(event.confidence, SavingsAttributionConfidence::Inferred))
+                    .count() as u64,
+                total_tokens_sent: events.iter().map(|event| event.total_tokens_sent).sum(),
                 evidence: events
                     .iter()
                     .flat_map(|event| event.evidence.iter().cloned())
@@ -200,6 +217,12 @@ mod tests {
             |_| true,
         );
         assert_eq!(normalized.saved_tokens, 10);
+        let impact = normalized.source_impacts.first().expect("source impact");
+        assert_eq!(impact.runtime_evidence_units, 1);
+        assert_eq!(impact.measured_event_count, 1);
+        assert_eq!(impact.estimated_event_count, 0);
+        assert_eq!(impact.inferred_event_count, 0);
+        assert_eq!(impact.total_tokens_sent, 100);
     }
 
     #[test]

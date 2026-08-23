@@ -59,9 +59,14 @@ if (!modelsSource.includes("runtime_event_count")) {
 if (!modelsSource.includes("estimated_event_count")) {
   fail("SavingsAttributionCounter missing estimated_event_count");
 }
+const hasSafeMeasuredDeltaGuard =
+  measuredFrontendSource.includes("baselineTokens <= optimizedTokens") ||
+  measuredFrontendSource.includes(
+    "normalizedCount(input.baselineTokens) <= normalizedCount(input.optimizedTokens)",
+  );
 if (
   !measuredFrontendSource.includes("record_measured_savings_attribution") ||
-  !measuredFrontendSource.includes("baselineTokens <= optimizedTokens") ||
+  !hasSafeMeasuredDeltaGuard ||
   !measuredFrontendSource.includes("MeasuredAddonSavingsSource")
 ) {
   fail("frontend measured add-on attribution wrapper is missing or unsafe");

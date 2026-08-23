@@ -72,6 +72,16 @@ pub struct OptimizationImpactV1 {
     pub tokens_saved: Option<u64>,
     pub estimated_savings_usd: Option<f64>,
     pub event_count: u64,
+    #[serde(default)]
+    pub runtime_evidence_units: u64,
+    #[serde(default)]
+    pub measured_event_count: u64,
+    #[serde(default)]
+    pub estimated_event_count: u64,
+    #[serde(default)]
+    pub inferred_event_count: u64,
+    #[serde(default)]
+    pub total_tokens_sent: u64,
     pub evidence: Vec<String>,
     pub last_observed_at: Option<DateTime<Utc>>,
 }

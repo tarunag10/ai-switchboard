@@ -91,6 +91,12 @@ describe("usage analytics contract normalization", () => {
       id: "cache",
       label: "cache",
       detail: "hit · exact",
+      eventCount: 0,
+      runtimeEvidenceUnits: 0,
+      measuredEventCount: 0,
+      estimatedEventCount: 0,
+      inferredEventCount: 0,
+      totalTokensSent: 0,
     });
     expect(snapshot.sources[1]).toMatchObject({
       id: "source",
