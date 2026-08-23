@@ -82,7 +82,12 @@ fn now_ms() -> u128 {
 }
 
 fn bounded_request_class(value: String) -> String {
-    let normalized = value.trim().to_ascii_lowercase();
+    let normalized = value
+        .trim()
+        .split('?')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     if normalized.is_empty() { return "unknown".to_string(); }
     normalized.chars().take(64).collect()
 }
@@ -98,7 +103,7 @@ mod tests {
         assert!(recorder.finish(&id, Some(200), TransportOutcome::Success));
         assert!(!recorder.finish(&id, Some(500), TransportOutcome::ReadFailure));
         let observation = recorder.snapshot().pop().expect("observation");
-        assert_eq!(observation.request_class, "/v1/responses?secret=1");
+        assert_eq!(observation.request_class, "/v1/responses");
         assert_eq!(observation.status_code, Some(200));
         assert_eq!(observation.terminal_outcome, Some(TransportOutcome::Success));
         assert!(observation.completed_at_ms.is_some());
@@ -117,5 +122,41 @@ mod tests {
         for _ in 0..(MAX_OBSERVATIONS + 5) { recorder.begin(TransportRoute::Headroom, "anthropic", false); }
         assert_eq!(recorder.snapshot().len(), MAX_OBSERVATIONS);
     }
-}
 
+    #[test]
+    fn preserves_transport_failure_classes_without_inference() {
+        let recorder = TransportObservationRecorder::default();
+        let partial = recorder.begin(TransportRoute::Headroom, "stream", true);
+        assert!(recorder.finish(&partial, Some(200), TransportOutcome::ReadFailure));
+        let disconnect = recorder.begin(TransportRoute::DirectAnthropic, "messages", true);
+        assert!(recorder.finish(&disconnect, Some(200), TransportOutcome::ClientDisconnect));
+        let upstream = recorder.begin(TransportRoute::DirectOpenai, "responses", false);
+        assert!(recorder.finish(&upstream, Some(503), TransportOutcome::UpstreamHttpError));
+        let observations = recorder.snapshot();
+        assert_eq!(observations[0].terminal_outcome, Some(TransportOutcome::ReadFailure));
+        assert_eq!(observations[1].terminal_outcome, Some(TransportOutcome::ClientDisconnect));
+        assert_eq!(observations[2].terminal_outcome, Some(TransportOutcome::UpstreamHttpError));
+    }
+
+    #[test]
+    fn concurrent_finalization_allows_exactly_one_winner() {
+        let recorder = TransportObservationRecorder::default();
+        let event_id = recorder.begin(TransportRoute::Cache, "cache", false);
+        let winners = std::thread::scope(|scope| {
+            let handles = (0..8)
+                .map(|_| {
+                    let recorder = recorder.clone();
+                    let event_id = event_id.clone();
+                    scope.spawn(move || recorder.finish(&event_id, Some(200), TransportOutcome::Success))
+                })
+                .collect::<Vec<_>>();
+            handles
+                .into_iter()
+                .map(|handle| handle.join().expect("join"))
+                .filter(|won| *won)
+                .count()
+        });
+        assert_eq!(winners, 1);
+        assert_eq!(recorder.snapshot().len(), 1);
+    }
+}

@@ -513,8 +513,40 @@ async fn splice_with_headroom_capture(
             let mut body = embedded_body[..embedded_len].to_vec();
             let remaining = content_length.saturating_sub(body.len());
             let mut tail = vec![0_u8; remaining];
-            if backend_rd.read_exact(&mut tail).await.is_ok() {
-                body.extend_from_slice(&tail);
+            let mut tail_len = 0;
+            let mut body_complete = true;
+            while tail_len < tail.len() {
+                match backend_rd.read(&mut tail[tail_len..]).await {
+                    Ok(0) => {
+                        body_complete = false;
+                        break;
+                    }
+                    Ok(read) => tail_len += read,
+                    Err(_) => {
+                        body_complete = false;
+                        break;
+                    }
+                }
+            }
+            body.extend_from_slice(&tail[..tail_len]);
+            if !body_complete {
+                let response_header_end = find_header_end(&head)
+                    .map(|end| end + 4)
+                    .unwrap_or(head.len());
+                if client_wr
+                    .write_all(&head[..response_header_end.min(head.len())])
+                    .await
+                    .is_err()
+                {
+                    return (status_code, TransportOutcome::ClientDisconnect);
+                }
+                if client_wr.write_all(&body).await.is_err() {
+                    return (status_code, TransportOutcome::ClientDisconnect);
+                }
+                let _ = client_wr.shutdown().await;
+                return (status_code, TransportOutcome::ReadFailure);
+            }
+            {
                 if let Some(metrics) =
                     crate::optimization::provider_usage::parse_provider_cache_metrics(&body)
                 {
@@ -588,9 +620,16 @@ async fn splice_with_headroom_capture(
         if client_wr.write_all(&response_head).await.is_err() {
             return (status_code, TransportOutcome::ClientDisconnect);
         }
-        let copy_result = tokio::io::copy(&mut backend_rd, &mut client_wr).await;
-        if copy_result.is_err() {
-            return (status_code, TransportOutcome::ReadFailure);
+        let mut buffer = [0_u8; 16 * 1024];
+        loop {
+            let read = match backend_rd.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(read) => read,
+                Err(_) => return (status_code, TransportOutcome::ReadFailure),
+            };
+            if client_wr.write_all(&buffer[..read]).await.is_err() {
+                return (status_code, TransportOutcome::ClientDisconnect);
+            }
         }
         if client_wr.shutdown().await.is_err() {
             return (status_code, TransportOutcome::ClientDisconnect);
