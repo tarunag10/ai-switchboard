@@ -3582,6 +3582,9 @@ export default function TrayApp() {
       handleRtkToggle={handleRtkToggle}
       setCavemanLevel={setCavemanLevel}
       copyPlannedConnectorCommand={copyPlannedConnectorCommand}
+      onSelectiveActivationComplete={async () => {
+        await Promise.all([refreshSwitchboardState(), refreshRuntimeStatus(), refreshConnectors()]);
+      }}
       pricingAudience={pricingAudience}
       setPricingAudience={setPricingAudience}
       setUpgradeActionError={setUpgradeActionError}

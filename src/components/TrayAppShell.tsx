@@ -207,6 +207,7 @@ export function TrayAppShell({
   handleRtkToggle,
   setCavemanLevel,
   copyPlannedConnectorCommand,
+  onSelectiveActivationComplete,
   pricingAudience,
   setPricingAudience,
   setUpgradeActionError,
@@ -502,6 +503,7 @@ export function TrayAppShell({
           onMeasuredAddonSavingsRecorded={onMeasuredAddonSavingsRecorded}
           setCavemanLevel={setCavemanLevel}
           copyPlannedConnectorCommand={copyPlannedConnectorCommand}
+          onSelectiveActivationComplete={onSelectiveActivationComplete}
         />
 
         <UpgradeView

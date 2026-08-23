@@ -37,7 +37,7 @@ type NativeActivationResult = {
   };
 };
 
-export function SelectiveActivationCard() {
+export function SelectiveActivationCard({ onComplete }: { onComplete?: () => Promise<void> }) {
   const [selected, setSelected] = useState<ActivationToolId[]>(() => readSelection());
   const [results, setResults] = useState<Partial<Record<ActivationToolId, ToolResult>>>({});
   const [busy, setBusy] = useState(false);
@@ -92,6 +92,9 @@ export function SelectiveActivationCard() {
     setResults(nextResults);
     if (selected.includes("chonkify") && response.receipt.overallStatus === "succeeded") {
       saveRepoPackCompressionPreference("chonkify");
+    }
+    if (response.receipt.overallStatus === "succeeded" && onComplete) {
+      await onComplete();
     }
     setBusy(false);
     setRunSummary(response.receipt.overallStatus === "succeeded"

@@ -64,6 +64,7 @@ export interface AddonsViewProps {
     markdown: string,
     label: string,
   ) => Promise<void>;
+  onSelectiveActivationComplete?: () => Promise<void>;
 }
 
 export function AddonsView({
@@ -89,6 +90,7 @@ export function AddonsView({
   onMeasuredAddonSavingsRecorded,
   setCavemanLevel,
   copyPlannedConnectorCommand,
+  onSelectiveActivationComplete,
 }: AddonsViewProps) {
   const [showRtkDetails, setShowRtkDetails] = useState(false);
   const [rtkActivityLines, setRtkActivityLines] = useState<string[]>([]);
@@ -186,7 +188,7 @@ export function AddonsView({
           ) : null}
         </article>
         <OssHarnessReplayPanel />
-        <SelectiveActivationCard />
+        <SelectiveActivationCard onComplete={onSelectiveActivationComplete} />
         <ul className="addons__list">
           <AddonCard
             key="rtk"
