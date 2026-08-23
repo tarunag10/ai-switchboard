@@ -73,8 +73,11 @@ pub struct SelectiveActivationReceipt {
     pub results: Vec<SelectiveActivationToolResult>,
     pub updated_at: String,
     pub previous_mode: Option<SwitchboardMode>,
+    pub after_mode: Option<SwitchboardMode>,
     pub previous_response_cache_enabled: Option<bool>,
+    pub after_response_cache_enabled: Option<bool>,
     pub previous_chonkify_mode: Option<String>,
+    pub after_chonkify_mode: Option<String>,
     pub owned_changes: Vec<String>,
     pub rollback_status: Option<String>,
     pub rollback_results: Vec<SelectiveRollbackResult>,
@@ -622,6 +625,14 @@ pub async fn activate_selected_tools(
     } else {
         "succeeded"
     };
+    let after_mode = client_adapters::load_switchboard_mode();
+    let after_response_cache_enabled =
+        previous_response_cache_enabled.map(|_| state.semantic_cache.enabled());
+    let after_chonkify_mode = previous_chonkify_mode.as_ref().and_then(|_| {
+        read_chonkify_preference(&state)
+            .ok()
+            .map(|preference| preference.effective_mode)
+    });
     let receipt = SelectiveActivationReceipt {
         schema_version: 2,
         run_id,
@@ -630,8 +641,11 @@ pub async fn activate_selected_tools(
         results,
         updated_at: Utc::now().to_rfc3339(),
         previous_mode,
+        after_mode,
         previous_response_cache_enabled,
+        after_response_cache_enabled,
         previous_chonkify_mode,
+        after_chonkify_mode,
         owned_changes,
         rollback_status: None,
         rollback_results: Vec::new(),
@@ -648,6 +662,13 @@ pub async fn rollback_selective_activation(
     app: AppHandle,
     run_id: String,
 ) -> Result<SelectiveActivationResult, String> {
+    if SELECTIVE_ACTIVATION_LOCK
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_err()
+    {
+        return Err("Another selective activation or rollback is already running.".to_string());
+    }
+    let _guard = ActivationGuard;
     let state: State<'_, AppState> = app.state();
     let mut receipt = read_receipt(&state)?;
     validate_rollback_request(&receipt, &run_id)?;
@@ -666,7 +687,15 @@ pub async fn rollback_selective_activation(
         .any(|change| change == "switchboard_mode")
     {
         if let Some(mode) = receipt.previous_mode.clone() {
-            if let Err(error) =
+            if client_adapters::load_switchboard_mode() != receipt.after_mode {
+                rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "switchboard_mode".into(),
+                    state: "blocked_external_change".into(),
+                    detail: "Current Switchboard mode differs from this run's post-activation state; no overwrite was attempted.".into(),
+                });
+                failures.push("Switchboard mode changed after activation".into());
+                // Do not restore this field; other independent owned changes may still be safe.
+            } else if let Err(error) =
                 crate::switchboard_commands::set_switchboard_mode(app.clone(), mode).await
             {
                 failures.push(error.to_string());
@@ -690,7 +719,14 @@ pub async fn rollback_selective_activation(
         .any(|change| change == "response_cache_enabled")
     {
         if let Some(enabled) = receipt.previous_response_cache_enabled {
-            if let Err(error) = state.semantic_cache.set_enabled(enabled) {
+            if Some(state.semantic_cache.enabled()) != receipt.after_response_cache_enabled {
+                rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "response-cache".into(),
+                    state: "blocked_external_change".into(),
+                    detail: "Current exact-response cache state differs from this run's post-activation state; entries were not modified.".into(),
+                });
+                failures.push("Exact-response cache state changed after activation".into());
+            } else if let Err(error) = state.semantic_cache.set_enabled(enabled) {
                 failures.push(error.to_string());
                 rollback_results.push(SelectiveRollbackResult {
                     tool_id: "response-cache".into(),
@@ -714,7 +750,17 @@ pub async fn rollback_selective_activation(
         .any(|change| change == "chonkify_preference")
     {
         let mode = receipt.previous_chonkify_mode.as_deref().unwrap_or("off");
-        if let Err(error) = set_chonkify_preference(&state, mode) {
+        let current_mode = read_chonkify_preference(&state)
+            .ok()
+            .map(|preference| preference.effective_mode);
+        if current_mode != receipt.after_chonkify_mode {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "chonkify".into(),
+                state: "blocked_external_change".into(),
+                detail: "Current Chonkify preference differs from this run's post-activation state; no overwrite was attempted.".into(),
+            });
+            failures.push("Chonkify preference changed after activation".into());
+        } else if let Err(error) = set_chonkify_preference(&state, mode) {
             failures.push(error.clone());
             rollback_results.push(SelectiveRollbackResult {
                 tool_id: "chonkify".into(),
@@ -872,8 +918,11 @@ mod tests {
             results: Vec::new(),
             updated_at: "now".into(),
             previous_mode: Some(SwitchboardMode::Off),
+            after_mode: Some(SwitchboardMode::Headroom),
             previous_response_cache_enabled: None,
+            after_response_cache_enabled: None,
             previous_chonkify_mode: None,
+            after_chonkify_mode: None,
             owned_changes: vec!["switchboard_mode".into()],
             rollback_status: None,
             rollback_results: Vec::new(),
