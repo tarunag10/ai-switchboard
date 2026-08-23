@@ -835,6 +835,7 @@ pub fn run() {
             app_update_commands::show_app_update_notification,
             show_notification,
             addon_commands::install_addon,
+            addon_commands::convert_markitdown_file,
             addon_commands::set_addon_enabled,
             addon_commands::uninstall_addon,
             addon_commands::get_leanctx_sidecar_status,

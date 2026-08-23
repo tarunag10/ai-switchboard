@@ -23,6 +23,7 @@ import { OptimizationEngineProfilesCard } from "./OptimizationEngineProfilesCard
 import { SelectiveActivationCard } from "./SelectiveActivationCard";
 import { ProviderBilledCounterfactualCard } from "./ProviderBilledCounterfactualCard";
 import { OssHarnessReplayPanel } from "./OssHarnessReplayPanel";
+import { MarkItDownConverterCard } from "./MarkItDownConverterCard";
 import { RTK_TASK_PRESETS } from "../lib/rtkTaskPresets";
 import { hasTauriRuntime } from "../lib/tauriRuntime";
 import {
@@ -189,6 +190,7 @@ export function AddonsView({
         </article>
         <OssHarnessReplayPanel />
         <SelectiveActivationCard onComplete={onSelectiveActivationComplete} />
+        <MarkItDownConverterCard />
         <ul className="addons__list">
           <AddonCard
             key="rtk"

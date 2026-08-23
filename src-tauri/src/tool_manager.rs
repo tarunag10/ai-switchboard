@@ -329,6 +329,9 @@ fn classify_kompress_prefetch_failure(tail: &str) -> &'static str {
 }
 
 impl ToolManager {
+    pub fn runtime_root_dir(&self) -> PathBuf {
+        self.runtime.root_dir.clone()
+    }
     pub fn new(runtime: ManagedRuntime) -> Self {
         let rtk_checksum = rtk_distribution_artifact()
             .ok()
@@ -2380,7 +2383,7 @@ impl ToolManager {
 
     /// Optional tools persist an `enabled` flag in their receipt. Required core
     /// tools (headroom, rtk) are always enabled. Missing flag defaults to true.
-    fn tool_enabled(&self, tool_id: &str) -> bool {
+    pub fn tool_enabled(&self, tool_id: &str) -> bool {
         self.read_tool_receipt(tool_id)
             .and_then(|receipt| receipt.get("enabled").and_then(Value::as_bool))
             .unwrap_or(true)
@@ -3772,7 +3775,9 @@ mod tests {
 
     #[test]
     fn wait_for_port_free_detects_release() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         assert!(
@@ -3859,7 +3864,9 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn probe_backend_readyz_ok_false_when_nothing_listening() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
@@ -3894,7 +3901,9 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn managed_headroom_startup_uses_supported_proxy_args() {
-        if crate::test_support::skip_if_app_storage_unavailable() { return; }
+        if crate::test_support::skip_if_app_storage_unavailable() {
+            return;
+        }
         std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
         let _app_storage = AppStorageEnvGuard::new();
         crate::message_logging::save_settings(&crate::models::MessageLoggingSettings::default())

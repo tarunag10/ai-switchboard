@@ -1,8 +1,50 @@
+use std::path::PathBuf;
+use std::time::Duration;
 use tauri::State;
 
 use crate::client_adapters;
 use crate::models::DashboardState;
+use crate::process_runner::run_command_capture_with_timeout;
 use crate::state::AppState;
+
+#[tauri::command]
+pub fn convert_markitdown_file(state: State<'_, AppState>, path: String) -> Result<String, String> {
+    if !state.tool_manager.markitdown_installed() || !state.tool_manager.tool_enabled("markitdown")
+    {
+        return Err("MarkItDown must be installed and enabled before conversion.".into());
+    }
+    let source = PathBuf::from(path.trim());
+    if source.as_os_str().is_empty() {
+        return Err("Choose a document to convert.".into());
+    }
+    let source = source
+        .canonicalize()
+        .map_err(|error| format!("Cannot access the selected document: {error}"))?;
+    let metadata = std::fs::metadata(&source)
+        .map_err(|error| format!("Cannot inspect the selected document: {error}"))?;
+    if !metadata.is_file() {
+        return Err("The selected path is not a regular file.".into());
+    }
+    if metadata.len() > 25 * 1024 * 1024 {
+        return Err("The selected document exceeds the 25 MB local conversion limit.".into());
+    }
+    let source_arg = source.to_string_lossy().into_owned();
+    let (stdout, stderr) = run_command_capture_with_timeout(
+        &state.tool_manager.markitdown_entrypoint(),
+        &[source_arg.as_str()],
+        &state.tool_manager.runtime_root_dir(),
+        Duration::from_secs(120),
+    )
+    .map_err(|error| format!("MarkItDown conversion failed: {error}"))?;
+    if stdout.trim().is_empty() {
+        return Err(if stderr.trim().is_empty() {
+            "MarkItDown returned no Markdown output.".into()
+        } else {
+            format!("MarkItDown returned no Markdown output: {}", stderr.trim())
+        });
+    }
+    Ok(stdout)
+}
 
 #[tauri::command]
 pub async fn install_addon(
