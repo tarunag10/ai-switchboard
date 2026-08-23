@@ -17,7 +17,6 @@ export function PlannedAddonCard({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsId = useId();
   const showConnectorRoadmap = addon.id === "agent_connectors";
-  const showRepoIntelligencePreview = addon.id === "repo_intelligence";
   const isRepoIntelligence = addon.id === "repo_intelligence";
   const cardClassName = isRepoIntelligence
     ? "addon-card addon-card--active"
@@ -25,6 +24,30 @@ export function PlannedAddonCard({
   const badgeClassName = isRepoIntelligence
     ? "addon-card__badge addon-card__badge--ready"
     : "addon-card__badge addon-card__badge--planned";
+
+  if (isRepoIntelligence) {
+    return (
+      <li className="addon-card addon-card--active">
+        <div className="addon-card__body">
+          <div className="addon-card__heading">
+            <span className="addon-card__name">{addon.name}</span>
+            <span className={badgeClassName}>Available</span>
+          </div>
+          <p className="addon-card__description">
+            Repo Intelligence is shipped as a dedicated local workspace. Index a repository,
+            inspect its graph, and copy bounded context packs from the sidebar.
+          </p>
+          <button
+            className="addon-card__action addon-card__action--primary"
+            onClick={onOpenRepoIntelligence}
+            type="button"
+          >
+            Open Repo Intelligence
+          </button>
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li className={cardClassName}>
@@ -39,22 +62,6 @@ export function PlannedAddonCard({
             <li key={bullet}>{bullet}</li>
           ))}
         </ul>
-        {showRepoIntelligencePreview ? (
-          <div className="repo-intelligence-addon-cta">
-            <strong>Dedicated workspace is available.</strong>
-            <span>
-              Open Repo Intelligence to index a repository and copy real local
-              packs.
-            </span>
-            <button
-              className="addon-card__action addon-card__action--primary"
-              onClick={onOpenRepoIntelligence}
-              type="button"
-            >
-              Open Repo Intelligence
-            </button>
-          </div>
-        ) : null}
         <div
           className="addon-card__details"
           hidden={!detailsOpen}

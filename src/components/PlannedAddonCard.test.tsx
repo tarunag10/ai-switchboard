@@ -48,7 +48,7 @@ describe("PlannedAddonCard", () => {
     expect(screen.getByText("Details include readiness")).toBeVisible();
   });
 
-  it("keeps the Repo Intelligence action available while details are closed", () => {
+  it("shows Repo Intelligence as an available route instead of a roadmap card", () => {
     const onOpenRepoIntelligence = vi.fn();
 
     render(
@@ -61,7 +61,8 @@ describe("PlannedAddonCard", () => {
     expect(
       screen.getByRole("button", { name: "Open Repo Intelligence" }),
     ).toBeVisible();
-    expect(screen.getByText("Use the open action above")).toBeVisible();
-    expect(screen.getByText("npm run smoke:preflight")).not.toBeVisible();
+    expect(screen.getByText("Available")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Learn more" })).not.toBeInTheDocument();
+    expect(screen.queryByText("npm run smoke:preflight")).not.toBeInTheDocument();
   });
 });
