@@ -31,14 +31,15 @@ function writeSelection(selectedToolIds: ActivationToolId[]) {
   }
 }
 
-async function activateTool(id: ActivationToolId): Promise<string> {
+async function activateTool(id: ActivationToolId, selected: ActivationToolId[]): Promise<string> {
   switch (id) {
     case "headroom":
-      await invoke("set_switchboard_mode", { mode: "full" });
-      return "Full local optimization mode enabled.";
+      await invoke("set_switchboard_mode", { mode: selected.includes("rtk") ? "full" : "headroom" });
+      return selected.includes("rtk")
+        ? "Full local optimization mode enabled with RTK selected."
+        : "Headroom mode enabled without activating RTK.";
     case "rtk":
       await invoke("install_addon", { id: "rtk" });
-      await invoke("set_rtk_enabled", { enabled: true });
       return "RTK installed and enabled.";
     case "repo-intelligence":
       await invoke("get_latest_repo_intelligence_summary");
@@ -106,9 +107,12 @@ export function SelectiveActivationCard() {
     }
     let succeeded = 0;
     const nextResults: Partial<Record<ActivationToolId, ToolResult>> = {};
-    for (const id of selected) {
+    const ordered = SELECTIVE_ACTIVATION_TOOLS
+      .map((tool) => tool.id)
+      .filter((id) => selected.includes(id));
+    for (const id of ordered) {
       try {
-        nextResults[id] = { state: "success", detail: await activateTool(id) };
+        nextResults[id] = { state: "success", detail: await activateTool(id, ordered) };
         succeeded += 1;
       } catch (reason) {
         nextResults[id] = { state: "failed", detail: reason instanceof Error ? reason.message : String(reason) };
