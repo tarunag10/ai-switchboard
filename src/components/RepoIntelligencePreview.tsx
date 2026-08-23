@@ -31,6 +31,26 @@ import {
 } from "../lib/repoIntelligence";
 import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
 
+type NativeIndexFreshness = {
+  label: string;
+  detail: string;
+  status: string;
+  apiAvailable: boolean;
+  graphAvailable: boolean;
+  indexHealth: string;
+  parserHealth: string;
+  indexedFileCount?: number;
+  skippedFileCount?: number;
+};
+
+type NativeSymbolSearch = {
+  symbols: Array<{ name: string; kind: string; file: string; line: number }>;
+};
+
+type NativeDependentsSearch = {
+  edges: Array<{ from: string; to: string; kind: string; reason: string }>;
+};
+
 export const repoIntelligencePreview = buildRepoIntelligenceSummary([
   { path: "src/App.tsx", bytes: 184_000 },
   { path: "src/lib/dashboardHelpers.ts", bytes: 28_000 },
@@ -109,6 +129,12 @@ export function RepoIntelligencePreview({
   const [showVerificationDetails, setShowVerificationDetails] = useState(false);
   const [showModeReasoning, setShowModeReasoning] = useState(false);
   const [showGraphDiagnostics, setShowGraphDiagnostics] = useState(false);
+  const [nativeFreshness, setNativeFreshness] = useState<NativeIndexFreshness | null>(null);
+  const [nativeDiagnosticsError, setNativeDiagnosticsError] = useState<string | null>(null);
+  const [symbolQuery, setSymbolQuery] = useState("");
+  const [symbolResults, setSymbolResults] = useState<NativeSymbolSearch | null>(null);
+  const [dependentTarget, setDependentTarget] = useState("");
+  const [dependentResults, setDependentResults] = useState<NativeDependentsSearch | null>(null);
   const isPreview = summary === repoIntelligencePreview;
   const hasRealIndex = !isPreview;
   const indexFreshness = getRepoIndexFreshness(summary);
@@ -152,6 +178,7 @@ export function RepoIntelligencePreview({
         setSummary(latest);
         setRepoPath(latest.repoRoot ?? "");
         onSummaryChange?.(latest);
+        await refreshNativeDiagnostics();
       }
     } catch (error) {
       setSavedIndexError(
@@ -161,6 +188,17 @@ export function RepoIntelligencePreview({
       );
     } finally {
       setSavedIndexLoading(false);
+    }
+  }
+
+  async function refreshNativeDiagnostics() {
+    if (!hasRealIndex) return;
+    setNativeDiagnosticsError(null);
+    try {
+      const freshness = await invoke<NativeIndexFreshness>("get_index_freshness");
+      setNativeFreshness(freshness);
+    } catch (error) {
+      setNativeDiagnosticsError(error instanceof Error ? error.message : "Native index diagnostics unavailable.");
     }
   }
 
@@ -185,6 +223,7 @@ export function RepoIntelligencePreview({
       );
       setSummary(next);
       onSummaryChange?.(next);
+      await refreshNativeDiagnostics();
     } catch (error) {
       setIndexError(
         error instanceof Error
@@ -468,6 +507,13 @@ export function RepoIntelligencePreview({
           {summary.skippedFiles ? `, ${summary.skippedFiles} skipped` : ""}
         </strong>
       </div>
+      {nativeFreshness ? (
+        <div className="repo-intelligence-preview__topline" role="status">
+          <span>Native index: {nativeFreshness.label}</span>
+          <strong>{nativeFreshness.indexHealth} · parser {nativeFreshness.parserHealth}</strong>
+        </div>
+      ) : null}
+      {nativeDiagnosticsError ? <p role="status">Native diagnostics: {nativeDiagnosticsError}</p> : null}
       <div className="repo-intelligence-preview__controls">
         <input
           aria-label="Repository folder path"
@@ -912,6 +958,58 @@ export function RepoIntelligencePreview({
                     } symbols`}
                   </strong>
                   <em>Copied into manifests and handoffs without file contents.</em>
+                </div>
+                <div className="repo-intelligence-graph__wide">
+                  <span>Native read-only queries</span>
+                  <div className="repo-intelligence-preview__controls">
+                    <input
+                      aria-label="Repo Intelligence symbol query"
+                      onChange={(event) => setSymbolQuery(event.target.value)}
+                      placeholder="Search symbols"
+                      value={symbolQuery}
+                    />
+                    <button
+                      className="addon-card__action"
+                      disabled={!hasRealIndex || !symbolQuery.trim()}
+                      onClick={() => void (async () => {
+                        try {
+                          setNativeDiagnosticsError(null);
+                          setSymbolResults(await invoke<NativeSymbolSearch>("search_repo_intelligence_symbols", { query: symbolQuery.trim(), limit: 20 }));
+                        } catch (error) {
+                          setNativeDiagnosticsError(error instanceof Error ? error.message : "Symbol search unavailable.");
+                        }
+                      })()}
+                      type="button"
+                    >
+                      Search symbols
+                    </button>
+                  </div>
+                  {symbolResults ? <em>{symbolResults.symbols.map((symbol) => `${symbol.name} (${symbol.kind})`).join(", ") || "No symbols found"}</em> : null}
+                  <div className="repo-intelligence-preview__controls">
+                    <input
+                      aria-label="Repo Intelligence dependent target"
+                      onChange={(event) => setDependentTarget(event.target.value)}
+                      placeholder="Target path or symbol"
+                      value={dependentTarget}
+                    />
+                    <button
+                      className="addon-card__action"
+                      disabled={!hasRealIndex || !dependentTarget.trim()}
+                      onClick={() => void (async () => {
+                        try {
+                          setNativeDiagnosticsError(null);
+                          setDependentResults(await invoke<NativeDependentsSearch>("get_repo_intelligence_dependents", { target: dependentTarget.trim(), limit: 20 }));
+                        } catch (error) {
+                          setNativeDiagnosticsError(error instanceof Error ? error.message : "Dependent search unavailable.");
+                        }
+                      })()}
+                      type="button"
+                    >
+                      Find dependents
+                    </button>
+                  </div>
+                  {dependentResults ? <em>{dependentResults.edges.map((edge) => `${edge.from} -> ${edge.to}`).join(", ") || "No dependents found"}</em> : null}
+                  <button className="addon-card__action" onClick={() => void refreshNativeDiagnostics()} type="button">Refresh native freshness</button>
                 </div>
               </div>
             ) : null}
