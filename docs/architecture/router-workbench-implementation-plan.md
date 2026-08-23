@@ -595,8 +595,9 @@ Current gate truth on 2026-08-24:
   vendors upstream Chonkify.
 - Full frontend build: passes (`tsc && vite build`).
 - OSS harness integration: passes `13` strategy/session/provider Node tests,
-  `10` shared Workbench/Addons frontend tests, `2` native registry tests, and
-  the required-file/observe-only boundary checker.
+  `20` shared Workbench/Addons frontend tests, `2` native registry tests, the
+  exact native Workbench projection test, and the required-file/observe-only
+  boundary checker.
 
 Manual acceptance remains separate from automated proof. Before execution is
 called usable, verify cancellation and full child-tree cleanup in a disposable

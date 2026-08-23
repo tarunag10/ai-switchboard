@@ -17,10 +17,12 @@ const required = [
   "scripts/oss-provider-registry.mjs",
   "scripts/oss-provider-registry.node-test.mjs",
   "src-tauri/src/oss_capabilities.rs",
+  "src-tauri/src/workbench_kernel/mod.rs",
   "src/lib/ossCapabilities.ts",
   "src/lib/workbench.ts",
   "src/lib/workbench.test.ts",
   "src/components/AddonsView.integration.test.tsx",
+  "src/components/WorkbenchView.test.tsx",
 ];
 const failures = [];
 for (const relative of required) {
