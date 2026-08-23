@@ -161,8 +161,9 @@ the current checkout.
 - Local Repo Intelligence summary validation now reports corrupt generated JSON
   with a concise operator error, and its local check command runs the
   corruption regression harness before accepting a report.
-- Local release artifact selection now rejects same-version DMGs that do not
-  carry the Switchboard product identity before applying freshness/tie-break
+- Local release artifact selection now requires an allowlisted Switchboard
+  filename, a regular file, and an exact semantic version token; ambiguous
+  duplicate exact-version candidates fail closed before freshness/tie-break
   selection.
 - Native managed-config previews now redact secret-keyed values in JSON and
   TOML surfaces as well as YAML, while raw state remains internal for

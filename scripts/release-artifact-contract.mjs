@@ -1,3 +1,10 @@
+const RELEASE_ARTIFACT_NAME = /^(?:AI Switchboard|AI Switchboard for Mac|Mac AI Switchboard|Mac-AI-Switchboard)[ _-]\d+\.\d+\.\d+(?:[-_][^.]+)?\.dmg$/i;
+
+function versionToken(name) {
+  const match = name.match(/^[^0-9]*(\d+\.\d+\.\d+)(?=[_-]|\.dmg$)/i);
+  return match?.[1] ?? null;
+}
+
 export function selectReleaseArtifact(
   candidates,
   { expectedVersion = null } = {},
@@ -8,8 +15,8 @@ export function selectReleaseArtifact(
       typeof candidate.path === "string" &&
       candidate.path.length > 0 &&
       typeof candidate.name === "string" &&
-      candidate.name.toLowerCase().includes("switchboard") &&
-      candidate.name.endsWith(".dmg") &&
+      RELEASE_ARTIFACT_NAME.test(candidate.name) &&
+      candidate.regularFile === true &&
       Number.isFinite(candidate.mtimeMs),
     );
 
@@ -18,12 +25,21 @@ export function selectReleaseArtifact(
   }
 
   const versionCandidates = expectedVersion
-    ? validCandidates.filter((candidate) => candidate.name.includes(expectedVersion))
+    ? validCandidates.filter(
+        (candidate) => versionToken(candidate.name) === expectedVersion,
+      )
     : validCandidates;
   if (expectedVersion && versionCandidates.length === 0) {
     return {
       candidate: null,
       reason: `no DMG candidate matches expected version ${expectedVersion}`,
+    };
+  }
+
+  if (expectedVersion && versionCandidates.length > 1) {
+    return {
+      candidate: null,
+      reason: `multiple DMG candidates match expected version ${expectedVersion}`,
     };
   }
 

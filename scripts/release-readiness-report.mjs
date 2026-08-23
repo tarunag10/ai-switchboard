@@ -270,7 +270,12 @@ function buildArtifactTrustEvidence() {
         .map((name) => {
           const candidatePath = path.join(dmgDirectory, name);
           const stats = fs.statSync(candidatePath);
-          return { name, path: candidatePath, mtimeMs: stats.mtimeMs };
+          return {
+            name,
+            path: candidatePath,
+            regularFile: stats.isFile(),
+            mtimeMs: stats.mtimeMs,
+          };
         })
     : [];
   const artifactSelection = selectReleaseArtifact(dmgCandidates, {
