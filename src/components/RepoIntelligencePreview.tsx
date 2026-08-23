@@ -24,6 +24,7 @@ import {
   type AgentSessionTaskType,
   type RepoContextPack,
   type RepoAgentHandoffTarget,
+  type RepoGraphEdge,
   type RepoIntelligenceSummary,
   type RepoPackCompressionConfig,
   type RepoPackCompressionMode,
@@ -129,6 +130,10 @@ export function RepoIntelligencePreview({
   const [showVerificationDetails, setShowVerificationDetails] = useState(false);
   const [showModeReasoning, setShowModeReasoning] = useState(false);
   const [showGraphDiagnostics, setShowGraphDiagnostics] = useState(false);
+  const [relationshipFilter, setRelationshipFilter] = useState<
+    "all" | "tests" | "imports" | "reverse"
+  >("all");
+  const [relationshipQuery, setRelationshipQuery] = useState("");
   const [nativeFreshness, setNativeFreshness] = useState<NativeIndexFreshness | null>(null);
   const [nativeDiagnosticsError, setNativeDiagnosticsError] = useState<string | null>(null);
   const [symbolQuery, setSymbolQuery] = useState("");
@@ -166,6 +171,45 @@ export function RepoIntelligencePreview({
   const verificationDetailsId = "repo-intelligence-verification-details";
   const modeReasoningId = "repo-intelligence-mode-reasoning";
   const graphDiagnosticsId = "repo-intelligence-graph-diagnostics";
+  const relationshipExplorerId = "repo-intelligence-relationship-explorer";
+
+  const relationshipRows = summary.graph
+    ? [
+        ...(summary.graph.testRelationships ?? []).map((relationship) => ({
+          kind: "tests" as const,
+          label: "Test",
+          from: relationship.testPath,
+          to: relationship.sourcePath,
+          reason: relationship.reason,
+        })),
+        ...(summary.graph.importEdges ?? []).map((edge: RepoGraphEdge) => ({
+          kind: "imports" as const,
+          label: "Import",
+          from: edge.from,
+          to: edge.to,
+          reason: edge.reason,
+        })),
+        ...(summary.graph.reverseDependencyHubs ?? []).map((hub) => ({
+          kind: "reverse" as const,
+          label: "Reverse hub",
+          from: hub.label,
+          to: `${hub.count.toLocaleString()} dependents`,
+          reason: "High fan-in dependency surface",
+        })),
+      ]
+    : [];
+  const normalizedRelationshipQuery = relationshipQuery.trim().toLowerCase();
+  const visibleRelationshipRows = relationshipRows
+    .filter(
+      (row) => relationshipFilter === "all" || row.kind === relationshipFilter,
+    )
+    .filter((row) => {
+      if (!normalizedRelationshipQuery) return true;
+      return [row.from, row.to, row.reason, row.label].some((value) =>
+        value.toLowerCase().includes(normalizedRelationshipQuery),
+      );
+    })
+    .slice(0, 40);
 
   async function loadSavedRepoIndex() {
     setSavedIndexLoading(true);
@@ -882,6 +926,84 @@ export function RepoIntelligencePreview({
               <strong>{summary.graph.likelyTests.length}</strong>
             </div>
           </div>
+          <section
+            className="repo-intelligence-relationship-explorer"
+            aria-labelledby={relationshipExplorerId}
+          >
+            <div className="repo-intelligence-relationship-explorer__heading">
+              <div>
+                <span className="repo-intelligence-section-label">Relationship explorer</span>
+                <h3 id={relationshipExplorerId}>Read-only repository connections</h3>
+              </div>
+              <span className="repo-intelligence-relationship-explorer__count">
+                {relationshipRows.length.toLocaleString()} indexed
+              </span>
+            </div>
+            <p className="repo-intelligence-relationship-explorer__description">
+              Explore test coverage, imports, and reverse dependency hubs without exposing file contents.
+            </p>
+            <div className="repo-intelligence-preview__controls repo-intelligence-relationship-explorer__controls">
+              <label>
+                <span>Filter</span>
+                <select
+                  aria-label="Repo Intelligence relationship filter"
+                  onChange={(event) =>
+                    setRelationshipFilter(
+                      event.target.value as "all" | "tests" | "imports" | "reverse",
+                    )
+                  }
+                  value={relationshipFilter}
+                >
+                  <option value="all">All relationships</option>
+                  <option value="tests">Tests</option>
+                  <option value="imports">Imports</option>
+                  <option value="reverse">Reverse hubs</option>
+                </select>
+              </label>
+              <label>
+                <span>Search</span>
+                <input
+                  aria-label="Search Repo Intelligence relationships"
+                  onChange={(event) => setRelationshipQuery(event.target.value)}
+                  placeholder="Path or reason"
+                  value={relationshipQuery}
+                />
+              </label>
+            </div>
+            {relationshipRows.length === 0 ? (
+              <p className="repo-intelligence-relationship-explorer__empty">
+                {hasRealIndex
+                  ? "No relationships were indexed for this repository. Re-index after adding imports or tests."
+                  : "Index a repository to activate relationship exploration. The sample graph remains read-only."}
+              </p>
+            ) : visibleRelationshipRows.length === 0 ? (
+              <p className="repo-intelligence-relationship-explorer__empty">
+                No relationships match this filter.
+              </p>
+            ) : (
+              <div className="repo-intelligence-relationship-table" role="table" aria-label="Repo Intelligence relationships">
+                <div className="repo-intelligence-relationship-table__row repo-intelligence-relationship-table__row--header" role="row">
+                  <span role="columnheader">Type</span>
+                  <span role="columnheader">From</span>
+                  <span role="columnheader">To</span>
+                  <span role="columnheader">Evidence</span>
+                </div>
+                {visibleRelationshipRows.map((row, index) => (
+                  <div className="repo-intelligence-relationship-table__row" key={`${row.kind}-${row.from}-${row.to}-${index}`} role="row">
+                    <span role="cell" className="repo-intelligence-relationship-table__kind">{row.label}</span>
+                    <code role="cell" title={row.from}>{row.from}</code>
+                    <code role="cell" title={row.to}>{row.to}</code>
+                    <span role="cell" title={row.reason}>{row.reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {relationshipRows.length > visibleRelationshipRows.length && visibleRelationshipRows.length > 0 ? (
+              <span className="repo-intelligence-relationship-explorer__meta">
+                Showing {visibleRelationshipRows.length.toLocaleString()} of {relationshipRows.length.toLocaleString()} relationships.
+              </span>
+            ) : null}
+          </section>
           <div className="repo-intelligence-disclosure repo-intelligence-disclosure--graph">
             <button
               aria-controls={graphDiagnosticsId}

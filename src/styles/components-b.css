@@ -320,6 +320,108 @@
   margin-top: 0;
 }
 
+.repo-intelligence-relationship-explorer {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-card);
+}
+
+.repo-intelligence-relationship-explorer__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.repo-intelligence-section-label {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.repo-intelligence-relationship-explorer h3 {
+  margin: 3px 0 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.repo-intelligence-relationship-explorer__count,
+.repo-intelligence-relationship-explorer__meta {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 750;
+}
+
+.repo-intelligence-relationship-explorer__description,
+.repo-intelligence-relationship-explorer__empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.repo-intelligence-relationship-explorer__controls {
+  align-items: end;
+}
+
+.repo-intelligence-relationship-explorer__controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.repo-intelligence-relationship-table {
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.repo-intelligence-relationship-table__row {
+  display: grid;
+  grid-template-columns: 92px minmax(150px, 1fr) minmax(150px, 1fr) minmax(140px, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 620px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+}
+
+.repo-intelligence-relationship-table__row:first-child {
+  border-top: 0;
+}
+
+.repo-intelligence-relationship-table__row--header {
+  color: var(--text-muted);
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.repo-intelligence-relationship-table code {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-intelligence-relationship-table__kind {
+  color: var(--accent-primary);
+  font-weight: 800;
+}
+
 .repo-intelligence-preview__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
