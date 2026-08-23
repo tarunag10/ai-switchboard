@@ -195,6 +195,9 @@ describe("useMasterActivationController", () => {
     mocks.localOptimizations = ["semantic-cache", "leanctx-shadow"];
     mocks.invoke.mockImplementation(async (command: string) => {
       if (command === "get_runtime_status") return healthyRuntime;
+      if (command === "activate_selected_tools") {
+        return { receipt: { runId: "native-activation-1", overallStatus: "succeeded", results: [] } };
+      }
       if (command === "get_leanctx_sidecar_status") {
         return { configured: false, promotion: {} };
       }
@@ -264,6 +267,9 @@ describe("useMasterActivationController", () => {
     });
     mocks.invoke.mockImplementation(async (command: string) => {
       if (command === "get_runtime_status") return healthyRuntime;
+      if (command === "activate_selected_tools") {
+        return { receipt: { runId: "native-activation-2", overallStatus: "succeeded", results: [] } };
+      }
       if (command === "get_leanctx_sidecar_status") return null;
       return undefined;
     });
@@ -443,6 +449,64 @@ describe("useMasterActivationController", () => {
     await waitFor(() =>
       expect(setupResult.result.current.masterActivationReceipt).toBeNull(),
     );
+  });
+
+  it("retains and rolls back the master-owned native add-on receipt", async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === "get_runtime_status") return healthyRuntime;
+      if (command === "get_leanctx_sidecar_status") return null;
+      if (command === "activate_selected_tools") {
+        return { receipt: { runId: "native-run-42", overallStatus: "succeeded", results: [] } };
+      }
+      return undefined;
+    });
+    mocks.executeActivation.mockResolvedValue({
+      completed: [],
+      failed: [],
+      receipt: { ownedActions: [] },
+    });
+    mocks.executeDeactivation.mockResolvedValue({ failed: [] });
+
+    const setupResult = setup();
+    await act(() => setupResult.result.current.activateEverything());
+    expect(setupResult.result.current.masterActivationReceipt).toMatchObject({
+      nativeActivationRunId: "native-run-42",
+    });
+
+    await act(() => setupResult.result.current.deactivateEverything());
+    expect(mocks.invoke).toHaveBeenCalledWith("rollback_selective_activation", {
+      runId: "native-run-42",
+    });
+    expect(setupResult.result.current.masterActivationReceipt).toBeNull();
+  });
+
+  it("uses the native receipt from the Addons deactivation action", async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === "get_runtime_status") return healthyRuntime;
+      if (command === "get_leanctx_sidecar_status") return null;
+      if (command === "activate_selected_tools") {
+        return { receipt: { runId: "native-addon-action", overallStatus: "succeeded", results: [] } };
+      }
+      return undefined;
+    });
+    mocks.executeActivation.mockResolvedValue({
+      completed: [],
+      failed: [],
+      receipt: { ownedActions: [] },
+    });
+
+    const setupResult = setup();
+    await act(() => setupResult.result.current.activateEverything());
+    await act(() => setupResult.result.current.deactivateMasterFeature("addons"));
+
+    expect(mocks.invoke).toHaveBeenCalledWith("rollback_selective_activation", {
+      runId: "native-addon-action",
+    });
+    expect(setupResult.result.current.masterFeatureStates.addons).toMatchObject({
+      status: "ready",
+      actionLabel: "Activate",
+    });
+    expect(setupResult.result.current.masterActivationReceipt).toBeNull();
   });
 
   it("marks failed deactivation items and preserves partial state", async () => {

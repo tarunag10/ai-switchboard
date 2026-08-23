@@ -33,6 +33,8 @@ export interface MasterActivationReceiptState {
   activation: MasterActivationReceipt;
   previousMode: SwitchboardMode;
   mcpWasActive: boolean;
+  /** Native receipt for the master-owned five-tool activation batch. */
+  nativeActivationRunId?: string;
 }
 
 export interface UseMasterActivationControllerOptions {
@@ -102,9 +104,12 @@ export function useMasterActivationController({
       const ownedActions = current.activation.ownedActions.filter(
         (action) => action.id !== ownedId,
       );
-      if (ownedActions.length === 0) return null;
+      const nativeActivationRunId =
+        id === "addons" ? undefined : current.nativeActivationRunId;
+      if (ownedActions.length === 0 && !nativeActivationRunId) return null;
       return {
         ...current,
+        nativeActivationRunId,
         activation: { ...current.activation, ownedActions },
       };
     });
@@ -246,23 +251,28 @@ export function useMasterActivationController({
       }
       let managedAddonDetail = "Runtime and connector health refreshed.";
       let managedAddonStatus: MasterFeatureStatus = "complete";
+      let nativeActivationRunId: string | undefined;
       try {
         const managedActivation = await invoke<{
           receipt?: {
+            runId?: string;
             overallStatus?: string;
             results?: Array<{ toolId: string; state: string; detail: string }>;
           };
         }>("activate_selected_tools", {
           selectedToolIds: ["headroom", "rtk", "ponytail", "caveman", "markitdown"],
         });
+        nativeActivationRunId = managedActivation?.receipt?.runId;
         const results = managedActivation?.receipt?.results ?? [];
         const failed = results.filter((item) => item.state === "failed");
         managedAddonDetail = failed.length > 0
           ? `Managed add-on activation was partial: ${failed.map((item) => `${item.toolId}: ${item.detail}`).join("; ")}`
-          : managedActivation?.receipt?.overallStatus === "succeeded"
+          : managedActivation?.receipt?.overallStatus === "succeeded" && nativeActivationRunId
             ? "RTK, Ponytail, Caveman, and MarkItDown activation was applied through the native receipt path."
-            : "Managed add-on activation returned no native receipt; health was refreshed without claiming completion.";
-        if (failed.length > 0 || !managedActivation?.receipt) managedAddonStatus = "partial";
+            : "Managed add-on activation returned no rollback-capable native receipt; health was refreshed without claiming completion.";
+        if (failed.length > 0 || !managedActivation?.receipt || !nativeActivationRunId) {
+          managedAddonStatus = "partial";
+        }
       } catch (error) {
         managedAddonStatus = "partial";
         managedAddonDetail = `Managed add-on activation needs attention: ${error instanceof Error ? error.message : "native activation failed."}`;
@@ -392,18 +402,23 @@ export function useMasterActivationController({
         ),
       );
       const completed = new Set(result.completed.map((item) => item.id));
-      if (result.receipt.ownedActions.length > 0) {
+      if (result.receipt.ownedActions.length > 0 || nativeActivationRunId) {
         setMasterActivationReceipt({
           activation: result.receipt,
           previousMode,
           mcpWasActive,
+          nativeActivationRunId,
         });
       }
       setMasterActivationProgress({
         completed: Math.min(9, completed.size + 3),
         total: 9,
       });
-      setMasterActivationState(result.failed.length ? "partial" : "complete");
+      setMasterActivationState(
+        result.failed.length > 0 || managedAddonStatus === "partial"
+          ? "partial"
+          : "complete",
+      );
       for (const item of result.failed) {
         const featureId: MasterFeatureId =
           item.id === "repo-memory-mcp"
@@ -572,7 +587,8 @@ export function useMasterActivationController({
     const owned = receipt.activation.ownedActions.find(
       (action) => action.id === ownedActionId,
     );
-    if (!owned) {
+    const ownsNativeAddons = id === "addons" && Boolean(receipt.nativeActivationRunId);
+    if (!owned && !ownsNativeAddons) {
       setMasterFeature(id, {
         status: "ready",
         actionLabel: "Activate",
@@ -584,17 +600,24 @@ export function useMasterActivationController({
     }
 
     try {
-      const partialReceipt: MasterActivationReceipt = {
-        ...receipt.activation,
-        ownedActions: [owned],
-      };
-      const plan = createMasterDeactivationPlan({ receipt: partialReceipt });
-      const result = await executeMasterDeactivation(plan, {
-        receipt: partialReceipt,
-        callbacks: createMasterDeactivationCallbacks(receipt),
-      });
-      if (result.failed.length > 0) {
-        throw new Error(result.failed[0]?.detail ?? "Deactivation failed.");
+      if (id === "addons" && receipt.nativeActivationRunId) {
+        await invoke("rollback_selective_activation", {
+          runId: receipt.nativeActivationRunId,
+        });
+      }
+      if (owned) {
+        const partialReceipt: MasterActivationReceipt = {
+          ...receipt.activation,
+          ownedActions: [owned],
+        };
+        const plan = createMasterDeactivationPlan({ receipt: partialReceipt });
+        const result = await executeMasterDeactivation(plan, {
+          receipt: partialReceipt,
+          callbacks: createMasterDeactivationCallbacks(receipt),
+        });
+        if (result.failed.length > 0) {
+          throw new Error(result.failed[0]?.detail ?? "Deactivation failed.");
+        }
       }
       await refreshRuntimeStatus();
       setMasterFeature(id, {
@@ -621,6 +644,18 @@ export function useMasterActivationController({
     setMasterOperation("deactivate");
     setMasterActivationState("running");
     try {
+      let nativeAddonRollbackError: Error | null = null;
+      if (receipt.nativeActivationRunId) {
+        try {
+          await invoke("rollback_selective_activation", {
+            runId: receipt.nativeActivationRunId,
+          });
+        } catch (error) {
+          nativeAddonRollbackError = error instanceof Error
+            ? error
+            : new Error("Native add-on rollback failed.");
+        }
+      }
       const callbacks = createMasterDeactivationCallbacks(receipt);
       const plan = createMasterDeactivationPlan({
         receipt: receipt.activation,
@@ -638,7 +673,7 @@ export function useMasterActivationController({
         refreshConnectors(),
         refreshDoctorReport(),
       ]);
-      const failed = result.failed.length > 0;
+      const failed = result.failed.length > 0 || nativeAddonRollbackError !== null;
       if (!failed) {
         setMasterActivationReceipt(null);
         setMasterActivationProgress({ completed: 0, total: 9 });
@@ -646,6 +681,13 @@ export function useMasterActivationController({
         setMasterActivationState("ready");
       } else {
         setMasterActivationState("partial");
+        if (nativeAddonRollbackError) {
+          setMasterFeature("addons", {
+            status: "error",
+            actionLabel: "Retry deactivation",
+            detail: nativeAddonRollbackError.message,
+          });
+        }
         for (const item of result.failed) {
           setMasterFeature(
             item.id === "repo-memory-mcp" ? "gateway-mcp" : "addons",
