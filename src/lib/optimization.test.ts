@@ -13,7 +13,8 @@ import {
   normalizeOptimizationSnapshot,
   runPreemptiveCompaction,
   recordModelRoutingEvidence,
-  recordModelRoutingCompletion,
+  completeModelRoutingCompletion,
+  issueModelRoutingCompletionHandle,
   saveModelRoutingExperimentPolicy,
   saveOptimizationActionPolicy,
   validateModelRouting,
@@ -331,34 +332,30 @@ describe("optimization helpers", () => {
     ]);
   });
 
-  it("routes completion metrics through the validated native bridge", async () => {
-    const decision = {
-      selectedModel: "fast/local",
-      actualModel: "frontier",
-      observeOnly: true,
-      reason: "observe",
-      reasons: ["task_class=formatting"],
-      stage: "observe" as const,
-      taskClass: "formatting",
-      baselineModel: "frontier",
-      candidateModel: "fast/local",
-      evidence: null,
+  it("uses native-issued handles for completion metrics", async () => {
+    const input = {
+      client: "claude_code",
+      task: "format this file",
+      requestedModel: "frontier",
+      cheapModel: "fast/local",
+      capableModel: "frontier",
+      enabled: true,
     };
-    const completion = {
-      runId: "run-completion-1",
-      capturedAt: "2026-08-21T10:00:00Z",
+    const handle = { handleId: "opaque-handle", runId: "native-run" };
+    const metrics = {
       succeeded: true,
       successfulTaskCostMicrounits: 900,
       qualityScoreBps: 9800,
       latencyMs: 700,
       followUpRework: false,
     };
-    invokeMock.mockResolvedValueOnce(undefined);
-    await expect(recordModelRoutingCompletion(decision, completion)).resolves.toBeUndefined();
-    expect(invokeMock).toHaveBeenCalledWith("record_model_routing_completion", {
-      decision,
-      completion,
-    });
+    invokeMock.mockResolvedValueOnce(handle).mockResolvedValueOnce(undefined);
+    await expect(issueModelRoutingCompletionHandle(input)).resolves.toEqual(handle);
+    await expect(completeModelRoutingCompletion(handle.handleId, metrics)).resolves.toBeUndefined();
+    expect(invokeMock.mock.calls).toEqual([
+      ["issue_model_routing_completion_handle", { input }],
+      ["complete_model_routing_completion", { handleId: handle.handleId, metrics }],
+    ]);
   });
 
   it("returns a safe local compaction preview on native failure", async () => {

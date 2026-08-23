@@ -1,4 +1,8 @@
 use crate::optimization;
+use crate::state::AppState;
+use chrono::Utc;
+use std::time::Instant;
+use tauri::State;
 
 #[tauri::command]
 pub fn get_optimization_snapshot() -> optimization::OptimizationSnapshot {
@@ -50,18 +54,92 @@ pub fn record_model_routing_evidence(
     optimization::telemetry_store::record_model_routing_evidence(&observation)
 }
 
-/// Converts content-free completion metrics into validated redacted evidence
-/// and persists it through the same telemetry boundary as imported evidence.
-/// This does not change the routing decision or enable automatic routing.
+/// Issues a native-bound completion capability. Routing remains observe-only;
+/// the caller receives the proposal for display/use, but cannot forge the
+/// decision accepted by the completion command.
 #[tauri::command]
-pub fn record_model_routing_completion(
-    decision: optimization::model_routing::ModelRouteDecision,
-    completion: optimization::model_routing::ModelRoutingCompletionEvidence,
+pub fn issue_model_routing_completion_handle(
+    input: optimization::model_routing::ModelRouteInput,
+    state: State<'_, AppState>,
+) -> Result<optimization::model_routing::ModelRoutingCompletionHandle, String> {
+    issue_model_routing_completion_handle_for_state(input, &state)
+}
+
+fn issue_model_routing_completion_handle_for_state(
+    input: optimization::model_routing::ModelRouteInput,
+    state: &AppState,
+) -> Result<optimization::model_routing::ModelRoutingCompletionHandle, String> {
+    optimization::model_routing::validate_completion_handle_input(&input)?;
+    let policy = optimization::model_routing::load_model_routing_experiment_policy();
+    let decision = optimization::model_routing::decide_model_route_experiment(
+        &input, &policy, false, None,
+    );
+    if !decision.observe_only || decision.actual_model != input.requested_model {
+        return Err("model-routing completion handles require observe-only routing".to_string());
+    }
+    let now = Utc::now();
+    let (handle, pending) =
+        optimization::model_routing::new_completion_handle(decision, now);
+    let mut handles = state.model_routing_completion_handles.lock();
+    handles.retain(|_, value| value.expires_monotonic > Instant::now());
+    if handles.len() >= optimization::model_routing::MAX_PENDING_MODEL_ROUTING_COMPLETION_HANDLES {
+        return Err("too many pending model-routing completion handles".to_string());
+    }
+    handles.insert(handle.handle_id.clone(), pending);
+    Ok(handle)
+}
+
+/// Consumes a native-issued capability before persisting content-free
+/// completion metrics. A consumed, expired, or unknown handle cannot be used
+/// again, even if persistence later fails.
+#[tauri::command]
+pub fn complete_model_routing_completion(
+    handle_id: String,
+    metrics: optimization::model_routing::ModelRoutingCompletionMetrics,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
+    complete_model_routing_completion_for_state(handle_id, metrics, &state)
+}
+
+fn complete_model_routing_completion_for_state(
+    handle_id: String,
+    metrics: optimization::model_routing::ModelRoutingCompletionMetrics,
+    state: &AppState,
+) -> Result<(), String> {
+    let now = Utc::now();
+    let handle_id = handle_id.trim();
+    if handle_id.is_empty() || handle_id.len() > 128 {
+        return Err("model-routing completion handle is invalid".to_string());
+    }
+    let pending = {
+        let handles = state.model_routing_completion_handles.lock();
+        handles
+            .get(handle_id)
+            .filter(|value| value.expires_monotonic > Instant::now())
+            .cloned()
+            .ok_or_else(|| "model-routing completion handle is unknown, expired, or already consumed".to_string())?
+    };
+    let completion = optimization::model_routing::ModelRoutingCompletionEvidence {
+        run_id: pending.run_id.clone(),
+        captured_at: now.to_rfc3339(),
+        succeeded: metrics.succeeded,
+        successful_task_cost_microunits: metrics.successful_task_cost_microunits,
+        quality_score_bps: metrics.quality_score_bps,
+        latency_ms: metrics.latency_ms,
+        follow_up_rework: metrics.follow_up_rework,
+    };
     let observation = optimization::model_routing::observation_from_completed_route(
-        &decision,
+        &pending.decision,
         completion,
     )?;
+    {
+        let mut handles = state.model_routing_completion_handles.lock();
+        handles.retain(|_, value| value.expires_at > now);
+        handles
+            .remove(handle_id)
+            .ok_or_else(|| "model-routing completion handle is unknown, expired, or already consumed".to_string())?
+        ;
+    }
     optimization::telemetry_store::record_model_routing_evidence(&observation)
 }
 
@@ -79,10 +157,13 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{record_model_routing_completion, record_model_routing_evidence};
+    use super::{
+        complete_model_routing_completion_for_state, issue_model_routing_completion_handle_for_state,
+        record_model_routing_evidence,
+    };
     use crate::optimization::model_routing::{
-        decide_model_route, ModelRouteInput, ModelRoutingCompletionEvidence,
-        ModelRoutingEvidenceArm, ModelRoutingEvidenceObservation,
+        ModelRouteInput, ModelRoutingCompletionMetrics, ModelRoutingEvidenceArm,
+        ModelRoutingEvidenceObservation,
     };
     use crate::optimization::telemetry_store::export_model_routing_evidence;
 
@@ -107,103 +188,95 @@ mod tests {
     }
 
     #[test]
-    fn record_model_routing_completion_rejects_missing_quality_before_persistence() {
-        let decision = decide_model_route(&ModelRouteInput {
-            client: "claude_code".to_string(),
-            task: "format this file".to_string(),
-            requested_model: "frontier".to_string(),
-            cheap_model: "fast/local".to_string(),
-            capable_model: "frontier".to_string(),
-            enabled: true,
-        });
-        let error = record_model_routing_completion(
-            decision,
-            ModelRoutingCompletionEvidence {
-                run_id: "run-completion-1".to_string(),
-                captured_at: "2026-08-21T00:00:00Z".to_string(),
-                succeeded: true,
-                successful_task_cost_microunits: Some(100),
-                quality_score_bps: None,
-                latency_ms: 10,
-                follow_up_rework: Some(false),
-            },
-        )
-        .expect_err("completion bridge must require explicit quality evidence");
-        assert!(error.contains("explicit quality score"));
-    }
-
-    #[test]
-    fn completion_harness_exports_one_pair_and_stays_observe_only() {
+    fn completion_handle_is_observe_only_and_one_shot() {
         let _guard = crate::optimization::telemetry::test_guard();
         let home = tempdir().expect("temp home");
         let previous_home = env::var_os("HOME");
         env::set_var("HOME", home.path());
-
-        let baseline = decide_model_route(&ModelRouteInput {
+        let state = crate::state::AppState::new_in(home.path().join("state"))
+            .expect("app state");
+        let handle = issue_model_routing_completion_handle_for_state(ModelRouteInput {
             client: "claude_code".to_string(),
             task: "format this file".to_string(),
             requested_model: "frontier".to_string(),
             cheap_model: "fast/local".to_string(),
             capable_model: "frontier".to_string(),
             enabled: true,
-        });
-        // The production facade remains observe-only, so the harness uses a
-        // redacted candidate arm decision without invoking an automatic route.
-        let mut candidate = baseline.clone();
-        candidate.actual_model = "fast/local".to_string();
-        candidate.baseline_model = "frontier".to_string();
-        candidate.candidate_model = "fast/local".to_string();
-        assert!(baseline.observe_only && candidate.observe_only);
-
-        let run_id = "completion-harness-run";
-        let baseline_time = chrono::Utc::now().to_rfc3339();
-        record_model_routing_completion(
-            baseline.clone(),
-            ModelRoutingCompletionEvidence {
-                run_id: run_id.to_string(),
-                captured_at: baseline_time.clone(),
+        }, &state)
+        .expect("observe-only handle should issue");
+        assert!(handle.decision.observe_only);
+        assert_eq!(handle.decision.actual_model, "frontier");
+        let invalid_metrics = complete_model_routing_completion_for_state(
+            handle.handle_id.clone(),
+            ModelRoutingCompletionMetrics {
+                succeeded: true,
+                successful_task_cost_microunits: Some(1_000),
+                quality_score_bps: None,
+                latency_ms: 800,
+                follow_up_rework: Some(false),
+            },
+            &state,
+        )
+        .expect_err("invalid metrics must fail before consuming the handle");
+        assert!(invalid_metrics.contains("explicit quality score"));
+        complete_model_routing_completion_for_state(
+            handle.handle_id.clone(),
+            ModelRoutingCompletionMetrics {
                 succeeded: true,
                 successful_task_cost_microunits: Some(1_000),
                 quality_score_bps: Some(9_800),
                 latency_ms: 800,
                 follow_up_rework: Some(false),
             },
+            &state,
         )
-        .expect("baseline completion should persist");
-        record_model_routing_completion(
-            candidate,
-            ModelRoutingCompletionEvidence {
-                run_id: run_id.to_string(),
-                captured_at: (chrono::Utc::now() + chrono::Duration::milliseconds(1)).to_rfc3339(),
-                succeeded: true,
-                successful_task_cost_microunits: Some(700),
-                quality_score_bps: Some(9_800),
-                latency_ms: 820,
-                follow_up_rework: Some(false),
-            },
-        )
-        .expect("candidate completion should persist");
-
-        let artifact = export_model_routing_evidence(run_id, "formatting")
-            .expect("completion harness should export evidence");
-        assert_eq!(artifact.baseline.sample_count, 1);
-        assert_eq!(artifact.candidate.sample_count, 1);
-        assert!(!artifact.promotion_eligible);
-
-        let duplicate_error = record_model_routing_completion(
-            baseline,
-            ModelRoutingCompletionEvidence {
-                run_id: run_id.to_string(),
-                captured_at: baseline_time,
+        .expect("completion should persist");
+        let duplicate_error = complete_model_routing_completion_for_state(
+            handle.handle_id,
+            ModelRoutingCompletionMetrics {
                 succeeded: true,
                 successful_task_cost_microunits: Some(1_000),
                 quality_score_bps: Some(9_800),
                 latency_ms: 800,
                 follow_up_rework: Some(false),
             },
+            &state,
         )
-        .expect_err("duplicate completion must fail closed");
-        assert!(duplicate_error.contains("duplicate"));
+        .expect_err("consumed handle must not be reusable");
+        assert!(duplicate_error.contains("unknown, expired, or already consumed"));
+
+        let expired_handle = issue_model_routing_completion_handle_for_state(
+            ModelRouteInput {
+                client: "claude_code".to_string(),
+                task: "format this file".to_string(),
+                requested_model: "frontier".to_string(),
+                cheap_model: "fast/local".to_string(),
+                capable_model: "frontier".to_string(),
+                enabled: true,
+            },
+            &state,
+        )
+        .expect("second handle should issue");
+        state
+            .model_routing_completion_handles
+            .lock()
+            .get_mut(&expired_handle.handle_id)
+            .expect("pending handle")
+            .expires_monotonic = std::time::Instant::now() - std::time::Duration::from_secs(1);
+        let expired_error = complete_model_routing_completion_for_state(
+            expired_handle.handle_id,
+            ModelRoutingCompletionMetrics {
+                succeeded: true,
+                successful_task_cost_microunits: Some(1_000),
+                quality_score_bps: Some(9_800),
+                latency_ms: 800,
+                follow_up_rework: Some(false),
+            },
+            &state,
+        )
+        .expect_err("expired handles must fail closed");
+        assert!(expired_error.contains("unknown, expired, or already consumed"));
+
 
         match previous_home {
             Some(value) => env::set_var("HOME", value),

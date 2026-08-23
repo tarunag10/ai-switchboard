@@ -414,9 +414,10 @@ the current checkout.
    remains pending; the local runtime exporter is ready but automatic routing
    stays observe-only until that evidence and approval exists. A content-free
    completed-route adapter now enforces explicit quality, rework, and
-   successful-task cost inputs before producing a store-ready observation; the
-   typed persistence bridge is shipped, while wiring it into a central
-   production completion hook remains pending.
+   successful-task cost inputs before producing a store-ready observation; a
+   native-issued, bounded, expiring, one-shot completion handle now owns the
+   run identity and route decision, while wiring it into a central production
+   provider/client completion hook remains pending.
    Native and TypeScript defaults now align with the 100-sample evidence
    contract; transport-only proxy completion still lacks arm, task-class,
    quality, rework, and provider-billed cost context.
@@ -425,6 +426,9 @@ the current checkout.
    Native evidence storage canonicalizes RFC3339 instants before duplicate
    detection, so equivalent timezone-offset representations cannot inflate a
    run in the harness.
+   The handle store uses monotonic expiry and rejects malformed route identity;
+   the frontend exposes issue/complete wrappers without accepting caller
+   supplied decisions, run IDs, timestamps, or arms.
    automatic routing stays observe-only until that evidence exists.
 2. **Release evidence operator path:** the documentation/checker drift guard,
    canonical app identity, report freshness contract, local source-lineage

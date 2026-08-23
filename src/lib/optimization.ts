@@ -152,6 +152,15 @@ export interface ModelRoutingExperimentPolicy {
   thresholds: ModelRoutingThresholds;
 }
 
+export interface ModelRoutingInput {
+  client: string;
+  task: string;
+  requestedModel: string;
+  cheapModel: string;
+  capableModel: string;
+  enabled: boolean;
+}
+
 export type ModelRoutingEvidenceArm = "baseline" | "candidate";
 
 export interface ModelRoutingEvidenceObservation {
@@ -190,13 +199,20 @@ export interface ModelRoutingRouteDecision {
 }
 
 export interface ModelRoutingCompletionEvidence {
-  runId: string;
-  capturedAt: string;
   succeeded: boolean;
   successfulTaskCostMicrounits?: number | null;
   qualityScoreBps?: number | null;
   latencyMs: number;
   followUpRework?: boolean | null;
+}
+
+export type ModelRoutingCompletionMetrics = ModelRoutingCompletionEvidence;
+
+export interface ModelRoutingCompletionHandle {
+  handleId: string;
+  issuedAt: string;
+  expiresAt: string;
+  decision: ModelRoutingRouteDecision;
 }
 
 export interface ModelRoutingEvidenceArtifact {
@@ -479,11 +495,17 @@ export function recordModelRoutingEvidence(
   return invoke<void>("record_model_routing_evidence", { observation });
 }
 
-export function recordModelRoutingCompletion(
-  decision: ModelRoutingRouteDecision,
-  completion: ModelRoutingCompletionEvidence,
+export function issueModelRoutingCompletionHandle(
+  input: ModelRoutingInput,
+): Promise<ModelRoutingCompletionHandle> {
+  return invoke<ModelRoutingCompletionHandle>("issue_model_routing_completion_handle", { input });
+}
+
+export function completeModelRoutingCompletion(
+  handleId: string,
+  metrics: ModelRoutingCompletionMetrics,
 ): Promise<void> {
-  return invoke<void>("record_model_routing_completion", { decision, completion });
+  return invoke<void>("complete_model_routing_completion", { handleId, metrics });
 }
 
 export function exportModelRoutingEvidence(

@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use std::time::{Duration, Instant};
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 use crate::storage::{app_data_dir, config_file};
 
@@ -180,6 +183,92 @@ pub(crate) struct ModelRouteDecision {
     pub(crate) baseline_model: String,
     pub(crate) candidate_model: String,
     pub(crate) evidence: Option<ModelRoutingEvidenceAssessment>,
+}
+
+/// Native-issued capability for recording one completed routing run. The
+/// handle is intentionally opaque to the frontend; completion accepts only
+/// this identifier and content-free metrics, never a caller-supplied route
+/// decision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingCompletionHandle {
+    pub(crate) handle_id: String,
+    pub(crate) issued_at: String,
+    pub(crate) expires_at: String,
+    pub(crate) decision: ModelRouteDecision,
+}
+
+/// Content-free completion metrics accepted by a native-issued handle.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ModelRoutingCompletionMetrics {
+    pub(crate) succeeded: bool,
+    pub(crate) successful_task_cost_microunits: Option<u64>,
+    pub(crate) quality_score_bps: Option<u32>,
+    pub(crate) latency_ms: u64,
+    pub(crate) follow_up_rework: Option<bool>,
+}
+
+/// Internal state retained only for the short completion window. It is never
+/// serialized or exposed through a command.
+#[derive(Debug, Clone)]
+pub(crate) struct PendingModelRoutingCompletion {
+    pub(crate) run_id: String,
+    pub(crate) decision: ModelRouteDecision,
+    pub(crate) issued_at: DateTime<Utc>,
+    pub(crate) expires_at: DateTime<Utc>,
+    pub(crate) expires_monotonic: Instant,
+}
+
+pub(crate) const MODEL_ROUTING_COMPLETION_HANDLE_TTL_SECS: i64 = 15 * 60;
+pub(crate) const MAX_PENDING_MODEL_ROUTING_COMPLETION_HANDLES: usize = 256;
+
+pub(crate) fn new_completion_handle(
+    decision: ModelRouteDecision,
+    now: DateTime<Utc>,
+) -> (ModelRoutingCompletionHandle, PendingModelRoutingCompletion) {
+    let handle_id = Uuid::new_v4().to_string();
+    let run_id = format!("routing-run-{}", Uuid::new_v4());
+    let expires_at = now + chrono::Duration::seconds(MODEL_ROUTING_COMPLETION_HANDLE_TTL_SECS);
+    (
+        ModelRoutingCompletionHandle {
+            handle_id,
+            issued_at: now.to_rfc3339(),
+            expires_at: expires_at.to_rfc3339(),
+            decision: decision.clone(),
+        },
+        PendingModelRoutingCompletion {
+            run_id,
+            decision,
+            issued_at: now,
+            expires_at,
+            expires_monotonic: Instant::now()
+                + Duration::from_secs(MODEL_ROUTING_COMPLETION_HANDLE_TTL_SECS as u64),
+        },
+    )
+}
+
+pub(crate) fn validate_completion_handle_input(input: &ModelRouteInput) -> Result<(), String> {
+    let valid_identifier = |value: &str, label: &str, max_len: usize| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() || trimmed.len() > max_len || trimmed.chars().any(char::is_control) {
+            return Err(format!("model-routing handle requires a valid {label}"));
+        }
+        Ok(())
+    };
+    valid_identifier(&input.client, "client", 128)?;
+    valid_identifier(&input.task, "task", 8_192)?;
+    valid_identifier(&input.requested_model, "requested model", 128)?;
+    valid_identifier(&input.cheap_model, "cheap model", 128)?;
+    valid_identifier(&input.capable_model, "capable model", 128)?;
+    if input
+        .cheap_model
+        .trim()
+        .eq_ignore_ascii_case(input.capable_model.trim())
+    {
+        return Err("model-routing handle requires distinct cheap and capable models".to_string());
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -783,6 +872,30 @@ mod tests {
         assert_eq!(decision.baseline_model, "frontier");
         assert_eq!(decision.candidate_model, "fast/local");
         assert_eq!(ModelRoutingExperimentPolicy::default().thresholds.minimum_sample_size, 100);
+    }
+
+    #[test]
+    fn completion_handle_input_rejects_invalid_or_ambiguous_route_identity() {
+        let mut invalid = input();
+        invalid.client = " \n".to_string();
+        assert!(validate_completion_handle_input(&invalid).is_err());
+
+        let mut ambiguous = input();
+        ambiguous.capable_model = ambiguous.cheap_model.clone();
+        let error = validate_completion_handle_input(&ambiguous)
+            .expect_err("identical experiment models must be rejected");
+        assert!(error.contains("distinct cheap and capable models"));
+    }
+
+    #[test]
+    fn completion_handles_are_unique_and_use_monotonic_expiry() {
+        let now = chrono::Utc::now();
+        let (first, pending) = new_completion_handle(decide_model_route(&input()), now);
+        let (second, _) = new_completion_handle(decide_model_route(&input()), now);
+        assert_ne!(first.handle_id, second.handle_id);
+        assert!(pending.expires_monotonic > std::time::Instant::now());
+        assert_eq!(first.decision.actual_model, input().requested_model);
+        assert!(chrono::DateTime::parse_from_rfc3339(&first.expires_at).is_ok());
     }
 
     fn completion() -> ModelRoutingCompletionEvidence {
