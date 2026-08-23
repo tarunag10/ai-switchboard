@@ -64,6 +64,10 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
   loader, and fail-closed tests are shipped. Optional external interoperability
   remains gated on pinned compatibility, rollback, provider-billed attribution,
   and release evidence.
+- Repo Intelligence relationship exploration is complete for the local slice:
+  the existing bounded graph is visible in-app through a read-only table for
+  test/source links, imports, and reverse-dependency hubs, with search,
+  filters, 40-row rendering bounds, and explicit empty/no-index states.
 
 ## Left
 

@@ -108,6 +108,10 @@ the current checkout.
   broadening dynamic or multi-hop re-export inference.
 - CLI Repo Intelligence now matches the frontend for same-file aliased named
   exports, preserving the existing parity boundary.
+- Repo Intelligence now exposes a bounded, read-only relationship explorer for
+  test/source links, imports, and reverse-dependency hubs, with search,
+  relationship-type filters, and explicit no-index/no-match states; the UI
+  caps the rendered view at 40 rows and never exposes file contents.
 - Release readiness now has a deterministic blocked no-refresh rehearsal that
   verifies exact action mapping without rewriting the supplied report.
 - Managed connector listings now expose read-only config previews for the

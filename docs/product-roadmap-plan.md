@@ -449,7 +449,6 @@ Suggested commit:
 - Broader savings anomaly thresholds beyond the shipped session output-growth, low-savings, and cost-growth alerts, especially durable day/week trends once backend attribution can persist richer baselines.
 - Broader per-client savings history beyond the shipped saved provider-history fallback, including exact request counts once backend daily/hourly history can persist client counts directly.
 - Broader Codex advisor history beyond the shipped saved daily-history fallback, including per-Codex durable history once backend attribution can separate clients across launches.
-- Test relationship view in Repo Intelligence.
 - Deeper add-on health history beyond the shipped bounded trend cards, especially durable MarkItDown/Ponytail counters.
 - Broader settings migration that can apply connector/add-on changes after each native config gate has restore evidence; preview classification is shipped, but connector/add-on application remains manual.
 - Broader Rollback Center native restore coverage for provider-specific connector configs beyond the shipped Codex/OpenCode/Windsurf/Zed native rows, Gemini managed cleanup, sidecar connector cleanup, managed-storage, Repo Intelligence summary, LaunchAgent, app-state, and Ponytail receipt/plugin rows.
