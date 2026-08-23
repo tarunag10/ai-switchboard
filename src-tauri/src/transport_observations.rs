@@ -15,7 +15,7 @@ const MAX_OBSERVATIONS: usize = 256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub(crate) enum TransportRoute { Headroom, DirectAnthropic, DirectOpenai, Cache }
+pub(crate) enum TransportRoute { Ingress, Headroom, DirectAnthropic, DirectOpenai, Cache }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -136,6 +136,17 @@ mod tests {
         assert_eq!(observations[0].terminal_outcome, Some(TransportOutcome::ReadFailure));
         assert_eq!(observations[1].terminal_outcome, Some(TransportOutcome::ClientDisconnect));
         assert_eq!(observations[2].terminal_outcome, Some(TransportOutcome::UpstreamHttpError));
+    }
+
+    #[test]
+    fn records_pre_routing_ingress_route_without_provider_claims() {
+        let recorder = TransportObservationRecorder::default();
+        let event_id = recorder.begin(TransportRoute::Ingress, "unknown", false);
+        assert!(recorder.finish(&event_id, None, TransportOutcome::Timeout));
+        let observation = recorder.snapshot().pop().expect("observation");
+        assert_eq!(observation.route, TransportRoute::Ingress);
+        assert_eq!(observation.request_class, "unknown");
+        assert_eq!(observation.terminal_outcome, Some(TransportOutcome::Timeout));
     }
 
     #[test]

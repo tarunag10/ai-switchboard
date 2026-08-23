@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export type TransportRoute = "headroom" | "direct_anthropic" | "direct_openai" | "cache";
+export type TransportRoute = "ingress" | "headroom" | "direct_anthropic" | "direct_openai" | "cache";
 export type TransportOutcome =
   | "success"
   | "upstream_http_error"
@@ -25,4 +25,3 @@ export interface TransportObservation {
 export async function loadTransportObservations(): Promise<TransportObservation[]> {
   return invoke<TransportObservation[]>("get_transport_observations");
 }
-

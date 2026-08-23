@@ -249,6 +249,7 @@ async fn handle(
     // capture the bearer token, and forwarding early avoids deadlocks with
     // `Expect: 100-continue` request flows.
     let mut buf = Vec::with_capacity(4096);
+    let ingress_event_id = transport_recorder().begin(TransportRoute::Ingress, "unknown", false);
     match tokio::time::timeout(
         HEADER_READ_TIMEOUT,
         read_http_headers(&mut client, &mut buf),
@@ -256,7 +257,18 @@ async fn handle(
     .await
     {
         Ok(Ok(())) => {}
-        _ => return,
+        Ok(Err(_)) => {
+            transport_recorder().finish(
+                &ingress_event_id,
+                None,
+                TransportOutcome::ClientDisconnect,
+            );
+            return;
+        }
+        Err(_) => {
+            transport_recorder().finish(&ingress_event_id, None, TransportOutcome::Timeout);
+            return;
+        }
     }
 
     // Reject requests that didn't target the loopback listener or that carry
@@ -265,6 +277,11 @@ async fn handle(
     // a user's browser; CLI clients never set Origin and always send a
     // loopback Host.
     if !request_is_loopback_safe(&buf) {
+        transport_recorder().finish(
+            &ingress_event_id,
+            Some(400),
+            TransportOutcome::LocalRejection,
+        );
         let _ = client
             .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
             .await;
@@ -274,6 +291,11 @@ async fn handle(
     match proxy_session_auth.validate_request_headers(&buf) {
         ProxySessionValidation::Valid => {}
         ProxySessionValidation::Missing if proxy_session_auth.enforce() => {
+            transport_recorder().finish(
+                &ingress_event_id,
+                Some(401),
+                TransportOutcome::LocalRejection,
+            );
             let _ = client
                 .write_all(
                     format!(
@@ -285,6 +307,11 @@ async fn handle(
             return;
         }
         ProxySessionValidation::Invalid if proxy_session_auth.enforce() => {
+            transport_recorder().finish(
+                &ingress_event_id,
+                Some(403),
+                TransportOutcome::LocalRejection,
+            );
             let _ = client
                 .write_all(
                     b"HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: 33\r\n\r\nInvalid proxy session token.\r\n",
@@ -294,6 +321,7 @@ async fn handle(
         }
         ProxySessionValidation::Missing | ProxySessionValidation::Invalid => {}
     }
+    transport_recorder().finish(&ingress_event_id, None, TransportOutcome::Success);
 
     // Whether this is a Codex (OpenAI-path) request. Parsed once here and
     // reused for the Codex plan capture, the Codex-only bypass, and the
