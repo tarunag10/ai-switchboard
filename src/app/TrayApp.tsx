@@ -2717,9 +2717,44 @@ export default function TrayApp() {
     setConnectorsError(null);
     try {
       if (nextEnabled) {
-        await invoke<ClientSetupResult>("apply_client_setup", {
-          clientId: connector.clientId,
-        });
+        if (connector.clientId === "cursor") {
+          const preview = await invoke<ManagedConfigApplyPreview>(
+            "preview_managed_config_apply",
+            { recordId: "cursor-routing" },
+          );
+          if (preview.status !== "ready") {
+            throw new Error(
+              preview.blockedReason ??
+                "Cursor sidecar preview is not ready; no files were changed.",
+            );
+          }
+          const confirmation = window.prompt(
+            [
+              "Cursor sidecar dry-run preview",
+              `Target: ${preview.targetPath}`,
+              "Only the Switchboard-owned routing-intent sidecar will change.",
+              "Cursor provider settings, accounts, credentials, and model choices remain untouched.",
+              `Type this exact phrase to apply: ${preview.confirmationPhrase}`,
+            ].join("\n"),
+          );
+          if (confirmation !== preview.confirmationPhrase) {
+            setConnectorsError(
+              "Cursor sidecar enable cancelled; no files were changed.",
+            );
+            return;
+          }
+          await invoke<ManagedConfigApplyResult>(
+            "execute_managed_config_apply",
+            {
+              recordId: "cursor-routing",
+              confirmationPhrase: confirmation,
+            },
+          );
+        } else {
+          await invoke<ClientSetupResult>("apply_client_setup", {
+            clientId: connector.clientId,
+          });
+        }
       } else {
         await invoke("disable_client_setup", { clientId: connector.clientId });
       }

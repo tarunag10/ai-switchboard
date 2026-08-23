@@ -436,7 +436,7 @@ fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path)
 
 pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigApplyPreview> {
     match record_id {
-        CURSOR_SIDECAR_APPLY_RECORD_ID => preview_cursor_sidecar_apply(),
+        CURSOR_SIDECAR_APPLY_RECORD_ID | "cursor-routing" => preview_cursor_sidecar_apply(),
         GOOSE_NATIVE_APPLY_RECORD_ID => {
             let preview = preview_goose_provider_config()?;
             Ok(ManagedConfigApplyPreview {
@@ -703,7 +703,7 @@ pub fn execute_managed_config_apply(
         ));
     }
     match record_id {
-        CURSOR_SIDECAR_APPLY_RECORD_ID => {
+        CURSOR_SIDECAR_APPLY_RECORD_ID | "cursor-routing" => {
             let path = planned_sidecar_routing_path("cursor")?;
             let (changed, backup) = configure_planned_switchboard_sidecar("cursor")?;
             if !planned_switchboard_sidecar_matches("cursor")? {
@@ -712,7 +712,7 @@ pub fn execute_managed_config_apply(
                 ));
             }
             Ok(ManagedConfigApplyResult {
-                record_id: CURSOR_SIDECAR_APPLY_RECORD_ID.to_string(),
+                record_id: record_id.to_string(),
                 owner: CURSOR_SIDECAR_OWNER.to_string(),
                 target_path: path.display().to_string(),
                 changed,

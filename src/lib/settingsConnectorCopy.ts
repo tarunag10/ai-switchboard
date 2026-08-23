@@ -21,7 +21,7 @@ export const connectorSetupDetails: Record<string, string> = {
   opencode:
     "Switchboard can configure OpenCode with a managed provider entry, backup, Doctor verification, rollback, and Off cleanup.",
   cursor:
-    "Cursor is detected and shown with a manual guide. Switchboard does not change Cursor provider settings yet because profile and account behavior can vary by release channel.",
+    "Cursor can now use a Switchboard-owned routing-intent sidecar with an exact preview/apply confirmation. Switchboard does not change Cursor provider settings, accounts, credentials, or model choices.",
   grok_cli:
     "Grok / xAI CLI uses the documented ~/.grok/config.toml [endpoints].models_base_url field for reversible native routing; XAI_API_KEY/login, account state, and model selection remain manual.",
   aider:
@@ -81,6 +81,7 @@ export function supportsNativeManagedRollback(record: ManagedChangeRecord) {
 
 export function supportsNativeConfigApply(record: ManagedChangeRecord) {
   return (
+    record.id === "cursor-routing" ||
     record.id === "opencode-routing" ||
     record.id === "grok-routing" ||
     record.id === "goose-provider-routing" ||
