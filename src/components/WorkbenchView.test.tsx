@@ -11,6 +11,8 @@ const preparePlan = vi.fn();
 const issueProcessStartGrant = vi.fn();
 const listProcessStartGrants = vi.fn();
 const revokeProcessStartGrant = vi.fn();
+const admitProcess = vi.fn();
+const listProcessAdmissions = vi.fn();
 const listRouterDecisionReferences = vi.fn();
 const listReplayReferences = vi.fn();
 
@@ -40,6 +42,8 @@ vi.mock("../lib/workbench", async () => {
     issueWorkbenchProcessStartGrant: (...args: unknown[]) => issueProcessStartGrant(...args),
     listWorkbenchProcessStartGrants: (...args: unknown[]) => listProcessStartGrants(...args),
     revokeWorkbenchProcessStartGrant: (...args: unknown[]) => revokeProcessStartGrant(...args),
+    admitWorkbenchProcess: (...args: unknown[]) => admitProcess(...args),
+    listWorkbenchProcessAdmissions: (...args: unknown[]) => listProcessAdmissions(...args),
     exportWorkbenchSession: vi.fn(),
     forkWorkbenchSession: vi.fn(),
     transitionWorkbenchSession: vi.fn(),
@@ -162,6 +166,7 @@ describe("WorkbenchView", () => {
     listRouterDecisionReferences.mockResolvedValue([routerDecisionReference]);
     listReplayReferences.mockResolvedValue([replayReference]);
     listProcessStartGrants.mockResolvedValue([]);
+    listProcessAdmissions.mockResolvedValue([]);
   });
 
   it("surfaces the local plan-only boundary and shared capability registry", async () => {
@@ -439,6 +444,21 @@ describe("WorkbenchView", () => {
       writesEnabled: false,
       receiptDigest: `sha256:${"f".repeat(64)}`,
     });
+    admitProcess.mockResolvedValue({
+      schemaVersion: 1,
+      admissionId: "process-admission:test",
+      sessionId: session.sessionId,
+      planId: "run-plan:grant",
+      processRunId: "process-run:1234567890abcdef1234567890abcdef",
+      grantId: "process-grant:test",
+      adapterId: "codex",
+      admittedAt: "2026-08-23T00:01:00Z",
+      state: "authorized_not_started",
+      executionEnabled: false,
+      providerTraffic: "none",
+      writesEnabled: false,
+      receiptDigest: `sha256:${"1".repeat(64)}`,
+    });
     render(<WorkbenchView hidden={false} />);
     await screen.findAllByText("workbench:test");
 
@@ -469,6 +489,11 @@ describe("WorkbenchView", () => {
     }));
     expect(await screen.findByText((_, element) =>
       element?.tagName === "SPAN" && element.textContent?.includes("active") && element.textContent.includes("non-executable"),
+    )).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Validate executor eligibility" }));
+    expect(admitProcess).toHaveBeenCalledWith(expect.objectContaining({ grantId: "process-grant:test" }));
+    expect(await screen.findByText((_, element) =>
+      element?.tagName === "SPAN" && element.textContent?.includes("authorized not started") && element.textContent.includes("non-executable"),
     )).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Revoke authorization" }));
     expect(revokeProcessStartGrant).toHaveBeenCalledWith("process-grant:test");

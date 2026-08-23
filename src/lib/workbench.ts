@@ -134,6 +134,29 @@ export interface WorkbenchProcessStartGrantInput {
   confirmationPhrase: string;
 }
 
+export interface WorkbenchProcessAdmission {
+  schemaVersion: number;
+  admissionId: string;
+  sessionId: string;
+  planId: string;
+  processRunId: string;
+  grantId: string;
+  adapterId: "codex";
+  admittedAt: string;
+  state: "authorized_not_started";
+  executionEnabled: false;
+  providerTraffic: "none";
+  writesEnabled: false;
+  receiptDigest: string;
+}
+
+export interface WorkbenchProcessAdmissionInput {
+  runSpec: WorkbenchRunSpecInput;
+  expectedPlanId: string;
+  expectedProcessRunId: string;
+  grantId: string;
+}
+
 export interface WorkbenchCapabilityRequest {
   capabilityId: string;
   scope: "session";
@@ -265,6 +288,18 @@ export function revokeWorkbenchProcessStartGrant(
   grantId: string,
 ): Promise<WorkbenchProcessStartGrantView> {
   return invoke<WorkbenchProcessStartGrantView>("revoke_workbench_process_start_grant", { grantId });
+}
+
+export function admitWorkbenchProcess(
+  input: WorkbenchProcessAdmissionInput,
+): Promise<WorkbenchProcessAdmission> {
+  return invoke<WorkbenchProcessAdmission>("admit_workbench_process", { input });
+}
+
+export function listWorkbenchProcessAdmissions(
+  sessionId: string,
+): Promise<WorkbenchProcessAdmission[]> {
+  return invoke<WorkbenchProcessAdmission[]>("list_workbench_process_admissions", { sessionId });
 }
 
 export function getWorkbenchCapabilityProjection(): Promise<WorkbenchCapabilityProjection> {

@@ -9,6 +9,7 @@ mod capability_grant;
 mod events;
 mod presets;
 mod process_run_spec;
+mod process_supervisor;
 mod run_contract;
 mod session;
 mod storage;
@@ -26,6 +27,8 @@ pub use capability_grant::{WorkbenchProcessStartGrantPolicy, WorkbenchProcessSta
 pub use events::WorkbenchSessionAction;
 use presets::{all_workbench_plan_presets, WorkbenchPlanPreset};
 pub use process_run_spec::ProcessRunSpec;
+pub use process_supervisor::WorkbenchProcessAdmission;
+use process_supervisor::{admit_process, WorkbenchProcessAdmissionStore};
 pub use run_contract::{
     CapabilityRequest, RouterDecisionReference, WorkbenchRunPlan, WorkbenchRunSpecInput,
 };
@@ -55,6 +58,15 @@ pub struct WorkbenchProcessStartGrantInput {
     pub expected_plan_id: String,
     pub expected_process_run_id: String,
     pub confirmation_phrase: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkbenchProcessAdmissionInput {
+    pub run_spec: WorkbenchRunSpecInput,
+    pub expected_plan_id: String,
+    pub expected_process_run_id: String,
+    pub grant_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -196,6 +208,73 @@ pub fn revoke_workbench_process_start_grant(
     let (_guard, _) = locked_store()?;
     WorkbenchProcessGrantStore::in_app_storage()
         .revoke(grant_id.trim(), chrono::Utc::now())
+        .map_err(|error| error.to_string())
+}
+
+/// Records an executor-admission receipt for a verified Codex adapter. This
+/// deliberately does not resolve or launch a binary, create a child process,
+/// apply configuration, or enable execution.
+#[tauri::command]
+pub fn admit_workbench_process(
+    input: WorkbenchProcessAdmissionInput,
+) -> Result<WorkbenchProcessAdmission, String> {
+    let (_guard, store) = locked_store()?;
+    let session = store
+        .get(input.run_spec.session_id.trim())
+        .map_err(|error| error.to_string())?;
+    let plan = run_contract::prepare_run_plan(&session, input.run_spec)
+        .map_err(|error| error.to_string())?;
+    events::validate_identifier(&input.expected_plan_id, "plan ID")
+        .map_err(|error| error.to_string())?;
+    events::validate_identifier(&input.expected_process_run_id, "process run ID")
+        .map_err(|error| error.to_string())?;
+    events::validate_identifier(&input.grant_id, "process grant ID")
+        .map_err(|error| error.to_string())?;
+    let process = plan
+        .process_containment
+        .as_ref()
+        .ok_or_else(|| "Workbench process admission requires native containment".to_string())?;
+    if input.expected_plan_id != plan.plan_id || input.expected_process_run_id != process.run_id {
+        return Err(
+            "Workbench process admission no longer matches the prepared native plan".into(),
+        );
+    }
+    if plan.adapter_id != "codex" {
+        return Err("Workbench process admission is currently limited to canonical Codex".into());
+    }
+    let now = chrono::Utc::now();
+    let grant = WorkbenchProcessGrantStore::in_app_storage()
+        .require_active_for(
+            &input.grant_id,
+            &session.session_id,
+            &plan.plan_id,
+            &process.run_id,
+            now,
+        )
+        .map_err(|error| error.to_string())?;
+    let adapter = crate::client_adapter_contract::coding_client_adapter_for_version(
+        "codex",
+        process.adapter_contract_version,
+    )
+    .map_err(|error| error.to_string())?;
+    let verification = adapter.verify().map_err(|error| error.to_string())?;
+    if !verification.verified {
+        return Err("Workbench process admission requires verified existing Codex routing".into());
+    }
+    let admission =
+        admit_process(&session, &plan, process, &grant, now).map_err(|error| error.to_string())?;
+    WorkbenchProcessAdmissionStore::in_app_storage()
+        .issue(admission)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn list_workbench_process_admissions(
+    session_id: String,
+) -> Result<Vec<WorkbenchProcessAdmission>, String> {
+    let (_guard, _) = locked_store()?;
+    WorkbenchProcessAdmissionStore::in_app_storage()
+        .list_for_session(session_id.trim())
         .map_err(|error| error.to_string())
 }
 

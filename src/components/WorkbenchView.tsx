@@ -22,6 +22,7 @@ import {
 import { hasTauriRuntime } from "../lib/tauriRuntime";
 import {
   WORKBENCH_CAPABILITIES,
+  admitWorkbenchProcess,
   createWorkbenchSession,
   exportWorkbenchSession,
   forkWorkbenchSession,
@@ -29,11 +30,13 @@ import {
   isWorkbenchDigest,
   issueWorkbenchProcessStartGrant,
   listWorkbenchProcessStartGrants,
+  listWorkbenchProcessAdmissions,
   listWorkbenchSessions,
   prepareWorkbenchRunPlan,
   revokeWorkbenchProcessStartGrant,
   transitionWorkbenchSession,
   type WorkbenchCapabilityProjection,
+  type WorkbenchProcessAdmission,
   type WorkbenchProcessStartGrantView,
   type WorkbenchRunPlan,
   type WorkbenchRunSpecInput,
@@ -117,6 +120,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const [runPlan, setRunPlan] = useState<WorkbenchRunPlan | null>(null);
   const [preparedRunSpec, setPreparedRunSpec] = useState<WorkbenchRunSpecInput | null>(null);
   const [processGrants, setProcessGrants] = useState<WorkbenchProcessStartGrantView[]>([]);
+  const [processAdmissions, setProcessAdmissions] = useState<WorkbenchProcessAdmission[]>([]);
   const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -188,9 +192,12 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setProcessGrants([]);
       return () => { cancelled = true; };
     }
-    void listWorkbenchProcessStartGrants(selectedSession.sessionId)
-      .then((grants) => {
-        if (!cancelled) setProcessGrants(grants);
+    void Promise.all([
+      listWorkbenchProcessStartGrants(selectedSession.sessionId),
+      listWorkbenchProcessAdmissions(selectedSession.sessionId),
+    ])
+      .then(([grants, admissions]) => {
+        if (!cancelled) { setProcessGrants(grants); setProcessAdmissions(admissions); }
       })
       .catch((reason) => {
         if (!cancelled) setError(messageFrom(reason, "Process authorization receipts could not be loaded."));
@@ -417,6 +424,25 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     } finally {
       setBusyAction(null);
     }
+  }
+
+  async function validateExecutorEligibility(grantId: string) {
+    if (!runPlan?.processContainment || !preparedRunSpec) return;
+    setBusyAction(`admit:${grantId}`);
+    setError(null);
+    setNotice(null);
+    try {
+      const admission = await admitWorkbenchProcess({
+        runSpec: preparedRunSpec,
+        expectedPlanId: runPlan.planId,
+        expectedProcessRunId: runPlan.processContainment.runId,
+        grantId,
+      });
+      setProcessAdmissions((current) => [admission, ...current.filter((item) => item.admissionId !== admission.admissionId)]);
+      setNotice("Executor eligibility recorded. No binary was resolved or launched.");
+    } catch (reason) {
+      setError(messageFrom(reason, "Executor eligibility could not be recorded."));
+    } finally { setBusyAction(null); }
   }
 
   const canFork = selectedSession?.status === "active" || selectedSession?.status === "paused";
@@ -654,15 +680,33 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                           <span><strong>{grant.effectiveState}</strong> · expires {formatTimestamp(grant.expiresAt)} · non-executable</span>
                           <small>{grant.grantId}</small>
                           {grant.effectiveState === "active" ? (
-                            <button
-                              className="secondary-button secondary-button--small"
-                              disabled={busyAction !== null}
-                              onClick={() => void revokeProcessAuthorization(grant.grantId)}
-                              type="button"
-                            >
-                              {busyAction === `revoke-grant:${grant.grantId}` ? "Revoking…" : "Revoke authorization"}
-                            </button>
+                            <>
+                              <button
+                                className="secondary-button secondary-button--small"
+                                disabled={busyAction !== null || !preparedRunSpec || runPlan.adapterId !== "codex"}
+                                onClick={() => void validateExecutorEligibility(grant.grantId)}
+                                type="button"
+                              >
+                                {busyAction === `admit:${grant.grantId}` ? "Validating…" : "Validate executor eligibility"}
+                              </button>
+                              <button
+                                className="secondary-button secondary-button--small"
+                                disabled={busyAction !== null}
+                                onClick={() => void revokeProcessAuthorization(grant.grantId)}
+                                type="button"
+                              >
+                                {busyAction === `revoke-grant:${grant.grantId}` ? "Revoking…" : "Revoke authorization"}
+                              </button>
+                            </>
                           ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="workbench-events" aria-label="Executor eligibility records" role="list">
+                      {processAdmissions.map((admission) => (
+                        <div key={admission.admissionId} role="listitem">
+                          <span><strong>{admission.state.replace(/_/g, " ")}</strong> · Codex · non-executable</span>
+                          <small>{admission.admissionId}</small>
                         </div>
                       ))}
                     </div>

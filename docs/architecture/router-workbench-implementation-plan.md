@@ -235,6 +235,11 @@ Deliverables:
   digest, bounded local retention, expiry, terminal-session revocation, and
   manual revocation all fail closed. The UI exposes this receipt lifecycle and
   calls it non-executable; it cannot launch a CLI or change `not_granted`.
+- [x] A visible, durable executor-admission receipt is limited to canonical
+  Codex with already-verified existing routing. It re-prepares the submitted
+  plan, requires the active bound grant, and records only
+  `authorized_not_started`; it cannot resolve a binary, launch a child, apply
+  configuration, access a workspace, or produce provider traffic.
 - [ ] Version probing or runnable-binary validation, only after an explicit
   process-start capability and containment/receipt model are available.
 - [ ] Process registry, actual bounded timeout/cancel enforcement,

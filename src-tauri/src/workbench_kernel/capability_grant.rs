@@ -381,6 +381,42 @@ impl WorkbenchProcessGrantStore {
         Ok(view)
     }
 
+    pub(crate) fn require_active_for(
+        &self,
+        grant_id: &str,
+        session_id: &str,
+        plan_id: &str,
+        process_run_id: &str,
+        now: DateTime<Utc>,
+    ) -> Result<WorkbenchProcessStartGrant> {
+        for (value, label) in [
+            (grant_id, "process grant ID"),
+            (session_id, "session ID"),
+            (plan_id, "plan ID"),
+            (process_run_id, "process run ID"),
+        ] {
+            validate_identifier(value, label)?;
+        }
+        let mut ledger = self.load()?;
+        if expire_stale_grants(&mut ledger.grants, now)? {
+            self.save(&ledger)?;
+        }
+        let grant = ledger
+            .grants
+            .get(grant_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("Workbench process grant was not found"))?;
+        if grant.session_id != session_id
+            || grant.plan_id != plan_id
+            || grant.process_run_id != process_run_id
+            || grant.capability_id != PROCESS_START_CAPABILITY_ID
+            || grant.effective_state_at(now)? != "active"
+        {
+            bail!("Workbench process grant is not active for this native plan");
+        }
+        Ok(grant)
+    }
+
     pub(crate) fn revoke_for_terminal_session(
         &self,
         session_id: &str,
