@@ -884,7 +884,6 @@ pub fn run() {
             activity_commands::get_tool_logs,
             activity_commands::get_claude_code_projects,
             activity_commands::get_claude_usage,
-            activity_commands::get_claude_profile,
             pricing_commands::get_headroom_pricing_status,
             pricing_commands::request_headroom_auth_code,
             pricing_commands::verify_headroom_auth_code,

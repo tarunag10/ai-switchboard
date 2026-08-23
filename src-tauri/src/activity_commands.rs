@@ -4,7 +4,7 @@ use chrono::Utc;
 use tauri::{AppHandle, Manager, State};
 
 use crate::models::{
-    ActivityFeedResponse, AppliedSection, ClaudeAccountProfile, ClaudeCodeProject, ClaudeUsage,
+    ActivityFeedResponse, AppliedSection, ClaudeCodeProject, ClaudeUsage,
     TransformationFeedEvent, TransformationFeedResponse,
 };
 use crate::state::AppState;
@@ -384,9 +384,4 @@ pub async fn get_claude_code_projects(
 #[tauri::command]
 pub async fn get_claude_usage(state: State<'_, AppState>) -> Result<ClaudeUsage, String> {
     pricing::fetch_claude_usage(&state)
-}
-
-#[tauri::command]
-pub fn get_claude_profile(state: State<'_, AppState>) -> ClaudeAccountProfile {
-    pricing::detect_claude_profile(&state)
 }
