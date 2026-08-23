@@ -80,10 +80,9 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 
 - Repo Map now has explicit local cancellation, overlap protection, opt-in bounded CLI retries, and UI retry/cancel controls alongside typed per-tool progress and bounded aggregate status. Cancellation only targets the app-owned child process and never mutates the indexed repository.
 - Repo Intelligence can still deepen parser/call-graph semantic resolution beyond the current bounded symbol-level graph, while per-tool Repo Map progress semantics are shipped.
-- Repo Intelligence runtime versions intentionally remain explicit per surface
-  (native `path-graph-v13`, CLI `path-graph-v12`, frontend `path-graph-v11`)
-  until their extraction semantics are unified; the local summary checker
-  verifies each declared version rather than claiming cross-runtime parity.
+- Repo Intelligence native, CLI, and frontend surfaces now declare the shared
+  `path-graph-v13` contract and are checked against the shared bounded
+  JavaScript graph fixture; extraction remains read-only and bounded.
 - Caveman, Ponytail, and MarkItDown now expose a guided before/after measurement workflow with local Token X-Ray capture, session/provider/model/timestamp provenance, manual credible-counter entry, request deltas, and strict measured-versus-estimated validation. Durable provider-billed counterfactual measurement remains pending where the provider does not expose it.
 - Leanctx promotion is now explicitly evidence-gated: loopback capability/version evidence, protected-content coverage, fail-open behavior, and shadow-contract checks are required before it can become eligible for review; provider routing remains disabled by design.
 - Semantic cache lifecycle hardening now requires exact namespace identity, invalidation across request variants, conservative no-cache handling, false-hit protection, and explicit hit/miss/storage evidence. Cache replay remains separate from compression and estimated until a credible counterfactual exists.

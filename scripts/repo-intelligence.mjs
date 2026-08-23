@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chonkifyPackFiles } from "./chonkify-adapter.mjs";
 
-const INDEXER_VERSION = "path-graph-v12";
+const INDEXER_VERSION = "path-graph-v13";
 const MAX_SCAN_FILES = 2_500;
 const MAX_INDEXED_FILE_BYTES = 1_000_000;
 

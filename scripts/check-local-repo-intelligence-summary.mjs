@@ -6,8 +6,8 @@ const reportPath = "dist/local-repo-intelligence-validation-summary.json";
 const requiredStepIds = ["repo-intelligence-frontend", "repo-intelligence-backend"];
 const requiredIndexerVersions = {
   backend: "path-graph-v13",
-  frontend: "path-graph-v11",
-  CLI: "path-graph-v12",
+  frontend: "path-graph-v13",
+  CLI: "path-graph-v13",
 };
 
 function fail(message) {

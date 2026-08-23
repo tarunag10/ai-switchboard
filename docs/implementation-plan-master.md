@@ -56,7 +56,7 @@ the current checkout.
 - Connector lifecycle evidence linkage: every declared lifecycle evidence name
   now resolves to an approved Rust `#[test]` in
   `src-tauri/src/client_adapters_tests.rs`.
-- Repo Intelligence ambiguity guard: `path-graph-v11` suppresses ambiguous
+- Repo Intelligence ambiguity guard: `path-graph-v13` suppresses ambiguous
   duplicate cross-file name edges and object-member false positives while
   preserving same-file and static-import resolution.
 - Repo Intelligence now preserves a direct same-file call when the same file

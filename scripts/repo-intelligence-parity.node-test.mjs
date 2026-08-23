@@ -234,7 +234,7 @@ test("CLI default indexing excludes unknown files like the native and frontend i
     const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
     assert.equal(summary.indexedFiles, 1);
     assert.equal(summary.skippedFiles, 1);
-    assert.equal(summary.indexerVersion, "path-graph-v12");
+    assert.equal(summary.indexerVersion, "path-graph-v13");
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }

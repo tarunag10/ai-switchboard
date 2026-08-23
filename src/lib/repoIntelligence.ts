@@ -896,7 +896,7 @@ function isIgnoredRepoTraversalPath(filePath: string): boolean {
     .split("/")
     .some((segment) => ignoredRepoDirectoryNames.has(segment.toLowerCase()));
 }
-export const repoIntelligenceIndexerVersion = "path-graph-v11";
+export const repoIntelligenceIndexerVersion = "path-graph-v13";
 export const MAX_REPO_SCAN_FILES = 2_500;
 export const MAX_INDEXED_REPO_FILE_BYTES = 1_000_000;
 
