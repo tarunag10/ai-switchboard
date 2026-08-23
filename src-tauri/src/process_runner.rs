@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -40,7 +40,43 @@ pub(crate) fn build_command(binary: &Path, args: &[&str], cwd: &Path) -> Command
         .env("LANG", "C.UTF-8")
         .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
         .env("PIP_NO_INPUT", "1");
+    configure_process_group(&mut command);
     command
+}
+
+#[cfg(unix)]
+fn configure_process_group(command: &mut Command) {
+    use std::os::unix::process::CommandExt;
+
+    // Keep the launcher and every descendant in an app-owned process group so
+    // timeout/error cleanup cannot leave grandchildren holding pipes or ports.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setpgid(0, 0) == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        });
+    }
+}
+
+#[cfg(not(unix))]
+fn configure_process_group(_command: &mut Command) {}
+
+fn terminate_process_tree(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        if let Ok(pid) = i32::try_from(child.id()) {
+            if pid > 0 {
+                // Negative PIDs address the entire process group created above.
+                unsafe {
+                    let _ = libc::kill(-pid, libc::SIGKILL);
+                }
+            }
+        }
+    }
+    let _ = child.kill();
 }
 
 /// Like `run_command` but streams stdout + stderr line-by-line through
@@ -171,7 +207,7 @@ pub(crate) fn run_command_with_timeout(
             Ok(None) => {
                 if started.elapsed() >= timeout {
                     timed_out = true;
-                    let _ = child.kill();
+                    terminate_process_tree(&mut child);
                     break child.wait().with_context(|| {
                         format!("waiting for {} {}", binary.display(), args.join(" "))
                     })?;
@@ -179,7 +215,7 @@ pub(crate) fn run_command_with_timeout(
                 std::thread::sleep(Duration::from_millis(25));
             }
             Err(err) => {
-                let _ = child.kill();
+                terminate_process_tree(&mut child);
                 let _ = child.wait();
                 return Err(err).with_context(|| {
                     format!("waiting for {} {}", binary.display(), args.join(" "))
@@ -294,5 +330,53 @@ pub(crate) fn exit_status_signal(status: &std::process::ExitStatus) -> Option<i3
     {
         let _ = status;
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn timeout_kills_descendants_in_the_app_owned_process_group() {
+        use std::fs;
+        use std::time::SystemTime;
+
+        let path = std::env::temp_dir().join(format!(
+            "switchboard-process-runner-{}-{}.pid",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        ));
+        let path_text = path.to_string_lossy().into_owned();
+        let result = run_command_with_timeout(
+            Path::new("/bin/sh"),
+            &["-c", &format!("sleep 30 & echo $! > '{}' ; wait", path_text)],
+            Path::new("/tmp"),
+            Duration::from_millis(100),
+        );
+        assert!(result.is_err(), "timed out command must fail");
+        let pid = fs::read_to_string(&path)
+            .expect("child pid was written")
+            .trim()
+            .parse::<i32>()
+            .expect("child pid is numeric");
+        let _ = fs::remove_file(&path);
+
+        for _ in 0..20 {
+            let alive = unsafe { libc::kill(pid, 0) == 0 };
+            if !alive {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        let status = Command::new("/bin/sh")
+            .args(["-c", &format!("kill -0 {}", pid)])
+            .status()
+            .expect("probe descendant");
+        assert!(!status.success(), "timed-out descendant survived process-group cleanup");
     }
 }

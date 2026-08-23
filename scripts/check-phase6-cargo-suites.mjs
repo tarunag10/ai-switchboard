@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const root = new URL("..", import.meta.url);
 const cwd = root.pathname;
@@ -81,21 +82,37 @@ function runSuite(suite, index) {
   });
 }
 
-for (const [index, suite] of suites.entries()) {
-  const result = await runSuite(suite, index);
-  const elapsed = `${(result.elapsedMs / 1000).toFixed(1)}s`;
-  if (result.error) {
-    console.error(
-      `[phase6] FAIL ${suite.label} phase=${result.observedPhase} elapsed=${elapsed} timeout=${result.timedOut}: ${result.error.message}`,
-    );
-    process.exit(1);
-  }
-  if (result.status !== 0) {
-    console.error(
-      `[phase6] FAIL ${suite.label} phase=${result.observedPhase} elapsed=${elapsed} timeout=${result.timedOut} status=${result.status ?? "signal"}`,
-    );
-    process.exit(result.status ?? 1);
-  }
-  console.log(`[phase6] PASS ${suite.label} phase=${result.observedPhase} elapsed=${elapsed}`);
+export function isPassingSuiteResult(result) {
+  return result.error == null && result.timedOut !== true && result.status === 0;
 }
-console.log(`[phase6] passed ${suites.length} Cargo suites`);
+
+async function main() {
+  for (const [index, suite] of suites.entries()) {
+    const result = await runSuite(suite, index);
+    const elapsed = `${(result.elapsedMs / 1000).toFixed(1)}s`;
+    if (result.error) {
+      console.error(
+        `[phase6] FAIL ${suite.label} phase=${result.observedPhase} elapsed=${elapsed} timeout=${result.timedOut}: ${result.error.message}`,
+      );
+      process.exit(1);
+    }
+    if (result.timedOut) {
+      console.error(
+        `[phase6] FAIL ${suite.label} phase=${result.observedPhase} elapsed=${elapsed} timeout=true status=${result.status ?? "signal"}`,
+      );
+      process.exit(1);
+    }
+    if (!isPassingSuiteResult(result)) {
+      console.error(
+        `[phase6] FAIL ${suite.label} phase=${result.observedPhase} elapsed=${elapsed} timeout=${result.timedOut} status=${result.status ?? "signal"}`,
+      );
+      process.exit(result.status ?? 1);
+    }
+    console.log(`[phase6] PASS ${suite.label} phase=${result.observedPhase} elapsed=${elapsed}`);
+  }
+  console.log(`[phase6] passed ${suites.length} Cargo suites`);
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
+}
