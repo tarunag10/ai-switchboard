@@ -26,15 +26,36 @@ function validateEvent(event, index, sessionId) {
 export function buildSessionEventLedger({ sessionId, events }) {
   const normalizedSessionId = identifier(sessionId, "sessionId");
   if (!Array.isArray(events) || events.length > MAX_EVENTS) throw new Error(`session ledger requires at most ${MAX_EVENTS} events`);
+  if (events.length === 0 || events[0]?.kind !== "started") throw new Error("session ledger must start with a started event");
   const seen = new Set();
+  let status = "new";
   events.forEach((event, index) => {
     validateEvent(event, index, normalizedSessionId);
     if (seen.has(event.eventId)) throw new Error(`duplicate session event: ${event.eventId}`);
     seen.add(event.eventId);
     if (event.sequence !== index) throw new Error(`session event sequence must be contiguous at index ${index}`);
+
+    if (event.kind === "started") {
+      if (index !== 0 || status !== "new") throw new Error("started event is only valid at the beginning of a session ledger");
+      status = "active";
+      return;
+    }
+    if (status === "completed" || status === "cancelled") {
+      throw new Error(`session event ${event.kind} is not allowed after ${status}`);
+    }
+    if (event.kind === "paused") {
+      if (status !== "active") throw new Error("paused event requires an active session");
+      status = "paused";
+    } else if (event.kind === "resumed") {
+      if (status !== "paused") throw new Error("resumed event requires a paused session");
+      status = "active";
+    } else if (event.kind === "completed" || event.kind === "cancelled") {
+      status = event.kind;
+    } else if (status !== "active" && status !== "paused") {
+      throw new Error(`session event ${event.kind} is not allowed from ${status}`);
+    }
   });
   const last = events.at(-1);
-  const status = last?.kind === "cancelled" ? "cancelled" : last?.kind === "completed" ? "completed" : last?.kind === "paused" ? "paused" : "active";
   return { sessionId: normalizedSessionId, eventCount: events.length, lastSequence: last?.sequence ?? null, status, executionMode: "observe_only", events: events.map(({ eventId, sessionId: id, sequence, kind, parentEventId }) => ({ eventId, sessionId: id, sequence, kind, ...(parentEventId ? { parentEventId } : {}) })) };
 }
 

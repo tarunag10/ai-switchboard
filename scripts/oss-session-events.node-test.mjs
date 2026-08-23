@@ -39,3 +39,31 @@ test("rejects sensitive fields, gaps, duplicates, and cross-session events", () 
   assert.throws(() => buildSessionEventLedger({ ...base, events: [base.events[0], base.events[0]] }), /duplicate/);
   assert.throws(() => buildSessionEventLedger({ ...base, events: [{ ...base.events[0], sessionId: "other" }] }), /another session/);
 });
+
+test("replays lifecycle order instead of trusting the last event kind", () => {
+  assert.throws(
+    () => buildSessionEventLedger({
+      ...base,
+      events: [
+        ...base.events,
+        { eventId: "e2", sessionId: "session-1", sequence: 2, kind: "completed" },
+        { eventId: "e3", sessionId: "session-1", sequence: 3, kind: "resumed" },
+      ],
+    }),
+    /not allowed after completed/,
+  );
+  assert.throws(
+    () => buildSessionEventLedger({
+      ...base,
+      events: [{ ...base.events[0], kind: "paused" }, base.events[1]],
+    }),
+    /must start with a started event/,
+  );
+  assert.throws(
+    () => buildSessionEventLedger({
+      ...base,
+      events: [...base.events, { eventId: "e2", sessionId: "session-1", sequence: 2, kind: "resumed" }],
+    }),
+    /requires a paused session/,
+  );
+});
