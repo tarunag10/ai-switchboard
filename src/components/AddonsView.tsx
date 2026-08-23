@@ -20,6 +20,7 @@ import { MeasuredAddonSavingsForm } from "./MeasuredAddonSavingsForm";
 import { PlannedAddonCard } from "./PlannedAddonCard";
 import { GatewayProfilesCard } from "./GatewayProfilesCard";
 import { OptimizationEngineProfilesCard } from "./OptimizationEngineProfilesCard";
+import { SelectiveActivationCard } from "./SelectiveActivationCard";
 import { ProviderBilledCounterfactualCard } from "./ProviderBilledCounterfactualCard";
 import { OssHarnessReplayPanel } from "./OssHarnessReplayPanel";
 import { RTK_TASK_PRESETS } from "../lib/rtkTaskPresets";
@@ -185,6 +186,7 @@ export function AddonsView({
           ) : null}
         </article>
         <OssHarnessReplayPanel />
+        <SelectiveActivationCard />
         <ul className="addons__list">
           <AddonCard
             key="rtk"

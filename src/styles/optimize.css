@@ -168,6 +168,73 @@
   line-height: 1.35;
 }
 
+.selective-activation-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.selective-activation-card .panel-card__header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.selective-activation-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.selective-activation-card__tool {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-height: 7rem;
+  padding: 0.8rem;
+  color: inherit;
+  text-align: left;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 0.7rem;
+  cursor: pointer;
+}
+
+.selective-activation-card__tool:hover:not(:disabled),
+.selective-activation-card__tool.is-selected {
+  border-color: var(--accent, #8ab4ff);
+  background: var(--surface-highlight, rgba(138, 180, 255, 0.1));
+}
+
+.selective-activation-card__tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.selective-activation-card__tool-icon {
+  flex: 0 0 auto;
+  color: var(--accent, #8ab4ff);
+  font-size: 1.15rem;
+}
+
+.selective-activation-card__tool > span:last-child {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.selective-activation-card__tool small,
+.selective-activation-card__tool em {
+  color: var(--text-secondary, #aeb7c6);
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+@media (max-width: 680px) {
+  .selective-activation-card__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .release-readiness-card__actions {
   display: flex;
   flex-wrap: wrap;
