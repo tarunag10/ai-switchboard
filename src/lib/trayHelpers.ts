@@ -15,7 +15,6 @@ export type TrayView =
   | "agentMemory"
   | "doctor"
   | "optimization"
-  | "health"
   | "notifications"
   | "repoMap"
   | "repoIntelligence"

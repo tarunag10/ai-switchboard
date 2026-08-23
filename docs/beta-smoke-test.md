@@ -4,23 +4,22 @@ After installing a new beta (`-rc.N`) build, paste this file into Claude Code an
 
 ## Setup
 
-The installed bundle name follows the signed DMG's current display name. Resolve it
-before running path-sensitive checks; older installs may still use one of the
-legacy names:
+The current canonical installed bundle is `/Applications/AI Switchboard.app`.
+Resolve it before running path-sensitive checks; older installs may still use a
+legacy name:
 
 ```bash
 APP_PATH=""
 for candidate in \
+  "/Applications/AI Switchboard.app" \
   "/Applications/AI Switchboard for Mac.app" \
-  "/Applications/AI Switchboard.app" \
-  "/Applications/AI Switchboard.app" \
   "/Applications/Mac Switchboard.app"; do
   if [ -d "$candidate" ]; then APP_PATH="$candidate"; break; fi
 done
 test -n "$APP_PATH" && printf 'Using %s\n' "$APP_PATH"
 ```
 
-The current signed app is normally `/Applications/AI Switchboard for Mac.app`.
+The current signed app is normally `/Applications/AI Switchboard.app`.
 
 1. Quit and relaunch AI Switchboard for Mac from Applications.
 2. Confirm the tray icon appears in the menu bar.
