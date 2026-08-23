@@ -122,6 +122,9 @@ the current checkout.
 - Model-routing completion-handle cleanup now uses the same monotonic expiry
   clock as issuance and validation, so wall-clock adjustments cannot retain
   unusable handles until the bounded pending-handle cap is reached.
+- Provider usage parsing now captures OpenAI Responses nested cached-input
+  metrics from `usage.input_tokens_details.cached_tokens`, while retaining
+  top-level compatibility and content-free cache attribution.
 - Repo Intelligence now has a shared bounded JavaScript/TypeScript golden graph
   corpus with normalized CLI, frontend, and native projections; the parity gate
   runs all three surfaces instead of only the CLI.

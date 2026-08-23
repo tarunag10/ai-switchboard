@@ -24,7 +24,12 @@ pub(crate) fn parse_provider_cache_metrics(body: &[u8]) -> Option<CacheTokenMetr
             "prompt_cache_hit_tokens",
             "cached_tokens",
         ],
-    );
+    )
+    .max(read_nested_u64(
+        usage,
+        "input_tokens_details",
+        "cached_tokens",
+    ));
 
     if input_tokens == 0
         && output_tokens == 0
@@ -45,6 +50,14 @@ pub(crate) fn parse_provider_cache_metrics(body: &[u8]) -> Option<CacheTokenMetr
 fn read_u64(value: &Value, keys: &[&str]) -> u64 {
     keys.iter()
         .find_map(|key| value.get(*key).and_then(Value::as_u64))
+        .unwrap_or(0)
+}
+
+fn read_nested_u64(value: &Value, parent: &str, key: &str) -> u64 {
+    value
+        .get(parent)
+        .and_then(|nested| nested.get(key))
+        .and_then(Value::as_u64)
         .unwrap_or(0)
 }
 
@@ -87,6 +100,40 @@ mod tests {
 
         assert_eq!(metrics.prompt_tokens, 200);
         assert_eq!(metrics.completion_tokens, 40);
+        assert_eq!(metrics.cache_read_tokens, 120);
+    }
+
+    #[test]
+    fn parses_openai_responses_nested_cached_tokens() {
+        let metrics = parse_provider_cache_metrics(
+            br#"{
+              "usage": {
+                "input_tokens": 300,
+                "output_tokens": 50,
+                "input_tokens_details": { "cached_tokens": 180 }
+              }
+            }"#,
+        )
+        .expect("nested Responses usage metrics");
+
+        assert_eq!(metrics.prompt_tokens, 300);
+        assert_eq!(metrics.completion_tokens, 50);
+        assert_eq!(metrics.cache_read_tokens, 180);
+    }
+
+    #[test]
+    fn top_level_cache_metric_wins_when_nested_value_is_lower() {
+        let metrics = parse_provider_cache_metrics(
+            br#"{
+              "usage": {
+                "prompt_tokens": 200,
+                "cached_tokens": 120,
+                "input_tokens_details": { "cached_tokens": 80 }
+              }
+            }"#,
+        )
+        .expect("usage metrics");
+
         assert_eq!(metrics.cache_read_tokens, 120);
     }
 
