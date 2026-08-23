@@ -7,6 +7,7 @@
 mod adapter_readiness;
 mod admission_command;
 mod capability_grant;
+mod codex_command_catalog;
 mod events;
 mod presets;
 pub(crate) mod process_controller;
@@ -329,6 +330,9 @@ pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjec
 
 #[cfg(test)]
 mod admission_command_tests;
+
+#[cfg(test)]
+mod codex_command_catalog_tests;
 
 #[cfg(test)]
 mod tests {

@@ -38,9 +38,9 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `e36ca4b3` plus the
-verified-routing admission test seam recorded with this update, and against the
-visible frontend/native command wiring on 2026-08-24. Unrelated concurrent
+This status was reconciled against committed `main` through `2b12ce13` plus the
+pure Codex catalog/evaluator contract recorded with this update, and against
+the visible frontend/native command wiring on 2026-08-24. Unrelated concurrent
 unstaged work is not counted as shipped. A check mark therefore means the
 capability is in the committed product boundary, not merely described in
 another plan or present in an unrelated local diff.
@@ -60,9 +60,10 @@ Current verification snapshot:
 
 - `19` focused Workbench bridge/view tests pass, including historical receipt
   visibility and late-plan invalidation.
-- `69` focused native `workbench_kernel` tests pass, including `14` fake
+- `79` focused native `workbench_kernel` tests pass, including `14` fake
   process-controller lifecycle/restart/CAS tests and `5` deterministic
-  verified-routing admission-orchestration/expiry tests.
+  verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
+  catalog/probe-contract tests.
 - The model-routing evidence gate passes: `13` Node contract tests, `35`
   native model-routing tests, and `18` native telemetry-store tests.
 - `npm run build` passes after preserving the authoritative
@@ -406,8 +407,15 @@ Deliverables:
   invalidate or freeze a prepared plan when any visible input changes. The UI
   keeps historical admissions separate from an ephemeral native eligibility
   snapshot and discards late plan responses by revision.
-- [ ] Version probing or runnable-binary validation, only after an explicit
-  process-start capability and containment/receipt model are available.
+- [x] Add the pure fixed Codex catalog and probe-result evaluator. It separates
+  incomplete, failed, absent-from-fixed-catalog, rejected, ambiguous, and
+  present-but-unprobed snapshots; binds supplied version evidence to the same
+  opaque binary identity
+  before/after; and never reads the filesystem, starts a process, or claims the
+  observed version is runnable, supported, admitted, or execution-enabled.
+- [ ] Add the fixed-location native collector and opt-in manual version-probe
+  harness. Runnable/supported validation remains gated on explicit manual
+  evidence and a separately reviewed authoritative version policy.
 - [x] Add a crate-only deterministic fake process registry and state machine.
   It performs no process, shell, network, provider, workspace, or Tauri action;
   persists only bounded content-free stream counters and digests; uses exact-
@@ -436,11 +444,12 @@ Immediate Phase 4 order:
    controller remaining** — the deterministic no-process registry, current
    grant gate, state transitions, CAS persistence, restart epoch, terminal
    finality, and bounded content-free stream metadata are implemented. Still
-   add the Workbench-specific fixed command catalog, version probe, app-owned
-   process group, null stdin, environment allowlist, bounded redacted buffers,
-   fixed timeout, idempotent cancellation, reaping, and TERM-then-KILL cleanup.
-   Reuse process-group and Leanctx shutdown ideas, not the generic runner's
-   argument/stdout/stderr-bearing error surface.
+   The Workbench-specific fixed Codex catalog and pure probe-result evaluator
+   are done. Still add the native fixed-location collector, opt-in manual probe,
+   app-owned process group, null stdin, environment allowlist, bounded redacted
+   buffers, fixed timeout, idempotent cancellation, reaping, and TERM-then-KILL
+   cleanup. Reuse process-group and Leanctx shutdown ideas, not the generic
+   runner's argument/stdout/stderr-bearing error surface.
 4. **4.4 One-adapter opt-in executor** — canonical Codex only, behind a new
    explicit execution capability. Revalidate session, grant, admission,
    adapter/routing verification, binary identity, and workspace digest at the
@@ -626,12 +635,17 @@ started by weakening an earlier gate.
    the existing support/quit component in production Settings so command errors
    are visible, and include Workbench in the assembled every-sidebar-route
    contract.
-6. **Verified-routing admission test seam — Done with this update** — inject
+6. **Verified-routing admission test seam — Done (`2b12ce13`)** — inject
    only deterministic verifier/storage test dependencies into the existing
    admission orchestration; denied/error verification cannot persist an
    admission, and no new command or execution authority is added.
-7. **Codex probe and opt-in manual harness** — fixed binary catalog/version,
-   disposable workspace, no provider credential, no workspace write.
+7. **Pure fixed Codex catalog/evaluator — Done with this update** — native-only
+   fixed candidate IDs/location templates, complete-snapshot state evaluation,
+   identity-bound bounded `--version` protocol metadata, and no collector,
+   process, provider, workspace, renderer command, or compatibility claim.
+7. **Fixed-location collector and opt-in manual version harness** — resolve only
+   the catalogued locations, use a disposable workspace, inherit no provider
+   credentials, write no user workspace, and preserve pre/post-probe identity.
 8. **Single Codex executor** — new explicit execution capability, ephemeral task
    and workspace handle, final revalidation, content-free terminal receipts.
 9. **Live Router shadow binding** — request/completion receipt pair in the real
@@ -683,9 +697,10 @@ Current gate truth on 2026-08-24:
   of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `69 passed`, including `14` deterministic fake-controller
-  tests and `5` verified-routing admission-orchestration/expiry tests; the focused
-  Workbench bridge/view gate has `19 passed`.
+- Native Workbench: `79 passed`, including `14` deterministic fake-controller
+  tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
+  fixed Codex catalog/probe-contract tests; the focused Workbench bridge/view
+  gate has `19 passed`.
 - Model-routing evidence: `13` Node, `35` native routing, and `18` native
   telemetry tests pass.
 - Switchboard Pack Compaction promotion gate: passes with
