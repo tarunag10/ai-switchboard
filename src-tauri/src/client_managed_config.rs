@@ -92,6 +92,61 @@ fn redact_yaml_for_display(raw: &str) -> String {
     serde_yaml::to_string(&value).unwrap_or_else(|_| "<unavailable>".to_string())
 }
 
+fn redact_json_for_display(raw: &str) -> String {
+    if raw.trim().is_empty() {
+        return "{}\n".to_string();
+    }
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return "<unavailable: invalid JSON>".to_string();
+    };
+    redact_json_value(&mut value, None);
+    serde_json::to_string_pretty(&value).unwrap_or_else(|_| "<unavailable>".to_string())
+}
+
+fn redact_json_value(value: &mut serde_json::Value, key: Option<&str>) {
+    if key.is_some_and(is_secret_key) {
+        *value = serde_json::Value::String("<redacted>".to_string());
+        return;
+    }
+    match value {
+        serde_json::Value::Object(object) => {
+            for (key, child) in object.iter_mut() {
+                redact_json_value(child, Some(key));
+            }
+        }
+        serde_json::Value::Array(array) => {
+            for child in array {
+                redact_json_value(child, None);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn redact_toml_for_display(raw: &str) -> String {
+    raw.lines()
+        .map(|line| {
+            let Some((key, _)) = line.split_once('=') else {
+                return line.to_string();
+            };
+            if is_secret_key(key.trim().trim_matches('"')) {
+                format!("{}= \"<redacted>\"", key.trim_end())
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + if raw.ends_with('\n') { "\n" } else { "" }
+}
+
+fn is_secret_key(key: &str) -> bool {
+    let upper = key.to_ascii_uppercase();
+    ["KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "AUTH"]
+        .iter()
+        .any(|part| upper.contains(part))
+}
+
 fn redact_yaml_value(value: &mut Value, key: Option<&str>) {
     if key.is_some_and(|key| {
         let upper = key.to_ascii_uppercase();
@@ -416,6 +471,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 String::new()
             };
             let (next_config, changed) = grok_next_provider_config()?;
+            let display_current_state = redact_toml_for_display(&current_state);
+            let display_proposed_state = redact_toml_for_display(&next_config);
             Ok(ManagedConfigApplyPreview {
                 record_id: GROK_ROLLBACK_RECORD_ID.to_string(),
                 owner: GROK_ROLLBACK_OWNER.to_string(),
@@ -427,8 +484,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                     GROK_MARKER_PREFIX,
                     &current_state,
                 ),
-                current_state,
-                proposed_state: next_config,
+                current_state: display_current_state,
+                proposed_state: display_proposed_state,
                 rollback_preview:
                     "Restore the sibling *.headroom-backup-* file through Rollback Center."
                         .to_string(),
@@ -453,6 +510,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             let (next_config, changed) = opencode_next_provider_config()?;
             let proposed_state = serde_json::to_string_pretty(&next_config)
                 .context("serializing OpenCode provider preview")?;
+            let display_current_state = redact_json_for_display(&current_state);
+            let display_proposed_state = redact_json_for_display(&proposed_state);
             Ok(ManagedConfigApplyPreview {
                 record_id: OPENCODE_ROLLBACK_RECORD_ID.to_string(),
                 owner: OPENCODE_ROLLBACK_OWNER.to_string(),
@@ -464,8 +523,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                     OPENCODE_ROLLBACK_MARKER,
                     &current_state,
                 ),
-                current_state,
-                proposed_state,
+                current_state: display_current_state,
+                proposed_state: display_proposed_state,
                 rollback_preview:
                     "Restore the sibling *.headroom-backup-* file through Rollback Center."
                         .to_string(),
@@ -489,6 +548,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             let (next_config, changed) = zed_next_provider_config()?;
             let proposed_state = serde_json::to_string_pretty(&next_config)
                 .context("serializing Zed provider preview")?;
+            let display_current_state = redact_json_for_display(&current_state);
+            let display_proposed_state = redact_json_for_display(&proposed_state);
             Ok(ManagedConfigApplyPreview {
                 record_id: ZED_ROLLBACK_RECORD_ID.to_string(),
                 owner: ZED_ROLLBACK_OWNER.to_string(),
@@ -500,8 +561,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                     ZED_ROLLBACK_MARKER,
                     &current_state,
                 ),
-                current_state,
-                proposed_state,
+                current_state: display_current_state,
+                proposed_state: display_proposed_state,
                 rollback_preview:
                     "Restore the sibling *.headroom-backup-* file through Rollback Center."
                         .to_string(),
@@ -525,6 +586,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             let (next_config, changed) = windsurf_next_provider_config()?;
             let proposed_state = serde_json::to_string_pretty(&next_config)
                 .context("serializing Windsurf provider preview")?;
+            let display_current_state = redact_json_for_display(&current_state);
+            let display_proposed_state = redact_json_for_display(&proposed_state);
             let confirmation =
                 windsurf_apply_confirmation_phrase(WINDSURF_ROLLBACK_MARKER, &current_state);
             Ok(ManagedConfigApplyPreview {
@@ -535,8 +598,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 backup_path: windsurf_config_backup_pattern(),
                 status: ManagedRollbackExecutionStatus::Ready,
                 confirmation_phrase: confirmation,
-                current_state,
-                proposed_state,
+                current_state: display_current_state,
+                proposed_state: display_proposed_state,
                 rollback_preview:
                     "Restore the sibling *.headroom-backup-* file through Rollback Center."
                         .to_string(),
@@ -1125,7 +1188,7 @@ pub fn execute_managed_rollback_undo_all(
 
 #[cfg(test)]
 mod tests {
-    use super::redact_yaml_for_display;
+    use super::{redact_json_for_display, redact_toml_for_display, redact_yaml_for_display};
 
     #[test]
     fn yaml_preview_redacts_secret_keys_but_preserves_safe_fields() {
@@ -1136,5 +1199,23 @@ mod tests {
         assert!(displayed.contains("gpt-4o"));
         assert!(displayed.contains("<redacted>"));
         assert!(!displayed.contains("secret-value"));
+    }
+
+    #[test]
+    fn structured_preview_redaction_covers_json_and_toml_secret_keys() {
+        let json = redact_json_for_display(
+            r#"{"name":"OpenAI","apiKey":"json-secret","nested":{"authToken":"token-secret"}}"#,
+        );
+        assert!(json.contains("OpenAI"));
+        assert!(json.contains("<redacted>"));
+        assert!(!json.contains("json-secret"));
+        assert!(!json.contains("token-secret"));
+
+        let toml = redact_toml_for_display(
+            "[auth]\napi_key = \"toml-secret\"\nmodel = \"gpt-4o\"\n",
+        );
+        assert!(toml.contains("model = \"gpt-4o\""));
+        assert!(toml.contains("<redacted>"));
+        assert!(!toml.contains("toml-secret"));
     }
 }

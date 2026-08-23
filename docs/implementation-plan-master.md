@@ -164,6 +164,9 @@ the current checkout.
 - Local release artifact selection now rejects same-version DMGs that do not
   carry the Switchboard product identity before applying freshness/tie-break
   selection.
+- Native managed-config previews now redact secret-keyed values in JSON and
+  TOML surfaces as well as YAML, while raw state remains internal for
+  confirmation hashing and apply preservation.
 
 ### Done — prepared and shipped
 
