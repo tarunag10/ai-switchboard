@@ -447,7 +447,7 @@ export const releaseShareableGates: ReleaseShareableGate[] = [
     id: "installed-smoke",
     label: "Installed smoke",
     detail:
-      "/Applications/Mac AI Switchboard.app exists, beta smoke passes, and npm run smoke:installed writes dist/installed-smoke-summary.md.",
+      "/Applications/AI Switchboard.app exists, beta smoke passes, and npm run smoke:installed writes dist/installed-smoke-summary.md.",
   },
 ];
 
@@ -526,8 +526,9 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "dmg-install",
         label: "Install signed DMG",
         detail:
-          "Install the signed and notarized DMG into /Applications before the final smoke run.",
-        command: "npm run build:mac:dmg",
+          "Manual external checklist: install the signed and notarized DMG into /Applications, verify signature/notarization, then record installed smoke. Building a DMG does not install it or prove public release readiness.",
+        command:
+          "Manual: mount the signed DMG, install AI Switchboard.app into /Applications, verify signature/notarization, then run npm run smoke:installed -- --confirm",
       },
       {
         id: "local-dmg-build-install",

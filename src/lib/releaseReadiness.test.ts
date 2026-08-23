@@ -148,7 +148,8 @@ describe("release readiness checklist", () => {
     );
     expect(commands).toContain("npm run fmt:desktop && npm run test:desktop");
     expect(commands).toContain("npm run smoke:preflight");
-    expect(commands).toContain("npm run build:mac:dmg");
+    expect(commands.some((command) => command.includes("Manual: mount the signed DMG"))).toBe(true);
+    expect(commands).not.toContain("npm run build:mac:dmg");
     expect(commands).toContain("npm run smoke:installed:local");
     expect(commands).toContain("npm run smoke:uninstall:local");
     expect(commands).toContain("npm run smoke:repo-intelligence:local");

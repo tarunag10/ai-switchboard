@@ -19,6 +19,7 @@ test("deduplicates blocked release actions and includes installed smoke gaps", (
   });
   assert.equal(actions.filter((action) => action.label === "Set notarization credentials").length, 1);
   assert.equal(actions.some((action) => action.label === "Install signed DMG"), true);
+  assert.equal(actions.find((action) => action.label === "Install signed DMG").command.includes("build:mac:dmg"), false);
   assert.equal(actions.some((action) => action.label === "Run backend validation"), true);
 });
 
@@ -122,6 +123,7 @@ test("rehearses blocked no-refresh action mapping without rewriting the report",
     "Install signed DMG",
     "Record installed smoke evidence",
   ]);
+  assert.equal(result.actions.find((action) => action.label === "Install signed DMG").command.includes("build:mac:dmg"), false);
   assert.equal(fs.readFileSync(reportPath, "utf8"), before);
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
