@@ -27,11 +27,16 @@ import {
   forkWorkbenchSession,
   getWorkbenchCapabilityProjection,
   isWorkbenchDigest,
+  issueWorkbenchProcessStartGrant,
+  listWorkbenchProcessStartGrants,
   listWorkbenchSessions,
   prepareWorkbenchRunPlan,
+  revokeWorkbenchProcessStartGrant,
   transitionWorkbenchSession,
   type WorkbenchCapabilityProjection,
+  type WorkbenchProcessStartGrantView,
   type WorkbenchRunPlan,
+  type WorkbenchRunSpecInput,
   type WorkbenchPlanPreset,
   type WorkbenchSession,
   type WorkbenchSessionAction,
@@ -110,6 +115,9 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     "client_adapter_plan",
   ]);
   const [runPlan, setRunPlan] = useState<WorkbenchRunPlan | null>(null);
+  const [preparedRunSpec, setPreparedRunSpec] = useState<WorkbenchRunSpecInput | null>(null);
+  const [processGrants, setProcessGrants] = useState<WorkbenchProcessStartGrantView[]>([]);
+  const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -174,6 +182,22 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     if (!hidden) void refresh();
   }, [hidden, refresh]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!desktopRuntime || !selectedSession) {
+      setProcessGrants([]);
+      return () => { cancelled = true; };
+    }
+    void listWorkbenchProcessStartGrants(selectedSession.sessionId)
+      .then((grants) => {
+        if (!cancelled) setProcessGrants(grants);
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(messageFrom(reason, "Process authorization receipts could not be loaded."));
+      });
+    return () => { cancelled = true; };
+  }, [desktopRuntime, selectedSession?.sessionId]);
+
   async function createSession() {
     const digest = workspaceDigest.trim();
     if (!isWorkbenchDigest(digest)) {
@@ -191,6 +215,8 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setSessions((current) => replaceSession(current, created));
       setSelectedSessionId(created.sessionId);
       setRunPlan(null);
+      setPreparedRunSpec(null);
+      setProcessGrants([]);
       setNotice("Local Workbench session created. No provider traffic or configuration changes occurred.");
     } catch (reason) {
       setError(messageFrom(reason, "Workbench session could not be created."));
@@ -208,6 +234,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       const next = await transitionWorkbenchSession(selectedSession.sessionId, action);
       setSessions((current) => replaceSession(current, next));
       setRunPlan(null);
+      setPreparedRunSpec(null);
       setNotice(`Session ${actionPastTense(action)} in the local content-free ledger.`);
     } catch (reason) {
       setError(messageFrom(reason, `Session could not ${action}.`));
@@ -227,6 +254,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       await refresh();
       setSelectedSessionId(fork.sessionId);
       setRunPlan(null);
+      setPreparedRunSpec(null);
       setNotice("Fork created from the latest ledger event. The parent and child remain content-free.");
     } catch (reason) {
       setError(messageFrom(reason, "Session fork could not be created."));
@@ -260,11 +288,14 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setReplayReferenceId("");
     }
     setPresetId("");
+    setRunPlan(null);
+    setPreparedRunSpec(null);
   }
 
   function selectAdapter(nextAdapterId: (typeof adapters)[number]["id"]) {
     setAdapterId(nextAdapterId);
     setRunPlan(null);
+    setPreparedRunSpec(null);
     if (nextAdapterId === "gemini_cli") {
       setCapabilityIds((current) =>
         current.filter((capabilityId) => capabilityId !== "adapter_command_readiness"),
@@ -275,6 +306,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   function loadPreset(nextPresetId: string) {
     setPresetId(nextPresetId);
     setRunPlan(null);
+    setPreparedRunSpec(null);
     if (!nextPresetId) return;
     const preset = projection?.presets.find((candidate) => candidate.presetId === nextPresetId);
     if (!preset) {
@@ -320,7 +352,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     setError(null);
     setNotice(null);
     try {
-      const plan = await prepareWorkbenchRunPlan({
+      const runSpec: WorkbenchRunSpecInput = {
         sessionId: selectedSession.sessionId,
         adapterId,
         workspaceDigest: selectedSession.workspaceDigest,
@@ -330,12 +362,58 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         presetId: presetId || null,
         requiredCapabilityIds: capabilityIds,
         requestedMode,
-      });
+      };
+      const plan = await prepareWorkbenchRunPlan(runSpec);
       setRunPlan(plan);
+      setPreparedRunSpec(runSpec);
+      setConfirmationPhrase("");
       setNotice("Adapter plan prepared only. It has not changed any client configuration.");
     } catch (reason) {
       setRunPlan(null);
+      setPreparedRunSpec(null);
       setError(messageFrom(reason, "Workbench run plan could not be prepared."));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function recordProcessAuthorization() {
+    if (!selectedSession || !runPlan?.processContainment || !preparedRunSpec) return;
+    const policy = projection?.processStartGrantPolicy;
+    const expectedPhrase = policy?.confirmationTemplate.replace("{planId}", runPlan.planId) ?? "";
+    if (!expectedPhrase || confirmationPhrase !== expectedPhrase) return;
+    setBusyAction("process-grant");
+    setError(null);
+    setNotice(null);
+    try {
+      const grant = await issueWorkbenchProcessStartGrant({
+        runSpec: preparedRunSpec,
+        expectedPlanId: runPlan.planId,
+        expectedProcessRunId: runPlan.processContainment.runId,
+        confirmationPhrase,
+      });
+      setProcessGrants((current) => [grant, ...current.filter((item) => item.grantId !== grant.grantId)]);
+      setConfirmationPhrase("");
+      setNotice("Future process authorization recorded locally. It does not start a CLI, write files, or send provider traffic.");
+    } catch (reason) {
+      setError(messageFrom(reason, "Future process authorization could not be recorded."));
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function revokeProcessAuthorization(grantId: string) {
+    setBusyAction(`revoke-grant:${grantId}`);
+    setError(null);
+    setNotice(null);
+    try {
+      const revoked = await revokeWorkbenchProcessStartGrant(grantId);
+      setProcessGrants((current) => current.map((grant) =>
+        grant.grantId === revoked.grantId ? revoked : grant,
+      ));
+      setNotice("Future process authorization revoked locally. No process was started.");
+    } catch (reason) {
+      setError(messageFrom(reason, "Future process authorization could not be revoked."));
     } finally {
       setBusyAction(null);
     }
@@ -351,6 +429,10 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const selectedAdapterReadiness = projection?.adapterReadiness.find(
     (readiness) => readiness.adapterId === adapterId,
   ) ?? null;
+  const processGrantPolicy = projection?.processStartGrantPolicy ?? null;
+  const processGrantPhrase = runPlan && processGrantPolicy
+    ? processGrantPolicy.confirmationTemplate.replace("{planId}", runPlan.planId)
+    : "";
 
   return (
     <div className="tray-content" hidden={hidden}>
@@ -453,7 +535,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   aria-pressed={selectedSessionId === session.sessionId}
                   className={`workbench-session${selectedSessionId === session.sessionId ? " is-selected" : ""}`}
                   key={session.sessionId}
-                  onClick={() => { setSelectedSessionId(session.sessionId); setRunPlan(null); }}
+                  onClick={() => { setSelectedSessionId(session.sessionId); setRunPlan(null); setPreparedRunSpec(null); setConfirmationPhrase(""); }}
                   type="button"
                 >
                   <span><strong>{session.taskClass}</strong> · {session.status}</span>
@@ -534,6 +616,58 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   <p><strong>Execution:</strong> {runPlan.executionMode} · <strong>Provider traffic:</strong> {runPlan.providerTraffic} · <strong>Writes:</strong> disabled</p>
                   <p className="optimize-minimal__meta">Plan ID: {runPlan.planId}</p>
                 </div>
+                {runPlan.processContainment && processGrantPolicy ? (
+                  <section className="workbench-projection" aria-labelledby="future-process-authorization-title">
+                    <h3 id="future-process-authorization-title">Time-limited future process authorization</h3>
+                    <p>
+                      This records a native approval for a future Workbench-only executor. It does not start a CLI, apply configuration, write files, or send provider traffic.
+                    </p>
+                    <p className="optimize-minimal__meta">
+                      The receipt expires after {Math.floor(processGrantPolicy.ttlSeconds / 60)} minutes and remains non-executable.
+                    </p>
+                    <label className="workbench-field">
+                      <span>Type this exact authorization phrase</span>
+                      <code>{processGrantPhrase}</code>
+                      <input
+                        aria-label="Future process authorization phrase"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        onChange={(event) => setConfirmationPhrase(event.target.value)}
+                        spellCheck={false}
+                        value={confirmationPhrase}
+                      />
+                    </label>
+                    <button
+                      className="secondary-button"
+                      disabled={busyAction !== null || !preparedRunSpec || confirmationPhrase !== processGrantPhrase}
+                      onClick={() => void recordProcessAuthorization()}
+                      type="button"
+                    >
+                      {busyAction === "process-grant"
+                        ? "Recording authorization…"
+                        : `Record ${Math.floor(processGrantPolicy.ttlSeconds / 60)}-minute authorization`}
+                    </button>
+                    <div className="workbench-events" aria-label="Future process authorization receipts" role="list">
+                      {processGrants.length === 0 ? <p className="optimize-minimal__meta">No authorization receipts have been recorded for this session.</p> : null}
+                      {processGrants.map((grant) => (
+                        <div key={grant.grantId} role="listitem">
+                          <span><strong>{grant.effectiveState}</strong> · expires {formatTimestamp(grant.expiresAt)} · non-executable</span>
+                          <small>{grant.grantId}</small>
+                          {grant.effectiveState === "active" ? (
+                            <button
+                              className="secondary-button secondary-button--small"
+                              disabled={busyAction !== null}
+                              onClick={() => void revokeProcessAuthorization(grant.grantId)}
+                              type="button"
+                            >
+                              {busyAction === `revoke-grant:${grant.grantId}` ? "Revoking…" : "Revoke authorization"}
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </article>
             ) : null}
           </>

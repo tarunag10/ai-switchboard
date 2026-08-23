@@ -5,6 +5,7 @@
 //! execution is deliberately disabled until a later, separately gated phase.
 
 mod adapter_readiness;
+mod capability_grant;
 mod events;
 mod presets;
 mod process_run_spec;
@@ -18,10 +19,16 @@ use serde::{Deserialize, Serialize};
 
 use adapter_readiness::all_adapter_readiness;
 pub use adapter_readiness::{WorkbenchAdapterCommandReadiness, WorkbenchAdapterReadiness};
+use capability_grant::{
+    issue_process_start_grant, process_start_grant_policy, WorkbenchProcessGrantStore,
+};
+pub use capability_grant::{WorkbenchProcessStartGrantPolicy, WorkbenchProcessStartGrantView};
 pub use events::WorkbenchSessionAction;
 use presets::{all_workbench_plan_presets, WorkbenchPlanPreset};
 pub use process_run_spec::ProcessRunSpec;
-pub use run_contract::{WorkbenchRunPlan, WorkbenchRunSpecInput};
+pub use run_contract::{
+    CapabilityRequest, RouterDecisionReference, WorkbenchRunPlan, WorkbenchRunSpecInput,
+};
 pub use session::{CreateWorkbenchSessionInput, WorkbenchSession};
 use storage::WorkbenchStore;
 
@@ -41,6 +48,15 @@ pub struct WorkbenchForkInput {
     pub event_id: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkbenchProcessStartGrantInput {
+    pub run_spec: WorkbenchRunSpecInput,
+    pub expected_plan_id: String,
+    pub expected_process_run_id: String,
+    pub confirmation_phrase: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkbenchCapabilityProjection {
@@ -51,6 +67,7 @@ pub struct WorkbenchCapabilityProjection {
     pub registry: crate::oss_capabilities::OssCapabilityRegistry,
     pub presets: Vec<WorkbenchPlanPreset>,
     pub adapter_readiness: Vec<WorkbenchAdapterReadiness>,
+    pub process_start_grant_policy: WorkbenchProcessStartGrantPolicy,
 }
 
 fn locked_store() -> Result<(std::sync::MutexGuard<'static, ()>, WorkbenchStore), String> {
@@ -97,9 +114,18 @@ pub fn transition_workbench_session(
     input: WorkbenchTransitionInput,
 ) -> Result<WorkbenchSession, String> {
     let (_guard, store) = locked_store()?;
-    store
+    let session = store
         .transition(input.session_id.trim(), input.action)
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if matches!(
+        input.action,
+        WorkbenchSessionAction::Cancel | WorkbenchSessionAction::Complete
+    ) {
+        WorkbenchProcessGrantStore::in_app_storage()
+            .revoke_for_terminal_session(&session.session_id, chrono::Utc::now())
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(session)
 }
 
 #[tauri::command]
@@ -121,6 +147,58 @@ pub fn prepare_workbench_run_plan(
     run_contract::prepare_run_plan(&session, input).map_err(|error| error.to_string())
 }
 
+/// Stores an explicit, expiry-bound authorization receipt for one previously
+/// prepared native process-containment plan. This does not start a process or
+/// enable execution; a later executor must separately validate the receipt.
+#[tauri::command]
+pub fn issue_workbench_process_start_grant(
+    input: WorkbenchProcessStartGrantInput,
+) -> Result<WorkbenchProcessStartGrantView, String> {
+    let (_guard, store) = locked_store()?;
+    let session = store
+        .get(input.run_spec.session_id.trim())
+        .map_err(|error| error.to_string())?;
+    let plan = run_contract::prepare_run_plan(&session, input.run_spec)
+        .map_err(|error| error.to_string())?;
+    events::validate_identifier(&input.expected_plan_id, "plan ID")
+        .map_err(|error| error.to_string())?;
+    events::validate_identifier(&input.expected_process_run_id, "process run ID")
+        .map_err(|error| error.to_string())?;
+    let process = plan
+        .process_containment
+        .as_ref()
+        .ok_or_else(|| "Workbench process grant requires native containment".to_string())?;
+    if input.expected_plan_id != plan.plan_id || input.expected_process_run_id != process.run_id {
+        return Err("Workbench process grant no longer matches the prepared native plan".into());
+    }
+    let now = chrono::Utc::now();
+    let grant = issue_process_start_grant(&session, &plan, &input.confirmation_phrase, now)
+        .map_err(|error| error.to_string())?;
+    WorkbenchProcessGrantStore::in_app_storage()
+        .issue(grant, now)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn list_workbench_process_start_grants(
+    session_id: String,
+) -> Result<Vec<WorkbenchProcessStartGrantView>, String> {
+    let (_guard, _) = locked_store()?;
+    WorkbenchProcessGrantStore::in_app_storage()
+        .list_for_session(session_id.trim(), chrono::Utc::now())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn revoke_workbench_process_start_grant(
+    grant_id: String,
+) -> Result<WorkbenchProcessStartGrantView, String> {
+    let (_guard, _) = locked_store()?;
+    WorkbenchProcessGrantStore::in_app_storage()
+        .revoke(grant_id.trim(), chrono::Utc::now())
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjection, String> {
     Ok(WorkbenchCapabilityProjection {
@@ -131,6 +209,7 @@ pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjec
         registry: crate::oss_capabilities::registry(),
         presets: all_workbench_plan_presets(),
         adapter_readiness: all_adapter_readiness(),
+        process_start_grant_policy: process_start_grant_policy(),
     })
 }
 

@@ -91,6 +91,30 @@ export interface WorkbenchProcessRunSpec {
   writesEnabled: false;
 }
 
+export interface WorkbenchProcessStartGrantPolicy {
+  confirmationTemplate: string;
+  ttlSeconds: number;
+  executionEnabled: false;
+  providerTraffic: "none";
+  writesEnabled: false;
+}
+
+export interface WorkbenchProcessStartGrantView {
+  schemaVersion: number;
+  grantId: string;
+  sessionId: string;
+  planId: string;
+  processRunId: string;
+  capabilityId: "adapter_process_start";
+  issuedAt: string;
+  expiresAt: string;
+  effectiveState: "active" | "expired" | "revoked";
+  executionEnabled: false;
+  providerTraffic: "none";
+  writesEnabled: false;
+  receiptDigest: string;
+}
+
 export interface WorkbenchRunSpecInput {
   sessionId: string;
   adapterId: "claude_code" | "codex" | "gemini_cli";
@@ -101,6 +125,13 @@ export interface WorkbenchRunSpecInput {
   presetId: string | null;
   requiredCapabilityIds: string[];
   requestedMode: SwitchboardMode;
+}
+
+export interface WorkbenchProcessStartGrantInput {
+  runSpec: WorkbenchRunSpecInput;
+  expectedPlanId: string;
+  expectedProcessRunId: string;
+  confirmationPhrase: string;
 }
 
 export interface WorkbenchCapabilityRequest {
@@ -140,6 +171,7 @@ export interface WorkbenchCapabilityProjection {
   registry: OssCapabilityRegistry;
   presets: WorkbenchPlanPreset[];
   adapterReadiness: WorkbenchAdapterReadiness[];
+  processStartGrantPolicy: WorkbenchProcessStartGrantPolicy;
 }
 
 export const WORKBENCH_CAPABILITIES = [
@@ -215,6 +247,24 @@ export function prepareWorkbenchRunPlan(
   input: WorkbenchRunSpecInput,
 ): Promise<WorkbenchRunPlan> {
   return invoke<WorkbenchRunPlan>("prepare_workbench_run_plan", { input });
+}
+
+export function issueWorkbenchProcessStartGrant(
+  input: WorkbenchProcessStartGrantInput,
+): Promise<WorkbenchProcessStartGrantView> {
+  return invoke<WorkbenchProcessStartGrantView>("issue_workbench_process_start_grant", { input });
+}
+
+export function listWorkbenchProcessStartGrants(
+  sessionId: string,
+): Promise<WorkbenchProcessStartGrantView[]> {
+  return invoke<WorkbenchProcessStartGrantView[]>("list_workbench_process_start_grants", { sessionId });
+}
+
+export function revokeWorkbenchProcessStartGrant(
+  grantId: string,
+): Promise<WorkbenchProcessStartGrantView> {
+  return invoke<WorkbenchProcessStartGrantView>("revoke_workbench_process_start_grant", { grantId });
 }
 
 export function getWorkbenchCapabilityProjection(): Promise<WorkbenchCapabilityProjection> {

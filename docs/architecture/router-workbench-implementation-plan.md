@@ -65,6 +65,7 @@ workbench_kernel/
   session.rs       durable content-free identity, status, lineage, timestamps
   events.rs        bounded versioned lifecycle ledger and deterministic forks
   run_contract.rs  RunSpec, RunPlan, Router reference, and capability requests
+  capability_grant.rs  expiry-bound, content-free future-process authorization receipts
   storage.rs       atomic local ledger persistence and bounded retention
 ```
 
@@ -84,8 +85,9 @@ Invariants:
   `CodingClientAdapter` contract but cannot apply it. Existing adapter consent
   and rollback rules remain unchanged.
 - Capability requests are default-deny, session scoped, visible in the UI, and
-  non-executable. Expiry-bound grants and change receipts remain a later
-  execution-gate deliverable.
+  non-executable. The first expiry-bound, content-free future-process
+  authorization receipt is locally recorded and revocable; it is not an
+  execution endpoint and does not alter `ProcessRunSpec` authorization.
 - The Router has one decision owner: existing model routing. A Workbench plan
   may link to the decision but cannot alter a live provider request.
 
@@ -226,10 +228,19 @@ Deliverables:
   cleanup. It has no command path, argv, shell, environment, cwd, prompt,
   credential, PID/PGID, user-controlled timeout, process registry, or start
   endpoint.
+- [x] An explicit, fixed-15-minute future-process authorization receipt is
+  issued only after native re-preparation of the saved `RunSpec` exactly
+  matches the displayed plan and containment IDs. The exact plan-bound phrase,
+  active-session state, plan-only/no-traffic/no-write invariants, receipt
+  digest, bounded local retention, expiry, terminal-session revocation, and
+  manual revocation all fail closed. The UI exposes this receipt lifecycle and
+  calls it non-executable; it cannot launch a CLI or change `not_granted`.
 - [ ] Version probing or runnable-binary validation, only after an explicit
   process-start capability and containment/receipt model are available.
-- [ ] Explicit capability approval, bounded timeout/cancel model, process
-  containment, content-free metrics, and a receipt-backed cleanup plan.
+- [ ] Process registry, actual bounded timeout/cancel enforcement,
+  content-free metrics, receipt-backed cleanup, and a separately gated native
+  executor. The current authorization receipt is intentionally insufficient to
+  start or supervise a process.
 - [ ] Deterministic fake-adapter tests, then a separate opt-in local manual
   test. No provider credentials are read by the planning path.
 

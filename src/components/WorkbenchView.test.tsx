@@ -8,6 +8,9 @@ const listSessions = vi.fn();
 const projection = vi.fn();
 const createSession = vi.fn();
 const preparePlan = vi.fn();
+const issueProcessStartGrant = vi.fn();
+const listProcessStartGrants = vi.fn();
+const revokeProcessStartGrant = vi.fn();
 const listRouterDecisionReferences = vi.fn();
 const listReplayReferences = vi.fn();
 
@@ -34,6 +37,9 @@ vi.mock("../lib/workbench", async () => {
     getWorkbenchCapabilityProjection: (...args: unknown[]) => projection(...args),
     createWorkbenchSession: (...args: unknown[]) => createSession(...args),
     prepareWorkbenchRunPlan: (...args: unknown[]) => preparePlan(...args),
+    issueWorkbenchProcessStartGrant: (...args: unknown[]) => issueProcessStartGrant(...args),
+    listWorkbenchProcessStartGrants: (...args: unknown[]) => listProcessStartGrants(...args),
+    revokeWorkbenchProcessStartGrant: (...args: unknown[]) => revokeProcessStartGrant(...args),
     exportWorkbenchSession: vi.fn(),
     forkWorkbenchSession: vi.fn(),
     transitionWorkbenchSession: vi.fn(),
@@ -139,6 +145,13 @@ const capabilityProjection = {
         writesEnabled: false as const,
       },
     ],
+    processStartGrantPolicy: {
+      confirmationTemplate: "AUTHORIZE FUTURE PROCESS {planId}",
+      ttlSeconds: 900,
+      executionEnabled: false as const,
+      providerTraffic: "none" as const,
+      writesEnabled: false as const,
+    },
 };
 
 describe("WorkbenchView", () => {
@@ -148,6 +161,7 @@ describe("WorkbenchView", () => {
     projection.mockResolvedValue(capabilityProjection);
     listRouterDecisionReferences.mockResolvedValue([routerDecisionReference]);
     listReplayReferences.mockResolvedValue([replayReference]);
+    listProcessStartGrants.mockResolvedValue([]);
   });
 
   it("surfaces the local plan-only boundary and shared capability registry", async () => {
@@ -346,6 +360,120 @@ describe("WorkbenchView", () => {
     expect(await screen.findByText(/CLI version not probed/i)).toBeInTheDocument();
     expect(screen.getByText((_, element) =>
       element?.tagName === "P" && element.textContent?.includes("Native containment: not started"),
+    )).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /execute|start/i })).not.toBeInTheDocument();
+  });
+
+  it("records and revokes a non-executable future process authorization from the saved plan input", async () => {
+    const user = userEvent.setup();
+    preparePlan.mockResolvedValue({
+      schemaVersion: 1,
+      planId: "run-plan:grant",
+      sessionId: session.sessionId,
+      adapterId: "codex",
+      workspaceDigest,
+      contextPackDigest: null,
+      routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
+      replayReference: null,
+      preset: null,
+      requestedMode: "full",
+      adapterPlanId: "codex-1234567890ab",
+      adapterAction: "apply_managed_routing",
+      adapterReversible: true,
+      commandReadiness: {
+        ...capabilityProjection.adapterReadiness[0],
+        adapterPlanId: "codex-1234567890ab",
+      },
+      processContainment: {
+        schemaVersion: 1,
+        runId: "process-run:1234567890abcdef1234567890abcdef",
+        sessionId: session.sessionId,
+        adapterPlanId: "codex-1234567890ab",
+        adapterId: "codex",
+        adapterContractVersion: 1,
+        workspaceDigest,
+        owner: "workbench_native",
+        state: "not_started",
+        startAuthorization: "not_granted",
+        launchMode: "native_adapter_only",
+        processGroup: "required_on_unix",
+        stdin: "null",
+        output: "piped_bounded_redacted",
+        timeoutPolicy: "native_fixed_policy_required",
+        cancellation: "group_sigterm_then_sigkill",
+        providerTraffic: "none",
+        writesEnabled: false,
+      },
+      capabilityRequests: [],
+      executionMode: "plan_only",
+      providerTraffic: "none",
+      writesEnabled: false,
+    });
+    issueProcessStartGrant.mockResolvedValue({
+      schemaVersion: 1,
+      grantId: "process-grant:test",
+      sessionId: session.sessionId,
+      planId: "run-plan:grant",
+      processRunId: "process-run:1234567890abcdef1234567890abcdef",
+      capabilityId: "adapter_process_start",
+      issuedAt: "2026-08-23T00:00:00Z",
+      expiresAt: "2026-08-23T00:15:00Z",
+      effectiveState: "active",
+      executionEnabled: false,
+      providerTraffic: "none",
+      writesEnabled: false,
+      receiptDigest: `sha256:${"e".repeat(64)}`,
+    });
+    revokeProcessStartGrant.mockResolvedValue({
+      schemaVersion: 1,
+      grantId: "process-grant:test",
+      sessionId: session.sessionId,
+      planId: "run-plan:grant",
+      processRunId: "process-run:1234567890abcdef1234567890abcdef",
+      capabilityId: "adapter_process_start",
+      issuedAt: "2026-08-23T00:00:00Z",
+      expiresAt: "2026-08-23T00:15:00Z",
+      effectiveState: "revoked",
+      executionEnabled: false,
+      providerTraffic: "none",
+      writesEnabled: false,
+      receiptDigest: `sha256:${"f".repeat(64)}`,
+    });
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.click(screen.getByRole("checkbox", { name: /adapter command readiness/i }));
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
+    await user.click(screen.getByRole("button", { name: "Prepare plan only" }));
+
+    expect(await screen.findByText("Time-limited future process authorization")).toBeInTheDocument();
+    const record = screen.getByRole("button", { name: "Record 15-minute authorization" });
+    expect(record).toBeDisabled();
+    await user.type(
+      screen.getByLabelText("Future process authorization phrase"),
+      "AUTHORIZE FUTURE PROCESS run-plan:grant",
+    );
+    await user.click(record);
+
+    expect(issueProcessStartGrant).toHaveBeenCalledWith(expect.objectContaining({
+      expectedPlanId: "run-plan:grant",
+      expectedProcessRunId: "process-run:1234567890abcdef1234567890abcdef",
+      confirmationPhrase: "AUTHORIZE FUTURE PROCESS run-plan:grant",
+      runSpec: expect.objectContaining({
+        sessionId: session.sessionId,
+        adapterId: "codex",
+        workspaceDigest,
+        routerDecisionId: "routing-decision-1",
+        requiredCapabilityIds: expect.arrayContaining(["adapter_command_readiness"]),
+      }),
+    }));
+    expect(await screen.findByText((_, element) =>
+      element?.tagName === "SPAN" && element.textContent?.includes("active") && element.textContent.includes("non-executable"),
+    )).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revoke authorization" }));
+    expect(revokeProcessStartGrant).toHaveBeenCalledWith("process-grant:test");
+    expect(await screen.findByText((_, element) =>
+      element?.tagName === "SPAN" && element.textContent?.includes("revoked") && element.textContent.includes("non-executable"),
     )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /execute|start/i })).not.toBeInTheDocument();
   });

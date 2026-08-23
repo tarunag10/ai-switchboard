@@ -8,8 +8,11 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
   createWorkbenchSession,
+  issueWorkbenchProcessStartGrant,
   isWorkbenchDigest,
+  listWorkbenchProcessStartGrants,
   prepareWorkbenchRunPlan,
+  revokeWorkbenchProcessStartGrant,
   transitionWorkbenchSession,
 } from "./workbench";
 
@@ -55,5 +58,45 @@ describe("workbench bridge", () => {
         requiredCapabilityIds: ["router_observe"],
       }),
     });
+  });
+});
+
+it("keeps future process authorizations scoped to an opaque prepared plan", async () => {
+  invoke.mockClear();
+  const runSpec = {
+    sessionId: "workbench:test",
+    adapterId: "codex" as const,
+    workspaceDigest: `sha256:${"a".repeat(64)}`,
+    contextPackDigest: null,
+    routerDecisionId: "routing-decision-1",
+    replayReferenceId: null,
+    presetId: null,
+    requiredCapabilityIds: ["router_observe", "adapter_command_readiness"],
+    requestedMode: "full" as const,
+  };
+  invoke.mockResolvedValue({ grantId: "process-grant:test" });
+
+  await issueWorkbenchProcessStartGrant({
+    runSpec,
+    expectedPlanId: "run-plan:test",
+    expectedProcessRunId: "process-run:test",
+    confirmationPhrase: "AUTHORIZE FUTURE PROCESS run-plan:test",
+  });
+  await listWorkbenchProcessStartGrants("workbench:test");
+  await revokeWorkbenchProcessStartGrant("process-grant:test");
+
+  expect(invoke).toHaveBeenNthCalledWith(1, "issue_workbench_process_start_grant", {
+    input: {
+      runSpec,
+      expectedPlanId: "run-plan:test",
+      expectedProcessRunId: "process-run:test",
+      confirmationPhrase: "AUTHORIZE FUTURE PROCESS run-plan:test",
+    },
+  });
+  expect(invoke).toHaveBeenNthCalledWith(2, "list_workbench_process_start_grants", {
+    sessionId: "workbench:test",
+  });
+  expect(invoke).toHaveBeenNthCalledWith(3, "revoke_workbench_process_start_grant", {
+    grantId: "process-grant:test",
   });
 });
