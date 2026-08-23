@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { canonicalInstalledAppPath } from "./app-identity-contract.mjs";
+import { inspectPublicArtifact } from "./public-artifact-contract.mjs";
 
 const appPath = canonicalInstalledAppPath;
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
@@ -12,6 +13,12 @@ const confirmed =
   process.argv.includes("--confirm") ||
   process.env.MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED === "1";
 const publicArtifactPath = process.env.MAC_AI_SWITCHBOARD_PUBLIC_ARTIFACT_PATH?.trim() || null;
+const publicArtifact = inspectPublicArtifact(publicArtifactPath);
+
+if (!publicArtifact.ok) {
+  console.error(`Public release artifact invalid: ${publicArtifact.reason}`);
+  process.exit(1);
+}
 
 const appPresent = fs.existsSync(appPath);
 const bundleMetadataPresent = fs.existsSync(appInfoPlistPath);

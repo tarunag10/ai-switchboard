@@ -35,6 +35,7 @@
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",
     "release:report": "node scripts/release-readiness-report.mjs",
     "release:summary:selftest": "node --test scripts/release-summary-contract.node-test.mjs",
+    "release:artifact:selftest": "node --test scripts/public-artifact-contract.node-test.mjs",
     "release:report:time:selftest": "node --test scripts/release-evidence-time.node-test.mjs",
     "release:report:check": "node --test scripts/release-report-consistency.node-test.mjs scripts/release-artifact-contract.node-test.mjs && node scripts/check-release-report-schema.mjs",
     "savings:benchmark": "node scripts/measured-savings-benchmark.mjs",

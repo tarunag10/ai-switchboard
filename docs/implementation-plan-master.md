@@ -176,6 +176,9 @@ the current checkout.
 - Routing evidence persistence now rejects reuse of one run ID across task
   classes or baseline/candidate model pairs, preventing cross-experiment
   aggregation while keeping local evidence observe-only.
+- Installed-smoke artifact input now fails closed before writing evidence when
+  the optional public artifact path is relative, missing, non-DMG, or not a
+  regular file; the contract has a standalone self-test command.
 
 ### Done — prepared and shipped
 
