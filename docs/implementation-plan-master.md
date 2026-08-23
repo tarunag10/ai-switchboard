@@ -30,6 +30,8 @@ the current checkout.
   contracts.
 - `docs/benchmarks/phase-3-endpoint-routing-and-cache-compression.md` and
   `docs/benchmarks/phase-4-semantic-cache-and-lmcache.md` — evidence gates.
+- `docs/integrations/oss-harness-integration-plan.md` — DeepSeek Harness,
+  NVIDIA NeMo Switchyard, and jcode integration boundaries.
 
 ## Status vocabulary
 
@@ -212,6 +214,10 @@ the current checkout.
 - Maintainability: god-file registry/budgets, modularization, CLI parity
   boundary, local benchmark export, and progressive disclosure/accessibility
   slices.
+- OSS harness governance: DeepSeek Harness maturity audit, Switchyard optional
+  interoperability evaluation, jcode reference evaluation, and a machine-
+  checked provenance/promotion boundary are shipped; runtime integration remains
+  staged and fail-closed.
 
 ### Prepared but externally blocked
 
@@ -455,6 +461,9 @@ the current checkout.
    Q remain guided or sidecar paths until their schemas are proven.
 5. **Provider-specific metrics:** add a provider adapter only when a stable,
    read-only usage API supports complete before/after attribution.
+6. **OSS harness integration:** implement the local redacted replay and route-
+   decision harness, then add event/session and strategy fixtures without
+   enabling automatic routing or importing unstable upstream runtimes.
 
 ## Execution order
 

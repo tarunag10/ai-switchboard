@@ -116,6 +116,7 @@
     "check:local-build-privacy": "node scripts/check-local-build-privacy.mjs",
     "check:local-only-network": "node scripts/check-local-only-network.mjs",
     "check:implementation-plan-master": "node --test scripts/check-implementation-plan-master.node-test.mjs && node scripts/check-implementation-plan-master.mjs",
+    "check:oss-harness-integrations": "node scripts/check-oss-harness-integrations.mjs",
     "check:governance": "npm run check:implementation-plan-master && node scripts/check-governance-docs.mjs && node scripts/check-gateway-profiles.mjs && npm run check:phase0-baseline && npm run check:phase1-architecture && npm run check:phase2-integrations && npm run check:phase3-routing && npm run check:phase4-expansion && npm run check:phase5-enterprise && npm run check:phase6-hardening",
     "check:deployment": "node scripts/check-deployment-readiness.mjs",
     "smoke:connectors:local": "node scripts/local-connector-readiness-summary.mjs",
