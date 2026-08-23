@@ -62,9 +62,9 @@ the current checkout.
 - Repo Intelligence now preserves a direct same-file call when the same file
   also contains a member call with that name; the object-member cross-file
   guard remains in place.
-- Repo Intelligence now resolves one-hop local TypeScript/JavaScript named
-  and wildcard re-exports, while dynamic exports remain unresolved; indexer
-  version is `path-graph-v13`.
+- Repo Intelligence now resolves bounded two-hop local TypeScript/JavaScript
+  named and wildcard re-exports, while dynamic exports and deeper chains remain
+  unresolved; indexer version is `path-graph-v13`.
 - Repo Intelligence CommonJS fallback parsing now extracts only the quoted
   argument of `require(...)`, preventing later unrelated string literals from
   becoming false dependency edges; CommonJS symbol binding remains
@@ -309,9 +309,10 @@ the current checkout.
 - Native Repo Intelligence re-export scanning now uses Tree-sitter export
   nodes, handles semicolonless declarations, and continues after unresolved
   external exports; focused native coverage is 41 tests.
-- CLI and frontend Repo Intelligence now resolve bounded one-hop named and
+- CLI and frontend Repo Intelligence now resolve bounded two-hop named and
   wildcard local re-exports for static imported calls; dynamic, namespace,
-  default, and multi-hop inference remain intentionally unresolved.
+  default, cyclic, and deeper-than-two-hop inference remain intentionally
+  unresolved.
 - Connector lifecycle evidence now requires adjacent Rust
   `lifecycle-intent` markers for every fixture-linked stage; combined tests may
   declare multiple stages, but unknown or undeclared stage intent fails the
@@ -320,9 +321,9 @@ the current checkout.
   checksum content against the signed DMG digest; a blocked proof with no
   external release snapshot remains a valid blocked artifact instead of being
   rejected as malformed.
-- Repo Intelligence CLI/frontend parity now has negative fixtures proving
-  dynamic, unresolved, and two-hop re-exports produce no false call edges;
-  the bounded one-hop contract remains explicit.
+- Repo Intelligence CLI/frontend parity now has fixtures proving bounded
+  two-hop named/wildcard resolution while dynamic, unresolved, cyclic, and
+  deeper-than-two-hop re-exports produce no false call edges.
 - Public checksum blockers now depend on verified digest content, not merely
   an uploaded asset name; an uploaded-but-mismatched checksum is covered by a
   fail-closed regression.

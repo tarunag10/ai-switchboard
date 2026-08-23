@@ -59,7 +59,8 @@
     },
     "exactCallEdges": [
       "src/consumer.ts->src/utils.ts#normalize",
-      "src/consumer.ts->src/worker.ts#runTask"
+      "src/consumer.ts->src/worker.ts#runTask",
+      "src/negative.ts->src/worker.ts#runTask"
     ],
     "exactSymbols": [
       "src/a.ts#hidden",
@@ -78,8 +79,7 @@
     ],
     "negativeCallEdgesFrom": [
       "src/negative.ts->src/a.ts#runTask",
-      "src/negative.ts->src/b.ts#runTask",
-      "src/negative.ts->src/worker.ts#runTask"
+      "src/negative.ts->src/b.ts#runTask"
     ],
     "symbols": [
       "src/worker.ts#runTask",

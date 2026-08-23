@@ -799,6 +799,21 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("resolves bounded two-hop named re-exports", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
+      { path: "src/inner.ts", bytes: 120, content: "export { runTask } from './worker';" },
+      { path: "src/outer.ts", bytes: 120, content: "export { runTask } from './inner';" },
+      { path: "src/consumer.ts", bytes: 140, content: "import { runTask } from './outer'; export function start() { runTask(); }" },
+    ]);
+
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+  });
+
   it("resolves named default imports without global-name ambiguity", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 120, content: "export default function runTask() {}" },
@@ -886,7 +901,7 @@ describe("repoIntelligence", () => {
     );
   });
 
-  it("does not infer dynamic or multi-hop re-export calls", () => {
+  it("resolves bounded multi-hop re-exports but not dynamic or ambiguous calls", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },
       { path: "src/duplicate.ts", bytes: 100, content: "export function runTask() {}" },
@@ -895,9 +910,20 @@ describe("repoIntelligence", () => {
       { path: "src/outer.ts", bytes: 100, content: "export { runTask } from './inner';" },
       { path: "src/consumer.ts", bytes: 160, content: "import { runTask as dynamic } from './dynamic'; import { runTask as chained } from './outer'; export function start() { dynamic(); chained(); }" },
     ]);
-    expect(summary.graph?.symbolEdges).not.toEqual(
+    const callEdges = summary.graph?.symbolEdges?.filter((edge) => edge.kind === "call_reference") ?? [];
+    expect(callEdges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ to: "src/worker.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+    expect(callEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/duplicate.ts#runTask", kind: "call_reference" }),
+      ]),
+    );
+    expect(callEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/dynamic.ts#runTask", kind: "call_reference" }),
       ]),
     );
   });
@@ -916,6 +942,19 @@ describe("repoIntelligence", () => {
         expect.objectContaining({ to: "src/a.ts#runTask", kind: "call_reference" }),
         expect.objectContaining({ to: "src/b.ts#runTask", kind: "call_reference" }),
         expect.objectContaining({ to: "src/a.ts#hidden", kind: "call_reference" }),
+      ]),
+    );
+  });
+
+  it("fails closed on cyclic re-exports", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/a.ts", bytes: 100, content: "export { runTask } from './b';" },
+      { path: "src/b.ts", bytes: 100, content: "export { runTask } from './a';" },
+      { path: "src/consumer.ts", bytes: 140, content: "import { runTask } from './a'; export function start() { runTask(); }" },
+    ]);
+    expect(summary.graph?.symbolEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ from: "src/consumer.ts", kind: "call_reference" }),
       ]),
     );
   });

@@ -2580,15 +2580,31 @@ fn build_semantic_call_reference_edges(
     edges
 }
 
-/// Resolve one static local TypeScript/JavaScript re-export from a barrel
-/// file. This is intentionally one hop: it follows only `export { ... } from`
-/// and `export * from` declarations and never evaluates dynamic exports.
+/// Resolve up to two static local TypeScript/JavaScript re-exports from barrel
+/// files. It follows only `export { ... } from` and `export * from` declarations,
+/// rejects cycles/ambiguity, and never evaluates dynamic exports.
 fn resolve_local_reexport(
     repo_root: &Path,
     barrel: &RepoFileSignal,
     imported: &str,
     files: &[RepoFileSignal],
 ) -> Option<(String, String)> {
+    resolve_local_reexport_at_depth(repo_root, barrel, imported, files, 0, &BTreeSet::new())
+}
+
+fn resolve_local_reexport_at_depth(
+    repo_root: &Path,
+    barrel: &RepoFileSignal,
+    imported: &str,
+    files: &[RepoFileSignal],
+    depth: usize,
+    visited: &BTreeSet<String>,
+) -> Option<(String, String)> {
+    if visited.contains(&barrel.path) {
+        return None;
+    }
+    let mut visited = visited.clone();
+    visited.insert(barrel.path.clone());
     let content = std::fs::read_to_string(repo_root.join(&barrel.path)).ok()?;
     let mut statements = Vec::new();
     let mut parser = tree_sitter::Parser::new();
@@ -2617,8 +2633,21 @@ fn resolve_local_reexport(
             continue;
         };
         if clause.trim() == "*" {
-            if imported != "default" && explicitly_exports_symbol(repo_root, &target.path, imported) {
-                wildcard_candidates.push((target.path.clone(), imported.to_string()));
+            if imported != "default" && !visited.contains(&target.path) {
+                if explicitly_exports_symbol(repo_root, &target.path, imported) {
+                    wildcard_candidates.push((target.path.clone(), imported.to_string()));
+                } else if depth < 1 {
+                    if let Some(nested) = resolve_local_reexport_at_depth(
+                        repo_root,
+                        &target,
+                        imported,
+                        files,
+                        depth + 1,
+                        &visited,
+                    ) {
+                        wildcard_candidates.push(nested);
+                    }
+                }
             }
             continue;
         }
@@ -2644,6 +2673,17 @@ fn resolve_local_reexport(
                     }
                 } else if explicitly_exports_symbol(repo_root, &target.path, original) {
                     return Some((target.path.clone(), (*original).to_string()));
+                } else if depth < 1 && !visited.contains(&target.path) {
+                    if let Some(nested) = resolve_local_reexport_at_depth(
+                        repo_root,
+                        &target,
+                        original,
+                        files,
+                        depth + 1,
+                        &visited,
+                    ) {
+                        return Some(nested);
+                    }
                 }
             }
         }
@@ -4654,6 +4694,28 @@ export const mapValues = <T>(items: T[]) => items;
                 && edge.to == "src/worker.ts#runTask"
                 && edge.kind == RepoGraphEdgeKind::CallReference
                 && edge.reason == "AST call expression resolved through local import binding"
+        }));
+    }
+
+    #[test]
+    fn does_not_resolve_cyclic_reexports() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("a.ts"), "export { runTask } from './b';\n")
+            .expect("write cycle a");
+        std::fs::write(src.join("b.ts"), "export { runTask } from './a';\n")
+            .expect("write cycle b");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import { runTask } from './a';\nexport function start() { runTask(); }\n",
+        )
+        .expect("write cycle consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(!graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/consumer.ts#start"
+                && edge.kind == RepoGraphEdgeKind::CallReference
         }));
     }
 

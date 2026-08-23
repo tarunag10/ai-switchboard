@@ -3094,6 +3094,24 @@ function resolveLocalReexportBinding(
   byPath: Map<string, RepoFileSignal>,
   contentByPath: Map<string, string>,
 ): { file: string; name: string } | null {
+  return resolveLocalReexportBindingAtDepth(
+    barrel,
+    imported,
+    byPath,
+    contentByPath,
+    0,
+    new Set([barrel.path]),
+  );
+}
+
+function resolveLocalReexportBindingAtDepth(
+  barrel: RepoFileSignal,
+  imported: string,
+  byPath: Map<string, RepoFileSignal>,
+  contentByPath: Map<string, string>,
+  depth: number,
+  visited: Set<string>,
+): { file: string; name: string } | null {
   const content = contentByPath.get(barrel.path);
   if (!content) return null;
   for (const match of content.matchAll(/\bexport\s*\{([^}]*)\}(?!\s*from\b)/g)) {
@@ -3121,6 +3139,18 @@ function resolveLocalReexportBinding(
           if (defaultTarget) return { file: target.path, name: defaultTarget };
         } else if (isExplicitlyExportedSymbol(target, original, contentByPath)) {
           return { file: target.path, name: original };
+        } else if (depth < 1 && !visited.has(target.path)) {
+          const nextVisited = new Set(visited);
+          nextVisited.add(target.path);
+          const nested = resolveLocalReexportBindingAtDepth(
+            target,
+            original,
+            byPath,
+            contentByPath,
+            depth + 1,
+            nextVisited,
+          );
+          if (nested) return nested;
         }
       }
     }
@@ -3128,8 +3158,21 @@ function resolveLocalReexportBinding(
   const candidates: Array<{ file: string; name: string }> = [];
   for (const match of content.matchAll(/\bexport\s*\*\s*from\s*["']([^"']+)["']/g)) {
     const target = resolveImportSpecifier(barrel.path, match[1], byPath);
-    if (target && imported !== "default" && isExplicitlyExportedSymbol(target, imported, contentByPath)) {
+    if (!target || imported === "default") continue;
+    if (isExplicitlyExportedSymbol(target, imported, contentByPath)) {
       candidates.push({ file: target.path, name: imported });
+    } else if (depth < 1 && !visited.has(target.path)) {
+      const nextVisited = new Set(visited);
+      nextVisited.add(target.path);
+      const nested = resolveLocalReexportBindingAtDepth(
+        target,
+        imported,
+        byPath,
+        contentByPath,
+        depth + 1,
+        nextVisited,
+      );
+      if (nested) candidates.push(nested);
     }
   }
   return candidates.length === 1 ? candidates[0] : null;

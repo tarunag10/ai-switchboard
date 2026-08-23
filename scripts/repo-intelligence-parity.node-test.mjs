@@ -69,7 +69,7 @@ test("CLI graph resolves one-hop named and wildcard re-exports", () => {
   }
 });
 
-test("CLI graph leaves dynamic, unresolved, and two-hop re-exports unresolved", () => {
+test("CLI graph leaves dynamic and unresolved re-exports unresolved", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-reexport-negative-"));
   try {
     fs.mkdirSync(path.join(repo, "src"), { recursive: true });
@@ -80,7 +80,24 @@ test("CLI graph leaves dynamic, unresolved, and two-hop re-exports unresolved", 
     fs.writeFileSync(path.join(repo, "src/outer.ts"), "export { runTask } from './inner';\n");
     fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import { runTask as dynamic } from './dynamic'; import { runTask as chained } from './outer'; export function start() { dynamic(); chained(); }\n");
     const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
-    assert.ok(!summary.graph.symbolEdges.some((edge) => edge.to === "src/worker.ts#runTask" && edge.kind === "call_reference"));
+    const callEdges = summary.graph.symbolEdges.filter((edge) => edge.kind === "call_reference");
+    assert.ok(callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/worker.ts#runTask"));
+    assert.ok(!callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/dynamic.ts#runTask"));
+    assert.ok(!callEdges.some((edge) => edge.from === "src/consumer.ts" && edge.to === "src/duplicate.ts#runTask"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("CLI graph fails closed on cyclic re-exports", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-cycle-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src", "a.ts"), "export { runTask } from './b';\n");
+    fs.writeFileSync(path.join(repo, "src", "b.ts"), "export { runTask } from './a';\n");
+    fs.writeFileSync(path.join(repo, "src", "consumer.ts"), "import { runTask } from './a'; export function start() { runTask(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.ok(!summary.graph.symbolEdges.some((edge) => edge.from === "src/consumer.ts" && edge.kind === "call_reference"));
   } finally {
     fs.rmSync(repo, { recursive: true, force: true });
   }

@@ -1632,6 +1632,10 @@ function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
 }
 
 function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
+  return resolveLocalReexportBindingAtDepth(repoRoot, barrel, imported, files, 0, new Set([barrel.path]));
+}
+
+function resolveLocalReexportBindingAtDepth(repoRoot, barrel, imported, files, depth, visited) {
   let content = "";
   try {
     content = fs.readFileSync(path.join(repoRoot, barrel.path), "utf8");
@@ -1666,6 +1670,18 @@ function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
           if (defaultTarget) return { file: target.path, name: defaultTarget };
         } else if (isExplicitlyExportedSymbol(repoRoot, target, original)) {
           return { file: target.path, name: original };
+        } else if (depth < 1 && !visited.has(target.path)) {
+          const nextVisited = new Set(visited);
+          nextVisited.add(target.path);
+          const nested = resolveLocalReexportBindingAtDepth(
+            repoRoot,
+            target,
+            original,
+            files,
+            depth + 1,
+            nextVisited,
+          );
+          if (nested) return nested;
         }
       }
     }
@@ -1674,8 +1690,21 @@ function resolveLocalReexportBinding(repoRoot, barrel, imported, files) {
   const wildcardPattern = /\bexport\s*\*\s*from\s*["']([^"']+)["']/g;
   for (const match of content.matchAll(wildcardPattern)) {
     const target = resolveImportSpecifier(barrel.path, match[1], byPath);
-    if (target && imported !== "default" && isExplicitlyExportedSymbol(repoRoot, target, imported)) {
+    if (!target || imported === "default") continue;
+    if (isExplicitlyExportedSymbol(repoRoot, target, imported)) {
       candidates.push({ file: target.path, name: imported });
+    } else if (depth < 1 && !visited.has(target.path)) {
+      const nextVisited = new Set(visited);
+      nextVisited.add(target.path);
+      const nested = resolveLocalReexportBindingAtDepth(
+        repoRoot,
+        target,
+        imported,
+        files,
+        depth + 1,
+        nextVisited,
+      );
+      if (nested) candidates.push(nested);
     }
   }
   return candidates.length === 1 ? candidates[0] : null;
