@@ -64,7 +64,7 @@ export interface AddonsViewProps {
     markdown: string,
     label: string,
   ) => Promise<void>;
-  onSelectiveActivationComplete?: () => Promise<void>;
+  onSelectiveActivationComplete?: (dashboard: DashboardState) => Promise<void>;
 }
 
 export function AddonsView({

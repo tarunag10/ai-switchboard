@@ -9,6 +9,7 @@ import {
   type ActivationToolId,
 } from "../lib/activationTools";
 import { saveRepoPackCompressionPreference } from "../lib/repoIntelligence";
+import type { DashboardState } from "../lib/types";
 
 const STORAGE_KEY = "ai-switchboard.selective-activation.v1";
 type ToolResult = { state: "success" | "failed"; detail: string };
@@ -31,13 +32,14 @@ function writeSelection(selectedToolIds: ActivationToolId[]) {
 }
 
 type NativeActivationResult = {
+  dashboard: DashboardState;
   receipt: {
     overallStatus: "succeeded" | "partial" | "failed";
     results: Array<{ toolId: ActivationToolId; state: string; detail: string }>;
   };
 };
 
-export function SelectiveActivationCard({ onComplete }: { onComplete?: () => Promise<void> }) {
+export function SelectiveActivationCard({ onComplete }: { onComplete?: (dashboard: DashboardState) => Promise<void> }) {
   const [selected, setSelected] = useState<ActivationToolId[]>(() => readSelection());
   const [results, setResults] = useState<Partial<Record<ActivationToolId, ToolResult>>>({});
   const [busy, setBusy] = useState(false);
@@ -93,8 +95,8 @@ export function SelectiveActivationCard({ onComplete }: { onComplete?: () => Pro
     if (selected.includes("chonkify") && response.receipt.overallStatus === "succeeded") {
       saveRepoPackCompressionPreference("chonkify");
     }
-    if (response.receipt.overallStatus === "succeeded" && onComplete) {
-      await onComplete();
+    if (onComplete) {
+      await onComplete(response.dashboard);
     }
     setBusy(false);
     setRunSummary(response.receipt.overallStatus === "succeeded"
