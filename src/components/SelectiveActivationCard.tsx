@@ -8,7 +8,6 @@ import {
   validateActivationSelection,
   type ActivationToolId,
 } from "../lib/activationTools";
-import { saveRepoPackCompressionPreference } from "../lib/repoIntelligence";
 import type { DashboardState } from "../lib/types";
 
 const STORAGE_KEY = "ai-switchboard.selective-activation.v1";
@@ -92,9 +91,6 @@ export function SelectiveActivationCard({ onComplete }: { onComplete?: (dashboar
       };
     }
     setResults(nextResults);
-    if (selected.includes("chonkify") && response.receipt.overallStatus === "succeeded") {
-      saveRepoPackCompressionPreference("chonkify");
-    }
     if (onComplete) {
       await onComplete(response.dashboard);
     }

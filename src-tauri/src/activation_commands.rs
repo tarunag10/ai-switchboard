@@ -23,6 +23,7 @@ impl Drop for ActivationGuard {
 pub const SELECTIVE_ACTIVATION_LIMIT: usize = 5;
 const SELECTION_VERSION: u32 = 1;
 const SELECTION_FILE: &str = "selective-activation.json";
+const CHONKIFY_PREFERENCE_FILE: &str = "repo-pack-compression.json";
 const TOOL_IDS: [&str; 10] = [
     "headroom",
     "rtk",
@@ -72,8 +73,184 @@ pub struct SelectiveActivationResult {
     pub dashboard: DashboardState,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoPackCompressionPreference {
+    pub schema_version: u32,
+    pub requested_mode: String,
+    pub effective_mode: String,
+    pub blocked: bool,
+    pub gate_verdict: String,
+    pub evidence_class: String,
+    pub updated_at: String,
+}
+
 fn selection_path(state: &AppState) -> PathBuf {
     state.tool_manager.tools_dir().join(SELECTION_FILE)
+}
+
+fn config_path(state: &AppState, file: &str) -> PathBuf {
+    state
+        .tool_manager
+        .tools_dir()
+        .parent()
+        .and_then(|path| path.parent())
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join("config")
+        .join(file)
+}
+
+fn chonkify_gate() -> (String, bool) {
+    let evidence: serde_json::Value = match serde_json::from_str(include_str!(
+        "../../fixtures/chonkify-provenance-evidence.json"
+    )) {
+        Ok(value) => value,
+        Err(_) => {
+            return (
+                "blocked: provenance evidence could not be decoded".into(),
+                false,
+            )
+        }
+    };
+    if evidence.get("license").and_then(serde_json::Value::as_str) != Some("MIT") {
+        return ("blocked: MIT provenance is required".into(), false);
+    }
+    if evidence
+        .get("requiredSignals")
+        .and_then(serde_json::Value::as_array)
+        .map_or(true, |signals| signals.is_empty())
+    {
+        return (
+            "blocked: required provenance signals are missing".into(),
+            false,
+        );
+    }
+    let max_rate = evidence
+        .get("maxWrongOmissionRatePct")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let fixtures: serde_json::Value = match serde_json::from_str(include_str!(
+        "../../fixtures/chonkify-wrong-omission-fixtures.json"
+    )) {
+        Ok(value) => value,
+        Err(_) => {
+            return (
+                "blocked: wrong-omission fixtures could not be decoded".into(),
+                false,
+            )
+        }
+    };
+    for fixture in fixtures
+        .get("fixtures")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let relevant = fixture
+            .get("relevantFacts")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len) as f64;
+        let wrong = fixture
+            .get("wrongOmissions")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len) as f64;
+        if relevant > 0.0 && (wrong / relevant) * 100.0 > max_rate {
+            return (
+                "blocked: wrong-omission evidence exceeds the promotion gate".into(),
+                false,
+            );
+        }
+    }
+    (
+        "repo_pack_eligible: MIT provenance and wrong-omission fixtures passed".into(),
+        true,
+    )
+}
+
+fn read_chonkify_preference(state: &AppState) -> Result<RepoPackCompressionPreference, String> {
+    let (gate_verdict, eligible) = chonkify_gate();
+    let path = config_path(state, CHONKIFY_PREFERENCE_FILE);
+    if !path.exists() {
+        return Ok(RepoPackCompressionPreference {
+            schema_version: 1,
+            requested_mode: "off".into(),
+            effective_mode: "off".into(),
+            blocked: !eligible,
+            gate_verdict,
+            evidence_class: "fixture-verified".into(),
+            updated_at: Utc::now().to_rfc3339(),
+        });
+    }
+    let bytes = fs::read(&path).map_err(|error| format!("reading Chonkify preference: {error}"))?;
+    let mut preference: RepoPackCompressionPreference = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("decoding Chonkify preference: {error}"))?;
+    if preference.schema_version != 1
+        || !matches!(preference.requested_mode.as_str(), "off" | "chonkify")
+    {
+        preference.requested_mode = "off".into();
+        preference.effective_mode = "off".into();
+        preference.blocked = true;
+    } else if !eligible || preference.requested_mode == "off" {
+        preference.effective_mode = "off".into();
+        preference.blocked = !eligible;
+    } else {
+        preference.effective_mode = "chonkify".into();
+        preference.blocked = false;
+    }
+    preference.gate_verdict = gate_verdict;
+    Ok(preference)
+}
+
+fn set_chonkify_preference(
+    state: &AppState,
+    mode: &str,
+) -> Result<RepoPackCompressionPreference, String> {
+    if !matches!(mode, "off" | "chonkify") {
+        return Err("Chonkify preference must be off or chonkify.".into());
+    }
+    let (gate_verdict, eligible) = chonkify_gate();
+    if mode == "chonkify" && !eligible {
+        return Err(gate_verdict);
+    }
+    let preference = RepoPackCompressionPreference {
+        schema_version: 1,
+        requested_mode: mode.into(),
+        effective_mode: mode.into(),
+        blocked: false,
+        gate_verdict,
+        evidence_class: "fixture-verified".into(),
+        updated_at: Utc::now().to_rfc3339(),
+    };
+    let path = config_path(state, CHONKIFY_PREFERENCE_FILE);
+    fs::create_dir_all(
+        path.parent()
+            .ok_or("Chonkify preference has no config directory")?,
+    )
+    .map_err(|error| format!("creating Chonkify config directory: {error}"))?;
+    let temporary = path.with_extension(format!("json.tmp.{}", std::process::id()));
+    fs::write(
+        &temporary,
+        serde_json::to_vec_pretty(&preference).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| format!("writing Chonkify preference: {error}"))?;
+    fs::rename(&temporary, &path)
+        .map_err(|error| format!("committing Chonkify preference: {error}"))?;
+    Ok(preference)
+}
+
+#[tauri::command]
+pub fn get_repo_pack_compression_preference(
+    state: State<'_, AppState>,
+) -> Result<RepoPackCompressionPreference, String> {
+    read_chonkify_preference(&state)
+}
+
+#[tauri::command]
+pub fn set_repo_pack_compression_preference(
+    state: State<'_, AppState>,
+    mode: String,
+) -> Result<RepoPackCompressionPreference, String> {
+    set_chonkify_preference(&state, &mode)
 }
 
 fn validate_ids(ids: &[String]) -> Result<Vec<String>, String> {
@@ -304,10 +481,8 @@ pub async fn activate_selected_tools(
                 let _ = state.token_xray_live_update(None);
                 Ok("Content-free local Token X-Ray evidence refreshed.".into())
             }
-            "chonkify" => Ok(
-                "Chonkify remains scoped to the read-only Repo Intelligence pack preference."
-                    .into(),
-            ),
+            "chonkify" => set_chonkify_preference(&state, "chonkify")
+                .map(|_| "Chonkify enabled for read-only Repo Intelligence packs.".into()),
             addon => activate_managed_addon(&state, addon),
         };
         match activation {
@@ -420,7 +595,7 @@ pub fn save_selective_activation_selection(
 
 #[cfg(test)]
 mod tests {
-    use super::validate_ids;
+    use super::{chonkify_gate, validate_ids};
 
     fn five() -> Vec<String> {
         [
@@ -453,5 +628,12 @@ mod tests {
         let mut unknown = five();
         unknown[4] = "experimental-router".into();
         assert!(validate_ids(&unknown).is_err());
+    }
+
+    #[test]
+    fn chonkify_gate_matches_checked_in_provenance_and_fixtures() {
+        let (verdict, eligible) = chonkify_gate();
+        assert!(eligible);
+        assert!(verdict.starts_with("repo_pack_eligible:"));
     }
 }
