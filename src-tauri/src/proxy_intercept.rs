@@ -54,6 +54,7 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 const CODEX_USAGE_POLL_MIN_INTERVAL_SECS: u64 = 60;
 const CODEX_USAGE_POLL_TIMEOUT: Duration = Duration::from_secs(10);
+const DIRECT_UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Epoch-seconds of the last usage-poll attempt; throttles the fire-and-forget
 /// GET to at most one per `CODEX_USAGE_POLL_MIN_INTERVAL_SECS`.
 static CODEX_USAGE_LAST_POLL: AtomicU64 = AtomicU64::new(0);
@@ -1514,6 +1515,7 @@ static UPSTREAM_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLo
 fn upstream_client() -> &'static reqwest::Client {
     UPSTREAM_CLIENT.get_or_init(|| {
         reqwest::Client::builder()
+            .connect_timeout(DIRECT_UPSTREAM_CONNECT_TIMEOUT)
             .build()
             .expect("reqwest client for bypass forwarder")
     })
@@ -1633,7 +1635,14 @@ async fn forward_direct_to_anthropic(
             let _ = client
                 .write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
                 .await;
-            return (Some(502), TransportOutcome::ConnectFailure);
+            let outcome = if e.is_timeout() {
+                TransportOutcome::Timeout
+            } else if e.is_connect() {
+                TransportOutcome::ConnectFailure
+            } else {
+                TransportOutcome::ReadFailure
+            };
+            return (Some(502), outcome);
         }
     };
 
@@ -1673,7 +1682,12 @@ async fn forward_direct_to_anthropic(
             Ok(None) => break,
             Err(e) => {
                 log::debug!("[proxy_intercept] bypass body stream error: {e}");
-                return (Some(resp.status().as_u16()), TransportOutcome::ReadFailure);
+                let outcome = if e.is_timeout() {
+                    TransportOutcome::Timeout
+                } else {
+                    TransportOutcome::ReadFailure
+                };
+                return (Some(resp.status().as_u16()), outcome);
             }
         }
     }
