@@ -79,7 +79,7 @@ export const COMPRESSION_PLAYBOOK_STAGES: readonly CompressionPlaybookStage[] = 
     issueIds: [],
     repairActions: [],
     guidance:
-      "Enable exact replay cache when Full or Headroom mode is healthy. Cache hits stay separate from compression savings.",
+      "Enable the Exact Response Cache when Full or Headroom mode is healthy. Cache hits stay separate from compression savings; semantic reuse remains unavailable.",
   },
   {
     id: "repo-index",
@@ -128,7 +128,7 @@ function cacheStageOpen(
     return [
       {
         id: "exact_cache_recommended",
-        title: "Exact replay cache is eligible but disabled",
+        title: "Exact Response Cache is eligible but disabled",
         body: "Full or Headroom mode is healthy enough to recommend exact cache. Enable it from Add-ons or Max compression; cache hits remain separate from compression savings.",
         severity: "warning",
         repairAction: "enable_semantic_cache",

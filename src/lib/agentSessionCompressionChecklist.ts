@@ -138,7 +138,7 @@ function cacheItem(
       id: "exact-cache",
       label: "Exact cache eligibility",
       status: "pass",
-      detail: "Exact replay cache is enabled for eligible requests.",
+      detail: "Exact Response Cache is enabled for eligible requests; semantic reuse remains unavailable.",
     };
   }
   return {

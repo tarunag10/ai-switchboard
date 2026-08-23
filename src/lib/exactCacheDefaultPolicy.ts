@@ -38,6 +38,6 @@ export function recommendExactCacheDefault(
   return {
     recommend: true,
     reason:
-      "Enable exact cache for safe deterministic requests. Cache hits stay separate from compression savings and remain opt-in for semantic replay.",
+      "Enable the Exact Response Cache for safe deterministic requests. Cache hits stay separate from compression savings; similarity-based semantic reuse remains unavailable.",
   };
 }

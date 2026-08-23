@@ -96,7 +96,7 @@ describe("OptimizationEngineProfilesCard", () => {
     }));
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Activation unavailable for Lean Context" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Enable local profile for Exact Replay Cache" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enable local profile for Exact Response Cache" })).toBeInTheDocument();
   });
 
   it("runs only the explicit leanctx readiness command", async () => {
@@ -166,7 +166,7 @@ describe("OptimizationEngineProfilesCard", () => {
       });
     });
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Enable local profile for Exact Replay Cache" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Enable local profile for Exact Response Cache" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_addon_enabled", { id: "semantic-cache", enabled: true }));
   });
 
@@ -207,7 +207,7 @@ describe("OptimizationEngineProfilesCard", () => {
   it("shows and copies lifecycle receipts without calling them savings", async () => {
     const copy = vi.fn();
     render(<OptimizationEngineProfilesCard onCopyGuidance={copy} />);
-    const toggle = screen.getByRole("button", { name: "Enable local profile for Exact Replay Cache" });
+    const toggle = screen.getByRole("button", { name: "Enable local profile for Exact Response Cache" });
     await waitFor(() => expect(toggle).not.toBeDisabled());
     fireEvent.click(toggle);
     await waitFor(() => expect(screen.queryByText(/No optimization lifecycle actions recorded yet\./)).not.toBeInTheDocument());

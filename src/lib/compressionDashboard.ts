@@ -207,7 +207,7 @@ export function buildCompressionDashboardOverview(
     sources.push({
       id: "cache",
       family: "cache",
-      label: "Exact Replay Cache",
+      label: "Exact Response Cache",
       tokensSaved: null,
       confidence: cacheHits > 0 ? "estimated" : "estimated",
       detail:

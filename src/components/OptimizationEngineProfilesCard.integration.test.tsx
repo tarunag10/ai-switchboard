@@ -57,8 +57,8 @@ describe("OptimizationEngineProfilesCard guarded actions", () => {
     const user = userEvent.setup();
     setupInvoke();
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
-    const cache = engine("Exact Replay Cache");
-    await waitFor(() => expect(cache.getByRole("button", { name: "Refresh Exact Replay Cache status" })).toBeEnabled());
+    const cache = engine("Exact Response Cache");
+    await waitFor(() => expect(cache.getByRole("button", { name: "Refresh Exact Response Cache status" })).toBeEnabled());
     await user.click(cache.getByRole("button", { name: "View evidence" }));
 
     const namespaceButton = cache.getByRole("button", { name: "Clear first namespace" });
@@ -79,7 +79,7 @@ describe("OptimizationEngineProfilesCard guarded actions", () => {
     const user = userEvent.setup();
     setupInvoke({ clear_response_cache: new Error("cache locked") });
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
-    const cache = engine("Exact Replay Cache");
+    const cache = engine("Exact Response Cache");
     await user.click(cache.getByRole("button", { name: "View evidence" }));
     await user.type(await cache.findByPlaceholderText("clear exact response cache"), "clear exact response cache");
     await user.click(cache.getByRole("button", { name: "Clear cached responses" }));

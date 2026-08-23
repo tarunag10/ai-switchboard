@@ -94,7 +94,7 @@ export function createMaxCompressionActivationPlan(
   if (cacheRecommendation.recommend) {
     steps.push({
       id: "semantic-cache",
-      label: "Enable exact replay cache",
+      label: "Enable Exact Response Cache",
       detail: cacheRecommendation.reason,
       engineId: "semantic-cache",
     });
