@@ -75,6 +75,27 @@ test("rejects corrupt evidence JSON with a concise diagnostic", () => {
   }
 });
 
+test("rejects a non-object evidence root without a raw type error", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-root-"));
+  try {
+    const fixturePath = path.join(tempDir, "root.json");
+    fs.writeFileSync(fixturePath, "null");
+    try {
+      execFileSync(process.execPath, ["scripts/check-model-routing-evidence.mjs", fixturePath], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      assert.fail("expected non-object fixture to fail");
+    } catch (error) {
+      assert.equal(error.status, 1);
+      assert.match(error.stderr, /model routing evidence check failed: fixture must be a JSON object/);
+      assert.doesNotMatch(error.stderr, /TypeError|at /);
+    }
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("requires explicit provider identity for provider-declared costs", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-routing-cost-provenance-"));
   try {

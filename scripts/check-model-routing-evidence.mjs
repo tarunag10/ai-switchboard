@@ -33,6 +33,9 @@ const thresholds = {
 };
 
 function validateFixture(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("fixture must be a JSON object");
+  }
   if (value.schemaVersion !== 1) throw new Error("unsupported schemaVersion");
   if (!["offline_static_fixture", "local_runtime_observation", "approved_live_run"].includes(value.evidenceClass)) {
     throw new Error("evidenceClass must be offline_static_fixture, local_runtime_observation, or approved_live_run");

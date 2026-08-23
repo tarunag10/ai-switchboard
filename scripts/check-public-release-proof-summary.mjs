@@ -44,6 +44,10 @@ try {
   fail(`${proofPath} contains invalid JSON`);
   process.exit();
 }
+if (!proof || typeof proof !== "object" || Array.isArray(proof)) {
+  fail(`${proofPath} must contain a JSON object`);
+  process.exit();
+}
 const markdown = fs.readFileSync(markdownPath, "utf8");
 const updaterBlockers = {
   releaseAsset: "updater feed release asset latest.json",
