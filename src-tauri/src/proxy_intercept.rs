@@ -302,6 +302,7 @@ async fn handle(
         .and_then(|end| parse_request_head(&buf[..end + 4]))
         .is_some_and(|head| is_openai_path(&head.path));
     let request_class = request_class(&buf);
+    let streaming = request_declares_streaming(&buf);
     if is_codex {
         telemetry::record_redundancy_payload_hash(
             "codex-proxy-request",
@@ -346,7 +347,7 @@ async fn handle(
         let event_id = transport_recorder().begin(
             if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
             &request_class,
-            false,
+            streaming,
         );
         let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
         transport_recorder().finish(&event_id, result.0, result.1);
@@ -360,7 +361,7 @@ async fn handle(
         let event_id = transport_recorder().begin(
             if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
             &request_class,
-            false,
+            streaming,
         );
         let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
         transport_recorder().finish(&event_id, result.0, result.1);
@@ -371,7 +372,7 @@ async fn handle(
         let event_id = transport_recorder().begin(
             if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
             &request_class,
-            false,
+            streaming,
         );
         let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
         transport_recorder().finish(&event_id, result.0, result.1);
@@ -386,7 +387,7 @@ async fn handle(
         let event_id = transport_recorder().begin(
             TransportRoute::DirectOpenai,
             &request_class,
-            false,
+            streaming,
         );
         let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
         transport_recorder().finish(&event_id, result.0, result.1);
@@ -420,7 +421,7 @@ async fn handle(
         let _ = client
             .write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
             .await;
-        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, false);
+        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, streaming);
         transport_recorder().finish(&event_id, Some(502), TransportOutcome::ConnectFailure);
         return;
     };
@@ -437,12 +438,12 @@ async fn handle(
     }
 
     if backend.write_all(&buf).await.is_err() {
-        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, false);
+        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, streaming);
         transport_recorder().finish(&event_id, None, TransportOutcome::WriteFailure);
         return;
     }
 
-    let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, false);
+    let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, streaming);
     let result = splice_with_headroom_capture(
         client,
         backend,
@@ -1154,6 +1155,27 @@ fn request_class(header_buf: &[u8]) -> String {
         .map(|head| head.path.split('?').next().unwrap_or_default().to_string())
         .filter(|path| !path.trim().is_empty())
         .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Returns a streaming signal only when the request headers explicitly ask
+/// for an event stream. JSON request bodies are not available at the header
+/// interception boundary, so an absent signal must remain false rather than
+/// guessing from the endpoint path.
+fn request_declares_streaming(header_buf: &[u8]) -> bool {
+    let Some(end) = find_header_end(header_buf) else {
+        return false;
+    };
+    let Some(head) = parse_request_head(&header_buf[..end + 4]) else {
+        return false;
+    };
+    head.headers.iter().any(|(name, value)| {
+        (name.eq_ignore_ascii_case("accept")
+            && value
+                .split(',')
+                .any(|item| item.trim().eq_ignore_ascii_case("text/event-stream")))
+            || (name.eq_ignore_ascii_case("x-switchboard-streaming")
+                && value.eq_ignore_ascii_case("true"))
+    })
 }
 
 fn response_status_code(head: &[u8]) -> Option<u16> {
@@ -1905,7 +1927,8 @@ mod tests {
         is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
         parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
         request_is_loopback_safe, request_should_bypass_headroom, response_allows_cache,
-        response_body_allows_cache, request_class, response_status_code, run,
+        response_body_allows_cache, request_class, request_declares_streaming,
+        response_status_code, run,
         stamp_codex_client_header, BypassFlag, SharedToken,
         PROVIDER_AUTH_SCOPE_MISSING,
     };
@@ -1938,6 +1961,16 @@ mod tests {
         assert_eq!(request_class(request), "/v1/responses");
         assert_eq!(response_status_code(b"HTTP/1.1 503 Service Unavailable\r\n\r\n"), Some(503));
         assert_eq!(response_status_code(b"malformed"), None);
+    }
+
+    #[test]
+    fn streaming_metadata_requires_an_explicit_header_signal() {
+        let sse = b"POST /v1/messages HTTP/1.1\r\nHost: localhost\r\nAccept: application/json, text/event-stream\r\n\r\n";
+        let explicit = b"POST /v1/responses HTTP/1.1\r\nHost: localhost\r\nX-Switchboard-Streaming: true\r\n\r\n";
+        let ordinary = b"POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\n\r\n";
+        assert!(request_declares_streaming(sse));
+        assert!(request_declares_streaming(explicit));
+        assert!(!request_declares_streaming(ordinary));
     }
 
     #[derive(Debug, Deserialize)]
