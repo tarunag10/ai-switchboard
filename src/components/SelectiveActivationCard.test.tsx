@@ -11,7 +11,9 @@ describe("SelectiveActivationCard", () => {
     window.localStorage.clear();
     invoke.mockReset();
     invoke.mockImplementation((command: string) => command === "activate_selected_tools"
-      ? Promise.resolve({ receipt: { overallStatus: "succeeded", results: ["headroom", "rtk", "repo-intelligence", "token-xray", "ponytail"].map((toolId) => ({ toolId, state: toolId === "repo-intelligence" || toolId === "token-xray" ? "refreshed" : "enabled", detail: `${toolId} ready` })) } })
+      ? Promise.resolve({ dashboard: {}, receipt: { runId: "run-1", overallStatus: "succeeded", results: ["headroom", "rtk", "repo-intelligence", "token-xray", "ponytail"].map((toolId) => ({ toolId, state: toolId === "repo-intelligence" || toolId === "token-xray" ? "refreshed" : "enabled", detail: `${toolId} ready` })) } })
+      : command === "rollback_selective_activation"
+        ? Promise.resolve({ dashboard: {}, receipt: { runId: "run-1", overallStatus: "succeeded", results: [{ toolId: "headroom", state: "restored", detail: "mode restored" }] } })
       : Promise.resolve({}));
   });
 
@@ -28,6 +30,9 @@ describe("SelectiveActivationCard", () => {
     await waitFor(() => expect(screen.getByText("Activated all 5 selected tools.")).toBeInTheDocument());
     expect(invoke).toHaveBeenCalledWith("activate_selected_tools", { selectedToolIds: ["headroom", "rtk", "repo-intelligence", "token-xray", "ponytail"] });
     expect(invoke.mock.calls.filter(([command]) => command === "activate_selected_tools")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Undo last selective activation" }));
+    await waitFor(() => expect(screen.getByText(/Last selective activation was rolled back/)).toBeInTheDocument());
+    expect(invoke).toHaveBeenCalledWith("rollback_selective_activation", { runId: "run-1" });
   });
 
   it("caps selection at five and persists the chosen ids", () => {

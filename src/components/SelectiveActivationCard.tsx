@@ -33,6 +33,7 @@ function writeSelection(selectedToolIds: ActivationToolId[]) {
 type NativeActivationResult = {
   dashboard: DashboardState;
   receipt: {
+    runId: string;
     overallStatus: "succeeded" | "partial" | "failed";
     results: Array<{ toolId: ActivationToolId; state: string; detail: string }>;
   };
@@ -43,6 +44,7 @@ export function SelectiveActivationCard({ onComplete }: { onComplete?: (dashboar
   const [results, setResults] = useState<Partial<Record<ActivationToolId, ToolResult>>>({});
   const [busy, setBusy] = useState(false);
   const [runSummary, setRunSummary] = useState<string | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
   const validationError = useMemo(() => validateActivationSelection(selected), [selected]);
 
   useEffect(() => writeSelection(selected), [selected]);
@@ -91,6 +93,7 @@ export function SelectiveActivationCard({ onComplete }: { onComplete?: (dashboar
       };
     }
     setResults(nextResults);
+    setLastRunId(response.receipt.runId);
     if (onComplete) {
       await onComplete(response.dashboard);
     }
@@ -98,6 +101,29 @@ export function SelectiveActivationCard({ onComplete }: { onComplete?: (dashboar
     setRunSummary(response.receipt.overallStatus === "succeeded"
       ? `Activated all ${selected.length} selected tools.`
       : `Selective activation finished with status ${response.receipt.overallStatus}. Failed tools are shown below; retry after correcting the reported prerequisite.`);
+  };
+
+  const rollbackLastActivation = async () => {
+    if (!lastRunId || busy) return;
+    setBusy(true);
+    try {
+      const response = await invoke<NativeActivationResult>("rollback_selective_activation", { runId: lastRunId });
+      const nextResults: Partial<Record<ActivationToolId, ToolResult>> = {};
+      for (const item of response.receipt.results) {
+        nextResults[item.toolId] = {
+          state: item.state === "failed" ? "failed" : "success",
+          detail: item.detail,
+        };
+      }
+      setResults(nextResults);
+      setLastRunId(null);
+      if (onComplete) await onComplete(response.dashboard);
+      setRunSummary("Last selective activation was rolled back. Pre-existing tools and refresh-only evidence were preserved.");
+    } catch (reason) {
+      setRunSummary(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -135,6 +161,11 @@ export function SelectiveActivationCard({ onComplete }: { onComplete?: (dashboar
       <button className="primary-button" type="button" onClick={() => void activateSelected()} disabled={busy || Boolean(validationError)}>
         {busy ? "Activating selected tools…" : "Activate selected 5"}
       </button>
+      {lastRunId ? (
+        <button className="addon-card__action" type="button" onClick={() => void rollbackLastActivation()} disabled={busy}>
+          {busy ? "Rolling back…" : "Undo last selective activation"}
+        </button>
+      ) : null}
       <p className="addon-card__hint">Each action reports its own result. Provider routing, experimental engines, and unsupported automatic model selection remain fail-closed.</p>
     </article>
   );
