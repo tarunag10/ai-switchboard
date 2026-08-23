@@ -189,6 +189,10 @@ the current checkout.
   with model-routing identity and promotion stage without changing live proxy
   traffic; no fallback, retry, body translation, or automatic execution is
   enabled.
+- A bounded, exactly-once, content-free transport observation recorder now
+  exists as a separate contract; wiring truthful terminal outcomes through the
+  proxy forwarding helpers remains pending and transport observations are not
+  model-routing evidence.
 
 ### Done — prepared and shipped
 

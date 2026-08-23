@@ -150,6 +150,7 @@ mod storage;
 mod switchboard_identity;
 mod switchboard_commands;
 mod tenant_policy;
+mod transport_observations;
 mod token_xray;
 mod tool_manager;
 mod tray_runtime;
