@@ -26,3 +26,11 @@ test("rejects ambiguous newest DMGs", () => {
   assert.equal(result.candidate, null);
   assert.match(result.reason, /newest modification time/);
 });
+
+test("rejects a same-version DMG for an unrelated product", () => {
+  const result = selectReleaseArtifact([
+    { name: "Other Product_1.0.0.dmg", path: "/other.dmg", mtimeMs: 30 },
+  ], { expectedVersion: "1.0.0" });
+  assert.equal(result.candidate, null);
+  assert.match(result.reason, /no DMG candidates found/);
+});

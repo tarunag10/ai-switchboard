@@ -8,6 +8,7 @@ export function selectReleaseArtifact(
       typeof candidate.path === "string" &&
       candidate.path.length > 0 &&
       typeof candidate.name === "string" &&
+      candidate.name.toLowerCase().includes("switchboard") &&
       candidate.name.endsWith(".dmg") &&
       Number.isFinite(candidate.mtimeMs),
     );
