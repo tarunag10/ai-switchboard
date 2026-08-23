@@ -56,6 +56,7 @@ const CODEX_USAGE_POLL_MIN_INTERVAL_SECS: u64 = 60;
 const CODEX_USAGE_POLL_TIMEOUT: Duration = Duration::from_secs(10);
 const DIRECT_UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const DIRECT_UPSTREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+const BACKEND_REQUEST_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 /// Epoch-seconds of the last usage-poll attempt; throttles the fire-and-forget
 /// GET to at most one per `CODEX_USAGE_POLL_MIN_INTERVAL_SECS`.
 static CODEX_USAGE_LAST_POLL: AtomicU64 = AtomicU64::new(0);
@@ -504,8 +505,26 @@ async fn splice_with_headroom_capture(
 
     // client -> backend: opaque copy (request body / pipelined requests).
     let upstream = async {
-        let _ = tokio::io::copy(&mut client_rd, &mut backend_wr).await;
-        let _ = backend_wr.shutdown().await;
+        match copy_with_idle_timeout(
+            &mut client_rd,
+            &mut backend_wr,
+            BACKEND_REQUEST_IDLE_TIMEOUT,
+        )
+        .await
+        {
+            Ok(()) => {
+                let _ = backend_wr.shutdown().await;
+                None
+            }
+            Err(error) => {
+                let _ = backend_wr.shutdown().await;
+                Some(if error.kind() == std::io::ErrorKind::TimedOut {
+                    TransportOutcome::Timeout
+                } else {
+                    TransportOutcome::ClientDisconnect
+                })
+            }
+        }
     };
 
     // backend -> client: capture the response head, then stream the remainder.
@@ -675,8 +694,38 @@ async fn splice_with_headroom_capture(
         (status_code, outcome)
     };
 
-    let (_, downstream_result) = tokio::join!(upstream, downstream);
-    downstream_result
+    let (upstream_result, downstream_result) = tokio::join!(upstream, downstream);
+    if let Some(outcome) = upstream_result {
+        (downstream_result.0, outcome)
+    } else {
+        downstream_result
+    }
+}
+
+/// Copy an opaque request body while bounding every idle read. A client that
+/// stops sending must not hold a backend connection forever; no body bytes
+/// are inspected or persisted here.
+async fn copy_with_idle_timeout<R, W>(
+    reader: &mut R,
+    writer: &mut W,
+    idle_timeout: Duration,
+) -> std::io::Result<()>
+where
+    R: AsyncRead + Unpin,
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    let mut buffer = [0_u8; 16 * 1024];
+    loop {
+        let read = tokio::time::timeout(idle_timeout, reader.read(&mut buffer))
+            .await
+            .map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::TimedOut, "request body idle timeout")
+            })??;
+        if read == 0 {
+            return Ok(());
+        }
+        writer.write_all(&buffer[..read]).await?;
+    }
 }
 
 fn enable_compression_fail_open(is_codex: bool, codex_bypass: &BypassFlag) {
@@ -1978,8 +2027,8 @@ mod tests {
         parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
         request_is_loopback_safe, request_should_bypass_headroom, response_allows_cache,
         response_body_allows_cache, request_class, request_declares_streaming,
-        response_status_code, run,
-        stamp_codex_client_header, BypassFlag, SharedToken,
+        response_status_code, run, stamp_codex_client_header, BypassFlag, SharedToken,
+        copy_with_idle_timeout,
         PROVIDER_AUTH_SCOPE_MISSING,
     };
     use crate::backend_port;
@@ -2405,6 +2454,40 @@ mod tests {
 
         assert!(buf.windows(4).any(|window| window == b"\r\n\r\n"));
         writer.await.expect("writer task");
+    }
+
+    #[tokio::test]
+    async fn backend_request_copy_is_opaque_and_idle_bounded() {
+        let (mut source_writer, mut source_reader) = duplex(128);
+        let (mut sink_writer, mut sink_reader) = duplex(128);
+        let writer = tokio::spawn(async move {
+            source_writer.write_all(b"opaque-body").await.unwrap();
+            source_writer.shutdown().await.unwrap();
+        });
+        copy_with_idle_timeout(
+            &mut source_reader,
+            &mut sink_writer,
+            Duration::from_millis(50),
+        )
+        .await
+        .unwrap();
+        sink_writer.shutdown().await.unwrap();
+        let mut copied = Vec::new();
+        sink_reader.read_to_end(&mut copied).await.unwrap();
+        writer.await.unwrap();
+        assert_eq!(copied, b"opaque-body");
+
+        let (mut idle_writer, mut idle_reader) = duplex(128);
+        let (mut idle_sink, _idle_sink_reader) = duplex(128);
+        idle_writer.write_all(b"partial").await.unwrap();
+        let error = copy_with_idle_timeout(
+            &mut idle_reader,
+            &mut idle_sink,
+            Duration::from_millis(5),
+        )
+        .await
+        .expect_err("an idle request body must time out");
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
     }
 
     #[tokio::test]

@@ -190,8 +190,10 @@ the current checkout.
   traffic; no fallback, retry, body translation, or automatic execution is
   enabled.
 - A bounded, exactly-once, content-free transport observation recorder now
-  exists as a separate contract; wiring truthful terminal outcomes through the
-  proxy forwarding helpers remains pending and transport observations are not
+  exists as a separate contract; truthful terminal outcomes are wired through
+  direct, cache, Headroom, ingress, and local-rejection proxy paths. The
+  backend request-body splice now has a bounded idle-read timeout and preserves
+  timeout/disconnect outcomes. Transport observations remain separate from
   model-routing evidence.
 
 ### Done — prepared and shipped
