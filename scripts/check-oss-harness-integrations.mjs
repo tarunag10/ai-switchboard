@@ -16,6 +16,9 @@ const required = [
   "scripts/oss-session-events.node-test.mjs",
   "scripts/oss-provider-registry.mjs",
   "scripts/oss-provider-registry.node-test.mjs",
+  "src-tauri/src/oss_capabilities.rs",
+  "src/lib/ossCapabilities.ts",
+  "src/lib/ossCapabilities.test.ts",
 ];
 const failures = [];
 for (const relative of required) {

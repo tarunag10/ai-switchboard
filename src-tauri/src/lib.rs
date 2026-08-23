@@ -119,6 +119,7 @@ mod optimization;
 mod optimization_engine;
 mod optimization_addons_readiness;
 mod optimization_commands;
+mod oss_capabilities;
 mod plugin_promotion_gate;
 mod port_conflict;
 mod pricing;
@@ -867,6 +868,7 @@ pub fn run() {
             activity_commands::get_headroom_request_counts_by_agent,
             optimization_commands::get_optimization_snapshot,
             optimization_commands::get_transport_observations,
+            oss_capabilities::get_oss_capability_registry,
             optimization_commands::run_preemptive_compaction,
             optimization_commands::get_optimization_action_policy,
             optimization_commands::set_optimization_action_policy,
