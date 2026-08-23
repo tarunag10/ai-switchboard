@@ -96,6 +96,14 @@ pub struct RtkActivationSnapshot {
     pub installation: crate::tool_manager::RtkInstallationSnapshot,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkitdownActivationSnapshot {
+    pub receipt: Option<Value>,
+    pub integration: client_adapters::MarkitdownIntegrationSnapshot,
+    pub installation: crate::tool_manager::MarkitdownInstallationSnapshot,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectiveActivationReceipt {
@@ -137,6 +145,16 @@ pub struct SelectiveActivationReceipt {
     pub rtk_created_artifacts: BTreeMap<String, String>,
     #[serde(default)]
     pub rtk_runtime_created: bool,
+    #[serde(default)]
+    pub previous_markitdown: Option<MarkitdownActivationSnapshot>,
+    #[serde(default)]
+    pub after_markitdown: Option<MarkitdownActivationSnapshot>,
+    /// Logical MarkItDown integration artifacts first introduced by this run.
+    /// Values are content fingerprints, never paths or instruction text.
+    #[serde(default)]
+    pub markitdown_created_artifacts: BTreeMap<String, String>,
+    #[serde(default)]
+    pub markitdown_runtime_created: bool,
     pub owned_changes: Vec<String>,
     pub rollback_status: Option<String>,
     pub rollback_results: Vec<SelectiveRollbackResult>,
@@ -307,10 +325,24 @@ fn caveman_snapshot(state: &AppState) -> Result<CavemanActivationSnapshot, Strin
 fn rtk_snapshot(state: &AppState) -> Result<RtkActivationSnapshot, String> {
     Ok(RtkActivationSnapshot {
         disabled: client_adapters::is_rtk_disabled(),
-        integration: client_adapters::rtk_integration_snapshot().map_err(|error| error.to_string())?,
+        integration: client_adapters::rtk_integration_snapshot()
+            .map_err(|error| error.to_string())?,
         installation: state
             .tool_manager
             .rtk_installation_snapshot()
+            .map_err(|error| error.to_string())?,
+    })
+}
+
+fn markitdown_snapshot(state: &AppState) -> Result<MarkitdownActivationSnapshot, String> {
+    let shim = state.tool_manager.markitdown_shim_path();
+    Ok(MarkitdownActivationSnapshot {
+        receipt: state.tool_manager.markitdown_receipt_snapshot(),
+        integration: client_adapters::markitdown_integration_snapshot(&shim)
+            .map_err(|error| error.to_string())?,
+        installation: state
+            .tool_manager
+            .markitdown_installation_snapshot()
             .map_err(|error| error.to_string())?,
     })
 }
@@ -323,6 +355,23 @@ fn validate_rtk_snapshot(state: &AppState, snapshot: &RtkActivationSnapshot) -> 
     client_adapters::validate_rtk_integration_snapshot(
         &snapshot.integration,
         &state.tool_manager.rtk_entrypoint(),
+        &state.tool_manager.managed_python(),
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn validate_markitdown_snapshot(
+    state: &AppState,
+    snapshot: &MarkitdownActivationSnapshot,
+) -> Result<(), String> {
+    state
+        .tool_manager
+        .validate_markitdown_installation_snapshot(&snapshot.installation)
+        .map_err(|error| error.to_string())?;
+    client_adapters::validate_markitdown_integration_snapshot(
+        &snapshot.integration,
+        &state.tool_manager.markitdown_entrypoint(),
+        &state.tool_manager.markitdown_shim_path(),
         &state.tool_manager.managed_python(),
     )
     .map_err(|error| error.to_string())
@@ -392,6 +441,23 @@ fn ordered_rtk_artifacts(artifacts: &BTreeMap<String, String>) -> Vec<(String, S
         ordered.push(("codex-nudge".to_string(), fingerprint.clone()));
     }
     ordered
+}
+
+fn ordered_markitdown_artifacts(artifacts: &BTreeMap<String, String>) -> Vec<(String, String)> {
+    [
+        "claude-settings-hook",
+        "claude-hook",
+        "claude-bash-permission",
+        "claude-office-nudge",
+        "codex-nudge",
+    ]
+    .into_iter()
+    .filter_map(|id| {
+        artifacts
+            .get(id)
+            .map(|fingerprint| (id.to_string(), fingerprint.clone()))
+    })
+    .collect()
 }
 
 fn set_chonkify_preference(
@@ -504,7 +570,7 @@ fn validate_rollback_request(
     receipt: &SelectiveActivationReceipt,
     run_id: &str,
 ) -> Result<(), String> {
-    if receipt.schema_version != 2 {
+    if !matches!(receipt.schema_version, 2 | 3) {
         return Err("This activation receipt predates rollback ownership metadata.".into());
     }
     if receipt.run_id != run_id {
@@ -689,6 +755,10 @@ fn preflight_selected_tools(state: &AppState, selected: &[String]) -> Result<(),
         let snapshot = rtk_snapshot(state)?;
         validate_rtk_snapshot(state, &snapshot)?;
     }
+    if selected.iter().any(|id| id == "markitdown") {
+        let snapshot = markitdown_snapshot(state)?;
+        validate_markitdown_snapshot(state, &snapshot)?;
+    }
     Ok(())
 }
 
@@ -747,6 +817,11 @@ pub async fn activate_selected_tools(
         .any(|id| id == "rtk")
         .then(|| rtk_snapshot(&state))
         .transpose()?;
+    let previous_markitdown = selected_tool_ids
+        .iter()
+        .any(|id| id == "markitdown")
+        .then(|| markitdown_snapshot(&state))
+        .transpose()?;
     let mut owned_changes = Vec::new();
     if selected_tool_ids
         .iter()
@@ -771,6 +846,9 @@ pub async fn activate_selected_tools(
     }
     if previous_rtk.is_some() {
         owned_changes.push("rtk_ownership".into());
+    }
+    if previous_markitdown.is_some() {
+        owned_changes.push("markitdown_ownership".into());
     }
     let mut results = Vec::new();
     let mut failed = false;
@@ -881,10 +959,7 @@ pub async fn activate_selected_tools(
         .as_ref()
         .zip(after_rtk.as_ref())
         .map(|(previous, after)| {
-            client_adapters::newly_created_rtk_artifacts(
-                &previous.integration,
-                &after.integration,
-            )
+            client_adapters::newly_created_rtk_artifacts(&previous.integration, &after.integration)
         })
         .unwrap_or_default();
     let rtk_runtime_created = previous_rtk
@@ -894,8 +969,29 @@ pub async fn activate_selected_tools(
             previous.installation.is_absent() && after.installation.is_complete()
         })
         .unwrap_or(false);
+    let after_markitdown = previous_markitdown
+        .as_ref()
+        .map(|_| markitdown_snapshot(&state))
+        .transpose()?;
+    let markitdown_created_artifacts = previous_markitdown
+        .as_ref()
+        .zip(after_markitdown.as_ref())
+        .map(|(previous, after)| {
+            client_adapters::newly_created_markitdown_artifacts(
+                &previous.integration,
+                &after.integration,
+            )
+        })
+        .unwrap_or_default();
+    let markitdown_runtime_created = previous_markitdown
+        .as_ref()
+        .zip(after_markitdown.as_ref())
+        .map(|(previous, after)| {
+            previous.installation.is_absent() && after.installation.is_complete()
+        })
+        .unwrap_or(false);
     let receipt = SelectiveActivationReceipt {
-        schema_version: 2,
+        schema_version: 3,
         run_id,
         selected_tool_ids,
         overall_status: overall_status.into(),
@@ -919,6 +1015,10 @@ pub async fn activate_selected_tools(
         after_rtk,
         rtk_created_artifacts,
         rtk_runtime_created,
+        previous_markitdown,
+        after_markitdown,
+        markitdown_created_artifacts,
+        markitdown_runtime_created,
         owned_changes,
         rollback_status: None,
         rollback_results: Vec::new(),
@@ -1088,6 +1188,150 @@ pub async fn rollback_selective_activation(
     if receipt
         .owned_changes
         .iter()
+        .any(|change| change == "markitdown_ownership")
+    {
+        let previously_restored_artifacts: BTreeSet<String> = receipt
+            .rollback_results
+            .iter()
+            .filter(|result| result.state == "restored")
+            .filter_map(|result| {
+                result
+                    .tool_id
+                    .strip_prefix("markitdown:")
+                    .map(str::to_string)
+            })
+            .collect();
+        if let (Some(previous), Some(after)) = (
+            receipt.previous_markitdown.clone(),
+            receipt.after_markitdown.clone(),
+        ) {
+            let mut integrations_reconciled = true;
+            for (artifact_id, fingerprint) in
+                ordered_markitdown_artifacts(&receipt.markitdown_created_artifacts)
+            {
+                let tool_id = format!("markitdown:{artifact_id}");
+                if previously_restored_artifacts.contains(&artifact_id) {
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "MarkItDown artifact was already restored by an earlier rollback attempt."
+                            .into(),
+                    });
+                    continue;
+                }
+                match client_adapters::remove_markitdown_artifact_if_unchanged(
+                    &artifact_id,
+                    &fingerprint,
+                    &state.tool_manager.markitdown_shim_path(),
+                ) {
+                    Ok(_) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Run-created MarkItDown integration artifact was removed after its post-activation fingerprint matched; unrelated client configuration was preserved."
+                            .into(),
+                    }),
+                    Err(error) => {
+                        integrations_reconciled = false;
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id,
+                            state: "blocked_external_change".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+                if let Err(error) =
+                    persist_rollback_progress(&state, &mut receipt, &rollback_results)
+                {
+                    integrations_reconciled = false;
+                    failures.push(error.clone());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "markitdown".into(),
+                        state: "failed".into(),
+                        detail: format!("Recording MarkItDown rollback progress failed: {error}"),
+                    });
+                }
+            }
+            if integrations_reconciled {
+                if !after.installation.is_absent() && !after.installation.is_complete() {
+                    failures.push("MarkItDown activation left a partial managed runtime".into());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "markitdown:runtime".into(),
+                        state: "blocked_external_change".into(),
+                        detail: "MarkItDown's post-activation runtime was partial, so it was preserved for Addons repair rather than removed.".into(),
+                    });
+                } else if receipt.markitdown_runtime_created {
+                    if previously_restored_artifacts.contains("runtime") {
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "markitdown:runtime".into(),
+                            state: "restored".into(),
+                            detail: "Run-created MarkItDown runtime was already removed by an earlier rollback attempt."
+                                .into(),
+                        });
+                    } else {
+                        match state
+                            .tool_manager
+                            .uninstall_markitdown_if_unchanged(&after.installation)
+                        {
+                            Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                                tool_id: "markitdown:runtime".into(),
+                                state: "restored".into(),
+                                detail: "Run-created MarkItDown runtime was removed after its executable, shim, and receipt fingerprints matched."
+                                    .into(),
+                            }),
+                            Err(error) => {
+                                failures.push(error.to_string());
+                                rollback_results.push(SelectiveRollbackResult {
+                                    tool_id: "markitdown:runtime".into(),
+                                    state: "blocked_external_change".into(),
+                                    detail: error.to_string(),
+                                });
+                            }
+                        }
+                    }
+                } else {
+                    match state.tool_manager.restore_markitdown_receipt_if_unchanged(
+                        previous.receipt.as_ref(),
+                        after.receipt.as_ref(),
+                    ) {
+                        Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "markitdown".into(),
+                            state: "restored".into(),
+                            detail: "Previous MarkItDown managed receipt restored after run-created integrations were reconciled."
+                                .into(),
+                        }),
+                        Err(error) => {
+                            failures.push(error.to_string());
+                            rollback_results.push(SelectiveRollbackResult {
+                                tool_id: "markitdown".into(),
+                                state: "blocked_external_change".into(),
+                                detail: error.to_string(),
+                            });
+                        }
+                    }
+                }
+            } else {
+                failures.push("MarkItDown integration reconciliation was incomplete".into());
+                rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "markitdown".into(),
+                    state: "blocked_external_change".into(),
+                    detail: "Run-created MarkItDown runtime and receipt were preserved because one or more integration artifacts changed after activation."
+                        .into(),
+                });
+            }
+        } else {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "markitdown".into(),
+                state: "failed".into(),
+                detail: "MarkItDown rollback metadata is missing from this activation receipt."
+                    .into(),
+            });
+            failures.push("MarkItDown rollback metadata is missing".into());
+        }
+    }
+    if receipt
+        .owned_changes
+        .iter()
         .any(|change| change == "rtk_ownership")
     {
         let previously_restored_artifacts: BTreeSet<String> = receipt
@@ -1096,15 +1340,19 @@ pub async fn rollback_selective_activation(
             .filter(|result| result.state == "restored")
             .filter_map(|result| result.tool_id.strip_prefix("rtk:").map(str::to_string))
             .collect();
-        if let (Some(previous), Some(after)) = (receipt.previous_rtk.clone(), receipt.after_rtk.clone()) {
+        if let (Some(previous), Some(after)) =
+            (receipt.previous_rtk.clone(), receipt.after_rtk.clone())
+        {
             let mut integrations_reconciled = true;
-            for (artifact_id, fingerprint) in ordered_rtk_artifacts(&receipt.rtk_created_artifacts) {
+            for (artifact_id, fingerprint) in ordered_rtk_artifacts(&receipt.rtk_created_artifacts)
+            {
                 let tool_id = format!("rtk:{artifact_id}");
                 if previously_restored_artifacts.contains(&artifact_id) {
                     rollback_results.push(SelectiveRollbackResult {
                         tool_id,
                         state: "restored".into(),
-                        detail: "RTK artifact was already restored by an earlier rollback attempt.".into(),
+                        detail: "RTK artifact was already restored by an earlier rollback attempt."
+                            .into(),
                     });
                     continue;
                 }
@@ -1124,7 +1372,9 @@ pub async fn rollback_selective_activation(
                         });
                     }
                 }
-                if let Err(error) = persist_rollback_progress(&state, &mut receipt, &rollback_results) {
+                if let Err(error) =
+                    persist_rollback_progress(&state, &mut receipt, &rollback_results)
+                {
                     integrations_reconciled = false;
                     failures.push(error.clone());
                     rollback_results.push(SelectiveRollbackResult {
@@ -1137,7 +1387,10 @@ pub async fn rollback_selective_activation(
             let disabled_restored = if previous.disabled == after.disabled {
                 true
             } else {
-                match client_adapters::restore_rtk_disabled_if_unchanged(previous.disabled, after.disabled) {
+                match client_adapters::restore_rtk_disabled_if_unchanged(
+                    previous.disabled,
+                    after.disabled,
+                ) {
                     Ok(()) => {
                         rollback_results.push(SelectiveRollbackResult {
                             tool_id: "rtk:disabled-state".into(),
@@ -1399,7 +1652,13 @@ pub async fn rollback_selective_activation(
     for tool_id in receipt.selected_tool_ids.iter().filter(|id| {
         !matches!(
             id.as_str(),
-            "headroom" | "response-cache" | "chonkify" | "leanctx" | "ponytail" | "caveman"
+            "headroom"
+                | "response-cache"
+                | "chonkify"
+                | "leanctx"
+                | "ponytail"
+                | "caveman"
+                | "markitdown"
         )
     }) {
         rollback_results.push(SelectiveRollbackResult {
@@ -1487,8 +1746,9 @@ pub fn save_selective_activation_selection(
 mod tests {
     use super::{
         changed_caveman_clients, chonkify_gate, newly_created_ponytail_hosts,
-        ordered_rtk_artifacts, validate_caveman_snapshot, validate_ids, validate_rollback_request,
-        CavemanActivationSnapshot, PonytailActivationSnapshot, SelectiveActivationReceipt,
+        ordered_markitdown_artifacts, ordered_rtk_artifacts, validate_caveman_snapshot,
+        validate_ids, validate_rollback_request, CavemanActivationSnapshot,
+        PonytailActivationSnapshot, SelectiveActivationReceipt,
     };
     use crate::client_adapters::{CavemanIntegrationSnapshot, CavemanManagedBlockSnapshot};
     use crate::models::SwitchboardMode;
@@ -1643,9 +1903,33 @@ mod tests {
         );
     }
 
+    #[test]
+    fn markitdown_rollback_order_removes_settings_before_hook_and_runtime() {
+        let artifacts = BTreeMap::from([
+            ("claude-hook".into(), "hook".into()),
+            ("claude-settings-hook".into(), "settings".into()),
+            ("claude-office-nudge".into(), "office".into()),
+            ("claude-bash-permission".into(), "permission".into()),
+            ("codex-nudge".into(), "codex".into()),
+        ]);
+        assert_eq!(
+            ordered_markitdown_artifacts(&artifacts)
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect::<Vec<_>>(),
+            vec![
+                "claude-settings-hook",
+                "claude-hook",
+                "claude-bash-permission",
+                "claude-office-nudge",
+                "codex-nudge",
+            ]
+        );
+    }
+
     fn receipt() -> SelectiveActivationReceipt {
         SelectiveActivationReceipt {
-            schema_version: 2,
+            schema_version: 3,
             run_id: "run-1".into(),
             selected_tool_ids: vec!["headroom".into()],
             overall_status: "succeeded".into(),
@@ -1669,6 +1953,10 @@ mod tests {
             after_rtk: None,
             rtk_created_artifacts: Default::default(),
             rtk_runtime_created: false,
+            previous_markitdown: None,
+            after_markitdown: None,
+            markitdown_created_artifacts: Default::default(),
+            markitdown_runtime_created: false,
             owned_changes: vec!["switchboard_mode".into()],
             rollback_status: None,
             rollback_results: Vec::new(),
@@ -1679,6 +1967,9 @@ mod tests {
     fn rollback_rejects_wrong_run_id_and_legacy_receipts() {
         let receipt = receipt();
         assert!(validate_rollback_request(&receipt, "other-run").is_err());
+        let mut prior_rollback_schema = receipt.clone();
+        prior_rollback_schema.schema_version = 2;
+        assert!(validate_rollback_request(&prior_rollback_schema, "run-1").is_ok());
         let mut legacy = receipt;
         legacy.schema_version = 1;
         assert!(validate_rollback_request(&legacy, "run-1").is_err());

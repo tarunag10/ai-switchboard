@@ -100,8 +100,9 @@ Invariants:
 - [x] Redacted replay, deterministic strategy fixtures, session-event
   prototype, static OSS metadata, and promotion gates.
 - [x] Receipt-owned, drift-safe activation rollback for Headroom, RTK,
-  Ponytail, Caveman, Leanctx, Chonkify, and master native add-ons. MarkItDown
-  receipt-owned rollback remains a separate remaining phase.
+  Ponytail, Caveman, Leanctx, Chonkify, MarkItDown, and master native add-ons.
+  MarkItDown rollback removes only run-created artifacts after their exact
+  post-activation fingerprints match; broad Addons cleanup remains explicit.
 
 ### Phase 1 — consolidated architecture and provenance — Done
 

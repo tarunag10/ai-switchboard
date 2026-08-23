@@ -9,7 +9,8 @@ use sha2::{Digest, Sha256};
 use crate::client_detection::codex_home;
 use crate::client_paths::{claude_settings_path, headroom_markitdown_hook_path, home_dir};
 use crate::client_setup_apply::{
-    ensure_claude_settings_hook, managed_block_contains_text, remove_pre_tool_use_markers,
+    ensure_claude_settings_hook, entry_contains_hook, managed_block_contains_text,
+    remove_pre_tool_use_markers,
 };
 use crate::client_setup_state::{is_claude_code_enabled, is_codex_enabled};
 use crate::managed_files::{
@@ -24,6 +25,316 @@ fn markitdown_claude_md_path() -> PathBuf {
 
 fn markitdown_codex_agents_path() -> PathBuf {
     codex_home().join("AGENTS.md")
+}
+
+const MARKITDOWN_HOOK_MARKER: &str = "headroom-markitdown-read.sh";
+const MARKITDOWN_CLAUDE_HOOK_ARTIFACT: &str = "claude-hook";
+const MARKITDOWN_CLAUDE_SETTINGS_ARTIFACT: &str = "claude-settings-hook";
+const MARKITDOWN_CLAUDE_OFFICE_ARTIFACT: &str = "claude-office-nudge";
+const MARKITDOWN_CLAUDE_PERMISSION_ARTIFACT: &str = "claude-bash-permission";
+const MARKITDOWN_CODEX_NUDGE_ARTIFACT: &str = "codex-nudge";
+
+/// Content-free fingerprints of the individual MarkItDown integration
+/// artifacts that can be created by selective activation. Logical IDs avoid
+/// recording paths, instruction contents, or permission text in receipts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkitdownIntegrationSnapshot {
+    pub artifacts: BTreeMap<String, String>,
+}
+
+fn markitdown_fingerprint(bytes: impl AsRef<[u8]>) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes.as_ref());
+    format!("sha256:{:x}", hasher.finalize())
+}
+
+fn canonical_markitdown_block(block_id: &str, body: &str) -> String {
+    let start = managed_marker_start(primary_marker_prefix(), block_id);
+    let end = managed_marker_end(primary_marker_prefix(), block_id);
+    format!("{start}\n{body}\n{end}")
+}
+
+fn markitdown_managed_block(path: &Path, block_id: &str) -> Result<Option<String>> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
+    };
+    let mut matches = Vec::new();
+    for slug in SwitchboardIdentitySlug::marker_prefixes() {
+        let start = managed_marker_start(slug.as_str(), block_id);
+        let end = managed_marker_end(slug.as_str(), block_id);
+        let starts = content.match_indices(&start).count();
+        let ends = content.match_indices(&end).count();
+        if starts == 0 && ends == 0 {
+            continue;
+        }
+        if starts != 1 || ends != 1 {
+            bail!(
+                "MarkItDown managed block is ambiguous in {}; selective activation will not overwrite it",
+                path.display()
+            );
+        }
+        let start_index = content
+            .find(&start)
+            .expect("counted MarkItDown marker must exist");
+        let end_index = content
+            .find(&end)
+            .expect("counted MarkItDown marker must exist");
+        if start_index >= end_index {
+            bail!(
+                "MarkItDown managed block markers are malformed in {}; selective activation will not overwrite it",
+                path.display()
+            );
+        }
+        matches.push(content[start_index..end_index + end.len()].to_string());
+    }
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(matches.into_iter().next()),
+        _ => bail!(
+            "multiple MarkItDown marker variants are present in {}; selective activation will not overwrite them",
+            path.display()
+        ),
+    }
+}
+
+fn markitdown_settings_hook() -> Result<Option<Value>> {
+    let settings_path = claude_settings_path();
+    let raw = match std::fs::read_to_string(&settings_path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error).with_context(|| format!("reading {}", settings_path.display()))
+        }
+    };
+    if raw.trim().is_empty() {
+        return Ok(None);
+    }
+    let root = parse_json_object(&raw, &settings_path)?;
+    let matches = root
+        .get("hooks")
+        .and_then(Value::as_object)
+        .and_then(|hooks| hooks.get("PreToolUse"))
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter(|entry| entry_contains_hook(entry, MARKITDOWN_HOOK_MARKER))
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(matches.into_iter().next()),
+        _ => bail!(
+            "multiple MarkItDown Claude settings hooks are present; selective activation will not overwrite them"
+        ),
+    }
+}
+
+fn markitdown_permission_entry(shim_path: &Path) -> Result<Option<Value>> {
+    let settings_path = claude_settings_path();
+    let raw = match std::fs::read_to_string(&settings_path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error).with_context(|| format!("reading {}", settings_path.display()))
+        }
+    };
+    if raw.trim().is_empty() {
+        return Ok(None);
+    }
+    let root = parse_json_object(&raw, &settings_path)?;
+    let expected = format!("Bash({} *)", shim_path.display());
+    let matches = root
+        .get("permissions")
+        .and_then(Value::as_object)
+        .and_then(|permissions| permissions.get("allow"))
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter(|entry| entry.as_str() == Some(expected.as_str()))
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(matches.into_iter().next()),
+        _ => bail!(
+            "multiple MarkItDown Claude Bash permissions are present; selective activation will not overwrite them"
+        ),
+    }
+}
+
+fn markitdown_artifact_fingerprint(id: &str, shim_path: &Path) -> Result<Option<String>> {
+    match id {
+        MARKITDOWN_CLAUDE_HOOK_ARTIFACT => match std::fs::read(headroom_markitdown_hook_path()) {
+            Ok(bytes) => Ok(Some(markitdown_fingerprint(bytes))),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error).context("reading managed MarkItDown Claude hook"),
+        },
+        MARKITDOWN_CLAUDE_SETTINGS_ARTIFACT => markitdown_settings_hook()?
+            .map(|entry| serde_json::to_vec(&entry).map(markitdown_fingerprint))
+            .transpose()
+            .context("serializing MarkItDown Claude settings hook"),
+        MARKITDOWN_CLAUDE_OFFICE_ARTIFACT => {
+            markitdown_managed_block(&markitdown_claude_md_path(), "markitdown_office")
+                .map(|block| block.map(markitdown_fingerprint))
+        }
+        MARKITDOWN_CLAUDE_PERMISSION_ARTIFACT => markitdown_permission_entry(shim_path)?
+            .map(|entry| serde_json::to_vec(&entry).map(markitdown_fingerprint))
+            .transpose()
+            .context("serializing MarkItDown Claude Bash permission"),
+        MARKITDOWN_CODEX_NUDGE_ARTIFACT => {
+            markitdown_managed_block(&markitdown_codex_agents_path(), "markitdown")
+                .map(|block| block.map(markitdown_fingerprint))
+        }
+        _ => bail!("unknown MarkItDown integration artifact: {id}"),
+    }
+}
+
+fn expected_markitdown_artifact_fingerprint(
+    id: &str,
+    markitdown_entrypoint: &Path,
+    markitdown_shim: &Path,
+    python_path: &Path,
+) -> Result<String> {
+    match id {
+        MARKITDOWN_CLAUDE_HOOK_ARTIFACT => Ok(markitdown_fingerprint(
+            build_headroom_markitdown_hook(markitdown_entrypoint, python_path),
+        )),
+        MARKITDOWN_CLAUDE_SETTINGS_ARTIFACT => {
+            let hook_path = headroom_markitdown_hook_path();
+            let command = hook_path
+                .to_str()
+                .context("MarkItDown hook path contains invalid UTF-8")?;
+            serde_json::to_vec(&serde_json::json!({
+                "matcher": "Read",
+                "hooks": [{ "type": "command", "command": command }]
+            }))
+            .map(markitdown_fingerprint)
+            .context("serializing expected MarkItDown Claude settings hook")
+        }
+        MARKITDOWN_CLAUDE_OFFICE_ARTIFACT => {
+            Ok(markitdown_fingerprint(canonical_markitdown_block(
+                "markitdown_office",
+                &build_markitdown_office_nudge(markitdown_shim),
+            )))
+        }
+        MARKITDOWN_CLAUDE_PERMISSION_ARTIFACT => serde_json::to_vec(&Value::String(format!(
+            "Bash({} *)",
+            markitdown_shim.display()
+        )))
+        .map(markitdown_fingerprint)
+        .context("serializing expected MarkItDown Claude Bash permission"),
+        MARKITDOWN_CODEX_NUDGE_ARTIFACT => Ok(markitdown_fingerprint(canonical_markitdown_block(
+            "markitdown",
+            &build_markitdown_codex_nudge(markitdown_shim),
+        ))),
+        _ => bail!("unknown MarkItDown integration artifact: {id}"),
+    }
+}
+
+const MARKITDOWN_ARTIFACT_IDS: [&str; 5] = [
+    MARKITDOWN_CLAUDE_HOOK_ARTIFACT,
+    MARKITDOWN_CLAUDE_SETTINGS_ARTIFACT,
+    MARKITDOWN_CLAUDE_OFFICE_ARTIFACT,
+    MARKITDOWN_CLAUDE_PERMISSION_ARTIFACT,
+    MARKITDOWN_CODEX_NUDGE_ARTIFACT,
+];
+
+/// Snapshots all managed MarkItDown artifacts, including ones whose client was
+/// later disconnected, so an external change can be preserved rather than
+/// silently overwritten during a future selective activation.
+pub fn markitdown_integration_snapshot(
+    markitdown_shim: &Path,
+) -> Result<MarkitdownIntegrationSnapshot> {
+    let mut artifacts = BTreeMap::new();
+    for id in MARKITDOWN_ARTIFACT_IDS {
+        if let Some(fingerprint) = markitdown_artifact_fingerprint(id, markitdown_shim)? {
+            artifacts.insert(id.to_string(), fingerprint);
+        }
+    }
+    Ok(MarkitdownIntegrationSnapshot { artifacts })
+}
+
+/// Reject custom, legacy, malformed, and partial integration artifacts before
+/// activation can replace any of them. Absent artifacts are created only for
+/// currently configured clients and are tracked individually in the receipt.
+pub fn validate_markitdown_integration_snapshot(
+    snapshot: &MarkitdownIntegrationSnapshot,
+    markitdown_entrypoint: &Path,
+    markitdown_shim: &Path,
+    python_path: &Path,
+) -> Result<()> {
+    for (id, actual) in &snapshot.artifacts {
+        let expected = expected_markitdown_artifact_fingerprint(
+            id,
+            markitdown_entrypoint,
+            markitdown_shim,
+            python_path,
+        )?;
+        if actual != &expected {
+            bail!(
+                "MarkItDown {id} has custom or legacy content; repair it from Addons before selective activation so existing configuration is preserved"
+            );
+        }
+    }
+    Ok(())
+}
+
+pub fn newly_created_markitdown_artifacts(
+    previous: &MarkitdownIntegrationSnapshot,
+    after: &MarkitdownIntegrationSnapshot,
+) -> BTreeMap<String, String> {
+    after
+        .artifacts
+        .iter()
+        .filter(|(id, _)| !previous.artifacts.contains_key(*id))
+        .map(|(id, fingerprint)| (id.clone(), fingerprint.clone()))
+        .collect()
+}
+
+/// Removes one run-created MarkItDown artifact only if its current logical
+/// content still matches the exact post-activation fingerprint. This never
+/// invokes the broad disable helper, which is intended for explicit Addons
+/// cleanup and can remove pre-existing integration entries.
+pub fn remove_markitdown_artifact_if_unchanged(
+    id: &str,
+    after_fingerprint: &str,
+    markitdown_shim: &Path,
+) -> Result<bool> {
+    let current = markitdown_artifact_fingerprint(id, markitdown_shim)?;
+    if current.as_deref() != Some(after_fingerprint) {
+        bail!(
+            "MarkItDown {id} changed after activation (expected {}, found {})",
+            after_fingerprint,
+            current.as_deref().unwrap_or("absent")
+        );
+    }
+    match id {
+        MARKITDOWN_CLAUDE_HOOK_ARTIFACT => std::fs::remove_file(headroom_markitdown_hook_path())
+            .context("removing run-created MarkItDown Claude hook")
+            .map(|_| true),
+        MARKITDOWN_CLAUDE_SETTINGS_ARTIFACT => {
+            remove_pre_tool_use_markers(&claude_settings_path(), &[MARKITDOWN_HOOK_MARKER])
+        }
+        MARKITDOWN_CLAUDE_OFFICE_ARTIFACT => {
+            remove_managed_block(&markitdown_claude_md_path(), "markitdown_office")
+        }
+        MARKITDOWN_CLAUDE_PERMISSION_ARTIFACT => {
+            set_markitdown_bash_permission(markitdown_shim, false)
+        }
+        MARKITDOWN_CODEX_NUDGE_ARTIFACT => {
+            remove_managed_block(&markitdown_codex_agents_path(), "markitdown")
+        }
+        _ => bail!("unknown MarkItDown integration artifact: {id}"),
+    }
 }
 
 /// Office-only nudge for Claude Code, where PDFs are already handled by the
@@ -556,9 +867,11 @@ fn shell_double_quote(value: &str) -> String {
 mod tests {
     use super::{
         canonical_caveman_block, caveman_block_fingerprint, caveman_block_range,
-        caveman_block_snapshot, remove_markitdown_cache_if_present,
-        remove_markitdown_hook_if_present,
+        caveman_block_snapshot, newly_created_markitdown_artifacts,
+        remove_markitdown_cache_if_present, remove_markitdown_hook_if_present,
+        MarkitdownIntegrationSnapshot,
     };
+    use std::collections::BTreeMap;
 
     #[test]
     fn orphaned_markitdown_hook_removal_reports_change() {
@@ -581,6 +894,23 @@ mod tests {
         assert!(remove_markitdown_cache_if_present(&cache).expect("remove cache"));
         assert!(!cache.exists());
         assert!(!remove_markitdown_cache_if_present(&cache).expect("missing cache is a no-op"));
+    }
+
+    #[test]
+    fn markitdown_delta_tracks_only_new_managed_artifacts() {
+        let previous = MarkitdownIntegrationSnapshot {
+            artifacts: BTreeMap::from([("claude-hook".into(), "before".into())]),
+        };
+        let after = MarkitdownIntegrationSnapshot {
+            artifacts: BTreeMap::from([
+                ("claude-hook".into(), "changed-but-preexisting".into()),
+                ("codex-nudge".into(), "created".into()),
+            ]),
+        };
+        assert_eq!(
+            newly_created_markitdown_artifacts(&previous, &after),
+            BTreeMap::from([("codex-nudge".into(), "created".into())])
+        );
     }
 
     #[test]

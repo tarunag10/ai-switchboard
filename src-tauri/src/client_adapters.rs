@@ -6,8 +6,8 @@ use crate::client_cleanup;
 use crate::client_detection::{
     detect_aider_client, detect_amazon_q_client, detect_claude_code_client, detect_codex_client,
     detect_continue_client, detect_cursor_client, detect_gemini_cli_client, detect_goose_client,
-    detect_grok_cli_client, detect_opencode_client, detect_qwen_code_client, detect_windsurf_client,
-    detect_zed_ai_client,
+    detect_grok_cli_client, detect_opencode_client, detect_qwen_code_client,
+    detect_windsurf_client, detect_zed_ai_client,
 };
 use crate::client_footprint::managed_backup_targets;
 use crate::client_paths::{
@@ -25,11 +25,15 @@ pub use crate::client_connector_list::list_client_connectors;
 pub use crate::client_integrations::{
     caveman_integration_matches_level, caveman_integration_snapshot, disable_caveman_integration,
     disable_markitdown_integration, enable_caveman_integration, enable_markitdown_integration,
-    restore_caveman_client_if_unchanged, CavemanIntegrationSnapshot, CavemanManagedBlockSnapshot,
+    markitdown_integration_snapshot, newly_created_markitdown_artifacts,
+    remove_markitdown_artifact_if_unchanged, restore_caveman_client_if_unchanged,
+    validate_markitdown_integration_snapshot, CavemanIntegrationSnapshot,
+    CavemanManagedBlockSnapshot, MarkitdownIntegrationSnapshot,
 };
 pub use crate::client_rtk_integration::{
-    newly_created_rtk_artifacts, remove_rtk_artifact_if_unchanged, restore_rtk_disabled_if_unchanged,
-    rtk_integration_snapshot, validate_rtk_integration_snapshot, RtkIntegrationSnapshot,
+    newly_created_rtk_artifacts, remove_rtk_artifact_if_unchanged,
+    restore_rtk_disabled_if_unchanged, rtk_integration_snapshot, validate_rtk_integration_snapshot,
+    RtkIntegrationSnapshot,
 };
 pub use crate::client_setup_apply::{
     apply_client_setup, clear_client_setups, codex_provider_block_matches, disable_client_setup,
@@ -43,11 +47,14 @@ pub use crate::client_setup_state::{
 pub(crate) use crate::client_integrations::{
     build_headroom_markitdown_hook, build_markitdown_codex_nudge, build_markitdown_office_nudge,
 };
-pub(crate) use crate::client_paths::{default_shell_targets_for_family, serialize_paths, SWITCHBOARD_ROUTING_FILE};
+pub(crate) use crate::client_paths::{
+    default_shell_targets_for_family, serialize_paths, SWITCHBOARD_ROUTING_FILE,
+};
 pub(crate) use crate::client_provider_configs::{
-    grok_provider_config_matches, opencode_provider_config_matches, windsurf_provider_config_matches,
-    zed_config_backup_pattern, zed_provider_config_matches, HEADROOM_ANTHROPIC_BASE_URL,
-    HEADROOM_OPENAI_BASE_URL, GROK_HEADROOM_BASE_URL, WINDSURF_MARKER_PREFIX, ZED_MARKER_PREFIX,
+    grok_provider_config_matches, opencode_provider_config_matches,
+    windsurf_provider_config_matches, zed_config_backup_pattern, zed_provider_config_matches,
+    GROK_HEADROOM_BASE_URL, HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL,
+    WINDSURF_MARKER_PREFIX, ZED_MARKER_PREFIX,
 };
 pub(crate) use crate::client_setup_apply::{
     build_headroom_rtk_hook, claude_hook_present_in_value, configure_planned_switchboard_sidecar,
