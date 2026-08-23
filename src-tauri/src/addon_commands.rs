@@ -15,14 +15,26 @@ pub async fn install_addon(
                 .tool_manager
                 .install_markitdown()
                 .map_err(|err| err.to_string())?;
-            let (changed_files, backup_files) = client_adapters::enable_markitdown_integration(
+            let integration = client_adapters::enable_markitdown_integration(
                 &state.tool_manager.markitdown_entrypoint(),
                 &state.tool_manager.markitdown_shim_path(),
                 &state.tool_manager.managed_python(),
-            )
-            .map_err(|err| {
-                format!("markitdown installed but enabling integration failed: {err:#}")
-            })?;
+            );
+            let (changed_files, backup_files) = match integration {
+                Ok(result) => result,
+                Err(err) => {
+                    let cleanup = client_adapters::disable_markitdown_integration(
+                        &state.tool_manager.markitdown_shim_path(),
+                    )
+                    .and_then(|_| state.tool_manager.uninstall_markitdown());
+                    return Err(match cleanup {
+                        Ok(()) => format!("markitdown activation failed and was rolled back: {err:#}"),
+                        Err(cleanup_err) => format!(
+                            "markitdown activation failed; rollback also failed: {err:#}; cleanup: {cleanup_err:#}"
+                        ),
+                    });
+                }
+            };
             let _ = state.record_markitdown_attribution(&changed_files, &backup_files);
             Ok(state.dashboard())
         }
@@ -31,12 +43,25 @@ pub async fn install_addon(
                 .tool_manager
                 .install_rtk()
                 .map_err(|err| err.to_string())?;
-            client_adapters::set_rtk_enabled(
+            let integration = client_adapters::set_rtk_enabled(
                 true,
                 &state.tool_manager.rtk_entrypoint(),
                 &state.tool_manager.managed_python(),
-            )
-            .map_err(|err| format!("rtk installed but enabling integration failed: {err:#}"))?;
+            );
+            if let Err(err) = integration {
+                let cleanup = client_adapters::set_rtk_enabled(
+                    false,
+                    &state.tool_manager.rtk_entrypoint(),
+                    &state.tool_manager.managed_python(),
+                )
+                .and_then(|_| state.tool_manager.uninstall_rtk());
+                return Err(match cleanup {
+                    Ok(()) => format!("rtk activation failed and was rolled back: {err:#}"),
+                    Err(cleanup_err) => format!(
+                        "rtk activation failed; rollback also failed: {err:#}; cleanup: {cleanup_err:#}"
+                    ),
+                });
+            }
             Ok(state.dashboard())
         }
         "ponytail" => {
@@ -54,10 +79,20 @@ pub async fn install_addon(
                 .install_caveman()
                 .map_err(|err| err.to_string())?;
             let level = state.tool_manager.caveman_level();
-            let (changed_files, backup_files) = client_adapters::enable_caveman_integration(&level)
-                .map_err(|err| {
-                    format!("caveman installed but enabling guidance failed: {err:#}")
-                })?;
+            let integration = client_adapters::enable_caveman_integration(&level);
+            let (changed_files, backup_files) = match integration {
+                Ok(result) => result,
+                Err(err) => {
+                    let cleanup = client_adapters::disable_caveman_integration()
+                        .and_then(|_| state.tool_manager.uninstall_caveman());
+                    return Err(match cleanup {
+                        Ok(()) => format!("caveman activation failed and was rolled back: {err:#}"),
+                        Err(cleanup_err) => format!(
+                            "caveman activation failed; rollback also failed: {err:#}; cleanup: {cleanup_err:#}"
+                        ),
+                    });
+                }
+            };
             let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
             Ok(state.dashboard())
         }
@@ -92,12 +127,26 @@ pub async fn set_addon_enabled(
                 .set_markitdown_enabled(enabled)
                 .map_err(|err| err.to_string())?;
             if enabled {
-                let (changed_files, backup_files) = client_adapters::enable_markitdown_integration(
+                let integration = client_adapters::enable_markitdown_integration(
                     &state.tool_manager.markitdown_entrypoint(),
                     &state.tool_manager.markitdown_shim_path(),
                     &state.tool_manager.managed_python(),
-                )
-                .map_err(|err| err.to_string())?;
+                );
+                let (changed_files, backup_files) = match integration {
+                    Ok(result) => result,
+                    Err(err) => {
+                        let rollback = client_adapters::disable_markitdown_integration(
+                            &state.tool_manager.markitdown_shim_path(),
+                        )
+                        .and_then(|_| state.tool_manager.set_markitdown_enabled(false));
+                        return Err(match rollback {
+                            Ok(()) => format!("markitdown enable failed and was rolled back: {err:#}"),
+                            Err(rollback_err) => format!(
+                                "markitdown enable failed; rollback also failed: {err:#}; cleanup: {rollback_err:#}"
+                            ),
+                        });
+                    }
+                };
                 let _ = state.record_markitdown_attribution(&changed_files, &backup_files);
             } else {
                 client_adapters::disable_markitdown_integration(
@@ -125,9 +174,20 @@ pub async fn set_addon_enabled(
                 .map_err(|err| err.to_string())?;
             if enabled {
                 let level = state.tool_manager.caveman_level();
-                let (changed_files, backup_files) =
-                    client_adapters::enable_caveman_integration(&level)
-                        .map_err(|err| err.to_string())?;
+                let integration = client_adapters::enable_caveman_integration(&level);
+                let (changed_files, backup_files) = match integration {
+                    Ok(result) => result,
+                    Err(err) => {
+                        let rollback = client_adapters::disable_caveman_integration()
+                            .and_then(|_| state.tool_manager.set_caveman_enabled(false));
+                        return Err(match rollback {
+                            Ok(()) => format!("caveman enable failed and was rolled back: {err:#}"),
+                            Err(rollback_err) => format!(
+                                "caveman enable failed; rollback also failed: {err:#}; cleanup: {rollback_err:#}"
+                            ),
+                        });
+                    }
+                };
                 let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
             } else {
                 client_adapters::disable_caveman_integration().map_err(|err| err.to_string())?;

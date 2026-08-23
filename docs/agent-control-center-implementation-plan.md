@@ -392,7 +392,7 @@ Connector config track:
 - OpenCode keeps provider config routing as the closest Codex/Claude-style path and remains the reference implementation for connector-specific config promotion.
 - Grok / xAI CLI requires `grok` or `xai` detection plus model/account guardrails before any base-url or provider config is offered.
 - Cursor still needs the profile-aware editor path promoted. Windsurf and Zed now follow promoted editor-settings paths: detect app/profile settings, show a dry-run settings diff, back up profile settings, apply only user-approved routing, verify, rollback, and clean up in Off mode.
-- Aider, Continue, Qwen Code, and Amazon Q Developer CLI retain compatibility dossiers until their wrapper, provider, account, or credential-safe native config contracts are backed by fixture-home restore tests. Goose and Grok/xAI native routing are limited to their documented allowlists; provider credentials, account state, and model selection remain manual.
+- Aider and Continue now have fixture-backed credential-safe native/config contracts limited to their documented allowlists. Qwen Code and Amazon Q Developer CLI retain compatibility dossiers until their native config contracts are proven. Goose and Grok/xAI native routing are limited to their documented allowlists; provider credentials, account state, and model selection remain manual.
 - No connector may create or modify native config until its manifest has config paths, account caveats, rollback strategy, Doctor verification, and fixture-home restore tests.
 
 Implementation areas:

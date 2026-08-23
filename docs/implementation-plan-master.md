@@ -488,8 +488,9 @@ the current checkout.
    expose truthful read-only previews in the connector listing;
    continue only with documented schemas and full
    detect/preview/backup/apply/verify/rollback/off/uninstall proof. Cursor
-   native provider writes remain gated; Continue, Aider, Qwen Code, and Amazon
-   Q remain guided or sidecar paths until their schemas are proven.
+   native provider writes remain gated; Qwen Code and Amazon Q remain guided
+   or sidecar paths until their schemas are proven. Aider and Continue now
+   satisfy the promoted allowlisted provider/config contract.
 5. **Provider-specific metrics:** add a provider adapter only when a stable,
    read-only usage API supports complete before/after attribution.
 6. **OSS harness integration:** the local redacted replay, route-decision

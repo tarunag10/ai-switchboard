@@ -868,7 +868,7 @@ export function buildManagedRollbackUndoAllPreview(
     ],
     safetyNotes: [
       "This copyable undo-all preview does not modify files; use the native undo-all control to execute ready rows.",
-      "Executable rows are limited to backend-allowlisted Codex, Gemini, OpenCode, Windsurf, Zed, and retained managed connector sidecar rollback paths.",
+      "Executable rows are limited to backend-allowlisted Codex, Gemini, OpenCode, Aider, Continue, Windsurf, Zed, and retained managed connector sidecar rollback paths.",
       "Cleanup-only app state, storage, launch agents, repo indexes, and plugin footprints must use their dedicated flows.",
       "Unmanaged user config outside Switchboard markers remains out of scope.",
     ],

@@ -891,6 +891,8 @@ export const promotedSidecarConnectorIds = new Set([
 export const promotedNativeConfigConnectorIds = new Set([
   "gemini_cli",
   "opencode",
+  "aider",
+  "continue",
   "goose",
   "grok_cli",
   "windsurf",
@@ -916,8 +918,6 @@ export const pendingPlannedConnectors: PlannedConnector[] =
 
 export const doctorPreviewConnectorIds = new Set([
   "cursor",
-  "aider",
-  "continue",
   "amazon_q",
 ]);
 

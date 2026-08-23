@@ -9,10 +9,10 @@
     "rollbackImplemented",
     "offCleanupImplemented"
   ],
-  "promotedNativeConnectorIds": ["gemini_cli", "goose", "grok_cli", "opencode", "windsurf", "zed_ai"],
+  "promotedNativeConnectorIds": ["aider", "continue", "gemini_cli", "goose", "grok_cli", "opencode", "windsurf", "zed_ai"],
   "gatedNativeConnectorIds": ["cursor"],
   "notes": [
     "Sidecar promotion requires every lifecycle stage to be ready on fixture homes.",
-    "Native provider writes remain a separate gate from managed sidecar routing."
+    "Aider and Continue native/provider writes are limited to their documented allowlisted fields; credentials and unrelated settings remain manual."
   ]
 }

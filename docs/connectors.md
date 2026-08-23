@@ -24,8 +24,8 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | OpenCode | Managed | Yes | No | Yes | Managed provider routing with backup, verify, rollback, and Off cleanup gates. |
 | Cursor | Gated | No | No | Yes | Copyable packs, profile-aware settings discovery, and dry-run target/marker preview today; native/provider writes remain blocked because Cursor documents API-key setup through Settings > Models rather than a stable file-backed provider/model/base-url schema. |
 | Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |
-| Aider | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
-| Continue | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
+| Aider | Managed | Yes | No | Yes | Allowlisted `openai-api-base` provider routing plus Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; credentials remain manual. |
+| Continue | Managed | Yes | No | Yes | Allowlisted `config.yaml` model routing plus Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; credentials remain manual. |
 | Goose | Managed | Yes (allowlisted) | No | Yes | Native routing manages only documented OpenAI/Anthropic endpoint fields in Goose `config.yaml`; Repo Memory MCP remains read-only and credentials, account, and model state stay manual. |
 | Qwen Code | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; account/model setup remains manual. |
 | Amazon Q Developer CLI | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; AWS auth/provider/workspace state remains manual. |
@@ -59,9 +59,9 @@ See the `byok_openai_compatible` safety dossier in `plannedConnectors.ts` for gu
 Readiness distinguishes a Switchboard-owned sidecar from a promoted native
 provider/editor schema. A connector may be labelled Managed because its
 sidecar lifecycle is reversible while native provider writes remain manual or
-gated. Only Gemini CLI, OpenCode, Goose's documented endpoint fields, Grok/xAI,
-Windsurf, and Zed currently carry promoted native-write evidence. Aider,
-Continue, Qwen Code, and Amazon Q remain sidecar-only; Cursor remains
+gated. Gemini CLI, OpenCode, Aider, Continue, Goose's documented endpoint
+fields, Grok/xAI, Windsurf, and Zed currently carry promoted native-write
+evidence. Qwen Code and Amazon Q remain sidecar-only; Cursor remains
 schema-gated. Doctor and connector cards expose the native-write gate
 separately so sidecar health cannot be mistaken for provider compatibility.
 
