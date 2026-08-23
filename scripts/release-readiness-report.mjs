@@ -79,6 +79,7 @@ const installedSmokeRequiredEvidence = [
   "Per-tool agent handoffs",
   "Connector readiness payload in agent handoffs",
   "Codex compression recovery",
+  "Public release artifact SHA-256",
 ];
 const connectorManifestPath = "connectors/manifest.json";
 
@@ -340,6 +341,16 @@ function extractChecklistSha256(body) {
   );
 }
 
+function extractArtifactSha256(body) {
+  return (
+    body
+      .split("\n")
+      .find((line) => line.startsWith("- Public release artifact SHA-256: "))
+      ?.replace("- Public release artifact SHA-256: ", "")
+      .trim() || null
+  );
+}
+
 function hasBlocker(releaseEnv, pattern) {
   return releaseEnv.blockers.some((blocker) => pattern.test(blocker.label));
 }
@@ -371,6 +382,7 @@ function buildInstalledSmoke(
   installedAppPresent,
   bundleMetadataPresent,
   installedSmokeSummary,
+  artifactTrust,
 ) {
   const freshness = presentEvidenceFreshness(
     installedSmokeSummary,
@@ -388,6 +400,11 @@ function buildInstalledSmoke(
   const recordedChecklistSha256 = extractChecklistSha256(
     installedSmokeSummary.body,
   );
+  const recordedArtifactSha256 = extractArtifactSha256(installedSmokeSummary.body);
+  const artifactSha256Matches =
+    Boolean(recordedArtifactSha256) &&
+    Boolean(artifactTrust.artifactSha256) &&
+    recordedArtifactSha256 === artifactTrust.artifactSha256;
   const checklistSha256Matches =
     installedSmokeSummary.present &&
     Boolean(recordedChecklistSha256) &&
@@ -396,6 +413,7 @@ function buildInstalledSmoke(
     installedSmokeSummary.present &&
     missingEvidence.length === 0 &&
     checklistSha256Matches &&
+    artifactSha256Matches &&
     freshness.fresh &&
     metadataMatches;
   const ready = installedAppPresent && bundleMetadataPresent && evidenceReady;
@@ -416,6 +434,9 @@ function buildInstalledSmoke(
     currentChecklistSha256,
     recordedChecklistSha256,
     checklistSha256Matches,
+    artifactSha256: artifactTrust.artifactSha256,
+    recordedArtifactSha256,
+    artifactSha256Matches,
     freshness,
     requiredEvidence: installedSmokeRequiredEvidence,
     missingEvidence,
@@ -842,13 +863,14 @@ const installedAppPresent = fs.existsSync(appPath);
 const bundleMetadataPresent = fs.existsSync(appInfoPlistPath);
 const backendValidation = buildBackendValidation(releaseEnv);
 const staticSmokePreflight = buildStaticSmokePreflight(smokeSummary);
+const artifactTrust = buildArtifactTrustEvidence();
 const installedSmoke = buildInstalledSmoke(
   installedAppPresent,
   bundleMetadataPresent,
   installedSmokeSummary,
+  artifactTrust,
 );
 const localValidation = buildLocalValidationEvidence();
-const artifactTrust = buildArtifactTrustEvidence();
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,

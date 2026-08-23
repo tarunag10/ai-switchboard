@@ -11,6 +11,7 @@ const installedSummaryPath = "dist/installed-smoke-summary.md";
 const confirmed =
   process.argv.includes("--confirm") ||
   process.env.MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED === "1";
+const publicArtifactPath = process.env.MAC_AI_SWITCHBOARD_PUBLIC_ARTIFACT_PATH?.trim() || null;
 
 const appPresent = fs.existsSync(appPath);
 const bundleMetadataPresent = fs.existsSync(appInfoPlistPath);
@@ -52,6 +53,11 @@ if (!confirmed) {
 }
 
 const generatedAt = new Date().toISOString();
+const publicArtifactPresent = Boolean(publicArtifactPath && fs.existsSync(publicArtifactPath));
+const publicArtifactSha256 = publicArtifactPresent ? crypto
+  .createHash("sha256")
+  .update(fs.readFileSync(publicArtifactPath))
+  .digest("hex") : null;
 const betaSmokeChecklistSha256 = crypto
   .createHash("sha256")
   .update(fs.readFileSync(betaSmokeDoc))
@@ -76,6 +82,9 @@ Generated: ${generatedAt}
 - Static preflight summary: ${preflightSummaryPath}
 - Installed-app checklist: ${betaSmokeDoc}
 - Installed-app checklist SHA-256: ${betaSmokeChecklistSha256}
+- Public release artifact: ${publicArtifactPath ?? "not supplied"}
+- Public release artifact present: ${publicArtifactPresent ? "yes" : "no"}
+- Public release artifact SHA-256: ${publicArtifactSha256 ?? "missing"}
 - Confirmation: explicit tester confirmation received
 - Result: tester confirmed beta smoke checklist passed on the installed app.
 

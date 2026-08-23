@@ -518,6 +518,7 @@ requireBooleanFields(report, "installedSmoke", [
   "smokeSummaryPresent",
   "evidenceReady",
   "checklistSha256Matches",
+  "artifactSha256Matches",
   "metadataMatches",
 ]);
 requireObject(report, "installedSmoke.freshness");

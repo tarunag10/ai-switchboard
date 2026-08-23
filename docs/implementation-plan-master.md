@@ -170,6 +170,9 @@ the current checkout.
 - Operational install, smoke, release, and deployment guidance now derives
   from the canonical `/Applications/AI Switchboard.app` identity; legacy names
   remain confined to historical evidence or compatibility artifact notes.
+- Confirmed installed-app smoke now records an explicit public artifact
+  SHA-256, and release readiness requires it to match the selected DMG before
+  installed evidence can be considered ready.
 
 ### Done — prepared and shipped
 

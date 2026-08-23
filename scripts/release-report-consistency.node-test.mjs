@@ -122,6 +122,24 @@ test("requires measured savings readiness to include fresh evidence", () => {
   assert.deepEqual(validateReleaseReportConsistency(fresh), []);
 });
 
+test("requires installed smoke evidence to match the selected DMG hash", () => {
+  const errors = validateReleaseReportConsistency({
+    installedSmoke: {
+      ready: true,
+      installedAppPresent: true,
+      bundleMetadataPresent: true,
+      evidenceReady: true,
+      smokeSummaryPresent: true,
+      checklistSha256Matches: true,
+      artifactSha256Matches: false,
+      metadataMatches: true,
+      missingEvidence: [],
+      freshness: { fresh: true, generatedAt: new Date().toISOString() },
+    },
+  });
+  assert.match(errors.join("\n"), /installedSmoke/);
+});
+
 function expectConsistencyError(report, pattern) {
   assert.match(validateReleaseReportConsistency(report).join("\n"), pattern);
 }

@@ -67,6 +67,7 @@ export function validateReleaseReportConsistency(report) {
     if (installedSmoke.evidenceReady && (
       installedSmoke.smokeSummaryPresent !== true
       || installedSmoke.checklistSha256Matches !== true
+      || installedSmoke.artifactSha256Matches !== true
       || installedSmoke.metadataMatches !== true
       || installedSmoke.missingEvidence?.length > 0
       || installedSmoke.freshness?.fresh !== true
@@ -85,6 +86,13 @@ export function validateReleaseReportConsistency(report) {
       || installedSmoke.currentChecklistSha256 !== installedSmoke.recordedChecklistSha256
     )) {
       errors.push("installedSmoke.checklistSha256Matches requires equal recorded and current hashes");
+    }
+    if (installedSmoke.artifactSha256Matches === true && (
+      typeof installedSmoke.artifactSha256 !== "string"
+      || typeof installedSmoke.recordedArtifactSha256 !== "string"
+      || installedSmoke.artifactSha256 !== installedSmoke.recordedArtifactSha256
+    )) {
+      errors.push("installedSmoke.artifactSha256Matches requires equal selected and recorded artifact hashes");
     }
   }
   const measuredSavings = report?.localValidation?.measuredSavingsBenchmark;
