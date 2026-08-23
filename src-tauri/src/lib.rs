@@ -134,6 +134,7 @@ mod repo_intelligence_commands;
 mod repo_map;
 mod repo_memory_commands;
 mod rollback_commands;
+mod route_plan;
 mod runtime_boot_validation;
 mod runtime_commands;
 mod runtime_diagnostics;

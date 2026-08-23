@@ -185,6 +185,10 @@ the current checkout.
 - Installed-smoke artifact input now fails closed before writing evidence when
   the optional public artifact path is relative, missing, non-DMG, or not a
   regular file; the contract has a standalone self-test command.
+- A canonical content-free route-plan contract now composes endpoint eligibility
+  with model-routing identity and promotion stage without changing live proxy
+  traffic; no fallback, retry, body translation, or automatic execution is
+  enabled.
 
 ### Done — prepared and shipped
 

@@ -17,6 +17,7 @@ const requiredPaths = [
   "scripts/reboot-level-installed-proof-summary.mjs",
   "scripts/check-connector-lifecycle-matrix.mjs",
   "src-tauri/src/optimization/model_routing.rs",
+  "src-tauri/src/route_plan.rs",
 ];
 const requiredScripts = [
   "check:implementation-plan-master",
