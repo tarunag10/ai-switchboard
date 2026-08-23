@@ -35,6 +35,7 @@ pub(crate) mod test_support {
 mod activity_commands;
 mod activity_facts;
 mod addon_commands;
+mod activation_commands;
 mod agent_memory;
 mod agent_memory_commands;
 #[cfg(headroom_remote_services)]
@@ -837,6 +838,9 @@ pub fn run() {
             addon_commands::set_addon_enabled,
             addon_commands::uninstall_addon,
             addon_commands::get_leanctx_sidecar_status,
+            activation_commands::validate_selective_activation_selection,
+            activation_commands::get_selective_activation_selection,
+            activation_commands::save_selective_activation_selection,
             semantic_cache::get_semantic_cache_status,
             semantic_cache::get_response_cache_diagnostics,
             semantic_cache::set_semantic_cache_enabled,

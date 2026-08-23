@@ -440,6 +440,10 @@ impl ToolManager {
         self.runtime.logs_dir()
     }
 
+    pub fn tools_dir(&self) -> PathBuf {
+        self.runtime.tools_dir.clone()
+    }
+
     pub fn headroom_entrypoint(&self) -> PathBuf {
         self.runtime.venv_dir.join("bin").join("headroom")
     }

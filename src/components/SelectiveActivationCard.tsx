@@ -76,6 +76,11 @@ export function SelectiveActivationCard() {
 
   useEffect(() => writeSelection(selected), [selected]);
 
+  useEffect(() => {
+    if (validationError) return;
+    void Promise.resolve(invoke("save_selective_activation_selection", { selectedToolIds: selected })).catch(() => undefined);
+  }, [selected, validationError]);
+
   const toggle = (id: ActivationToolId) => {
     setRunSummary(null);
     setResults({});
@@ -92,6 +97,13 @@ export function SelectiveActivationCard() {
     }
     setBusy(true);
     setResults({});
+    try {
+      await invoke("validate_selective_activation_selection", { selectedToolIds: selected });
+    } catch (reason) {
+      setBusy(false);
+      setRunSummary(reason instanceof Error ? reason.message : String(reason));
+      return;
+    }
     let succeeded = 0;
     const nextResults: Partial<Record<ActivationToolId, ToolResult>> = {};
     for (const id of selected) {
