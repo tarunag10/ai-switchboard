@@ -98,21 +98,16 @@ fn detected_version() -> (bool, Option<String>, String) {
         DSH_VERSION_TIMEOUT,
     ) {
         Ok((stdout, stderr)) => {
-            let rendered = if stdout.trim().is_empty() { stderr } else { stdout };
-            let version = rendered
-                .trim()
-                .split(|character: char| character.is_whitespace() || character == 'v')
-                .find(|part| part.starts_with(|character: char| character.is_ascii_digit()))
-                .map(|part| {
-                    part.trim_matches(|character: char| {
-                        !character.is_ascii_alphanumeric() && character != '.' && character != '-'
-                    })
-                    .to_string()
-                });
+            let version = parse_dsh_version(&stdout, &stderr);
+            let version_found = version.is_some();
             (
                 true,
                 version,
-                "dsh --version completed without loading a profile or credentials.".to_string(),
+                if version_found {
+                    "dsh --version completed without loading a profile or credentials.".to_string()
+                } else {
+                    "dsh --version output was ambiguous or did not contain an explicit version; setup remains guided.".to_string()
+                },
             )
         }
         Err(error) => (
@@ -121,6 +116,48 @@ fn detected_version() -> (bool, Option<String>, String) {
             format!("dsh version inspection failed safely without reading credentials: {error}"),
         ),
     }
+}
+
+fn parse_dsh_version(stdout: &str, stderr: &str) -> Option<String> {
+    fn normalize(value: &str) -> Option<String> {
+        let trimmed = value.trim().trim_matches(|character: char| {
+            !character.is_ascii_alphanumeric() && character != '.' && character != '-'
+        });
+        let normalized = trimmed.strip_prefix('v').unwrap_or(trimmed);
+        let mut pieces = normalized.split('-');
+        let Some(release) = pieces.next() else {
+            return None;
+        };
+        let numbers = release.split('.').collect::<Vec<_>>();
+        if numbers.len() != 3 || numbers.iter().any(|part| part.is_empty() || !part.chars().all(|character| character.is_ascii_digit())) {
+            return None;
+        }
+        if pieces.any(|part| part.is_empty() || !part.chars().all(|character| character.is_ascii_alphanumeric() || character == '.')) {
+            return None;
+        }
+        Some(normalized.to_string())
+    }
+
+    let mut exact = Vec::new();
+    let mut contextual = Vec::new();
+    for text in [stdout, stderr] {
+        for line in text.lines() {
+            if let Some(version) = normalize(line) {
+                exact.push(version);
+            } else if line.to_ascii_lowercase().contains("dsh") {
+                for token in line.split_whitespace() {
+                    if let Some(version) = normalize(token) {
+                        contextual.push(version);
+                    }
+                }
+            }
+        }
+    }
+    let candidates = if exact.is_empty() { contextual } else { exact };
+    let mut unique = candidates;
+    unique.sort();
+    unique.dedup();
+    (unique.len() == 1).then(|| unique.remove(0))
 }
 
 fn exact_managed_block_present(raw: &str) -> bool {
@@ -681,6 +718,23 @@ mod tests {
         let consent = ConsentToken::issue(&plan, &plan.confirmation_phrase).unwrap();
         assert!(adapter.apply(&plan, consent).is_err());
         assert!(!fixture.patch().exists());
+    }
+
+    #[test]
+    fn version_parser_requires_one_explicit_unambiguous_candidate() {
+        assert_eq!(
+            parse_dsh_version("v0.1.0-rc.5\n", ""),
+            Some("0.1.0-rc.5".to_string())
+        );
+        assert_eq!(
+            parse_dsh_version("warning: dsh unavailable\n", "dsh version 0.1.0-rc.5\n"),
+            Some("0.1.0-rc.5".to_string())
+        );
+        assert_eq!(parse_dsh_version("warning 0.1.0-rc.5\n", ""), None);
+        assert_eq!(
+            parse_dsh_version("0.1.0-rc.5\n0.1.0-rc.4\n", ""),
+            None
+        );
     }
 
     #[test]

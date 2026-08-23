@@ -1,8 +1,11 @@
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
+use std::io::Read;
 
 use anyhow::{Context, Result};
+
+const MAX_CAPTURE_BYTES: usize = 2 * 1024 * 1024;
 
 /// Prepend a binary's own directory to PATH so an `#!/usr/bin/env node`
 /// shebang (or similar) resolves the interpreter that nvm installs alongside
@@ -181,7 +184,6 @@ pub(crate) fn run_command_capture_with_timeout(
     cwd: &Path,
     timeout: Duration,
 ) -> Result<(String, String)> {
-    use std::io::Read;
     use std::sync::mpsc;
 
     let mut cmd = build_command(binary, args, cwd);
@@ -193,19 +195,15 @@ pub(crate) fn run_command_capture_with_timeout(
     let stdout = child.stdout.take().expect("piped stdout");
     let stderr = child.stderr.take().expect("piped stderr");
 
-    let (stdout_tx, stdout_rx) = mpsc::channel::<Vec<u8>>();
-    let (stderr_tx, stderr_rx) = mpsc::channel::<Vec<u8>>();
+    let (stdout_tx, stdout_rx) = mpsc::channel::<CapturedStream>();
+    let (stderr_tx, stderr_rx) = mpsc::channel::<CapturedStream>();
     let stdout_handle = std::thread::spawn(move || {
         let mut reader = std::io::BufReader::new(stdout);
-        let mut buf = Vec::new();
-        let _ = reader.read_to_end(&mut buf);
-        let _ = stdout_tx.send(buf);
+        let _ = stdout_tx.send(read_bounded(&mut reader));
     });
     let stderr_handle = std::thread::spawn(move || {
         let mut reader = std::io::BufReader::new(stderr);
-        let mut buf = Vec::new();
-        let _ = reader.read_to_end(&mut buf);
-        let _ = stderr_tx.send(buf);
+        let _ = stderr_tx.send(read_bounded(&mut reader));
     });
 
     let started = Instant::now();
@@ -235,8 +233,28 @@ pub(crate) fn run_command_capture_with_timeout(
 
     let _ = stdout_handle.join();
     let _ = stderr_handle.join();
-    let stdout = String::from_utf8_lossy(&stdout_rx.recv().unwrap_or_default()).into_owned();
-    let mut stderr = String::from_utf8_lossy(&stderr_rx.recv().unwrap_or_default()).into_owned();
+    let stdout_capture = stdout_rx.recv().unwrap_or_default();
+    let stderr_capture = stderr_rx.recv().unwrap_or_default();
+    let stdout = String::from_utf8_lossy(&stdout_capture.bytes).into_owned();
+    let mut stderr = String::from_utf8_lossy(&stderr_capture.bytes).into_owned();
+
+    if stdout_capture.truncated || stderr_capture.truncated {
+        if !stderr.is_empty() && !stderr.ends_with('\n') {
+            stderr.push('\n');
+        }
+        stderr.push_str(&format!(
+            "command output exceeded the {} byte capture limit",
+            MAX_CAPTURE_BYTES
+        ));
+        return Err(anyhow::Error::new(CommandFailure {
+            program: binary.display().to_string(),
+            args: args.iter().map(|s| s.to_string()).collect(),
+            stdout,
+            stderr,
+            exit_code: status.code(),
+            signal: exit_status_signal(&status),
+        }));
+    }
 
     if timed_out {
         if !stderr.is_empty() && !stderr.ends_with('\n') {
@@ -268,6 +286,33 @@ pub(crate) fn run_command_capture_with_timeout(
     }
 
     Ok((stdout, stderr))
+}
+
+#[derive(Default)]
+struct CapturedStream {
+    bytes: Vec<u8>,
+    truncated: bool,
+}
+
+fn read_bounded(reader: &mut impl Read) -> CapturedStream {
+    let mut captured = CapturedStream::default();
+    let mut buffer = [0u8; 8192];
+    loop {
+        match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(count) => {
+                let remaining = MAX_CAPTURE_BYTES.saturating_sub(captured.bytes.len());
+                let copy_count = remaining.min(count);
+                captured.bytes.extend_from_slice(&buffer[..copy_count]);
+                if copy_count < count {
+                    captured.truncated = true;
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+    captured
 }
 
 pub(crate) fn run_command(binary: &Path, args: &[&str], cwd: &Path) -> Result<()> {
@@ -387,5 +432,18 @@ mod tests {
             .status()
             .expect("probe descendant");
         assert!(!status.success(), "timed-out descendant survived process-group cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn capture_runner_rejects_output_above_the_bound() {
+        let result = run_command_capture_with_timeout(
+            Path::new("/bin/sh"),
+            &["-c", "yes x | head -c 3000000"],
+            Path::new("/tmp"),
+            Duration::from_secs(2),
+        )
+        .expect_err("oversized output must fail closed");
+        assert!(result.to_string().contains("capture limit"));
     }
 }
