@@ -21,6 +21,11 @@ import { GatewayProfilesCard } from "./GatewayProfilesCard";
 import { OptimizationEngineProfilesCard } from "./OptimizationEngineProfilesCard";
 import { ProviderBilledCounterfactualCard } from "./ProviderBilledCounterfactualCard";
 import { RTK_TASK_PRESETS } from "../lib/rtkTaskPresets";
+import { hasTauriRuntime } from "../lib/tauriRuntime";
+import {
+  loadOssCapabilityRegistry,
+  type OssCapabilityRegistry,
+} from "../lib/ossCapabilities";
 
 export interface AddonsViewProps {
   activeView: TrayView;
@@ -83,7 +88,29 @@ export function AddonsView({
   const [showRtkDetails, setShowRtkDetails] = useState(false);
   const [rtkActivityLines, setRtkActivityLines] = useState<string[]>([]);
   const [rtkPresetNotice, setRtkPresetNotice] = useState<string | null>(null);
+  const [ossRegistry, setOssRegistry] = useState<OssCapabilityRegistry | null>(null);
+  const [ossRegistryError, setOssRegistryError] = useState<string | null>(null);
   const rtkActivityRef = useRef<HTMLPreElement | null>(null);
+
+  useEffect(() => {
+    if (activeView !== "addons" || !hasTauriRuntime()) return;
+    let active = true;
+    void Promise.resolve(loadOssCapabilityRegistry())
+      .then((registry) => {
+        if (active) {
+          setOssRegistry(registry);
+          setOssRegistryError(null);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setOssRegistryError(error instanceof Error ? error.message : String(error));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeView]);
 
   useEffect(() => {
     if (!showRtkDetails || !rtkActivityRef.current) {
@@ -110,6 +137,48 @@ export function AddonsView({
             recentUsage: dashboard.recentUsage,
           })}
         />
+        <article className="soft-card panel-card" aria-labelledby="oss-capabilities-title">
+          <div className="panel-card__header">
+            <div>
+              <h2 id="oss-capabilities-title">Open-source capability registry</h2>
+              <p>
+                Read-only metadata from the local harness integrations. Providers and tools are visible here;
+                writes and automatic actions remain fail-closed.
+              </p>
+            </div>
+            <span className="repo-intelligence-view__badge">{ossRegistry?.registryMode ?? "Loading"}</span>
+          </div>
+          {ossRegistryError ? <p role="status">Could not load OSS capability metadata: {ossRegistryError}</p> : null}
+          {ossRegistry ? (
+            <>
+              <p>
+                <strong>Approval:</strong> {ossRegistry.approvalMode}; <strong>writes:</strong> disabled; schema v{ossRegistry.schemaVersion}.
+              </p>
+              <div className="optimization-evidence-capture__grid">
+                <section>
+                  <h3>Providers</h3>
+                  <ul>
+                    {ossRegistry.providers.map((provider) => (
+                      <li key={provider.id}>
+                        <strong>{provider.label}</strong> · {provider.modelFamilies.join(", ")} · auth {provider.authSource}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+                <section>
+                  <h3>Tools</h3>
+                  <ul>
+                    {ossRegistry.tools.map((tool) => (
+                      <li key={tool.id}>
+                        <strong>{tool.label}</strong> · {tool.capabilities.join(", ")} · {tool.requiresApproval ? "approval required" : "read-only"}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </div>
+            </>
+          ) : null}
+        </article>
         <ul className="addons__list">
           <AddonCard
             key="rtk"

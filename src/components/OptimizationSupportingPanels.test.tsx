@@ -8,7 +8,8 @@ import { OptimizationStatusIcon, PromptCacheClientProofList, RoutingValidationPa
 const mocks = vi.hoisted(() => ({
   loadAction: vi.fn(), saveAction: vi.fn(), compact: vi.fn(), validate: vi.fn(),
   loadRouting: vi.fn(), saveRouting: vi.fn(),
-  recordEvidence: vi.fn(), exportEvidence: vi.fn(),
+  recordEvidence: vi.fn(), exportEvidence: vi.fn(), exportEvidenceForHandle: vi.fn(),
+  issueCompletionHandle: vi.fn(), completeCompletion: vi.fn(),
 }));
 
 vi.mock("../lib/optimization", async (importOriginal) => ({
@@ -21,6 +22,9 @@ vi.mock("../lib/optimization", async (importOriginal) => ({
   saveModelRoutingExperimentPolicy: mocks.saveRouting,
   recordModelRoutingEvidence: mocks.recordEvidence,
   exportModelRoutingEvidence: mocks.exportEvidence,
+  exportModelRoutingEvidenceForHandle: mocks.exportEvidenceForHandle,
+  issueModelRoutingCompletionHandle: mocks.issueCompletionHandle,
+  completeModelRoutingCompletion: mocks.completeCompletion,
 }));
 
 const actionPolicy = {
@@ -144,5 +148,35 @@ describe("optimization supporting panels", () => {
     expect(await screen.findByLabelText("Exported routing evidence")).toHaveTextContent("local_runtime_observation");
     fireEvent.change(screen.getByLabelText("Routing evidence run ID"), { target: { value: "run-2" } });
     expect(screen.queryByLabelText("Exported routing evidence")).not.toBeInTheDocument();
+  });
+
+  it("wires the native completion handle lifecycle into the routing UI", async () => {
+    mocks.issueCompletionHandle.mockResolvedValue({
+      handleId: "handle-1",
+      runId: "native-run-1",
+      issuedAt: "2026-08-23T00:00:00Z",
+      expiresAt: "2026-08-23T00:10:00Z",
+      decision: { stage: "observe", selectedModel: "fast/local" },
+    });
+    mocks.completeCompletion.mockResolvedValue(undefined);
+    mocks.exportEvidenceForHandle.mockResolvedValue({
+      evidenceClass: "local_runtime_observation",
+      promotionEligible: false,
+      provenance: { runId: "native-run-1" },
+    });
+    render(<ModelRoutingExperimentCard />);
+    fireEvent.change(screen.getByLabelText("Routing requested model"), { target: { value: "frontier" } });
+    fireEvent.change(screen.getByLabelText("Routing cheap model"), { target: { value: "fast/local" } });
+    fireEvent.change(screen.getByLabelText("Routing capable model"), { target: { value: "frontier" } });
+    fireEvent.click(screen.getByRole("button", { name: "Issue completion handle" }));
+    await waitFor(() => expect(mocks.issueCompletionHandle).toHaveBeenCalledWith(expect.objectContaining({
+      client: "codex", task: "formatting", requestedModel: "frontier", cheapModel: "fast/local", capableModel: "frontier",
+    })));
+    fireEvent.click(await screen.findByRole("button", { name: "Complete provider outcome" }));
+    await waitFor(() => expect(mocks.completeCompletion).toHaveBeenCalledWith("handle-1", expect.objectContaining({
+      succeeded: true, qualityScoreBps: 10000,
+    })));
+    fireEvent.click(screen.getByRole("button", { name: "Export completion evidence" }));
+    await waitFor(() => expect(mocks.exportEvidenceForHandle).toHaveBeenCalledWith("handle-1", "formatting"));
   });
 });

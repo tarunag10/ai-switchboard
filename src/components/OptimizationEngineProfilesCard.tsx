@@ -649,7 +649,7 @@ function OptimizationEngineRow({
                   <p><strong>Safety rules:</strong> {responseCacheDiagnostics.safetyRules.join(", ")}.</p>
                 </>
               ) : null}
-              <p><strong>Semantic cache experiment:</strong> {describeSemanticCacheV2Policy()}</p>
+              <p><strong>Future semantic-cache research (not active):</strong> {describeSemanticCacheV2Policy()}</p>
               {semanticCacheStats?.namespaces && semanticCacheStats.namespaces.length > 0 ? (
                 <table className="gateway-profile__table">
                   <caption>Exact response cache namespaces (no prompt bodies)</caption>
