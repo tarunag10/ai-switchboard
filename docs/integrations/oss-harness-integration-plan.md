@@ -46,8 +46,7 @@ trust, and user-approved configuration changes.
 
 ## Current next slice
 
-The next code slice is a local, bounded replay/route-decision harness. It will
-consume redacted metadata only, produce deterministic outcomes, and remain
-separate from provider-billed quality evidence until an approved producer is
-available.
-
+The first local replay slice is `scripts/oss-harness-replay.mjs`. It consumes
+redacted route metadata only, produces deterministic counts and latency
+summaries, and remains separate from provider-billed quality evidence. It does
+not issue network requests and its output cannot promote automatic routing.
