@@ -31,7 +31,7 @@ redaction, rollback, and release gates.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `ea8ee283` and the
+This status was reconciled against committed `main` through `43bcbcc0` and the
 visible frontend/native command wiring on 2026-08-24. Concurrent unstaged work
 is not counted as shipped. A check mark therefore means the capability is in
 the committed product boundary, not merely described in another plan or
@@ -55,10 +55,11 @@ Current verification snapshot:
 - `36` focused native `workbench_kernel` tests pass.
 - The model-routing evidence gate passes: `13` Node contract tests, `35`
   native model-routing tests, and `18` native telemetry-store tests.
-- `npm run build` is currently blocked by the unrelated type mismatch at
-  `src/components/RepoIntelligencePreview.tsx:185`: a `string` is passed to a
-  `RepoPackCompressionMode` state setter. A green full build remains a release
-  prerequisite.
+- `npm run build` passes after preserving the authoritative
+  `RepoPackCompressionMode` union in the preference refresh.
+- `npm run check:oss-harness-integrations` passes after its stale deleted
+  registry-test reference was replaced with the shared Workbench projection,
+  Addons integration, and native registry checks.
 
 ## Executive implementation status
 
@@ -69,7 +70,7 @@ Current verification snapshot:
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions are informational | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, and drift-safe rollback cover the managed actions | A run can end `partial`; the UI remembers only the current component's last run ID even though native state is persisted | Restore native selection/last receipt after restart, expose receipt history, and add safe retry/resume for failed tools without reapplying successful tools |
 | Ponytail, Caveman, RTK, MarkItDown | Visible Addons and selective activation paths; exact created/changed artifact fingerprints; narrow restore/removal; external-drift blocking; receipt preservation | Runtime installation or client prerequisites can still fail on a particular machine | Add end-to-end disposable-home matrix tests and an app-visible repair path for partial managed runtimes |
-| Chonkify-labelled pack mode | Promotion gate currently passes (`MIT`, wrong-omission gate `0%`); read-only pack preference and selective activation are usable | The current `switchboard-chonkify` adapter is Switchboard-authored head/tail compaction, not verified upstream Chonkify code | Rename it to Switchboard Pack Compaction and remove upstream attribution, or integrate a pinned upstream adapter with parity/provenance tests; also fix the frontend type regression |
+| Chonkify-labelled pack mode | Promotion gate currently passes (`MIT`, wrong-omission gate `0%`); read-only pack preference and selective activation are usable | The current `switchboard-chonkify` adapter is Switchboard-authored head/tail compaction, not verified upstream Chonkify code | Rename it to Switchboard Pack Compaction and remove upstream attribution, or integrate a pinned upstream adapter with parity/provenance tests |
 | Leanctx | Loopback-only shadow setup and selective activation/rollback are visible | Requires an already configured executable despite UI copy saying install-and-enable; remains shadow-only | Correct the copy, pin a supported runtime/version if distribution is desired, and pass health/containment/promotion evidence before live routing |
 | OSS harness reuse | Internal pinned DeepSeek Harness preview adapter, maturity audit/context prototype, redacted replay, deterministic strategy fixtures, session-event prototype, and shared metadata-only registry | DeepSeek is not in the normal connector UI; Switchyard and JCode are evaluated references; `twaldin/harness` contributes only a contract idea | Expose DeepSeek honestly as Experimental or remove prototype-only production modules; then choose and prove one optional pinned workflow |
 | UI visibility | Workbench and Routing are top-level routes; selective activation is in Addons; advanced Headroom settings are in Settings; inactive routes use `hidden` as navigation state rather than product concealment | Some controls correctly remain disabled because their backend is absent or unsafe | Maintain a reachability test for every production component and ensure every mounted hidden route suspends polling/subscriptions |
@@ -461,7 +462,7 @@ selected. Do not combine their routing authority with Switchboard's Router.
 | P0 | Enforce active session at admission/execution | A terminal session can be persisted before separate grant revocation fails | Inject revocation failure; admission and execution still fail because session status is authoritative |
 | P0 | Strict persisted schemas | Serde currently tolerates unknown fields, weakening the content-free claim | Unknown `prompt`, path, credential, output, command, and arbitrary fields are rejected from every durable Workbench ledger |
 | P0 | Direct admission tests | `process_supervisor.rs` has no native test module | Native and TypeScript bridge matrices cover valid, corrupt, expired, revoked, terminal, drifted, full, restart, and concurrent cases |
-| P0 | Restore repository gates | Full build and OSS integration checker are presently red | Fix the `RepoPackCompressionMode` type error; restore or intentionally replace `src/lib/ossCapabilities.test.ts`; `npm run build` and `npm run check:oss-harness-integrations` pass |
+| P0 — Done | Restore repository gates | The full build and OSS integration checker were red | Preserve the compression-mode union and validate the shared Workbench capability projection; both gates now pass |
 | P0 | Correct Chonkify identity | The promoted adapter is local head/tail compaction while fixtures attribute upstream Chonkify | Rename/localize the feature and attribution, or pin and integrate upstream code with parity, licence, omission, and source-span tests |
 | P0 | Split planner from live Router status | The policy and endpoint planners are complete but have no production model-routing caller | Inventory and UI say planner/evidence done, live correlation remaining, approval remaining, automatic routing gated |
 | P1 | Historical versus current eligibility | Stored `authorized_not_started` remains visible after grant/session validity changes | Session receipt center derives current state and refreshes at expiry; launch always revalidates native state |
@@ -530,9 +531,11 @@ These are not backlog items; adding them would weaken the architecture:
 Each row is a separately reviewable commit and push. Later rows must not be
 started by weakening an earlier gate.
 
-1. **Roadmap checkpoint** — this audit/status/edge-case plan.
-2. **Repository gate repair** — frontend compression-mode type fix and missing
-   OSS capability checker coverage; prove full build and OSS integration gate.
+1. **Roadmap checkpoint — Done (`43bcbcc0`)** — this
+   audit/status/edge-case plan.
+2. **Repository gate repair — Done** — frontend compression-mode type fix and
+   shared Workbench OSS capability checker coverage; full build and aggregate
+   OSS integration gate pass.
 3. **Admission hardening** — authoritative active-session check, strict ledger
    schemas, cross-ledger failure behavior, direct native and bridge tests.
 4. **Receipt UX** — derived eligibility, expiry refresh, session receipt center,
@@ -590,10 +593,10 @@ Current gate truth on 2026-08-24:
 - Chonkify-labelled promotion fixture: passes with MIT metadata and zero
   wrong-omission rate; this does not prove that the local adapter implements or
   vendors upstream Chonkify.
-- Full frontend build: blocked at `RepoIntelligencePreview.tsx:185` by the
-  `RepoPackCompressionMode` type mismatch.
-- OSS harness integration: strategy/session/provider tests pass, then the gate
-  fails because `src/lib/ossCapabilities.test.ts` is referenced but absent.
+- Full frontend build: passes (`tsc && vite build`).
+- OSS harness integration: passes `13` strategy/session/provider Node tests,
+  `10` shared Workbench/Addons frontend tests, `2` native registry tests, and
+  the required-file/observe-only boundary checker.
 
 Manual acceptance remains separate from automated proof. Before execution is
 called usable, verify cancellation and full child-tree cleanup in a disposable

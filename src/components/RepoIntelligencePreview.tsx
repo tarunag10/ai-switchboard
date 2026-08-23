@@ -181,7 +181,8 @@ export function RepoIntelligencePreview({
     const refreshCompressionPreference = () => void loadAuthoritativeRepoPackCompressionPreference()
       .then((preference) => {
         if (!active) return;
-        let effectiveMode = preference?.effectiveMode === "chonkify" ? "chonkify" : "off";
+        const effectiveMode: RepoPackCompressionMode =
+          preference?.effectiveMode === "chonkify" ? "chonkify" : "off";
         if (active) setPackCompressionMode(effectiveMode);
       })
       .catch(() => {

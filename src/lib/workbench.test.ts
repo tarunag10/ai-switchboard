@@ -8,6 +8,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
   createWorkbenchSession,
+  getWorkbenchCapabilityProjection,
   issueWorkbenchProcessStartGrant,
   isWorkbenchDigest,
   listWorkbenchProcessStartGrants,
@@ -58,6 +59,38 @@ describe("workbench bridge", () => {
         requiredCapabilityIds: ["router_observe"],
       }),
     });
+  });
+
+  it("loads OSS capabilities only through the shared Workbench projection", async () => {
+    const projection = {
+      schemaVersion: 1,
+      executionMode: "plan_only",
+      writesEnabled: false,
+      providerTraffic: "none",
+      registry: {
+        schemaVersion: 1,
+        registryMode: "metadata_only",
+        writesEnabled: false,
+        approvalMode: "fail_closed",
+        providers: [],
+        tools: [],
+      },
+      presets: [],
+      adapterReadiness: [],
+      processStartGrantPolicy: {
+        schemaVersion: 1,
+        capabilityId: "workbench_process_start",
+        ttlSeconds: 900,
+        confirmationPhraseTemplate: "AUTHORIZE FUTURE PROCESS {planId}",
+        executionEnabled: false,
+        providerTraffic: "none",
+        writesEnabled: false,
+      },
+    } as const;
+    invoke.mockResolvedValueOnce(projection);
+
+    await expect(getWorkbenchCapabilityProjection()).resolves.toEqual(projection);
+    expect(invoke).toHaveBeenLastCalledWith("get_workbench_capability_projection");
   });
 });
 
