@@ -2,15 +2,26 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 
 import { deriveRepoMemoryMcpSupervisionSummary } from "../lib/repoMemoryMcpSupervision";
+import { repoMemoryMcpLifecycle } from "../lib/repoMemoryMcp";
 import type {
   RepoMemoryMcpRelaunchSurvivalStatus,
   RepoMemoryMcpSupervisionScope,
 } from "../lib/repoMemoryMcpSupervision";
 import type { RuntimeStatus } from "../lib/types";
 
-export function RepoMemoryMcpSupervisionCard() {
+export interface RepoMemoryMcpSupervisionCardProps {
+  prepareRepoMemoryMcp?: () => Promise<boolean>;
+  setRepoMemoryMcpActive?: (active: boolean) => Promise<boolean>;
+}
+
+export function RepoMemoryMcpSupervisionCard({
+  prepareRepoMemoryMcp,
+  setRepoMemoryMcpActive,
+}: RepoMemoryMcpSupervisionCardProps) {
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -25,6 +36,45 @@ export function RepoMemoryMcpSupervisionCard() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const lifecycle = repoMemoryMcpLifecycle({
+    configured: runtime?.repoMemoryMcpConfigured,
+    error: runtime?.repoMemoryMcpError,
+    active: runtime?.repoMemoryMcpActive,
+    lastStartedAt: runtime?.repoMemoryMcpLastStartedAt,
+    lastCheckedAt: runtime?.repoMemoryMcpLastCheckedAt,
+    supervisionStatus: runtime?.repoMemoryMcpSupervisionStatus,
+    relaunchSurvivalStatus: runtime?.repoMemoryMcpRelaunchSurvivalStatus,
+    supervisionScope: runtime?.repoMemoryMcpSupervisionScope,
+    service: runtime?.repoMemoryMcpService,
+  });
+
+  async function runLifecycleAction() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const ok = runtime?.repoMemoryMcpConfigured
+        ? setRepoMemoryMcpActive?.(runtime.repoMemoryMcpActive !== true)
+        : prepareRepoMemoryMcp?.();
+      if (!ok) {
+        setError("Repo Memory MCP lifecycle controls are unavailable in this app session.");
+        return;
+      }
+      if (!(await ok)) return;
+      setNotice(
+        runtime?.repoMemoryMcpConfigured && runtime.repoMemoryMcpActive
+          ? "Repo Memory MCP stopped for this app session."
+          : "Repo Memory MCP lifecycle action completed; refreshing supervision evidence.",
+      );
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const summary = deriveRepoMemoryMcpSupervisionSummary({
     supervisionStatus: runtime?.repoMemoryMcpSupervisionStatus ?? "unknown",
@@ -76,11 +126,28 @@ export function RepoMemoryMcpSupervisionCard() {
         <button
           type="button"
           className="secondary-button secondary-button--small"
+          onClick={() => void runLifecycleAction()}
+          disabled={busy || runtime === null || (!prepareRepoMemoryMcp && !setRepoMemoryMcpActive)}
+        >
+          {busy
+            ? "Working…"
+            : runtime?.repoMemoryMcpConfigured
+              ? runtime.repoMemoryMcpActive
+                ? "Stop MCP"
+                : "Start MCP"
+              : "Prepare MCP"}
+        </button>
+        <button
+          type="button"
+          className="secondary-button secondary-button--small"
           onClick={() => void refresh()}
+          disabled={busy}
         >
           Refresh supervision
         </button>
       </div>
+      {runtime ? <p className="optimize-minimal__meta">{lifecycle.detail}</p> : null}
+      {notice ? <p className="optimize-minimal__meta" role="status">{notice}</p> : null}
       {error ? (
         <p className="install-progress__error" role="alert">
           {error}

@@ -3526,6 +3526,8 @@ export default function TrayApp() {
       setOptimizeAppliedRefreshTick={setOptimizeAppliedRefreshTick}
       claudeProjectsError={claudeProjectsError}
       learnBlurb={learnBlurb}
+      prepareRepoMemoryMcp={prepareRepoMemoryMcp}
+      setRepoMemoryMcpActive={setRepoMemoryMcpActive}
       activityFeedError={activityFeedError}
       activityFeedLoaded={activityFeedLoaded}
       setLatestRepoIntelligenceSummary={setLatestRepoIntelligenceSummary}

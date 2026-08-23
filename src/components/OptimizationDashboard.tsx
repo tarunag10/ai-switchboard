@@ -23,7 +23,15 @@ import {
 import { OptimizationPackRtkPanel } from "./OptimizationPackRtkPanel";
 import { TransportObservationsPanel } from "./TransportObservationsPanel";
 
-export function OptimizationDashboard() {
+export interface OptimizationDashboardProps {
+  prepareRepoMemoryMcp?: () => Promise<boolean>;
+  setRepoMemoryMcpActive?: (active: boolean) => Promise<boolean>;
+}
+
+export function OptimizationDashboard({
+  prepareRepoMemoryMcp,
+  setRepoMemoryMcpActive,
+}: OptimizationDashboardProps) {
   const [snapshot, setSnapshot] = useState<OptimizationSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -121,7 +129,10 @@ export function OptimizationDashboard() {
       <TokenXrayPanel snapshot={snapshot.tokenXray} />
       <RedundancyPanel findings={snapshot.redundancy} />
       <AgentSessionPanel />
-      <RepoMemoryMcpSupervisionCard />
+      <RepoMemoryMcpSupervisionCard
+        prepareRepoMemoryMcp={prepareRepoMemoryMcp}
+        setRepoMemoryMcpActive={setRepoMemoryMcpActive}
+      />
       <RoutingDecisionList decisions={snapshot.routing} />
       <RoutingValidationPanel />
       <OptimizationPackRtkPanel snapshot={snapshot} />

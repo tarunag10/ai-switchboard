@@ -47,6 +47,8 @@ export interface OptimizationViewProps {
   >;
   claudeProjectsError: string | null;
   learnBlurb: string;
+  prepareRepoMemoryMcp?: () => Promise<boolean>;
+  setRepoMemoryMcpActive?: (active: boolean) => Promise<boolean>;
 }
 
 export function OptimizationView({
@@ -74,6 +76,8 @@ export function OptimizationView({
   setOptimizeAppliedRefreshTick,
   claudeProjectsError,
   learnBlurb,
+  prepareRepoMemoryMcp,
+  setRepoMemoryMcpActive,
 }: OptimizationViewProps) {
   const [showSetupDetails, setShowSetupDetails] = useState(false);
 
@@ -90,7 +94,10 @@ export function OptimizationView({
           <p className="optimize-card__blurb">{learnBlurb}</p>
         </header>
         <div className="optimize-card__body">
-          <OptimizationDashboard />
+          <OptimizationDashboard
+            prepareRepoMemoryMcp={prepareRepoMemoryMcp}
+            setRepoMemoryMcpActive={setRepoMemoryMcpActive}
+          />
           <div className="optimize-learn-setup" role="note">
             <div>
               <strong>Learning setup</strong>

@@ -186,6 +186,8 @@ export function TrayAppShell({
   setOptimizeAppliedRefreshTick,
   claudeProjectsError,
   learnBlurb,
+  prepareRepoMemoryMcp,
+  setRepoMemoryMcpActive,
   activityFeedError,
   activityFeedLoaded,
   setLatestRepoIntelligenceSummary,
@@ -425,6 +427,8 @@ export function TrayAppShell({
           setOptimizeAppliedRefreshTick={setOptimizeAppliedRefreshTick}
           claudeProjectsError={claudeProjectsError}
           learnBlurb={learnBlurb}
+          prepareRepoMemoryMcp={prepareRepoMemoryMcp}
+          setRepoMemoryMcpActive={setRepoMemoryMcpActive}
         />
 
         <div className="tray-content" hidden={activeView !== "notifications"}>
