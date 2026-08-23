@@ -18,7 +18,7 @@ import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
 import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
 import {
-  loadNativeRepoPackCompressionPreference,
+  loadAuthoritativeRepoPackCompressionPreference,
   saveNativeRepoPackCompressionPreference,
 } from "../lib/repoPackCompressionPreference";
 import type { RuntimeStatus, CompressionProfileView } from "../lib/types";
@@ -246,16 +246,9 @@ export function OptimizationEngineProfilesCard({
 
   useEffect(() => {
     let active = true;
-    void loadNativeRepoPackCompressionPreference()
-      .then(async (preference) => {
+    void loadAuthoritativeRepoPackCompressionPreference()
+      .then((preference) => {
         if (!active) return;
-        if (!preference.stored && loadState().enabled.chonkify === true) {
-          try {
-            await saveNativeRepoPackCompressionPreference("chonkify");
-          } catch {
-            // Native state remains fail-closed; the legacy browser value is not authoritative.
-          }
-        }
         if (active) {
           setLocalState((current) => ({
             ...current,

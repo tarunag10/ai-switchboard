@@ -57,6 +57,14 @@ pub struct SelectiveActivationToolResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SelectiveRollbackResult {
+    pub tool_id: String,
+    pub state: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SelectiveActivationReceipt {
     pub schema_version: u32,
     pub run_id: String,
@@ -64,6 +72,12 @@ pub struct SelectiveActivationReceipt {
     pub overall_status: String,
     pub results: Vec<SelectiveActivationToolResult>,
     pub updated_at: String,
+    pub previous_mode: Option<SwitchboardMode>,
+    pub previous_response_cache_enabled: Option<bool>,
+    pub previous_chonkify_mode: Option<String>,
+    pub owned_changes: Vec<String>,
+    pub rollback_status: Option<String>,
+    pub rollback_results: Vec<SelectiveRollbackResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -292,6 +306,25 @@ fn persist_receipt(state: &AppState, receipt: &SelectiveActivationReceipt) -> Re
     Ok(())
 }
 
+fn read_receipt(state: &AppState) -> Result<SelectiveActivationReceipt, String> {
+    let path = receipt_path(state);
+    let bytes = fs::read(&path).map_err(|error| format!("reading activation receipt: {error}"))?;
+    serde_json::from_slice(&bytes).map_err(|error| format!("decoding activation receipt: {error}"))
+}
+
+fn validate_rollback_request(
+    receipt: &SelectiveActivationReceipt,
+    run_id: &str,
+) -> Result<(), String> {
+    if receipt.schema_version != 2 {
+        return Err("This activation receipt predates rollback ownership metadata.".into());
+    }
+    if receipt.run_id != run_id {
+        return Err("Activation run ID does not match the stored receipt.".into());
+    }
+    Ok(())
+}
+
 fn result(
     tool_id: &str,
     state: &str,
@@ -487,6 +520,33 @@ pub async fn activate_selected_tools(
         Utc::now().timestamp_millis(),
         std::process::id()
     );
+    let previous_mode = client_adapters::load_switchboard_mode();
+    let previous_response_cache_enabled = selected_tool_ids
+        .iter()
+        .any(|id| id == "response-cache")
+        .then(|| state.semantic_cache.enabled());
+    let previous_chonkify_mode = selected_tool_ids
+        .iter()
+        .any(|id| id == "chonkify")
+        .then(|| {
+            read_chonkify_preference(&state)
+                .ok()
+                .map(|preference| preference.effective_mode)
+        })
+        .flatten();
+    let mut owned_changes = Vec::new();
+    if selected_tool_ids
+        .iter()
+        .any(|id| id == "headroom" || id == "rtk")
+    {
+        owned_changes.push("switchboard_mode".into());
+    }
+    if previous_response_cache_enabled == Some(false) {
+        owned_changes.push("response_cache_enabled".into());
+    }
+    if selected_tool_ids.iter().any(|id| id == "chonkify") {
+        owned_changes.push("chonkify_preference".into());
+    }
     let mut results = Vec::new();
     let mut failed = false;
     let ordered = ordered_ids(&selected_tool_ids);
@@ -563,14 +623,142 @@ pub async fn activate_selected_tools(
         "succeeded"
     };
     let receipt = SelectiveActivationReceipt {
-        schema_version: 1,
+        schema_version: 2,
         run_id,
         selected_tool_ids,
         overall_status: overall_status.into(),
         results,
         updated_at: Utc::now().to_rfc3339(),
+        previous_mode,
+        previous_response_cache_enabled,
+        previous_chonkify_mode,
+        owned_changes,
+        rollback_status: None,
+        rollback_results: Vec::new(),
     };
     persist_receipt(&state, &receipt)?;
+    Ok(SelectiveActivationResult {
+        receipt,
+        dashboard: state.dashboard(),
+    })
+}
+
+#[tauri::command]
+pub async fn rollback_selective_activation(
+    app: AppHandle,
+    run_id: String,
+) -> Result<SelectiveActivationResult, String> {
+    let state: State<'_, AppState> = app.state();
+    let mut receipt = read_receipt(&state)?;
+    validate_rollback_request(&receipt, &run_id)?;
+    if matches!(receipt.rollback_status.as_deref(), Some("succeeded")) {
+        return Ok(SelectiveActivationResult {
+            receipt,
+            dashboard: state.dashboard(),
+        });
+    }
+
+    let mut rollback_results = Vec::new();
+    let mut failures = Vec::new();
+    if receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "switchboard_mode")
+    {
+        if let Some(mode) = receipt.previous_mode.clone() {
+            if let Err(error) =
+                crate::switchboard_commands::set_switchboard_mode(app.clone(), mode).await
+            {
+                failures.push(error.to_string());
+                rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "switchboard_mode".into(),
+                    state: "failed".into(),
+                    detail: error.to_string(),
+                });
+            } else {
+                rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "switchboard_mode".into(),
+                    state: "restored".into(),
+                    detail: "Previous Switchboard mode restored.".into(),
+                });
+            }
+        }
+    }
+    if receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "response_cache_enabled")
+    {
+        if let Some(enabled) = receipt.previous_response_cache_enabled {
+            if let Err(error) = state.semantic_cache.set_enabled(enabled) {
+                failures.push(error.to_string());
+                rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "response-cache".into(),
+                    state: "failed".into(),
+                    detail: error.to_string(),
+                });
+            } else {
+                rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "response-cache".into(),
+                    state: "restored".into(),
+                    detail:
+                        "Previous exact-response cache enabled state restored; entries preserved."
+                            .into(),
+                });
+            }
+        }
+    }
+    if receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "chonkify_preference")
+    {
+        let mode = receipt.previous_chonkify_mode.as_deref().unwrap_or("off");
+        if let Err(error) = set_chonkify_preference(&state, mode) {
+            failures.push(error.clone());
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "chonkify".into(),
+                state: "failed".into(),
+                detail: error,
+            });
+        } else {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "chonkify".into(),
+                state: "restored".into(),
+                detail: "Previous Repo Intelligence pack compression preference restored.".into(),
+            });
+        }
+    }
+    for tool_id in receipt.selected_tool_ids.iter().filter(|id| {
+        !matches!(
+            id.as_str(),
+            "headroom" | "rtk" | "response-cache" | "chonkify"
+        )
+    }) {
+        rollback_results.push(SelectiveRollbackResult {
+            tool_id: tool_id.clone(),
+            state: "preserved".into(),
+            detail: "Rollback does not remove pre-existing managed tools or refresh-only evidence."
+                .into(),
+        });
+    }
+    receipt.rollback_results = rollback_results;
+    receipt.rollback_status = Some(
+        if failures.is_empty() {
+            "succeeded"
+        } else {
+            "partial"
+        }
+        .into(),
+    );
+    receipt.updated_at = Utc::now().to_rfc3339();
+    persist_receipt(&state, &receipt)?;
+    if !failures.is_empty() {
+        return Err(format!(
+            "Selective activation rollback was partial: {}",
+            failures.join("; ")
+        ));
+    }
     Ok(SelectiveActivationResult {
         receipt,
         dashboard: state.dashboard(),
@@ -630,7 +818,10 @@ pub fn save_selective_activation_selection(
 
 #[cfg(test)]
 mod tests {
-    use super::{chonkify_gate, validate_ids};
+    use super::{
+        chonkify_gate, validate_ids, validate_rollback_request, SelectiveActivationReceipt,
+    };
+    use crate::models::SwitchboardMode;
 
     fn five() -> Vec<String> {
         [
@@ -670,5 +861,31 @@ mod tests {
         let (verdict, eligible) = chonkify_gate();
         assert!(eligible);
         assert!(verdict.starts_with("repo_pack_eligible:"));
+    }
+
+    fn receipt() -> SelectiveActivationReceipt {
+        SelectiveActivationReceipt {
+            schema_version: 2,
+            run_id: "run-1".into(),
+            selected_tool_ids: vec!["headroom".into()],
+            overall_status: "succeeded".into(),
+            results: Vec::new(),
+            updated_at: "now".into(),
+            previous_mode: Some(SwitchboardMode::Off),
+            previous_response_cache_enabled: None,
+            previous_chonkify_mode: None,
+            owned_changes: vec!["switchboard_mode".into()],
+            rollback_status: None,
+            rollback_results: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn rollback_rejects_wrong_run_id_and_legacy_receipts() {
+        let receipt = receipt();
+        assert!(validate_rollback_request(&receipt, "other-run").is_err());
+        let mut legacy = receipt;
+        legacy.schema_version = 1;
+        assert!(validate_rollback_request(&legacy, "run-1").is_err());
     }
 }

@@ -18,7 +18,7 @@ import {
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
-  loadRepoPackCompressionPreference,
+  repoPackCompressionPreferenceEvent,
   repoPackCompressionPreferenceKey,
   normalizeRepoIndexRequest,
   repoAgentPackLabel,
@@ -34,7 +34,7 @@ import {
 } from "../lib/repoIntelligence";
 import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
 import {
-  loadNativeRepoPackCompressionPreference,
+  loadAuthoritativeRepoPackCompressionPreference,
   saveNativeRepoPackCompressionPreference,
 } from "../lib/repoPackCompressionPreference";
 
@@ -178,28 +178,20 @@ export function RepoIntelligencePreview({
 
   useEffect(() => {
     let active = true;
-    void loadNativeRepoPackCompressionPreference()
-      .then(async (preference) => {
+    const refreshCompressionPreference = () => void loadAuthoritativeRepoPackCompressionPreference()
+      .then((preference) => {
         if (!active) return;
         let effectiveMode = preference?.effectiveMode === "chonkify" ? "chonkify" : "off";
-        if (!preference?.stored && loadRepoPackCompressionPreference() === "chonkify") {
-          if (chonkifyEligible) {
-            try {
-              const migrated = await saveNativeRepoPackCompressionPreference("chonkify");
-              effectiveMode = migrated.effectiveMode === "chonkify" ? "chonkify" : "off";
-            } catch {
-              effectiveMode = "off";
-            }
-          }
-          window.localStorage.removeItem(repoPackCompressionPreferenceKey);
-        }
         if (active) setPackCompressionMode(effectiveMode);
       })
       .catch(() => {
         if (active) setPackCompressionMode("off");
       });
+    refreshCompressionPreference();
+    window.addEventListener(repoPackCompressionPreferenceEvent, refreshCompressionPreference);
     return () => {
       active = false;
+      window.removeEventListener(repoPackCompressionPreferenceEvent, refreshCompressionPreference);
     };
   }, [chonkifyEligible]);
   const verificationDetailsId = "repo-intelligence-verification-details";
@@ -625,6 +617,7 @@ export function RepoIntelligencePreview({
             onChange={(event) => {
               const mode = event.target.value as RepoPackCompressionMode;
               setCompressionError(null);
+              if (mode === "off" || chonkifyEligible) setPackCompressionMode(mode);
               void saveNativeRepoPackCompressionPreference(mode)
                 .then((preference) => {
                   setPackCompressionMode(preference.effectiveMode === "chonkify" ? "chonkify" : "off");

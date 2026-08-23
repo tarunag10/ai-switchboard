@@ -12,6 +12,10 @@ const { invokeMock, openMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   openMock: vi.fn(),
 }));
+const commandQueues = new Map<string, Array<unknown>>();
+function queueCommand(command: string, ...responses: unknown[]) {
+  commandQueues.set(command, responses);
+}
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: openMock }));
 
@@ -39,7 +43,18 @@ function installClipboard(writeText = clipboardWrite) {
 describe("RepoIntelligencePreview backend and copy flows", () => {
   beforeEach(() => {
     invokeMock.mockReset();
-    invokeMock.mockResolvedValue(null);
+    commandQueues.clear();
+    invokeMock.mockImplementation((command: string) => {
+      if (command === "get_repo_pack_compression_preference") {
+        return Promise.resolve({ stored: false, effectiveMode: "off" });
+      }
+      const queued = commandQueues.get(command);
+      if (queued?.length) {
+        const response = queued.shift();
+        return typeof response === "function" ? response() : response;
+      }
+      return Promise.resolve(null);
+    });
     openMock.mockReset();
     openMock.mockResolvedValue(null);
     clipboardWrite.mockReset();
@@ -52,7 +67,7 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
     installClipboard();
     const summary = realSummary();
     const onSummaryChange = vi.fn();
-    invokeMock.mockResolvedValueOnce(summary);
+    queueCommand("get_latest_repo_intelligence_summary", Promise.resolve(summary));
     render(<RepoIntelligencePreview headroomHealthy rtkHealthy onSummaryChange={onSummaryChange} />);
 
     expect(await screen.findByDisplayValue("/work/repo")).toBeVisible();
@@ -80,14 +95,15 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
     const user = userEvent.setup({ writeToClipboard: false });
     installClipboard();
     const summary = realSummary({ repoRoot: "/trimmed/repo" });
-    invokeMock.mockResolvedValueOnce(null).mockResolvedValueOnce(summary);
+    queueCommand("get_latest_repo_intelligence_summary", Promise.resolve(null));
+    queueCommand("build_repo_intelligence_summary", Promise.resolve(summary));
     const onSummaryChange = vi.fn();
     render(<RepoIntelligencePreview onSummaryChange={onSummaryChange} />);
     await waitFor(() => expect(screen.queryByText("Loading saved index…")).not.toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: "Index" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Enter a local repository folder path first.");
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith("get_latest_repo_intelligence_summary");
 
     await user.type(screen.getByRole("textbox", { name: "Repository folder path" }), "  /trimmed/repo  ");
     await user.click(screen.getByRole("button", { name: "Index" }));
@@ -128,7 +144,8 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
   it("reports index failures without discarding the editable path", async () => {
     const user = userEvent.setup({ writeToClipboard: false });
     installClipboard();
-    invokeMock.mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("permission denied"));
+    queueCommand("get_latest_repo_intelligence_summary", Promise.resolve(null));
+    queueCommand("build_repo_intelligence_summary", () => Promise.reject(new Error("permission denied")));
     render(<RepoIntelligencePreview />);
     await waitFor(() => expect(screen.queryByText("Loading saved index…")).not.toBeInTheDocument());
     await user.type(screen.getByRole("textbox", { name: "Repository folder path" }), "/private/repo");
@@ -141,9 +158,7 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
     const user = userEvent.setup({ writeToClipboard: false });
     installClipboard();
     const summary = realSummary();
-    invokeMock
-      .mockRejectedValueOnce(new Error("saved index corrupt"))
-      .mockResolvedValueOnce(summary);
+    queueCommand("get_latest_repo_intelligence_summary", () => Promise.reject(new Error("saved index corrupt")), Promise.resolve(summary));
     render(<RepoIntelligencePreview />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("saved index corrupt");
@@ -157,7 +172,8 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
     installClipboard();
     const summary = realSummary();
     const onSummaryChange = vi.fn();
-    invokeMock.mockResolvedValueOnce(summary).mockResolvedValueOnce(true);
+    queueCommand("get_latest_repo_intelligence_summary", Promise.resolve(summary));
+    queueCommand("clear_repo_intelligence_summary", Promise.resolve(true));
     render(<RepoIntelligencePreview onSummaryChange={onSummaryChange} />);
     await screen.findByRole("button", { name: "Clear" });
     await user.click(screen.getByRole("button", { name: "Clear" }));
@@ -171,7 +187,7 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
   it("keeps details available and reports clipboard failures", async () => {
     const user = userEvent.setup({ writeToClipboard: false });
     installClipboard();
-    invokeMock.mockResolvedValueOnce(realSummary());
+    queueCommand("get_latest_repo_intelligence_summary", Promise.resolve(realSummary()));
     clipboardWrite.mockRejectedValueOnce(new Error("clipboard denied"));
     render(<RepoIntelligencePreview />);
     await screen.findByRole("button", { name: "Copy pack" });
@@ -182,7 +198,7 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
   it("keeps every generated format inspectable when clipboard writes fail", async () => {
     const user = userEvent.setup({ writeToClipboard: false });
     installClipboard(vi.fn((_text: string) => Promise.reject(new Error("clipboard denied"))));
-    invokeMock.mockResolvedValueOnce(realSummary());
+    queueCommand("get_latest_repo_intelligence_summary", Promise.resolve(realSummary()));
     render(<RepoIntelligencePreview />);
     await screen.findByRole("button", { name: "Copy agent manifest" });
 
@@ -209,9 +225,8 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
   it("reports clear failures while preserving the real index", async () => {
     const user = userEvent.setup({ writeToClipboard: false });
     installClipboard();
-    invokeMock
-      .mockResolvedValueOnce(realSummary())
-      .mockRejectedValueOnce(new Error("clear denied"));
+    queueCommand("get_latest_repo_intelligence_summary", Promise.resolve(realSummary()));
+    queueCommand("clear_repo_intelligence_summary", () => Promise.reject(new Error("clear denied")));
     render(<RepoIntelligencePreview />);
     await screen.findByRole("button", { name: "Clear" });
     await user.click(screen.getByRole("button", { name: "Clear" }));
@@ -222,13 +237,13 @@ describe("RepoIntelligencePreview backend and copy flows", () => {
   it("uses safe fallback messages for non-Error backend failures", async () => {
     const user = userEvent.setup({ writeToClipboard: false });
     installClipboard();
-    invokeMock.mockRejectedValueOnce({ reason: "unstructured" });
+    queueCommand("get_latest_repo_intelligence_summary", () => Promise.reject({ reason: "unstructured" }));
     render(<RepoIntelligencePreview />);
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Saved Repo Intelligence index could not be loaded.",
     );
 
-    invokeMock.mockRejectedValueOnce({ reason: "unstructured" });
+    queueCommand("build_repo_intelligence_summary", () => Promise.reject({ reason: "unstructured" }));
     await user.type(screen.getByRole("textbox", { name: "Repository folder path" }), "/work/repo");
     await user.click(screen.getByRole("button", { name: "Index" }));
     const alerts = screen.getAllByRole("alert");

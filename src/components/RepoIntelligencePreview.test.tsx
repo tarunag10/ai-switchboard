@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
+let nativeMode = "off";
 
 import { RepoIntelligencePreview } from "./RepoIntelligencePreview";
 
@@ -21,12 +22,14 @@ function getDisclosureButton(controls: string) {
 
 describe("RepoIntelligencePreview progressive disclosure", () => {
   beforeEach(() => {
+    nativeMode = "off";
     invoke.mockImplementation((command: string) => {
       if (command === "get_repo_pack_compression_preference") {
-        return Promise.resolve({ stored: false, effectiveMode: "off" });
+        return Promise.resolve({ stored: nativeMode === "chonkify", effectiveMode: nativeMode });
       }
       if (command === "set_repo_pack_compression_preference") {
-        return Promise.resolve({ stored: true, effectiveMode: "chonkify" });
+        nativeMode = "chonkify";
+        return Promise.resolve({ stored: true, effectiveMode: nativeMode });
       }
       return Promise.resolve(null);
     });
