@@ -21,6 +21,7 @@ import {
   RoutingValidationPanel,
 } from "./OptimizationValidationPanels";
 import { OptimizationPackRtkPanel } from "./OptimizationPackRtkPanel";
+import { TransportObservationsPanel } from "./TransportObservationsPanel";
 
 export function OptimizationDashboard() {
   const [snapshot, setSnapshot] = useState<OptimizationSnapshot | null>(null);
@@ -124,6 +125,7 @@ export function OptimizationDashboard() {
       <RoutingDecisionList decisions={snapshot.routing} />
       <RoutingValidationPanel />
       <OptimizationPackRtkPanel snapshot={snapshot} />
+      <TransportObservationsPanel />
     </section>
   );
 }
