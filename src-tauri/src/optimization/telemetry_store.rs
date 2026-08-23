@@ -91,6 +91,11 @@ fn open_connection() -> rusqlite::Result<Connection> {
     Ok(conn)
 }
 
+#[cfg(test)]
+pub(crate) fn open_connection_for_tests() -> rusqlite::Result<Connection> {
+    open_connection()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ModelRoutingEvidenceArtifact {
@@ -129,6 +134,39 @@ pub(crate) struct ModelRoutingEvidenceProvenance {
 }
 
 const MAX_MODEL_ROUTING_EVIDENCE_EVENTS_PER_RUN: i64 = 10_000;
+
+fn validate_export_row(
+    captured_at: &str,
+    succeeded: i64,
+    successful_task_cost_microunits: Option<i64>,
+    quality_score_bps: i64,
+    latency_ms: i64,
+    follow_up_rework: i64,
+) -> rusqlite::Result<()> {
+    let parsed = DateTime::parse_from_rfc3339(captured_at.trim())
+        .ok()
+        .map(|value| value.with_timezone(&Utc));
+    let now = Utc::now();
+    let timestamp_invalid = parsed.is_none() || parsed.is_some_and(|value| {
+        value > now + chrono::Duration::minutes(5)
+            || value < now - chrono::Duration::days(7)
+    });
+    let cost_invalid = successful_task_cost_microunits.is_some_and(|value| value < 0);
+    let contract_invalid = timestamp_invalid
+        || !matches!(succeeded, 0 | 1)
+        || !matches!(follow_up_rework, 0 | 1)
+        || quality_score_bps < 0
+        || quality_score_bps > 10_000
+        || latency_ms < 0
+        || cost_invalid
+        || (succeeded == 1) != successful_task_cost_microunits.is_some();
+    if contract_invalid {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "invalid persisted model-routing evidence row".to_string(),
+        ));
+    }
+    Ok(())
+}
 
 /// Persist only redacted routing outcome metrics. Request and response bodies
 /// are intentionally not represented by this schema.
@@ -278,6 +316,20 @@ pub(crate) fn export_model_routing_evidence(
         .map_err(|error| format!("prepare model-routing evidence export: {error}"))?;
     let rows = stmt
         .query_map(params![run_id, task_class], |row| {
+            let captured_at: String = row.get(0)?;
+            let succeeded: i64 = row.get(4)?;
+            let successful_task_cost_microunits: Option<i64> = row.get(5)?;
+            let quality_score_bps: i64 = row.get(6)?;
+            let latency_ms: i64 = row.get(7)?;
+            let follow_up_rework: i64 = row.get(8)?;
+            validate_export_row(
+                &captured_at,
+                succeeded,
+                successful_task_cost_microunits,
+                quality_score_bps,
+                latency_ms,
+                follow_up_rework,
+            )?;
             let arm: String = row.get(1)?;
             let arm = match arm.as_str() {
                 "baseline" => ModelRoutingEvidenceArm::Baseline,
@@ -286,16 +338,16 @@ pub(crate) fn export_model_routing_evidence(
             };
             Ok(ModelRoutingEvidenceObservation {
                 run_id: run_id.to_string(),
-                captured_at: row.get(0)?,
+                captured_at,
                 task_class: task_class.clone(),
                 arm,
                 baseline_model: row.get(2)?,
                 candidate_model: row.get(3)?,
-                succeeded: row.get::<_, i64>(4)? != 0,
-                successful_task_cost_microunits: row.get::<_, Option<i64>>(5)?.map(|v| v.max(0) as u64),
-                quality_score_bps: row.get::<_, i64>(6)?.max(0) as u32,
-                latency_ms: row.get::<_, i64>(7)?.max(0) as u64,
-                follow_up_rework: row.get::<_, i64>(8)? != 0,
+                succeeded: succeeded != 0,
+                successful_task_cost_microunits: successful_task_cost_microunits.map(|v| v as u64),
+                quality_score_bps: quality_score_bps as u32,
+                latency_ms: latency_ms as u64,
+                follow_up_rework: follow_up_rework != 0,
             })
         })
         .map_err(|error| format!("query model-routing evidence export: {error}"))?;

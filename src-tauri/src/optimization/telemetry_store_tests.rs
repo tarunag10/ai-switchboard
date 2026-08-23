@@ -240,6 +240,45 @@ fn model_routing_evidence_export_uses_latest_timestamp_instant() {
 }
 
 #[test]
+fn model_routing_evidence_export_rejects_corrupt_persisted_rows() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let cases = [
+        ("stale timestamp", (chrono::Utc::now() - chrono::Duration::days(8)).to_rfc3339(), 1, Some(100_i64), 9000_i64, 10_i64, 0_i64),
+        ("future timestamp", (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339(), 1, Some(100), 9000, 10, 0),
+        ("malformed timestamp", "not-a-timestamp".to_string(), 1, Some(100), 9000, 10, 0),
+        ("negative cost", chrono::Utc::now().to_rfc3339(), 1, Some(-1), 9000, 10, 0),
+        ("quality overflow", chrono::Utc::now().to_rfc3339(), 1, Some(100), 10001, 10, 0),
+        ("negative latency", chrono::Utc::now().to_rfc3339(), 1, Some(100), 9000, -1, 0),
+        ("invalid success flag", chrono::Utc::now().to_rfc3339(), 2, Some(100), 9000, 10, 0),
+        ("invalid rework flag", chrono::Utc::now().to_rfc3339(), 1, Some(100), 9000, 10, 2),
+        ("missing successful cost", chrono::Utc::now().to_rfc3339(), 1, None, 9000, 10, 0),
+    ];
+    for (label, captured_at, succeeded, cost, quality, latency, rework) in cases {
+        let home = tempdir().expect("temp home");
+        let previous_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", home.path());
+        reset_for_tests();
+        let conn = open_connection_for_tests().expect("open telemetry database");
+        conn.execute(
+            "INSERT INTO model_routing_evidence_events (
+                run_id, captured_at, task_class, arm, baseline_model, candidate_model,
+                succeeded, successful_task_cost_microunits, quality_score_bps, latency_ms,
+                follow_up_rework
+            ) VALUES (?1, ?2, 'formatting', 'baseline', 'frontier', 'fast/local', ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params!["corrupt-export", captured_at, succeeded, cost, quality, latency, rework],
+        )
+        .expect("insert corrupt row");
+        let error = export_model_routing_evidence("corrupt-export", "formatting")
+            .expect_err(label);
+        assert!(error.contains("invalid persisted model-routing evidence row"), "{label}: {error}");
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+    }
+}
+
+#[test]
 fn model_routing_evidence_rejects_duplicate_instants_with_different_offsets() {
     let _guard = crate::optimization::telemetry::test_guard();
     let home = tempdir().expect("temp home");
