@@ -1,6 +1,6 @@
 import { ArrowClockwise, CaretDown, Cpu, Info, WarningCircle } from "@phosphor-icons/react";
-import { useEffect, useId, useState } from "react";
-import { formatMetric, loadTokenXraySnapshot, type EvidenceConfidence, type Metric, type TokenXraySnapshot } from "../lib/usageAnalytics";
+import { useEffect, useId, useRef, useState } from "react";
+import { formatMetric, loadTokenXrayLiveUpdate, loadTokenXraySnapshot, type EvidenceConfidence, type Metric, type TokenXraySnapshot } from "../lib/usageAnalytics";
 
 const metricNames: Array<[string, string, boolean]> = [["inputTokens", "Input", false], ["outputTokens", "Output", false], ["cacheReadTokens", "Cache read", false], ["cacheWriteTokens", "Cache write", false], ["providerBilledInputTokens", "Provider billed input", false], ["providerBilledBaselineTokens", "Provider billed baseline", false], ["compressionToolResultTokens", "Tool-result compression", false], ["compressionHistoryTokens", "History compression", false], ["compressionUserMessageTokens", "User-message compression", false], ["savedTokens", "Saved", false], ["avoidedTokens", "Avoided", false], ["estimatedCostUsd", "Cost", true], ["estimatedSavingsUsd", "Savings", true]];
 const confidenceLabel = (value: EvidenceConfidence) => value;
@@ -12,9 +12,42 @@ const snapshotMetric = (snapshot: TokenXraySnapshot, key: string) => snapshot.me
 export function TokenXrayView({ hidden }: { hidden: boolean }) {
   const [snapshot, setSnapshot] = useState<TokenXraySnapshot | null>(null);
   const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const [showProvenance, setShowProvenance] = useState(false);
+  const revisionRef = useRef<number | null>(null);
   const provenanceId = useId();
   const refresh = async () => { setLoading(true); setError(null); try { const value = await loadTokenXraySnapshot(); setSnapshot(value); } catch (reason) { setError(reason instanceof Error ? reason.message : "Token X-Ray is unavailable."); } finally { setLoading(false); } };
-  useEffect(() => { if (!hidden) void refresh(); }, [hidden]);
+  useEffect(() => {
+    if (hidden) return;
+    revisionRef.current = null;
+    void refresh();
+  }, [hidden]);
+  useEffect(() => {
+    if (hidden) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const update = await loadTokenXrayLiveUpdate(revisionRef.current);
+        if (cancelled || !update) return;
+        revisionRef.current = update.revision;
+        setSnapshot((current) => current ? {
+          ...current,
+          schemaVersion: update.schemaVersion,
+          generatedAt: update.generatedAt,
+          agent: update.agent,
+          provider: update.provider,
+          model: update.model,
+          freshness: update.freshness,
+          metrics: update.metrics,
+          contextPressure: update.contextPressure,
+          timeline: update.timeline,
+        } : current);
+      } catch (reason) {
+        if (!cancelled && !snapshot) setError(reason instanceof Error ? reason.message : "Live Token X-Ray updates are unavailable.");
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), 2500);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [hidden]);
   return <div className="tray-content" hidden={hidden}><section className="repo-intelligence-view" aria-labelledby="token-xray-view-title">
     <header className="repo-intelligence-view__header"><div><h1 id="token-xray-view-title">Live Token X-Ray</h1><p className="repo-intelligence-view__subtitle">A local, content-free view of this session’s context, savings, and pressure.</p></div><button className="secondary-button secondary-button--small" aria-label="Refresh Token X-Ray evidence" onClick={() => void refresh()} disabled={loading} type="button"><ArrowClockwise className={loading ? "is-spinning" : undefined} size={15} />{loading ? "Refreshing…" : "Refresh evidence"}</button></header>
     {error ? <article className="repo-map-error" role="alert"><WarningCircle size={16} /> {error} <button className="secondary-button secondary-button--small" onClick={() => void refresh()} type="button">Retry</button></article> : null}

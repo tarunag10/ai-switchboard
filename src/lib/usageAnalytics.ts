@@ -7,6 +7,7 @@ export type XraySource = { id: string; label: string; tokensSaved: Metric; detai
 export type XrayEvent = { id: string; occurredAt: number; kind: string; title: string; detail: string; confidence: EvidenceConfidence };
 export type XrayAnomaly = { id: string; severity: "info" | "warning" | "critical"; title: string; detail: string };
 export interface TokenXraySnapshot { schemaVersion: number; generatedAt: number; sessionId: string | null; agent: string | null; provider: string | null; model: string | null; freshness: "live" | "recent" | "stale" | "unavailable"; metrics: Record<string, Metric>; contextPressure: ContextPressure; sources: XraySource[]; timeline: XrayEvent[]; anomalies: XrayAnomaly[]; }
+export interface TokenXrayLiveUpdate { schemaVersion: number; revision: number; generatedAt: number; agent: string | null; provider: string | null; model: string | null; freshness: TokenXraySnapshot["freshness"]; metrics: Record<string, Metric>; contextPressure: ContextPressure; timeline: XrayEvent[]; }
 export type BriefingAgent = { id: string; label: string; requests: number; spentTokens: Metric; savedTokens: Metric; cachedTokens: Metric; estimatedCostUsd: Metric; highestContextPercent: number | null; detail: string | null };
 export type AttentionItem = { id: string; severity: "info" | "warning" | "critical"; title: string; detail: string; destination?: string | null };
 export type Recommendation = { id: string; title: string; evidence: string; destination?: string | null; priority: number };
@@ -33,6 +34,23 @@ export function normalizeXray(raw: unknown): TokenXraySnapshot {
   return { schemaVersion: data.schemaVersion ?? data.schema_version ?? 1, generatedAt: timestamp(data.generatedAt ?? data.generated_at), sessionId: data.sessionId ?? data.session_id ?? null, agent: data.agent ?? null, provider: data.provider ?? null, model: data.model ?? null, freshness: data.freshness ?? "unavailable", metrics: Object.fromEntries(["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "savedTokens", "avoidedTokens", "estimatedCostUsd", "estimatedSavingsUsd", "providerBilledInputTokens", "providerBilledBaselineTokens", "compressionToolResultTokens", "compressionHistoryTokens", "compressionUserMessageTokens"].map((key) => [key, metric(metricsRaw[key] ?? metricsRaw[key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)])])), contextPressure: { usedTokens: typeof used === "number" ? used : null, limitTokens: typeof limit === "number" ? limit : null, percent: typeof percent === "number" ? percent : null, projectedPercent: pressureRaw.projectedPercent ?? pressureRaw.projected_percent ?? null, band, limitSource: pressureRaw.limitSource ?? pressureRaw.limit_source ?? "No credible context limit recorded", caveat: pressureRaw.caveat ?? null }, sources: list<any>(data.sources).map((item) => ({ id: item.id ?? item.label ?? item.source ?? "source", label: item.label ?? item.source ?? "Optimization source", tokensSaved: metric(item.tokensSaved ?? item.tokens_saved), detail: item.detail ?? (list<string>(item.evidence).join(" · ") || "No source detail recorded."), caveat: item.caveat ?? null })), timeline: list<any>(data.timeline).map((item, index) => ({ id: item.id ?? `${item.occurredAt ?? item.occurred_at ?? index}`, occurredAt: timestamp(item.occurredAt ?? item.occurred_at), kind: item.kind ?? "usage", title: item.title ?? item.label ?? item.kind ?? "Usage event", detail: item.detail ?? "", confidence: item.confidence ?? "inferred" })), anomalies: list<any>(data.anomalies).map((item, index) => ({ id: item.id ?? String(index), severity: item.severity ?? "warning", title: item.title ?? item.message ?? "Usage anomaly", detail: item.detail ?? list<string>(item.evidence).join(" · ") })) };
 }
 
+export function normalizeTokenXrayLiveUpdate(raw: unknown): TokenXrayLiveUpdate {
+  const data = record(raw);
+  const snapshot = normalizeXray({ ...data, sources: [], anomalies: [] });
+  return {
+    schemaVersion: snapshot.schemaVersion,
+    revision: typeof data.revision === "number" ? data.revision : 0,
+    generatedAt: snapshot.generatedAt,
+    agent: snapshot.agent,
+    provider: snapshot.provider,
+    model: snapshot.model,
+    freshness: snapshot.freshness,
+    metrics: snapshot.metrics,
+    contextPressure: snapshot.contextPressure,
+    timeline: snapshot.timeline,
+  };
+}
+
 export function normalizeBriefing(raw: unknown): DailyUsageBriefing {
   const data = record(raw); const totals = record(data.totals);
   const timestamp = (value: unknown) => typeof value === "number" ? value : typeof value === "string" ? Date.parse(value) || 0 : 0;
@@ -40,6 +58,10 @@ export function normalizeBriefing(raw: unknown): DailyUsageBriefing {
 }
 
 export async function loadTokenXraySnapshot() { return normalizeXray(await invoke("get_token_xray_snapshot")); }
+export async function loadTokenXrayLiveUpdate(sinceRevision: number | null): Promise<TokenXrayLiveUpdate | null> {
+  const raw = await invoke<unknown>("get_token_xray_live_update", { sinceRevision });
+  return raw == null ? null : normalizeTokenXrayLiveUpdate(raw);
+}
 export async function loadDailyUsageBriefing() { return normalizeBriefing(await invoke("get_daily_usage_briefing")); }
 export async function loadDailyUsageBriefingHistory() { const result = await invoke<unknown[]>("list_daily_usage_briefings"); return list(result).map(normalizeBriefing); }
 const normalizeClearPreview = (rawValue: unknown, fallback: string): UsageAnalyticsClearPreview => {

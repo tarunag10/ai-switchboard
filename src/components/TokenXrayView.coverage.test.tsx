@@ -6,6 +6,7 @@ import { TokenXrayView } from "./TokenXrayView";
 const mocks = vi.hoisted(() => ({ load: vi.fn() }));
 vi.mock("../lib/usageAnalytics", () => ({
   loadTokenXraySnapshot: mocks.load,
+  loadTokenXrayLiveUpdate: vi.fn().mockResolvedValue(null),
   formatMetric: (metric: { value: number | null }) => metric.value === null ? "Unavailable" : String(metric.value),
 }));
 
