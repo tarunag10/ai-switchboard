@@ -7,10 +7,12 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import {
+  admitWorkbenchProcess,
   createWorkbenchSession,
   getWorkbenchCapabilityProjection,
   issueWorkbenchProcessStartGrant,
   isWorkbenchDigest,
+  listWorkbenchProcessAdmissions,
   listWorkbenchProcessStartGrants,
   prepareWorkbenchRunPlan,
   revokeWorkbenchProcessStartGrant,
@@ -131,5 +133,50 @@ it("keeps future process authorizations scoped to an opaque prepared plan", asyn
   });
   expect(invoke).toHaveBeenNthCalledWith(3, "revoke_workbench_process_start_grant", {
     grantId: "process-grant:test",
+  });
+});
+
+it("submits process admissions through the scoped native command", async () => {
+  invoke.mockClear();
+  const runSpec = {
+    sessionId: "workbench:test",
+    adapterId: "codex" as const,
+    workspaceDigest: `sha256:${"a".repeat(64)}`,
+    contextPackDigest: null,
+    routerDecisionId: "routing-decision-1",
+    replayReferenceId: null,
+    presetId: null,
+    requiredCapabilityIds: ["router_observe", "adapter_command_readiness"],
+    requestedMode: "full" as const,
+  };
+  invoke.mockResolvedValueOnce({ admissionId: "process-admission:test" });
+
+  await admitWorkbenchProcess({
+    runSpec,
+    expectedPlanId: "run-plan:test",
+    expectedProcessRunId: "process-run:test",
+    grantId: "process-grant:test",
+  });
+
+  expect(invoke).toHaveBeenCalledOnce();
+  expect(invoke).toHaveBeenCalledWith("admit_workbench_process", {
+    input: {
+      runSpec,
+      expectedPlanId: "run-plan:test",
+      expectedProcessRunId: "process-run:test",
+      grantId: "process-grant:test",
+    },
+  });
+});
+
+it("lists process admissions through the scoped native command", async () => {
+  invoke.mockClear();
+  invoke.mockResolvedValueOnce([]);
+
+  await listWorkbenchProcessAdmissions("workbench:test");
+
+  expect(invoke).toHaveBeenCalledOnce();
+  expect(invoke).toHaveBeenCalledWith("list_workbench_process_admissions", {
+    sessionId: "workbench:test",
   });
 });

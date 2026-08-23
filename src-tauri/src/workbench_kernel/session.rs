@@ -20,7 +20,7 @@ pub struct CreateWorkbenchSessionInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WorkbenchSession {
     pub schema_version: u32,
     pub session_id: String,
@@ -207,6 +207,14 @@ mod tests {
             workspace_digest: format!("sha256:{}", "a".repeat(64)),
             task_class: "coding".into(),
         }
+    }
+
+    #[test]
+    fn persisted_sessions_reject_unknown_content_fields() {
+        let session = WorkbenchSession::create(input()).expect("create session");
+        let mut value = serde_json::to_value(session).expect("serialize session");
+        value["credential"] = serde_json::json!("must not be persisted");
+        assert!(serde_json::from_value::<WorkbenchSession>(value).is_err());
     }
 
     #[test]

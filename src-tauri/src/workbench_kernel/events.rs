@@ -38,7 +38,7 @@ pub enum WorkbenchSessionAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WorkbenchEvent {
     pub event_id: String,
     pub session_id: String,
@@ -134,7 +134,8 @@ pub(crate) fn validate_event(
 #[cfg(test)]
 mod tests {
     use super::{
-        transition_status, validate_identifier, WorkbenchEventKind, WorkbenchSessionStatus,
+        new_event, transition_status, validate_identifier, WorkbenchEvent, WorkbenchEventKind,
+        WorkbenchSessionStatus,
     };
 
     #[test]
@@ -162,5 +163,13 @@ mod tests {
             WorkbenchEventKind::Attached
         )
         .is_err());
+    }
+
+    #[test]
+    fn persisted_events_reject_unknown_content_fields() {
+        let event = new_event("workbench:test", 0, WorkbenchEventKind::Started, None);
+        let mut value = serde_json::to_value(event).expect("serialize event");
+        value["prompt"] = serde_json::json!("must not be persisted");
+        assert!(serde_json::from_value::<WorkbenchEvent>(value).is_err());
     }
 }

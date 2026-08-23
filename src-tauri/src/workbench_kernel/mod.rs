@@ -126,6 +126,21 @@ pub fn transition_workbench_session(
     input: WorkbenchTransitionInput,
 ) -> Result<WorkbenchSession, String> {
     let (_guard, store) = locked_store()?;
+    transition_workbench_session_with_cleanup(&store, input, |session_id| {
+        WorkbenchProcessGrantStore::in_app_storage()
+            .revoke_for_terminal_session(session_id, chrono::Utc::now())
+            .map_err(|error| error.to_string())
+    })
+}
+
+fn transition_workbench_session_with_cleanup<F>(
+    store: &WorkbenchStore,
+    input: WorkbenchTransitionInput,
+    cleanup: F,
+) -> Result<WorkbenchSession, String>
+where
+    F: FnOnce(&str) -> Result<(), String>,
+{
     let session = store
         .transition(input.session_id.trim(), input.action)
         .map_err(|error| error.to_string())?;
@@ -133,9 +148,9 @@ pub fn transition_workbench_session(
         input.action,
         WorkbenchSessionAction::Cancel | WorkbenchSessionAction::Complete
     ) {
-        WorkbenchProcessGrantStore::in_app_storage()
-            .revoke_for_terminal_session(&session.session_id, chrono::Utc::now())
-            .map_err(|error| error.to_string())?;
+        if let Err(error) = cleanup(&session.session_id) {
+            log::warn!("Workbench terminal session persisted but grant cleanup failed: {error}");
+        }
     }
     Ok(session)
 }
@@ -222,6 +237,9 @@ pub fn admit_workbench_process(
     let session = store
         .get(input.run_spec.session_id.trim())
         .map_err(|error| error.to_string())?;
+    if session.status != events::WorkbenchSessionStatus::Active {
+        return Err("Workbench process admission requires an active session".into());
+    }
     let plan = run_contract::prepare_run_plan(&session, input.run_spec)
         .map_err(|error| error.to_string())?;
     events::validate_identifier(&input.expected_plan_id, "plan ID")
@@ -294,7 +312,13 @@ pub fn get_workbench_capability_projection() -> Result<WorkbenchCapabilityProjec
 
 #[cfg(test)]
 mod tests {
-    use super::get_workbench_capability_projection;
+    use super::{
+        get_workbench_capability_projection, transition_workbench_session_with_cleanup,
+        CreateWorkbenchSessionInput, WorkbenchSessionAction, WorkbenchTransitionInput,
+    };
+    use crate::workbench_kernel::events::WorkbenchSessionStatus;
+    use crate::workbench_kernel::storage::WorkbenchStore;
+    use std::cell::Cell;
 
     #[test]
     fn capability_projection_reuses_the_native_oss_registry_exactly() {
@@ -312,5 +336,39 @@ mod tests {
                 && readiness.provider_traffic == "none"
                 && !readiness.writes_enabled
         }));
+    }
+
+    #[test]
+    fn terminal_transition_remains_authoritative_when_grant_cleanup_fails() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let store = WorkbenchStore::at(directory.path().join("sessions.json"));
+        let session = store
+            .create(CreateWorkbenchSessionInput {
+                workspace_digest: format!("sha256:{}", "c".repeat(64)),
+                task_class: "coding".into(),
+            })
+            .expect("create session");
+        let cleanup_called = Cell::new(false);
+        let terminal = transition_workbench_session_with_cleanup(
+            &store,
+            WorkbenchTransitionInput {
+                session_id: session.session_id.clone(),
+                action: WorkbenchSessionAction::Cancel,
+            },
+            |_| {
+                cleanup_called.set(true);
+                Err("simulated cleanup failure".into())
+            },
+        )
+        .expect("persisted terminal transition wins over cleanup failure");
+        assert!(cleanup_called.get());
+        assert_eq!(terminal.status, WorkbenchSessionStatus::Cancelled);
+        assert_eq!(
+            store
+                .get(&session.session_id)
+                .expect("reload terminal session")
+                .status,
+            WorkbenchSessionStatus::Cancelled
+        );
     }
 }

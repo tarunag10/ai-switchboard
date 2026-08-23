@@ -28,7 +28,7 @@ const EXPIRED: &str = "expired";
 const REVOKED: &str = "revoked";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WorkbenchProcessStartGrant {
     pub schema_version: u32,
     pub grant_id: String,
@@ -75,7 +75,7 @@ pub struct WorkbenchProcessStartGrantPolicy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct WorkbenchProcessGrantLedger {
     schema_version: u32,
     grants: BTreeMap<String, WorkbenchProcessStartGrant>,
@@ -257,6 +257,14 @@ impl WorkbenchProcessStartGrant {
         })
     }
 
+    pub(crate) fn require_active_at(&self, now: DateTime<Utc>) -> Result<()> {
+        self.validate()?;
+        if self.effective_state_at(now)? != "active" {
+            bail!("Workbench process grant is not active");
+        }
+        Ok(())
+    }
+
     fn view_at(&self, now: DateTime<Utc>) -> WorkbenchProcessStartGrantView {
         let effective_state = self.effective_state_at(now).unwrap_or(EXPIRED);
         WorkbenchProcessStartGrantView {
@@ -410,10 +418,12 @@ impl WorkbenchProcessGrantStore {
             || grant.plan_id != plan_id
             || grant.process_run_id != process_run_id
             || grant.capability_id != PROCESS_START_CAPABILITY_ID
-            || grant.effective_state_at(now)? != "active"
         {
             bail!("Workbench process grant is not active for this native plan");
         }
+        grant
+            .require_active_at(now)
+            .map_err(|_| anyhow!("Workbench process grant is not active for this native plan"))?;
         Ok(grant)
     }
 
@@ -549,7 +559,8 @@ fn expire_stale_grants(
 #[cfg(test)]
 mod tests {
     use super::{
-        issue_process_start_grant, process_start_confirmation_phrase, WorkbenchProcessGrantStore,
+        issue_process_start_grant, process_start_confirmation_phrase, WorkbenchProcessGrantLedger,
+        WorkbenchProcessGrantStore, WorkbenchProcessStartGrant,
     };
     use crate::models::SwitchboardMode;
     use crate::workbench_kernel::events::WorkbenchSessionStatus;
@@ -708,6 +719,13 @@ mod tests {
             now,
         )
         .expect("issue fresh grant");
+        fresh
+            .require_active_at(now)
+            .expect("grant is active at issue time");
+        assert!(fresh.require_active_at(now - Duration::seconds(1)).is_err());
+        assert!(fresh
+            .require_active_at(now + Duration::seconds(901))
+            .is_err());
         let directory = tempfile::tempdir().expect("temporary directory");
         let store = WorkbenchProcessGrantStore::at(directory.path().join("grants.json"));
         store.issue(fresh, now).expect("persist grant");
@@ -725,6 +743,34 @@ mod tests {
                 .effective_state,
             "expired"
         );
+    }
+
+    #[test]
+    fn persisted_grants_and_ledger_reject_unknown_content_fields() {
+        let session = session();
+        let plan = plan(&session);
+        let now = Utc.with_ymd_and_hms(2026, 8, 23, 0, 0, 0).unwrap();
+        let grant = issue_process_start_grant(
+            &session,
+            &plan,
+            &process_start_confirmation_phrase(&plan),
+            now,
+        )
+        .expect("issue grant");
+        for forbidden in ["prompt", "path", "credential", "argv", "output"] {
+            let mut value = serde_json::to_value(&grant).expect("serialize grant");
+            value[forbidden] = serde_json::json!("must not be persisted");
+            assert!(
+                serde_json::from_value::<WorkbenchProcessStartGrant>(value).is_err(),
+                "grant accepted forbidden field {forbidden}"
+            );
+        }
+        let ledger = serde_json::json!({
+            "schemaVersion": 1,
+            "grants": {},
+            "environment": {"SECRET": "must not be persisted"}
+        });
+        assert!(serde_json::from_value::<WorkbenchProcessGrantLedger>(ledger).is_err());
     }
 
     #[test]

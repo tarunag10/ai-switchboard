@@ -31,11 +31,12 @@ redaction, rollback, and release gates.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `43bcbcc0` and the
-visible frontend/native command wiring on 2026-08-24. Concurrent unstaged work
-is not counted as shipped. A check mark therefore means the capability is in
-the committed product boundary, not merely described in another plan or
-present in a local uncommitted diff.
+This status was reconciled against committed `main` through `09bff975` plus the
+admission-hardening change recorded in this commit, and against the visible
+frontend/native command wiring on 2026-08-24. Unrelated concurrent unstaged
+work is not counted as shipped. A check mark therefore means the capability is
+in the committed product boundary, not merely described in another plan or
+present in an unrelated local diff.
 
 - **Done** — implemented on `main`, reachable through its intended product
   surface, and covered by focused deterministic checks.
@@ -50,9 +51,9 @@ present in a local uncommitted diff.
 
 Current verification snapshot:
 
-- `28` focused frontend tests pass for selective activation, Workbench,
-  model-routing controls, and advanced Settings integration.
-- `36` focused native `workbench_kernel` tests pass.
+- `34` focused frontend tests pass across selective activation, Workbench
+  bridge/view, model-routing controls, supporting panels, and advanced Settings.
+- `46` focused native `workbench_kernel` tests pass.
 - The model-routing evidence gate passes: `13` Node contract tests, `35`
   native model-routing tests, and `18` native telemetry-store tests.
 - `npm run build` passes after preserving the authoritative
@@ -345,23 +346,32 @@ Deliverables:
   plan, requires the active bound grant, and records only
   `authorized_not_started`; it cannot resolve a binary, launch a child, apply
   configuration, access a workspace, or produce provider traffic.
-- [ ] Require `session.status == active` independently during admission and
-  again immediately before future execution. Terminal session state must deny
-  admission even if the separate grant-ledger revocation write failed.
-- [ ] Make terminal transition and grant retirement fail-safe across the two
+- [x] Require `session.status == active` independently in both the admission
+  command and core admission function. Terminal session state denies admission
+  even if a pre-existing grant record still appears active.
+- [ ] Repeat the authoritative session/grant/plan revalidation immediately
+  before future execution. No execution boundary exists yet.
+- [x] Make terminal transition and grant retirement fail-safe across the two
   ledgers, or make session state the authoritative denial and treat revocation
-  as cleanup. Add an injected failure test for the cross-ledger write.
+  as cleanup. The terminal transition now remains successful and authoritative
+  when injected grant cleanup fails, and a focused test reloads the persisted
+  terminal session.
 - [ ] Treat admission as a historical receipt, not current eligibility. Derive
   `active`, `expired`, `revoked`, `session_terminal`, and `superseded` status by
   rechecking the grant/session/plan; never trust stored
   `authorized_not_started` as a launch capability.
-- [ ] Add `deny_unknown_fields` or equivalent explicit persisted-schema
+- [x] Add `deny_unknown_fields` or equivalent explicit persisted-schema
   rejection for sessions, events, grants, and admissions, with corruption and
-  forbidden prompt/path/credential/output-field tests.
-- [ ] Add direct native `process_supervisor.rs` tests and bridge tests for
-  valid/idempotent admission, paused/terminal session, expired/revoked grant,
-  plan drift, unverified routing, unknown adapter, corrupt digest, full ledger,
+  forbidden prompt/path/credential/argv/output-field tests. Ledger envelopes
+  also reject unknown fields rather than silently retaining future or injected
+  content.
+- [x] Add direct native `process_supervisor.rs` tests and bridge tests for
+  valid/idempotent admission, paused/terminal session, expired/revoked/clock-
+  rollback grants, plan drift, unknown adapter, corrupt digest, full ledger,
   restart, and concurrent issue attempts.
+- [ ] Add a command-level fake-adapter test for the already-present
+  verified-routing prerequisite; do not depend on a developer machine's real
+  Codex installation or configuration.
 - [ ] Move authorization/admission history to a session-level receipt center,
   refresh at grant expiry, clear stale data on session changes/errors, and
   invalidate or freeze a prepared plan when any visible input changes.
@@ -459,9 +469,9 @@ selected. Do not combine their routing authority with Switchboard's Router.
 
 | Priority | Improvement | Why it matters | Acceptance evidence |
 |---|---|---|---|
-| P0 | Enforce active session at admission/execution | A terminal session can be persisted before separate grant revocation fails | Inject revocation failure; admission and execution still fail because session status is authoritative |
-| P0 | Strict persisted schemas | Serde currently tolerates unknown fields, weakening the content-free claim | Unknown `prompt`, path, credential, output, command, and arbitrary fields are rejected from every durable Workbench ledger |
-| P0 | Direct admission tests | `process_supervisor.rs` has no native test module | Native and TypeScript bridge matrices cover valid, corrupt, expired, revoked, terminal, drifted, full, restart, and concurrent cases |
+| P0 — Admission done; execution gate remains | Enforce active session at admission/execution | A terminal session can be persisted before separate grant revocation fails | Injected cleanup failure proves the persisted session is authoritative for admission; repeat the same check at the future start boundary |
+| P0 — Done | Strict persisted schemas | Serde previously tolerated unknown fields, weakening the content-free claim | Unknown `prompt`, path, credential, argv, output, and arbitrary envelope fields are rejected from every durable Workbench ledger |
+| P0 — Done | Direct admission tests | `process_supervisor.rs` previously had no native test module | Native and TypeScript bridge matrices cover valid, corrupt, expired, revoked, terminal, drifted, unknown-adapter, full, restart, and concurrent cases |
 | P0 — Done | Restore repository gates | The full build and OSS integration checker were red | Preserve the compression-mode union and validate the shared Workbench capability projection; both gates now pass |
 | P0 | Correct Chonkify identity | The promoted adapter is local head/tail compaction while fixtures attribute upstream Chonkify | Rename/localize the feature and attribution, or pin and integrate upstream code with parity, licence, omission, and source-span tests |
 | P0 | Split planner from live Router status | The policy and endpoint planners are complete but have no production model-routing caller | Inventory and UI say planner/evidence done, live correlation remaining, approval remaining, automatic routing gated |
@@ -536,8 +546,9 @@ started by weakening an earlier gate.
 2. **Repository gate repair — Done** — frontend compression-mode type fix and
    shared Workbench OSS capability checker coverage; full build and aggregate
    OSS integration gate pass.
-3. **Admission hardening** — authoritative active-session check, strict ledger
-   schemas, cross-ledger failure behavior, direct native and bridge tests.
+3. **Admission hardening — Done** — authoritative active-session check, strict
+   ledger schemas, cross-ledger failure behavior, direct native and bridge
+   tests. Historical/current eligibility remains deliberately in Receipt UX.
 4. **Receipt UX** — derived eligibility, expiry refresh, session receipt center,
    immutable-plan display/invalidation, restart-safe selective receipt loading.
 5. **Fake process controller** — no real CLI; deterministic resolver, registry,
@@ -572,7 +583,8 @@ Minimum automated gates by area:
 
 ```bash
 npm test -- --run src/components/SelectiveActivationCard.test.tsx \
-  src/lib/activationTools.test.ts src/components/WorkbenchView.test.tsx \
+  src/lib/activationTools.test.ts src/lib/workbench.test.ts \
+  src/components/WorkbenchView.test.tsx \
   src/components/ModelRoutingExperimentCard.test.tsx \
   src/components/OptimizationSupportingPanels.test.tsx \
   src/components/SettingsView.integration.test.tsx
@@ -586,8 +598,8 @@ git diff --check
 
 Current gate truth on 2026-08-24:
 
-- Focused frontend: `28 passed`.
-- Native Workbench: `36 passed`.
+- Focused frontend minimum gate: `34 passed` across all seven listed suites.
+- Native Workbench: `46 passed`.
 - Model-routing evidence: `13` Node, `35` native routing, and `18` native
   telemetry tests pass.
 - Chonkify-labelled promotion fixture: passes with MIT metadata and zero
@@ -595,7 +607,7 @@ Current gate truth on 2026-08-24:
   vendors upstream Chonkify.
 - Full frontend build: passes (`tsc && vite build`).
 - OSS harness integration: passes `13` strategy/session/provider Node tests,
-  `20` shared Workbench/Addons frontend tests, `2` native registry tests, the
+  `22` shared Workbench/Addons frontend tests, `2` native registry tests, the
   exact native Workbench projection test, and the required-file/observe-only
   boundary checker.
 

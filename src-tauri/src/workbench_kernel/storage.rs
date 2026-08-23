@@ -14,7 +14,7 @@ const WORKBENCH_LEDGER_SCHEMA_VERSION: u32 = 1;
 const MAX_SESSIONS: usize = 128;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct WorkbenchLedger {
     schema_version: u32,
     sessions: BTreeMap<String, WorkbenchSession>,
@@ -201,7 +201,7 @@ fn trim_terminal_sessions(sessions: &mut BTreeMap<String, WorkbenchSession>) {
 
 #[cfg(test)]
 mod tests {
-    use super::WorkbenchStore;
+    use super::{WorkbenchLedger, WorkbenchStore};
     use crate::workbench_kernel::events::WorkbenchSessionAction;
     use crate::workbench_kernel::session::CreateWorkbenchSessionInput;
 
@@ -210,6 +210,16 @@ mod tests {
             workspace_digest: format!("sha256:{}", "b".repeat(64)),
             task_class: "planning".into(),
         }
+    }
+
+    #[test]
+    fn persisted_session_ledger_rejects_unknown_fields() {
+        let value = serde_json::json!({
+            "schemaVersion": 1,
+            "sessions": {},
+            "workspacePath": "/must/not/persist"
+        });
+        assert!(serde_json::from_value::<WorkbenchLedger>(value).is_err());
     }
 
     #[test]
