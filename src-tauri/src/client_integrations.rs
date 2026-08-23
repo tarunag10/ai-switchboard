@@ -9,7 +9,10 @@ use crate::client_setup_apply::{
     ensure_claude_settings_hook, managed_block_contains_text, remove_pre_tool_use_markers,
 };
 use crate::client_setup_state::{is_claude_code_enabled, is_codex_enabled};
-use crate::managed_files::{backup_if_exists, parse_json_object, remove_managed_block, upsert_managed_block, write_file_if_changed};
+use crate::managed_files::{
+    backup_if_exists, parse_json_object, remove_managed_block, upsert_managed_block,
+    write_file_if_changed,
+};
 
 fn markitdown_claude_md_path() -> PathBuf {
     home_dir().join(".claude").join("CLAUDE.md")
@@ -116,13 +119,20 @@ pub fn disable_markitdown_integration(markitdown_shim: &Path) -> Result<bool> {
     let mut changed =
         remove_pre_tool_use_markers(&claude_settings_path(), &["headroom-markitdown-read.sh"])?;
     let hook_path = headroom_markitdown_hook_path();
-    if hook_path.exists() {
-        let _ = std::fs::remove_file(&hook_path);
-    }
+    changed |= remove_markitdown_hook_if_present(&hook_path)?;
     changed |= remove_managed_block(&markitdown_claude_md_path(), "markitdown_office")?;
     changed |= set_markitdown_bash_permission(markitdown_shim, false)?;
     changed |= remove_managed_block(&markitdown_codex_agents_path(), "markitdown")?;
     Ok(changed)
+}
+
+fn remove_markitdown_hook_if_present(path: &Path) -> Result<bool> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    std::fs::remove_file(path)
+        .with_context(|| format!("removing MarkItDown hook {}", path.display()))?;
+    Ok(true)
 }
 
 fn caveman_claude_md_path() -> PathBuf {
@@ -347,4 +357,20 @@ fn shell_double_quote(value: &str) -> String {
         .replace('"', "\\\"")
         .replace('$', "\\$")
         .replace('`', "\\`")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::remove_markitdown_hook_if_present;
+
+    #[test]
+    fn orphaned_markitdown_hook_removal_reports_change() {
+        let directory = tempfile::tempdir().expect("create temporary directory");
+        let hook = directory.path().join("headroom-markitdown-read.sh");
+        std::fs::write(&hook, "#!/bin/sh\n").expect("write hook");
+
+        assert!(remove_markitdown_hook_if_present(&hook).expect("remove hook"));
+        assert!(!hook.exists());
+        assert!(!remove_markitdown_hook_if_present(&hook).expect("missing hook is a no-op"));
+    }
 }
