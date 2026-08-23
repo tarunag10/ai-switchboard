@@ -32,6 +32,9 @@ the current checkout.
   `docs/benchmarks/phase-4-semantic-cache-and-lmcache.md` — evidence gates.
 - `docs/integrations/oss-harness-integration-plan.md` — DeepSeek Harness,
   NVIDIA NeMo Switchyard, and jcode integration boundaries.
+- `docs/architecture/router-workbench-implementation-plan.md` — shared Router
+  and Workbench product boundary, OSS reuse policy, kernel contracts, and
+  phased execution gates.
 
 ## Status vocabulary
 
@@ -248,6 +251,10 @@ the current checkout.
   interoperability evaluation, jcode reference evaluation, and a machine-
   checked provenance/promotion boundary are shipped; runtime integration remains
   staged and fail-closed.
+- Router/Workbench architecture: one shared-kernel plan now separates the
+  headless Router from the all-in-one Workbench. Existing routing, adapters,
+  replay, registry, and promotion contracts are reused; the durable native
+  session/run kernel and visible Workbench remain remaining build.
 
 ### Prepared but externally blocked
 
