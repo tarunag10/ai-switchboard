@@ -222,6 +222,19 @@ export interface ModelRoutingCompletionHandle {
   decision: ModelRoutingRouteDecision;
 }
 
+/** Durable, native-issued receipt for a completed observe-only Router decision.
+ * It contains no task text, provider payload, prompt, response, or replay data. */
+export interface ModelRoutingDecisionReference {
+  schemaVersion: 1;
+  decisionId: string;
+  runId: string;
+  capturedAt: string;
+  taskClass: string;
+  decisionStage: ModelRoutingStage;
+  routingMode: "observe_only";
+  evidenceDigest: string;
+}
+
 export interface ModelRoutingEvidenceArtifact {
   schemaVersion: number;
   evidenceClass: "local_runtime_observation";
@@ -505,8 +518,20 @@ export function issueModelRoutingCompletionHandle(
 export function completeModelRoutingCompletion(
   handleId: string,
   metrics: ModelRoutingCompletionMetrics,
-): Promise<void> {
-  return invoke<void>("complete_model_routing_completion", { handleId, metrics });
+): Promise<ModelRoutingDecisionReference> {
+  return invoke<ModelRoutingDecisionReference>("complete_model_routing_completion", { handleId, metrics });
+}
+
+export function listModelRoutingDecisionReferences(): Promise<ModelRoutingDecisionReference[]> {
+  return invoke<ModelRoutingDecisionReference[]>("list_model_routing_decision_references");
+}
+
+export function resolveModelRoutingDecisionReference(
+  decisionId: string,
+): Promise<ModelRoutingDecisionReference> {
+  return invoke<ModelRoutingDecisionReference>("resolve_model_routing_decision_reference", {
+    decisionId,
+  });
 }
 
 export function exportModelRoutingEvidenceForHandle(

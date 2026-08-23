@@ -33,7 +33,8 @@ export interface WorkbenchSession {
 
 export interface RouterDecisionReference {
   decisionId: string;
-  policyStage: "observe_only";
+  decisionStage: "observe" | "userApproved" | "automaticAllowlisted";
+  routingMode: "observe_only";
   evidenceDigest: string;
 }
 
@@ -42,7 +43,7 @@ export interface WorkbenchRunSpecInput {
   adapterId: "claude_code" | "codex" | "gemini_cli";
   workspaceDigest: string;
   contextPackDigest: string | null;
-  routerDecision: RouterDecisionReference;
+  routerDecisionId: string;
   requiredCapabilityIds: string[];
   requestedMode: SwitchboardMode;
 }

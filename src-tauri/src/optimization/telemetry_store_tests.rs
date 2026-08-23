@@ -1,7 +1,9 @@
 use tempfile::tempdir;
 
 use super::cache_metrics::CacheTokenMetrics;
-use super::model_routing::{ModelRoutingEvidenceArm, ModelRoutingEvidenceObservation};
+use super::model_routing::{
+    ModelRouteDecision, ModelRoutingEvidenceArm, ModelRoutingEvidenceObservation, ModelRoutingStage,
+};
 use super::telemetry::{RedundancyHashRecord, RoutingDecisionRecord, RtkPresetMetadata};
 use super::telemetry_store::*;
 
@@ -114,7 +116,9 @@ fn legacy_free_form_routing_tasks_are_scrubbed_on_open() {
     assert_eq!(decisions[0].task_class, "general");
     let conn = open_connection_for_tests().expect("reopen telemetry database");
     let stored: String = conn
-        .query_row("SELECT task FROM routing_decisions LIMIT 1", [], |row| row.get(0))
+        .query_row("SELECT task FROM routing_decisions LIMIT 1", [], |row| {
+            row.get(0)
+        })
         .expect("read scrubbed row");
     assert_eq!(stored, "general");
 
@@ -132,7 +136,10 @@ fn model_routing_evidence_round_trips_and_exports_observe_only_artifact() {
     std::env::set_var("HOME", home.path());
 
     reset_for_tests();
-    for arm in [ModelRoutingEvidenceArm::Baseline, ModelRoutingEvidenceArm::Candidate] {
+    for arm in [
+        ModelRoutingEvidenceArm::Baseline,
+        ModelRoutingEvidenceArm::Candidate,
+    ] {
         record_model_routing_evidence(&ModelRoutingEvidenceObservation {
             run_id: "run-1".to_string(),
             captured_at: chrono::Utc::now().to_rfc3339(),
@@ -141,15 +148,22 @@ fn model_routing_evidence_round_trips_and_exports_observe_only_artifact() {
             baseline_model: "frontier".to_string(),
             candidate_model: "fast/local".to_string(),
             succeeded: true,
-            successful_task_cost_microunits: Some(if arm == ModelRoutingEvidenceArm::Baseline { 1000 } else { 700 }),
+            successful_task_cost_microunits: Some(if arm == ModelRoutingEvidenceArm::Baseline {
+                1000
+            } else {
+                700
+            }),
             quality_score_bps: 9800,
-            latency_ms: if arm == ModelRoutingEvidenceArm::Baseline { 800 } else { 820 },
+            latency_ms: if arm == ModelRoutingEvidenceArm::Baseline {
+                800
+            } else {
+                820
+            },
             follow_up_rework: false,
         });
     }
 
-    let artifact = export_model_routing_evidence("run-1", "formatting")
-        .expect("exported evidence");
+    let artifact = export_model_routing_evidence("run-1", "formatting").expect("exported evidence");
     assert_eq!(artifact.evidence_class, "local_runtime_observation");
     assert_eq!(artifact.baseline.sample_count, 1);
     assert_eq!(artifact.baseline.successful_task_count, 1);
@@ -163,6 +177,129 @@ fn model_routing_evidence_round_trips_and_exports_observe_only_artifact() {
     assert_eq!(serialized["evidenceClass"], "local_runtime_observation");
     assert_eq!(serialized["promotionEligible"], false);
     assert!(serialized["baseline"]["successfulTaskCostMicros"].is_number());
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+fn native_router_completion_fixture() -> (ModelRouteDecision, ModelRoutingEvidenceObservation) {
+    let captured_at = chrono::Utc::now().to_rfc3339();
+    (
+        ModelRouteDecision {
+            selected_model: "fast/local".to_string(),
+            actual_model: "frontier".to_string(),
+            observe_only: true,
+            reason: "candidate_observed".to_string(),
+            reasons: vec!["task_class=formatting".to_string()],
+            stage: ModelRoutingStage::Observe,
+            task_class: "formatting".to_string(),
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
+            evidence: None,
+        },
+        ModelRoutingEvidenceObservation {
+            run_id: "routing-run-fixture".to_string(),
+            captured_at,
+            task_class: "formatting".to_string(),
+            arm: ModelRoutingEvidenceArm::Baseline,
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
+            succeeded: true,
+            successful_task_cost_microunits: Some(1_000),
+            quality_score_bps: 9_800,
+            latency_ms: 800,
+            follow_up_rework: false,
+        },
+    )
+}
+
+#[test]
+fn native_router_completion_creates_one_durable_content_free_reference() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+    reset_for_tests();
+    let (decision, observation) = native_router_completion_fixture();
+
+    let reference = record_model_routing_completion(&observation, &decision)
+        .expect("native completion should persist a receipt");
+    assert!(reference.decision_id.starts_with("routing-decision-"));
+    assert_eq!(reference.routing_mode, "observe_only");
+    assert_eq!(reference.task_class, "formatting");
+    assert!(reference.evidence_digest.starts_with("sha256:"));
+    let serialized = serde_json::to_string(&reference).expect("serialize reference");
+    assert!(!serialized.contains("candidate_observed"));
+    assert!(!serialized.contains("task_class=formatting"));
+
+    let resolved = resolve_model_routing_decision_reference(&reference.decision_id)
+        .expect("durable reference should resolve after its transaction closes");
+    assert_eq!(resolved, reference);
+    assert_eq!(
+        list_model_routing_decision_references().expect("bounded native list"),
+        vec![reference]
+    );
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn native_router_completion_does_not_mint_a_reference_when_evidence_insert_fails() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+    reset_for_tests();
+    let (decision, observation) = native_router_completion_fixture();
+    record_model_routing_evidence(&observation)
+        .expect("diagnostic evidence can exist without a receipt");
+
+    let error = record_model_routing_completion(&observation, &decision)
+        .expect_err("duplicate evidence must roll back the reference transaction");
+    assert!(error.contains("duplicate"));
+    assert!(list_model_routing_decision_references()
+        .expect("reference list after failed transaction")
+        .is_empty());
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn native_router_reference_fails_closed_when_evidence_or_digest_is_tampered() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+    reset_for_tests();
+    let (decision, observation) = native_router_completion_fixture();
+    let reference = record_model_routing_completion(&observation, &decision)
+        .expect("native completion should persist a receipt");
+
+    let conn = open_connection_for_tests().expect("open telemetry database");
+    conn.execute(
+        "UPDATE model_routing_decision_references SET evidence_digest = ?1 WHERE decision_id = ?2",
+        rusqlite::params![format!("sha256:{}", "0".repeat(64)), reference.decision_id],
+    )
+    .expect("tamper receipt");
+    let error = resolve_model_routing_decision_reference(&reference.decision_id)
+        .expect_err("tampered receipt must not resolve");
+    assert!(error.contains("digest does not match"));
+    conn.execute(
+        "DELETE FROM model_routing_evidence_events WHERE run_id = ?1",
+        rusqlite::params![reference.run_id],
+    )
+    .expect("remove referenced evidence");
+    let missing = resolve_model_routing_decision_reference(&reference.decision_id)
+        .expect_err("reference with missing evidence must not resolve");
+    assert!(missing.contains("unknown or its evidence is unavailable"));
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),
@@ -185,13 +322,20 @@ fn model_routing_evidence_exports_per_arm_success_rates() {
         for (index, succeeded) in outcomes.into_iter().enumerate() {
             record_model_routing_evidence(&ModelRoutingEvidenceObservation {
                 run_id: "run-2".to_string(),
-                captured_at: (chrono::Utc::now() + chrono::Duration::milliseconds(index as i64)).to_rfc3339(),
+                captured_at: (chrono::Utc::now() + chrono::Duration::milliseconds(index as i64))
+                    .to_rfc3339(),
                 task_class: "formatting".to_string(),
                 arm,
                 baseline_model: "frontier".to_string(),
                 candidate_model: "fast/local".to_string(),
                 succeeded,
-                successful_task_cost_microunits: succeeded.then_some(if arm == ModelRoutingEvidenceArm::Baseline { 1000 } else { 700 }),
+                successful_task_cost_microunits: succeeded.then_some(
+                    if arm == ModelRoutingEvidenceArm::Baseline {
+                        1000
+                    } else {
+                        700
+                    },
+                ),
                 quality_score_bps: 9800,
                 latency_ms: 800,
                 follow_up_rework: false,
@@ -200,8 +344,7 @@ fn model_routing_evidence_exports_per_arm_success_rates() {
         }
     }
 
-    let artifact = export_model_routing_evidence("run-2", "formatting")
-        .expect("exported evidence");
+    let artifact = export_model_routing_evidence("run-2", "formatting").expect("exported evidence");
     assert_eq!(artifact.baseline.sample_count, 2);
     assert_eq!(artifact.baseline.successful_task_count, 1);
     assert_eq!(artifact.baseline.success_rate_bps, 5_000);
@@ -224,11 +367,7 @@ fn model_routing_evidence_export_uses_latest_timestamp_instant() {
 
     reset_for_tests();
     let day = chrono::Utc::now().date_naive();
-    let base = day
-        .and_hms_opt(12, 0, 0)
-        .expect("valid noon")
-        .and_utc()
-        - chrono::Duration::days(1);
+    let base = day.and_hms_opt(12, 0, 0).expect("valid noon").and_utc() - chrono::Duration::days(1);
     let earlier = base
         .with_timezone(&chrono::FixedOffset::east_opt(14 * 60 * 60).expect("valid offset"))
         .to_rfc3339();
@@ -255,8 +394,8 @@ fn model_routing_evidence_export_uses_latest_timestamp_instant() {
         .expect("record offset timestamp");
     }
 
-    let artifact = export_model_routing_evidence("run-offsets", "formatting")
-        .expect("export offset evidence");
+    let artifact =
+        export_model_routing_evidence("run-offsets", "formatting").expect("export offset evidence");
     assert_eq!(
         artifact.provenance.captured_at,
         chrono::DateTime::parse_from_rfc3339(&later)
@@ -275,15 +414,87 @@ fn model_routing_evidence_export_uses_latest_timestamp_instant() {
 fn model_routing_evidence_export_rejects_corrupt_persisted_rows() {
     let _guard = crate::optimization::telemetry::test_guard();
     let cases = [
-        ("stale timestamp", (chrono::Utc::now() - chrono::Duration::days(8)).to_rfc3339(), 1, Some(100_i64), 9000_i64, 10_i64, 0_i64),
-        ("future timestamp", (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339(), 1, Some(100), 9000, 10, 0),
-        ("malformed timestamp", "not-a-timestamp".to_string(), 1, Some(100), 9000, 10, 0),
-        ("negative cost", chrono::Utc::now().to_rfc3339(), 1, Some(-1), 9000, 10, 0),
-        ("quality overflow", chrono::Utc::now().to_rfc3339(), 1, Some(100), 10001, 10, 0),
-        ("negative latency", chrono::Utc::now().to_rfc3339(), 1, Some(100), 9000, -1, 0),
-        ("invalid success flag", chrono::Utc::now().to_rfc3339(), 2, Some(100), 9000, 10, 0),
-        ("invalid rework flag", chrono::Utc::now().to_rfc3339(), 1, Some(100), 9000, 10, 2),
-        ("missing successful cost", chrono::Utc::now().to_rfc3339(), 1, None, 9000, 10, 0),
+        (
+            "stale timestamp",
+            (chrono::Utc::now() - chrono::Duration::days(8)).to_rfc3339(),
+            1,
+            Some(100_i64),
+            9000_i64,
+            10_i64,
+            0_i64,
+        ),
+        (
+            "future timestamp",
+            (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339(),
+            1,
+            Some(100),
+            9000,
+            10,
+            0,
+        ),
+        (
+            "malformed timestamp",
+            "not-a-timestamp".to_string(),
+            1,
+            Some(100),
+            9000,
+            10,
+            0,
+        ),
+        (
+            "negative cost",
+            chrono::Utc::now().to_rfc3339(),
+            1,
+            Some(-1),
+            9000,
+            10,
+            0,
+        ),
+        (
+            "quality overflow",
+            chrono::Utc::now().to_rfc3339(),
+            1,
+            Some(100),
+            10001,
+            10,
+            0,
+        ),
+        (
+            "negative latency",
+            chrono::Utc::now().to_rfc3339(),
+            1,
+            Some(100),
+            9000,
+            -1,
+            0,
+        ),
+        (
+            "invalid success flag",
+            chrono::Utc::now().to_rfc3339(),
+            2,
+            Some(100),
+            9000,
+            10,
+            0,
+        ),
+        (
+            "invalid rework flag",
+            chrono::Utc::now().to_rfc3339(),
+            1,
+            Some(100),
+            9000,
+            10,
+            2,
+        ),
+        (
+            "missing successful cost",
+            chrono::Utc::now().to_rfc3339(),
+            1,
+            None,
+            9000,
+            10,
+            0,
+        ),
     ];
     for (label, captured_at, succeeded, cost, quality, latency, rework) in cases {
         let home = tempdir().expect("temp home");
@@ -300,9 +511,11 @@ fn model_routing_evidence_export_rejects_corrupt_persisted_rows() {
             rusqlite::params!["corrupt-export", captured_at, succeeded, cost, quality, latency, rework],
         )
         .expect("insert corrupt row");
-        let error = export_model_routing_evidence("corrupt-export", "formatting")
-            .expect_err(label);
-        assert!(error.contains("invalid persisted model-routing evidence row"), "{label}: {error}");
+        let error = export_model_routing_evidence("corrupt-export", "formatting").expect_err(label);
+        assert!(
+            error.contains("invalid persisted model-routing evidence row"),
+            "{label}: {error}"
+        );
         match previous_home {
             Some(value) => std::env::set_var("HOME", value),
             None => std::env::remove_var("HOME"),

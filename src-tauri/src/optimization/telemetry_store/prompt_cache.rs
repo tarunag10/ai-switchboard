@@ -81,5 +81,6 @@ pub(crate) fn reset_for_tests() {
         let _ = conn.execute("DELETE FROM redundancy_hash_events", []);
         let _ = conn.execute("DELETE FROM rtk_preset_metadata_events", []);
         let _ = conn.execute("DELETE FROM model_routing_evidence_events", []);
+        let _ = conn.execute("DELETE FROM model_routing_decision_references", []);
     }
 }

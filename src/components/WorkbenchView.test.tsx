@@ -8,8 +8,16 @@ const listSessions = vi.fn();
 const projection = vi.fn();
 const createSession = vi.fn();
 const preparePlan = vi.fn();
+const listRouterDecisionReferences = vi.fn();
 
 vi.mock("../lib/tauriRuntime", () => ({ hasTauriRuntime: () => true }));
+vi.mock("../lib/optimization", async () => {
+  const actual = await vi.importActual<typeof import("../lib/optimization")>("../lib/optimization");
+  return {
+    ...actual,
+    listModelRoutingDecisionReferences: (...args: unknown[]) => listRouterDecisionReferences(...args),
+  };
+});
 vi.mock("../lib/workbench", async () => {
   const actual = await vi.importActual<typeof import("../lib/workbench")>("../lib/workbench");
   return {
@@ -26,6 +34,16 @@ vi.mock("../lib/workbench", async () => {
 
 const workspaceDigest = `sha256:${"a".repeat(64)}`;
 const routerDigest = `sha256:${"b".repeat(64)}`;
+const routerDecisionReference = {
+  schemaVersion: 1 as const,
+  decisionId: "routing-decision-1",
+  runId: "routing-run-1",
+  capturedAt: "2026-08-23T00:00:00Z",
+  taskClass: "formatting",
+  decisionStage: "observe" as const,
+  routingMode: "observe_only" as const,
+  evidenceDigest: routerDigest,
+};
 const session = {
   schemaVersion: 1,
   sessionId: "workbench:test",
@@ -68,6 +86,7 @@ describe("WorkbenchView", () => {
     vi.clearAllMocks();
     listSessions.mockResolvedValue([session]);
     projection.mockResolvedValue(capabilityProjection);
+    listRouterDecisionReferences.mockResolvedValue([routerDecisionReference]);
   });
 
   it("surfaces the local plan-only boundary and shared capability registry", async () => {
@@ -119,7 +138,7 @@ describe("WorkbenchView", () => {
       adapterId: "codex",
       workspaceDigest,
       contextPackDigest: null,
-      routerDecision: { decisionId: "route:observe-1", policyStage: "observe_only", evidenceDigest: routerDigest },
+      routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
       requestedMode: "full",
       adapterPlanId: "adapter-plan:test",
       adapterAction: "apply_managed_routing",
@@ -132,20 +151,17 @@ describe("WorkbenchView", () => {
     render(<WorkbenchView hidden={false} />);
     await screen.findAllByText("workbench:test");
 
-    await user.type(screen.getByLabelText("Observe-only Router decision ID"), "route:observe-1");
-    await user.type(screen.getByLabelText("Router evidence SHA-256 digest"), routerDigest);
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
     await user.click(screen.getByRole("button", { name: "Prepare plan only" }));
 
     expect(preparePlan).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: "workbench:test",
       adapterId: "codex",
-      routerDecision: {
-        decisionId: "route:observe-1",
-        policyStage: "observe_only",
-        evidenceDigest: routerDigest,
-      },
+      routerDecisionId: "routing-decision-1",
     }));
     expect(await screen.findByText(/plan id: run-plan:test/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Observe-only Router decision ID")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Router evidence SHA-256 digest")).not.toBeInTheDocument();
   });
 });

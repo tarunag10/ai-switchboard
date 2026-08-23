@@ -125,7 +125,16 @@ describe("optimization supporting panels", () => {
       expiresAt: "2026-08-23T00:10:00Z",
       decision: { stage: "observe", selectedModel: "fast/local" },
     });
-    mocks.completeCompletion.mockResolvedValue(undefined);
+    mocks.completeCompletion.mockResolvedValue({
+      schemaVersion: 1,
+      decisionId: "routing-decision-1",
+      runId: "native-run-1",
+      capturedAt: "2026-08-23T00:00:00Z",
+      taskClass: "formatting",
+      decisionStage: "observe",
+      routingMode: "observe_only",
+      evidenceDigest: `sha256:${"a".repeat(64)}`,
+    });
     mocks.exportEvidenceForHandle.mockResolvedValue({
       evidenceClass: "local_runtime_observation",
       promotionEligible: false,
@@ -143,6 +152,7 @@ describe("optimization supporting panels", () => {
     await waitFor(() => expect(mocks.completeCompletion).toHaveBeenCalledWith("handle-1", expect.objectContaining({
       succeeded: true, qualityScoreBps: 10000,
     })));
+    expect(await screen.findByText(/routing-decision-1/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Export completion evidence" }));
     await waitFor(() => expect(mocks.exportEvidenceForHandle).toHaveBeenCalledWith("handle-1", "formatting"));
   });

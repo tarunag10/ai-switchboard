@@ -11,8 +11,10 @@ use super::telemetry::{
 mod model_routing_evidence;
 
 pub(crate) use model_routing_evidence::{
-    export_model_routing_evidence, record_model_routing_evidence, ModelRoutingEvidenceArmMetrics,
-    ModelRoutingEvidenceArtifact, ModelRoutingEvidenceProvenance,
+    export_model_routing_evidence, list_model_routing_decision_references,
+    record_model_routing_completion, record_model_routing_evidence,
+    resolve_model_routing_decision_reference, ModelRoutingDecisionReference,
+    ModelRoutingEvidenceArmMetrics, ModelRoutingEvidenceArtifact, ModelRoutingEvidenceProvenance,
 };
 
 const DB_FILE: &str = "optimization_telemetry.sqlite";
@@ -88,6 +90,16 @@ fn open_connection() -> rusqlite::Result<Connection> {
             quality_score_bps INTEGER NOT NULL,
             latency_ms INTEGER NOT NULL,
             follow_up_rework INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS model_routing_decision_references (
+            decision_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL UNIQUE,
+            captured_at TEXT NOT NULL,
+            task_class TEXT NOT NULL,
+            arm TEXT NOT NULL,
+            decision_stage TEXT NOT NULL,
+            routing_mode TEXT NOT NULL,
+            evidence_digest TEXT NOT NULL
         );",
     )?;
     scrub_legacy_routing_tasks(&conn)?;
@@ -116,7 +128,6 @@ fn scrub_legacy_routing_tasks(conn: &Connection) -> rusqlite::Result<()> {
 pub(crate) fn open_connection_for_tests() -> rusqlite::Result<Connection> {
     open_connection()
 }
-
 
 pub(crate) fn record_prompt_cache_metrics(metrics: &CacheTokenMetrics) {
     if metrics.total_tokens() == 0 {
@@ -246,7 +257,8 @@ fn try_recent_routing_decisions(limit: usize) -> rusqlite::Result<Vec<RoutingDec
     )?;
     let rows = stmt.query_map([limit as i64], |row| {
         Ok(RoutingDecisionRecord {
-            task_class: super::model_routing::bounded_task_class(&row.get::<_, String>(0)?).to_string(),
+            task_class: super::model_routing::bounded_task_class(&row.get::<_, String>(0)?)
+                .to_string(),
             current_model: row.get(1)?,
             selected_model: row.get(2)?,
             fallback_model: row.get(3)?,

@@ -11,6 +11,10 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { SwitchboardMode } from "../lib/types";
+import {
+  listModelRoutingDecisionReferences,
+  type ModelRoutingDecisionReference,
+} from "../lib/optimization";
 import { hasTauriRuntime } from "../lib/tauriRuntime";
 import {
   WORKBENCH_CAPABILITIES,
@@ -92,7 +96,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const [requestedMode, setRequestedMode] = useState<SwitchboardMode>("full");
   const [contextPackDigest, setContextPackDigest] = useState("");
   const [routerDecisionId, setRouterDecisionId] = useState("");
-  const [routerEvidenceDigest, setRouterEvidenceDigest] = useState("");
+  const [routerDecisionReferences, setRouterDecisionReferences] = useState<ModelRoutingDecisionReference[]>([]);
   const [capabilityIds, setCapabilityIds] = useState<string[]>([
     "router_observe",
     "client_adapter_plan",
@@ -118,15 +122,22 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     setLoading(true);
     setError(null);
     try {
-      const [nextSessions, nextProjection] = await Promise.all([
+      const [nextSessions, nextProjection, nextRouterDecisionReferences] = await Promise.all([
         listWorkbenchSessions(),
         getWorkbenchCapabilityProjection(),
+        listModelRoutingDecisionReferences(),
       ]);
       const ordered = [...nextSessions].sort((left, right) =>
         right.updatedAt.localeCompare(left.updatedAt),
       );
       setSessions(ordered);
       setProjection(nextProjection);
+      setRouterDecisionReferences(nextRouterDecisionReferences);
+      setRouterDecisionId((current) =>
+        current && nextRouterDecisionReferences.some((reference) => reference.decisionId === current)
+          ? current
+          : "",
+      );
       setSelectedSessionId((current) =>
         current && ordered.some((session) => session.sessionId === current)
           ? current
@@ -231,13 +242,8 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     if (!selectedSession) return;
     const contextDigest = contextPackDigest.trim();
     const decisionId = routerDecisionId.trim();
-    const evidenceDigest = routerEvidenceDigest.trim();
     if (!decisionId) {
-      setError("Enter the opaque ID of an observe-only Router decision before preparing a plan.");
-      return;
-    }
-    if (!isWorkbenchDigest(evidenceDigest)) {
-      setError("Enter the Router evidence as a SHA-256 digest. Route contents are never collected by the Workbench.");
+      setError("Select a native observe-only Router decision before preparing a plan.");
       return;
     }
     if (contextDigest && !isWorkbenchDigest(contextDigest)) {
@@ -253,11 +259,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         adapterId,
         workspaceDigest: selectedSession.workspaceDigest,
         contextPackDigest: contextDigest || null,
-        routerDecision: {
-          decisionId,
-          policyStage: "observe_only",
-          evidenceDigest,
-        },
+        routerDecisionId: decisionId,
         requiredCapabilityIds: capabilityIds,
         requestedMode,
       });
@@ -422,9 +424,9 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   <label className="workbench-field"><span>Client adapter</span><select aria-label="Client adapter" onChange={(event) => setAdapterId(event.target.value as (typeof adapters)[number]["id"])} value={adapterId}>{adapters.map((adapter) => <option key={adapter.id} value={adapter.id}>{adapter.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Requested Switchboard mode</span><select aria-label="Requested Switchboard mode" onChange={(event) => setRequestedMode(event.target.value as SwitchboardMode)} value={requestedMode}>{modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Context pack SHA-256 digest (optional)</span><input aria-label="Context pack SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => setContextPackDigest(event.target.value)} placeholder="sha256:…" spellCheck={false} value={contextPackDigest} /></label>
-                  <label className="workbench-field"><span>Observe-only Router decision ID</span><input aria-label="Observe-only Router decision ID" autoCapitalize="none" autoCorrect="off" onChange={(event) => setRouterDecisionId(event.target.value)} placeholder="route:…" spellCheck={false} value={routerDecisionId} /></label>
-                  <label className="workbench-field"><span>Router evidence SHA-256 digest</span><input aria-label="Router evidence SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => setRouterEvidenceDigest(event.target.value)} placeholder="sha256:…" spellCheck={false} value={routerEvidenceDigest} /></label>
+                  <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => setRouterDecisionId(event.target.value)} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
                 </div>
+                <p className="optimize-minimal__meta">Router references are native-issued, content-free receipts. The Workbench resolves the selected ID again before it creates a plan; replay digests are not accepted here.</p>
                 <fieldset className="workbench-capabilities">
                   <legend>Required capabilities</legend>
                   {WORKBENCH_CAPABILITIES.map((capability) => <label key={capability.id}><input checked={capabilityIds.includes(capability.id)} onChange={() => toggleCapability(capability.id)} type="checkbox" /><span><strong>{capability.label}</strong><small>{capability.detail}</small></span></label>)}

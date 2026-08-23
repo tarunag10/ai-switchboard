@@ -21,7 +21,9 @@ pub struct WorkbenchRunSpecInput {
     pub adapter_id: String,
     pub workspace_digest: String,
     pub context_pack_digest: Option<String>,
-    pub router_decision: RouterDecisionReference,
+    /// The only caller-supplied Router field. It is resolved against the
+    /// durable native completion ledger before a plan is created.
+    pub router_decision_id: String,
     pub required_capability_ids: Vec<String>,
     pub requested_mode: SwitchboardMode,
 }
@@ -30,7 +32,8 @@ pub struct WorkbenchRunSpecInput {
 #[serde(rename_all = "camelCase")]
 pub struct RouterDecisionReference {
     pub decision_id: String,
-    pub policy_stage: String,
+    pub decision_stage: String,
+    pub routing_mode: String,
     pub evidence_digest: String,
 }
 
@@ -66,10 +69,31 @@ pub struct WorkbenchRunPlan {
 fn validate_router_reference(reference: &RouterDecisionReference) -> Result<()> {
     validate_identifier(&reference.decision_id, "router decision ID")?;
     validate_digest(&reference.evidence_digest, "router evidence digest")?;
-    if reference.policy_stage != OBSERVE_ONLY {
+    if !matches!(
+        reference.decision_stage.as_str(),
+        "observe" | "userApproved" | "automaticAllowlisted"
+    ) {
+        bail!("Workbench plan requires a Router decision with a known policy stage");
+    }
+    if reference.routing_mode != OBSERVE_ONLY {
         bail!("Workbench plan requires an observe-only Router decision reference");
     }
     Ok(())
+}
+
+fn resolved_router_reference(decision_id: &str) -> Result<RouterDecisionReference> {
+    validate_identifier(decision_id, "router decision ID")?;
+    let reference =
+        crate::optimization::telemetry_store::resolve_model_routing_decision_reference(decision_id)
+            .map_err(|error| anyhow!("Workbench Router decision could not be resolved: {error}"))?;
+    let resolved = RouterDecisionReference {
+        decision_id: reference.decision_id,
+        decision_stage: reference.decision_stage,
+        routing_mode: reference.routing_mode,
+        evidence_digest: reference.evidence_digest,
+    };
+    validate_router_reference(&resolved)?;
+    Ok(resolved)
 }
 
 fn validate_capability_ids(ids: &[String]) -> Result<()> {
@@ -92,9 +116,10 @@ fn validate_capability_ids(ids: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn prepare_run_plan(
+fn prepare_run_plan_with_reference(
     session: &WorkbenchSession,
     input: WorkbenchRunSpecInput,
+    router_decision: RouterDecisionReference,
 ) -> Result<WorkbenchRunPlan> {
     if input.session_id != session.session_id {
         return Err(anyhow!("Workbench run spec belongs to another session"));
@@ -109,7 +134,7 @@ pub(crate) fn prepare_run_plan(
     if let Some(context_pack_digest) = &input.context_pack_digest {
         validate_digest(context_pack_digest, "context pack digest")?;
     }
-    validate_router_reference(&input.router_decision)?;
+    validate_router_reference(&router_decision)?;
     validate_capability_ids(&input.required_capability_ids)?;
     let adapter = coding_client_adapter_for_version(
         &input.adapter_id,
@@ -121,7 +146,7 @@ pub(crate) fn prepare_run_plan(
         "adapterId": adapter.id(),
         "workspaceDigest": &input.workspace_digest,
         "contextPackDigest": &input.context_pack_digest,
-        "routerDecision": &input.router_decision,
+        "routerDecision": &router_decision,
         "capabilityIds": &input.required_capability_ids,
         "requestedMode": &input.requested_mode,
         "adapterPlanId": &adapter_plan.plan_id,
@@ -136,7 +161,7 @@ pub(crate) fn prepare_run_plan(
         adapter_id: adapter.id().to_string(),
         workspace_digest: input.workspace_digest,
         context_pack_digest: input.context_pack_digest,
-        router_decision: input.router_decision,
+        router_decision,
         requested_mode: input.requested_mode,
         adapter_plan_id: adapter_plan.plan_id,
         adapter_action: match adapter_plan.action {
@@ -160,9 +185,20 @@ pub(crate) fn prepare_run_plan(
     })
 }
 
+pub(crate) fn prepare_run_plan(
+    session: &WorkbenchSession,
+    input: WorkbenchRunSpecInput,
+) -> Result<WorkbenchRunPlan> {
+    let router_decision = resolved_router_reference(&input.router_decision_id)?;
+    prepare_run_plan_with_reference(session, input, router_decision)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{prepare_run_plan, RouterDecisionReference, WorkbenchRunSpecInput};
+    use super::{
+        prepare_run_plan, prepare_run_plan_with_reference, RouterDecisionReference,
+        WorkbenchRunSpecInput,
+    };
     use crate::models::SwitchboardMode;
     use crate::workbench_kernel::session::{CreateWorkbenchSessionInput, WorkbenchSession};
 
@@ -177,23 +213,25 @@ mod tests {
             task_class: "coding".into(),
         })
         .expect("create session");
-        let plan = prepare_run_plan(
+        let plan = prepare_run_plan_with_reference(
             &session,
             WorkbenchRunSpecInput {
                 session_id: session.session_id.clone(),
                 adapter_id: "codex".into(),
                 workspace_digest: session.workspace_digest.clone(),
                 context_pack_digest: Some(digest('d')),
-                router_decision: RouterDecisionReference {
-                    decision_id: "route:local-1".into(),
-                    policy_stage: "observe_only".into(),
-                    evidence_digest: digest('e'),
-                },
+                router_decision_id: "routing-decision-test-1".into(),
                 required_capability_ids: vec![
                     "router_observe".into(),
                     "client_adapter_plan".into(),
                 ],
                 requested_mode: SwitchboardMode::Headroom,
+            },
+            RouterDecisionReference {
+                decision_id: "routing-decision-test-1".into(),
+                decision_stage: "observe".into(),
+                routing_mode: "observe_only".into(),
+                evidence_digest: digest('e'),
             },
         )
         .expect("prepare plan");
@@ -218,26 +256,59 @@ mod tests {
             adapter_id: "codex".into(),
             workspace_digest: session.workspace_digest.clone(),
             context_pack_digest: None,
-            router_decision: RouterDecisionReference {
-                decision_id: "route:local-2".into(),
-                policy_stage: "automatic".into(),
-                evidence_digest: digest('a'),
-            },
+            router_decision_id: "routing-decision-test-2".into(),
             required_capability_ids: vec!["router_observe".into()],
             requested_mode: SwitchboardMode::Off,
         };
-        assert!(prepare_run_plan(&session, input.clone()).is_err());
-        input.router_decision.policy_stage = "observe_only".into();
+        let mut reference = RouterDecisionReference {
+            decision_id: "routing-decision-test-2".into(),
+            decision_stage: "observe".into(),
+            routing_mode: "automatic".into(),
+            evidence_digest: digest('a'),
+        };
+        assert!(
+            prepare_run_plan_with_reference(&session, input.clone(), reference.clone()).is_err()
+        );
+        reference.routing_mode = "observe_only".into();
         input.required_capability_ids = vec!["arbitrary_shell".into()];
-        assert!(prepare_run_plan(&session, input).is_err());
+        assert!(prepare_run_plan_with_reference(&session, input, reference).is_err());
+    }
+
+    #[test]
+    fn run_plan_requires_a_native_router_reference_resolution() {
+        let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
+            workspace_digest: digest('f'),
+            task_class: "planning".into(),
+        })
+        .expect("create session");
+        let input = WorkbenchRunSpecInput {
+            session_id: session.session_id.clone(),
+            adapter_id: "codex".into(),
+            workspace_digest: session.workspace_digest.clone(),
+            context_pack_digest: None,
+            router_decision_id: "routing-decision-unknown".into(),
+            required_capability_ids: vec!["router_observe".into()],
+            requested_mode: SwitchboardMode::Off,
+        };
+        let error = prepare_run_plan(&session, input).expect_err("manual Router IDs must not plan");
+        assert!(error.to_string().contains("could not be resolved"));
     }
 
     #[test]
     fn run_spec_rejects_prompt_and_tool_output_fields() {
         let payload = format!(
-            r#"{{"sessionId":"workbench:test","adapterId":"codex","workspaceDigest":"sha256:{}","routerDecision":{{"decisionId":"route:test","policyStage":"observe_only","evidenceDigest":"sha256:{}"}},"requiredCapabilityIds":[],"requestedMode":"off","toolOutput":"private"}}"#,
+            r#"{{"sessionId":"workbench:test","adapterId":"codex","workspaceDigest":"sha256:{}","routerDecisionId":"routing-decision-test","requiredCapabilityIds":[],"requestedMode":"off","toolOutput":"private"}}"#,
             "a".repeat(64),
-            "b".repeat(64)
+        );
+        assert!(serde_json::from_str::<WorkbenchRunSpecInput>(&payload).is_err());
+    }
+
+    #[test]
+    fn run_spec_rejects_manually_supplied_router_metadata() {
+        let payload = format!(
+            r#"{{"sessionId":"workbench:test","adapterId":"codex","workspaceDigest":"sha256:{}","routerDecisionId":"routing-decision-test","routerDecision":{{"decisionId":"routing-decision-test","routingMode":"observe_only","evidenceDigest":"sha256:{}"}},"requiredCapabilityIds":[],"requestedMode":"off"}}"#,
+            "a".repeat(64),
+            "b".repeat(64),
         );
         assert!(serde_json::from_str::<WorkbenchRunSpecInput>(&payload).is_err());
     }

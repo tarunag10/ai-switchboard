@@ -4,6 +4,7 @@ import {
   completeModelRoutingCompletion,
   exportModelRoutingEvidenceForHandle,
   issueModelRoutingCompletionHandle,
+  type ModelRoutingDecisionReference,
   type ModelRoutingEvidenceArtifact,
   type ModelRoutingCompletionHandle,
 } from "../lib/optimization";
@@ -50,10 +51,12 @@ export function ModelRoutingEvidenceCapture() {
   const [notice, setNotice] = useState<string | null>(null);
   const [artifact, setArtifact] = useState<ModelRoutingEvidenceArtifact | null>(null);
   const [completionHandle, setCompletionHandle] = useState<ModelRoutingCompletionHandle | null>(null);
+  const [decisionReference, setDecisionReference] = useState<ModelRoutingDecisionReference | null>(null);
 
   const update = <K extends keyof CaptureState>(key: K, value: CaptureState[K]) => {
     setState((current) => ({ ...current, [key]: value }));
     setArtifact(null);
+    setDecisionReference(null);
   };
 
   const exportRun = async () => {
@@ -82,6 +85,7 @@ export function ModelRoutingEvidenceCapture() {
     setWorking(true);
     setNotice(null);
     setArtifact(null);
+    setDecisionReference(null);
     try {
       const issued = await issueModelRoutingCompletionHandle({
         client: state.client.trim(),
@@ -106,7 +110,7 @@ export function ModelRoutingEvidenceCapture() {
     setWorking(true);
     setNotice(null);
     try {
-      await completeModelRoutingCompletion(completionHandle.handleId, {
+      const reference = await completeModelRoutingCompletion(completionHandle.handleId, {
         succeeded: state.succeeded,
         successfulTaskCostMicrounits: state.succeeded
           ? numericValue(state.costMicrounits, "Successful task cost")
@@ -115,7 +119,8 @@ export function ModelRoutingEvidenceCapture() {
         latencyMs: numericValue(state.latencyMs, "Latency"),
         followUpRework: state.followUpRework,
       });
-      setNotice("Provider outcome completed; completion-bound export is now available.");
+      setDecisionReference(reference);
+      setNotice("Provider outcome completed. Its native observe-only Router receipt is now available in Workbench.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     } finally {
@@ -180,6 +185,7 @@ export function ModelRoutingEvidenceCapture() {
         <button className="addon-card__action" disabled={working || completionHandle === null} onClick={() => void exportRun()} type="button">Export completion evidence</button>
       </div>
       {completionHandle ? <p role="status">Active handle: {completionHandle.handleId} ({completionHandle.decision.stage}; {completionHandle.decision.selectedModel})</p> : null}
+      {decisionReference ? <p role="status"><strong>Workbench Router receipt:</strong> {decisionReference.decisionId} · {decisionReference.routingMode} · {decisionReference.evidenceDigest}</p> : null}
       {notice ? <p role="status">{notice}</p> : null}
       {artifact ? <pre aria-label="Exported routing evidence">{JSON.stringify(artifact, null, 2)}</pre> : null}
     </section>

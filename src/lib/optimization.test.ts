@@ -14,7 +14,9 @@ import {
   runPreemptiveCompaction,
   completeModelRoutingCompletion,
   issueModelRoutingCompletionHandle,
+  listModelRoutingDecisionReferences,
   modelRoutingEffectiveStageReceipt,
+  resolveModelRoutingDecisionReference,
   saveModelRoutingExperimentPolicy,
   saveOptimizationActionPolicy,
   validateModelRouting,
@@ -336,10 +338,20 @@ describe("optimization helpers", () => {
       latencyMs: 700,
       followUpRework: false,
     };
+    const reference = {
+      schemaVersion: 1,
+      decisionId: "routing-decision-test",
+      runId: "native-run",
+      capturedAt: "2026-08-23T00:00:00Z",
+      taskClass: "formatting",
+      decisionStage: "observe",
+      routingMode: "observe_only",
+      evidenceDigest: `sha256:${"a".repeat(64)}`,
+    } as const;
     const artifact = { evidenceClass: "local_runtime_observation", promotionEligible: false };
-    invokeMock.mockResolvedValueOnce(handle).mockResolvedValueOnce(undefined).mockResolvedValueOnce(artifact);
+    invokeMock.mockResolvedValueOnce(handle).mockResolvedValueOnce(reference).mockResolvedValueOnce(artifact);
     await expect(issueModelRoutingCompletionHandle(input)).resolves.toEqual(handle);
-    await expect(completeModelRoutingCompletion(handle.handleId, metrics)).resolves.toBeUndefined();
+    await expect(completeModelRoutingCompletion(handle.handleId, metrics)).resolves.toEqual(reference);
     await expect(exportModelRoutingEvidenceForHandle(handle.handleId, "formatting")).resolves.toEqual(artifact);
     expect(invokeMock.mock.calls).toEqual([
       ["issue_model_routing_completion_handle", { input }],
@@ -357,6 +369,26 @@ describe("optimization helpers", () => {
       handleId: "opaque-handle",
       taskClass: "formatting",
     });
+  });
+
+  it("lists and resolves only native Router decision references", async () => {
+    const reference = {
+      schemaVersion: 1,
+      decisionId: "routing-decision-test",
+      runId: "native-run",
+      capturedAt: "2026-08-23T00:00:00Z",
+      taskClass: "formatting",
+      decisionStage: "observe",
+      routingMode: "observe_only",
+      evidenceDigest: `sha256:${"a".repeat(64)}`,
+    } as const;
+    invokeMock.mockResolvedValueOnce([reference]).mockResolvedValueOnce(reference);
+    await expect(listModelRoutingDecisionReferences()).resolves.toEqual([reference]);
+    await expect(resolveModelRoutingDecisionReference(reference.decisionId)).resolves.toEqual(reference);
+    expect(invokeMock.mock.calls).toEqual([
+      ["list_model_routing_decision_references"],
+      ["resolve_model_routing_decision_reference", { decisionId: reference.decisionId }],
+    ]);
   });
 
   it("returns a safe local compaction preview on native failure", async () => {

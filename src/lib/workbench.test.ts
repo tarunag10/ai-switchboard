@@ -32,11 +32,7 @@ describe("workbench bridge", () => {
       adapterId: "codex",
       workspaceDigest: `sha256:${"a".repeat(64)}`,
       contextPackDigest: null,
-      routerDecision: {
-        decisionId: "route:observe-1",
-        policyStage: "observe_only",
-        evidenceDigest: `sha256:${"b".repeat(64)}`,
-      },
+      routerDecisionId: "routing-decision-1",
       requiredCapabilityIds: ["router_observe"],
       requestedMode: "full",
     });

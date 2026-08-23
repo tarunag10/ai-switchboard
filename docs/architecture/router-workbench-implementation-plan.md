@@ -154,24 +154,38 @@ Acceptance met: the non-autonomous Workbench kernel is visible and usable from
 the desktop UI; unavailable execution is labelled as unavailable rather than
 hidden.
 
-### Phase 3.1 — cross-surface observability — Prepared, gated
+### Phase 3.1 — verified Router decision references — Done
 
 Deliverables:
 
+- [x] Native observe-only completion atomically persists its existing redacted
+  evidence and one durable Router decision receipt. The receipt has an opaque
+  ID, bounded metadata, and a SHA-256 digest over canonical content-free
+  metrics; prompts, raw task text, responses, paths, provider payloads, and
+  replay inputs remain excluded.
+- [x] Bounded native list and resolver commands return only receipt-backed
+  decisions. A manually recorded evidence event, replay digest, unknown ID,
+  missing source event, altered receipt, or malformed policy fails closed.
+- [x] The Router evidence screen visibly reports a completed receipt, and the
+  Workbench replaces manual Router ID/digest fields with a native picker. Plan
+  preparation resolves the selected ID again in Rust rather than trusting the
+  renderer.
 - [ ] Replace the Addons-local OSS registry fetch with the shared Workbench
   projection only after parity tests prove no capability label or fail-closed
   state changes.
-- [ ] Add a Router-decision picker only after the existing Router publishes
-  durable, content-free decision IDs and evidence digests. Raw route payloads
-  must remain unavailable to the Workbench.
 - [ ] Add reusable Router-only/Workbench presets only when each preset maps to
   an existing non-mutating decision policy and has a visible evidence source.
 - [ ] Add replay selection to Workbench by reusing the existing redacted replay
   validator; it must not introduce a second file parser or automatic promotion.
 
+Acceptance met: an observe-only Router completion now supplies a verifiable,
+durable Workbench selection without creating a second Router, accepting manual
+evidence claims, or exposing route content. Addons registry parity, presets,
+and replay selection remain separately gated.
+
 Gate: do not collapse existing Addons, Router, or replay authorities into a
-new Workbench copy. Each link must retain its current promotion and rollback
-rules.
+new Workbench copy. Each remaining link must retain its current promotion and
+rollback rules.
 
 ### Phase 4 — execution adapter readiness — Prepared, gated
 

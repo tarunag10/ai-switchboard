@@ -899,6 +899,8 @@ pub fn run() {
             optimization_commands::validate_model_routing,
             optimization_commands::issue_model_routing_completion_handle,
             optimization_commands::complete_model_routing_completion,
+            optimization_commands::list_model_routing_decision_references,
+            optimization_commands::resolve_model_routing_decision_reference,
             optimization_commands::export_model_routing_evidence_for_handle,
             activity_commands::get_rtk_activity,
             activity_commands::get_tool_logs,
