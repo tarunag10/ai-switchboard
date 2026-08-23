@@ -64,7 +64,7 @@ export function deriveRepoMemoryMcpSupervisionSummary(
   }
 
   return {
-    tone: "success",
-    summary: "Repo Memory MCP supervision is healthy for the current app session.",
+    tone: "warning",
+    summary: `Repo Memory MCP supervision is not verified (${evidence.supervisionStatus || "unknown"}). Refresh or prepare MCP before relying on agent handoffs.`,
   };
 }

@@ -24,4 +24,24 @@ describe("deriveRepoMemoryMcpSupervisionSummary", () => {
     expect(result.tone).toBe("warning");
     expect(result.summary).toContain("app session only");
   });
+
+  it.each(["unknown", "stopped", "not_configured", "invoke_failed"]) (
+    "does not treat %s as healthy",
+    (supervisionStatus) => {
+      const result = deriveRepoMemoryMcpSupervisionSummary({ supervisionStatus });
+      expect(result.tone).toBe("warning");
+      expect(result.summary).toContain("not verified");
+      expect(result.summary).toContain(supervisionStatus);
+    },
+  );
+
+  it("does not treat an inactive verified status as healthy", () => {
+    const result = deriveRepoMemoryMcpSupervisionSummary({
+      supervisionStatus: "verified_active",
+      supervisionScope: "app_session",
+      active: false,
+    });
+    expect(result.tone).toBe("warning");
+    expect(result.summary).toContain("not verified");
+  });
 });
