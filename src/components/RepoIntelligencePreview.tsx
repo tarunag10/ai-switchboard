@@ -18,6 +18,7 @@ import {
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
+  loadRepoPackCompressionPreference,
   normalizeRepoIndexRequest,
   repoAgentPackLabel,
   repoAgentHandoffProfiles,
@@ -29,6 +30,10 @@ import {
   type RepoPackCompressionConfig,
   type RepoPackCompressionMode,
   type RepoSavingsEstimate,
+} from "../lib/repoIntelligence";
+import {
+  repoPackCompressionPreferenceEvent,
+  saveRepoPackCompressionPreference,
 } from "../lib/repoIntelligence";
 import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
 
@@ -118,7 +123,7 @@ export function RepoIntelligencePreview({
   const [selectedTaskType, setSelectedTaskType] =
     useState<AgentSessionTaskType>("verification");
   const [packCompressionMode, setPackCompressionMode] =
-    useState<RepoPackCompressionMode>("off");
+    useState<RepoPackCompressionMode>(loadRepoPackCompressionPreference);
   const [summary, setSummary] = useState<RepoIntelligenceSummary>(
     repoIntelligencePreview,
   );
@@ -168,6 +173,14 @@ export function RepoIntelligencePreview({
   );
   const packCompressionConfig = buildRepoPackCompressionConfig(packCompressionMode);
   const chonkifyEligible = canActivateChonkifyRepoPack();
+
+  useEffect(() => {
+    const syncCompressionPreference = () => {
+      setPackCompressionMode(loadRepoPackCompressionPreference());
+    };
+    window.addEventListener(repoPackCompressionPreferenceEvent, syncCompressionPreference);
+    return () => window.removeEventListener(repoPackCompressionPreferenceEvent, syncCompressionPreference);
+  }, []);
   const verificationDetailsId = "repo-intelligence-verification-details";
   const modeReasoningId = "repo-intelligence-mode-reasoning";
   const graphDiagnosticsId = "repo-intelligence-graph-diagnostics";
@@ -588,7 +601,11 @@ export function RepoIntelligencePreview({
           <select
             aria-label="Repo pack compression mode"
             disabled={indexing}
-            onChange={(event) => setPackCompressionMode(event.target.value as RepoPackCompressionMode)}
+            onChange={(event) => {
+              const mode = event.target.value as RepoPackCompressionMode;
+              setPackCompressionMode(mode);
+              if (mode === "off" || chonkifyEligible) saveRepoPackCompressionPreference(mode);
+            }}
             value={packCompressionMode}
           >
             <option value="off">Native deterministic (recommended)</option>
@@ -651,7 +668,7 @@ export function RepoIntelligencePreview({
           ? chonkifyEligible
             ? "Chonkify is eligible for read-only Repo Intelligence packs. Copy dialogs show native vs chonkify token estimates; savings remain labelled estimated."
             : "Chonkify is selected for evidence preview only. Current license metadata is NOASSERTION, so native deterministic packs remain unchanged and savings stay unclaimed."
-          : "Native deterministic packs are the default. Any future chonkify reduction will retain source spans and be labelled estimated."}
+          : "Native deterministic packs are the default. Chonkify can be enabled explicitly for eligible read-only packs; source spans are retained and savings are labelled estimated."}
       </p>
       {copyNotice ? (
         <p className="repo-intelligence-preview__path" role="status" aria-live="polite">{copyNotice}</p>

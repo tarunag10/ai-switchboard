@@ -16,6 +16,10 @@ import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
 import { describeSemanticCacheV2Policy } from "../lib/semanticCachePolicy";
 import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
+import {
+  saveRepoPackCompressionPreference,
+} from "../lib/repoIntelligence";
+import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
 import type { RuntimeStatus, CompressionProfileView } from "../lib/types";
 
 type OptimizationAddonReadinessReport = {
@@ -127,7 +131,7 @@ const promotionMatrix = [
   { id: "headroom-native", label: "Headroom Native", mode: "Live", evidence: "Native runtime metric", gate: "Promotion-ready when runtime is healthy and native compression is enabled." },
   { id: "leanctx", label: "leanctx shadow", mode: "Shadow", evidence: "Benchmark/readiness evidence", gate: "Observe locally; no provider traffic until a reviewed promotion path exists." },
   { id: "semantic-cache", label: "Exact Response Cache", mode: "Live exact replay", evidence: "Observed hit/miss counters", gate: "Byte-identical eligible requests only; semantic reuse remains an unavailable experiment." },
-  { id: "chonkify", label: "Chonkify", mode: "Blocked", evidence: "Manual review", gate: "License and source-provenance evidence required." },
+  { id: "chonkify", label: "Chonkify", mode: "Enabled repo-pack", evidence: "MIT provenance fixture", gate: "Read-only Repo Intelligence packs only; savings remain estimated." },
   { id: "llmlingua-2", label: "LLMLingua-2", mode: "Design-only", evidence: "Benchmark required", gate: "Local model, quality baseline, and protected-content gates required." },
   { id: "pxpipe-text-image", label: "pxpipe", mode: "Design-only", evidence: "Manual review", gate: "Versioned Headroom text_image seam and quality evidence required." },
 ] as const;
@@ -180,7 +184,6 @@ const engineSafety: Record<OptimizationEngineId, string> = {
 };
 
 const engineBlocker: Partial<Record<OptimizationEngineId, string>> = {
-  chonkify: "Blocked: license and source-provenance evidence is incomplete.",
   "pxpipe-text-image": "Blocked: no upstream Headroom text_image capability is available.",
   "llmlingua-2": "Blocked: local model and quality baseline are not approved.",
 };
@@ -433,6 +436,12 @@ function OptimizationEngineRow({
       }
       return;
     }
+    if (engine.id === "chonkify") {
+      const nextEnabled = !enabled;
+      saveRepoPackCompressionPreference(nextEnabled ? "chonkify" : "off");
+      onToggle(engine, nextEnabled);
+      return;
+    }
     if (engine.id !== "leanctx") {
       setActionError("RTK follows the live Switchboard mode. Use the Switchboard mode control to change it; this card only reports runtime evidence.");
       return;
@@ -527,9 +536,11 @@ function OptimizationEngineRow({
       : engine.id === "rtk"
       ? "Manage in Switchboard modes"
       : engine.id === "leanctx"
-    ? leanctxStatus?.configured
+      ? leanctxStatus?.configured
       ? effectiveEnabled ? "Disable shadow sidecar" : "Enable shadow sidecar"
       : "Register guided sidecar"
+      : engine.id === "chonkify"
+        ? effectiveEnabled ? "Disable repo-pack compression" : "Enable repo-pack compression"
       : effectiveEnabled ? "Disable local profile" : "Enable local profile";
 
   return (
@@ -546,6 +557,7 @@ function OptimizationEngineRow({
       {engineBlocker[engine.id] && <p role="note"><strong>{engineBlocker[engine.id]}</strong></p>}
       {activationBlocked && <p role="note"><strong>Activation boundary:</strong> {engine.activationMode === "experimental" ? "Experimental evidence-only profile." : "Blocked profile."} Individual and master activation are safe no-ops. Required evidence: {engine.evidenceRequirements.join("; ")}.</p>}
       {engine.id === "leanctx" && <p role="note"><strong>Setup:</strong> provide LEANCTX_EXECUTABLE and a loopback-only LEANCTX_BASE_URL; optional LEANCTX_ARGS_JSON and LEANCTX_VERSION are user-supplied.</p>}
+      {engine.id === "chonkify" && canActivateChonkifyRepoPack() && <p role="note"><strong>Activation scope:</strong> enables Chonkify for read-only Repo Intelligence pack copies and handoffs. Original files remain authoritative; no provider traffic is changed.</p>}
       {engine.id === "semantic-cache" && <p role="note"><strong>Safety scope:</strong> cache only eligible repeated text requests. Obvious secret markers in requests or responses bypass the cache; response bodies remain local until TTL or clear.</p>}
       <div className="gateway-profile__facts">
         <span>{engine.visibility === "none" ? "No prompt/output visibility" : `${engine.visibility} visibility`}</span>

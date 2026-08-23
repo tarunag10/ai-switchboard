@@ -52,6 +52,26 @@ export interface RepoContextPack {
 
 export type RepoPackCompressionMode = "off" | "chonkify";
 
+export const repoPackCompressionPreferenceKey = "ai-switchboard.repo-pack-compression.v1";
+export const repoPackCompressionPreferenceEvent = "ai-switchboard:repo-pack-compression-changed";
+
+export function loadRepoPackCompressionPreference(): RepoPackCompressionMode {
+  if (typeof window === "undefined") return "off";
+  return window.localStorage.getItem(repoPackCompressionPreferenceKey) === "chonkify"
+    ? "chonkify"
+    : "off";
+}
+
+export function saveRepoPackCompressionPreference(mode: RepoPackCompressionMode): void {
+  if (typeof window === "undefined") return;
+  if (mode === "chonkify") {
+    window.localStorage.setItem(repoPackCompressionPreferenceKey, mode);
+  } else {
+    window.localStorage.removeItem(repoPackCompressionPreferenceKey);
+  }
+  window.dispatchEvent(new Event(repoPackCompressionPreferenceEvent));
+}
+
 export interface RepoPackCompressionConfig {
   mode?: RepoPackCompressionMode;
   config?: unknown;

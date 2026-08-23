@@ -104,7 +104,7 @@ const chonkifyEngineBase = {
   supportedScope: "text" as const,
   evidenceType: "manual-review" as const,
   ...guidance(
-    "Confirm license and source-provenance evidence before installation.",
+    "Enable Chonkify from Repo Intelligence for eligible read-only packs.",
     "Restore the original context pack from backup.",
     "Keep disabled until license and provenance gates pass.",
   ),

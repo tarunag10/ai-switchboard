@@ -26,8 +26,9 @@ The first local-first slice is now in the checkout:
   capture, and app-exit cleanup. It does not install an unpinned package, does
   not forward provider traffic, and does not replace Headroom.
 - Repo Intelligence emits the native-pack disclosure and has a deterministic,
-  provenance-preserving chonkify adapter seam. Chonkify remains blocked while
-  license/provenance evidence is incomplete.
+  provenance-preserving chonkify adapter. Chonkify is eligible only for
+  read-only Repo Intelligence packs after the MIT/provenance fixtures pass;
+  original files remain authoritative and savings stay estimated.
 - Semantic cache now has a local SQLite backend and an opt-in exact replay path
   inside the existing Switchboard intercept. It is separate from compression,
   disabled by default, restricted to bounded non-streaming JSON requests

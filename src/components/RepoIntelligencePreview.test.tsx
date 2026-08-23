@@ -76,6 +76,7 @@ describe("RepoIntelligencePreview progressive disclosure", () => {
     render(<RepoIntelligencePreview />);
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Repo pack compression mode" }), "chonkify");
+    expect(window.localStorage.getItem("ai-switchboard.repo-pack-compression.v1")).toBe("chonkify");
     expect(screen.getByText(/Chonkify is eligible for read-only Repo Intelligence packs/i)).toBeInTheDocument();
     expect(screen.getByText(/savings remain labelled estimated/i)).toBeInTheDocument();
   });

@@ -1052,7 +1052,7 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("## Release Handoff Pack");
     expect(markdown).toContain("src/App.tsx");
     expect(markdown).toContain("Estimated savings vs full scan");
-    expect(markdown).toContain("Chonkify remains blocked until license and provenance evidence pass");
+    expect(markdown).toContain("Chonkify is available only for eligible read-only packs");
   });
 
   it("keeps compression off by default and carries an explicit disclosure when requested", () => {

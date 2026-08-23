@@ -1,4 +1,4 @@
-/** A deliberately small, dependency-free seam for a future chonkify adapter. */
+/** A deliberately small, dependency-free seam for read-only Repo Intelligence pack compression. */
 
 export type EvidenceLabel = "estimated";
 
@@ -120,5 +120,5 @@ export function compressRepoPack<TPack>(options: RepoPackCompressionOptions<TPac
 }
 
 export function describeRepoPackCompressionState(): string {
-  return "Pack compression: off; deterministic native Repo Intelligence output is preserved. Chonkify remains blocked until license and provenance evidence pass.";
+  return "Pack compression: off; deterministic native Repo Intelligence output is preserved. Chonkify is available only for eligible read-only packs and must be enabled explicitly; savings remain estimated.";
 }

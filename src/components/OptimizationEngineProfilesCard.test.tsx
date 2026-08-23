@@ -108,6 +108,15 @@ describe("OptimizationEngineProfilesCard", () => {
     }));
   });
 
+  it("activates eligible Chonkify only for Repo Intelligence packs", async () => {
+    render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
+    const toggle = screen.getByRole("button", { name: "Enable repo-pack compression for Chonkify" });
+    await waitFor(() => expect(toggle).not.toBeDisabled());
+    fireEvent.click(toggle);
+    expect(window.localStorage.getItem("ai-switchboard.repo-pack-compression.v1")).toBe("chonkify");
+    expect(screen.getByText(/enables Chonkify for read-only Repo Intelligence pack copies/i)).toBeInTheDocument();
+  });
+
   it("surfaces safety scope and blockers without implying live compression", () => {
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
     expect(screen.getByText(/Headroom remains the sole provider proxy/)).toBeInTheDocument();
