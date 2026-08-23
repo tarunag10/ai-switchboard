@@ -34,6 +34,9 @@ use crate::proxy_session_auth::{ProxySessionAuth, ProxySessionValidation, PROXY_
 use crate::semantic_cache::{
     CacheHit, CacheNamespace, CacheRequest, CacheResponse, SemanticCacheService,
 };
+use crate::transport_observations::{
+    global as transport_recorder, TransportOutcome, TransportRoute,
+};
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
@@ -85,6 +88,8 @@ pub type FreshBearerNotifier = mpsc::Sender<()>;
 
 pub const ANTHROPIC_DIRECT_BASE: &str = "https://api.anthropic.com";
 pub const OPENAI_DIRECT_BASE: &str = "https://api.openai.com";
+
+type TransportResult = (Option<u16>, TransportOutcome);
 
 /// Spawn the intercept proxy as a background Tokio task.
 /// Returns immediately; the server runs until the process exits.
@@ -296,6 +301,7 @@ async fn handle(
     let is_codex = find_header_end(&buf)
         .and_then(|end| parse_request_head(&buf[..end + 4]))
         .is_some_and(|head| is_openai_path(&head.path));
+    let request_class = request_class(&buf);
     if is_codex {
         telemetry::record_redundancy_payload_hash(
             "codex-proxy-request",
@@ -337,7 +343,13 @@ async fn handle(
         log::warn!(
             "Request exceeds Headroom preflight size; routing direct so the client can compact/retry"
         );
-        forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        let event_id = transport_recorder().begin(
+            if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
+            &request_class,
+            false,
+        );
+        let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        transport_recorder().finish(&event_id, result.0, result.1);
         return;
     }
 
@@ -345,12 +357,24 @@ async fn handle(
     // `backend_addr` is intentionally stopped. Forward direct to Anthropic so
     // already-running CC sessions stay alive while optimization is off.
     if bypass.load(std::sync::atomic::Ordering::Acquire) {
-        forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        let event_id = transport_recorder().begin(
+            if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
+            &request_class,
+            false,
+        );
+        let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        transport_recorder().finish(&event_id, result.0, result.1);
         return;
     }
 
     if headroom_compression_bypass_active(is_codex) {
-        forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        let event_id = transport_recorder().begin(
+            if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
+            &request_class,
+            false,
+        );
+        let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        transport_recorder().finish(&event_id, result.0, result.1);
         return;
     }
 
@@ -359,7 +383,13 @@ async fn handle(
     // Python backend up for Claude. `forward_direct_to_anthropic` routes
     // OpenAI paths to OPENAI_DIRECT_BASE, so it does the right thing here.
     if is_codex && codex_bypass.load(std::sync::atomic::Ordering::Acquire) {
-        forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        let event_id = transport_recorder().begin(
+            TransportRoute::DirectOpenai,
+            &request_class,
+            false,
+        );
+        let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        transport_recorder().finish(&event_id, result.0, result.1);
         return;
     }
 
@@ -377,7 +407,9 @@ async fn handle(
         .filter(|prepared| prepared.hit.is_some())
     {
         if let Some(hit) = prepared.hit.as_ref() {
-            serve_cached_response(client, hit).await;
+            let event_id = transport_recorder().begin(TransportRoute::Cache, &request_class, false);
+            let result = serve_cached_response(client, hit).await;
+            transport_recorder().finish(&event_id, result.0, result.1);
         }
         return;
     }
@@ -388,6 +420,8 @@ async fn handle(
         let _ = client
             .write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
             .await;
+        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, false);
+        transport_recorder().finish(&event_id, Some(502), TransportOutcome::ConnectFailure);
         return;
     };
 
@@ -403,10 +437,13 @@ async fn handle(
     }
 
     if backend.write_all(&buf).await.is_err() {
+        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, false);
+        transport_recorder().finish(&event_id, None, TransportOutcome::WriteFailure);
         return;
     }
 
-    splice_with_headroom_capture(
+    let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, false);
+    let result = splice_with_headroom_capture(
         client,
         backend,
         is_codex,
@@ -416,6 +453,7 @@ async fn handle(
         prepared_cache.map(|prepared| prepared.plan),
     )
     .await;
+    transport_recorder().finish(&event_id, result.0, result.1);
 }
 
 /// Splice client <-> backend while sniffing the backend's response head.
@@ -429,7 +467,7 @@ async fn splice_with_headroom_capture(
     codex_bypass: &BypassFlag,
     semantic_cache: Option<Arc<SemanticCacheService>>,
     cache_plan: Option<CachePlan>,
-) {
+) -> TransportResult {
     let (mut client_rd, mut client_wr) = client.split();
     let (mut backend_rd, mut backend_wr) = backend.split();
 
@@ -447,6 +485,8 @@ async fn splice_with_headroom_capture(
             read_http_headers(&mut backend_rd, &mut head),
         )
         .await;
+        let read_failed = !matches!(read_head, Ok(Ok(())));
+        let status_code = response_status_code(&head);
 
         if matches!(read_head, Ok(Ok(()))) {
             if is_codex {
@@ -517,11 +557,22 @@ async fn splice_with_headroom_capture(
                     .await
                     .is_err()
                 {
-                    return;
+                    return (status_code, TransportOutcome::ClientDisconnect);
                 }
-                let _ = client_wr.write_all(&body).await;
-                let _ = client_wr.shutdown().await;
-                return;
+                if client_wr.write_all(&body).await.is_err() {
+                    return (status_code, TransportOutcome::ClientDisconnect);
+                }
+                if client_wr.shutdown().await.is_err() {
+                    return (status_code, TransportOutcome::ClientDisconnect);
+                }
+                let outcome = if read_failed {
+                    TransportOutcome::ReadFailure
+                } else if status_code.is_some_and(|status| !(200..300).contains(&status)) {
+                    TransportOutcome::UpstreamHttpError
+                } else {
+                    TransportOutcome::Success
+                };
+                return (status_code, outcome);
             }
         }
 
@@ -535,13 +586,27 @@ async fn splice_with_headroom_capture(
             .map(|error_class| annotate_provider_auth_error(&head, error_class))
             .unwrap_or(head);
         if client_wr.write_all(&response_head).await.is_err() {
-            return;
+            return (status_code, TransportOutcome::ClientDisconnect);
         }
-        let _ = tokio::io::copy(&mut backend_rd, &mut client_wr).await;
-        let _ = client_wr.shutdown().await;
+        let copy_result = tokio::io::copy(&mut backend_rd, &mut client_wr).await;
+        if copy_result.is_err() {
+            return (status_code, TransportOutcome::ReadFailure);
+        }
+        if client_wr.shutdown().await.is_err() {
+            return (status_code, TransportOutcome::ClientDisconnect);
+        }
+        let outcome = if read_failed {
+            TransportOutcome::ReadFailure
+        } else if status_code.is_some_and(|status| !(200..300).contains(&status)) {
+            TransportOutcome::UpstreamHttpError
+        } else {
+            TransportOutcome::Success
+        };
+        (status_code, outcome)
     };
 
-    tokio::join!(upstream, downstream);
+    let (_, downstream_result) = tokio::join!(upstream, downstream);
+    downstream_result
 }
 
 fn enable_compression_fail_open(is_codex: bool, codex_bypass: &BypassFlag) {
@@ -1020,7 +1085,7 @@ fn contains_cache_sensitive_marker(lowered: &str) -> bool {
         .any(|marker| compact.contains(marker))
 }
 
-async fn serve_cached_response(mut client: TcpStream, hit: &CacheHit) {
+async fn serve_cached_response(mut client: TcpStream, hit: &CacheHit) -> TransportResult {
     let reason = if hit.status_code == 200 { "OK" } else { "" };
     let head = format!(
         "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nX-Switchboard-Cache: exact-hit\r\nConnection: close\r\n\r\n",
@@ -1028,14 +1093,39 @@ async fn serve_cached_response(mut client: TcpStream, hit: &CacheHit) {
         reason,
         hit.body.len()
     );
-    if client.write_all(head.as_bytes()).await.is_ok() {
-        let _ = client.write_all(hit.body.as_bytes()).await;
-        let _ = client.shutdown().await;
+    if client.write_all(head.as_bytes()).await.is_err() {
+        return (Some(hit.status_code), TransportOutcome::ClientDisconnect);
     }
+    if client.write_all(hit.body.as_bytes()).await.is_err() {
+        return (Some(hit.status_code), TransportOutcome::ClientDisconnect);
+    }
+    if client.shutdown().await.is_err() {
+        return (Some(hit.status_code), TransportOutcome::ClientDisconnect);
+    }
+    (Some(hit.status_code), TransportOutcome::Success)
 }
 
 fn estimate_tokens_from_bytes(byte_len: usize) -> u64 {
     ((byte_len as u64).saturating_add(3)) / 4
+}
+
+fn request_class(header_buf: &[u8]) -> String {
+    find_header_end(header_buf)
+        .and_then(|end| parse_request_head(&header_buf[..end + 4]))
+        .map(|head| head.path.split('?').next().unwrap_or_default().to_string())
+        .filter(|path| !path.trim().is_empty())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn response_status_code(head: &[u8]) -> Option<u16> {
+    std::str::from_utf8(head)
+        .ok()?
+        .lines()
+        .next()?
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
 }
 
 /// Parse the `x-codex-*` rate-limit headers out of a raw HTTP response head
@@ -1350,14 +1440,14 @@ async fn forward_direct_to_anthropic(
     mut client: TcpStream,
     header_buf: Vec<u8>,
     upstream_base: &str,
-) {
+) -> TransportResult {
     let header_end = match find_header_end(&header_buf) {
         Some(pos) => pos + 4,
         None => {
             let _ = client
                 .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
                 .await;
-            return;
+            return (Some(400), TransportOutcome::LocalRejection);
         }
     };
     let leftover_body = &header_buf[header_end..];
@@ -1366,7 +1456,7 @@ async fn forward_direct_to_anthropic(
         let _ = client
             .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
             .await;
-        return;
+        return (Some(400), TransportOutcome::LocalRejection);
     };
 
     // These paths are served by the local Python proxy, not Anthropic. In
@@ -1379,14 +1469,14 @@ async fn forward_direct_to_anthropic(
         let _ = client
             .write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
             .await;
-        return;
+        return (Some(503), TransportOutcome::LocalRejection);
     }
 
     if request_has_header(&header_buf, "transfer-encoding") {
         let _ = client
             .write_all(b"HTTP/1.1 411 Length Required\r\nContent-Length: 0\r\n\r\n")
             .await;
-        return;
+        return (Some(411), TransportOutcome::LocalRejection);
     }
 
     if parsed
@@ -1396,7 +1486,7 @@ async fn forward_direct_to_anthropic(
         let _ = client
             .write_all(b"HTTP/1.1 413 Payload Too Large\r\nContent-Length: 0\r\n\r\n")
             .await;
-        return;
+        return (Some(413), TransportOutcome::LocalRejection);
     }
 
     // Codex points OPENAI_BASE_URL at this intercept proxy, so in bypass mode
@@ -1416,7 +1506,7 @@ async fn forward_direct_to_anthropic(
             body.extend_from_slice(leftover_body);
             let mut remaining = vec![0u8; total - leftover_body.len()];
             if client.read_exact(&mut remaining).await.is_err() {
-                return;
+                return (None, TransportOutcome::ReadFailure);
             }
             body.extend_from_slice(&remaining);
             body
@@ -1432,7 +1522,7 @@ async fn forward_direct_to_anthropic(
             let _ = client
                 .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
                 .await;
-            return;
+            return (Some(400), TransportOutcome::LocalRejection);
         }
     };
 
@@ -1454,7 +1544,7 @@ async fn forward_direct_to_anthropic(
             let _ = client
                 .write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
                 .await;
-            return;
+            return (Some(502), TransportOutcome::ConnectFailure);
         }
     };
 
@@ -1473,7 +1563,7 @@ async fn forward_direct_to_anthropic(
     }
     head.push_str("Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n");
     if client.write_all(head.as_bytes()).await.is_err() {
-        return;
+        return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
     }
 
     loop {
@@ -1481,24 +1571,33 @@ async fn forward_direct_to_anthropic(
             Ok(Some(bytes)) if !bytes.is_empty() => {
                 let header = format!("{:X}\r\n", bytes.len());
                 if client.write_all(header.as_bytes()).await.is_err() {
-                    return;
+                    return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
                 }
                 if client.write_all(&bytes).await.is_err() {
-                    return;
+                    return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
                 }
                 if client.write_all(b"\r\n").await.is_err() {
-                    return;
+                    return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
                 }
             }
             Ok(Some(_)) => {}
             Ok(None) => break,
             Err(e) => {
                 log::debug!("[proxy_intercept] bypass body stream error: {e}");
-                return;
+                return (Some(resp.status().as_u16()), TransportOutcome::ReadFailure);
             }
         }
     }
-    let _ = client.write_all(b"0\r\n\r\n").await;
+    if client.write_all(b"0\r\n\r\n").await.is_err() {
+        return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
+    }
+    let status = resp.status().as_u16();
+    let outcome = if resp.status().is_success() {
+        TransportOutcome::Success
+    } else {
+        TransportOutcome::UpstreamHttpError
+    };
+    (Some(status), outcome)
 }
 
 struct ParsedRequestHead {
@@ -1767,7 +1866,8 @@ mod tests {
         is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
         parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
         request_is_loopback_safe, request_should_bypass_headroom, response_allows_cache,
-        response_body_allows_cache, run, stamp_codex_client_header, BypassFlag, SharedToken,
+        response_body_allows_cache, request_class, response_status_code, run,
+        stamp_codex_client_header, BypassFlag, SharedToken,
         PROVIDER_AUTH_SCOPE_MISSING,
     };
     use crate::backend_port;
@@ -1791,6 +1891,14 @@ mod tests {
             uuid::Uuid::new_v4()
         ));
         crate::proxy_session_auth::ProxySessionAuth::open(&isolated_base)
+    }
+
+    #[test]
+    fn transport_metadata_uses_path_without_query_or_response_body() {
+        let request = b"POST /v1/responses?prompt=secret HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+        assert_eq!(request_class(request), "/v1/responses");
+        assert_eq!(response_status_code(b"HTTP/1.1 503 Service Unavailable\r\n\r\n"), Some(503));
+        assert_eq!(response_status_code(b"malformed"), None);
     }
 
     #[derive(Debug, Deserialize)]
