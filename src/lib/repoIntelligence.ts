@@ -3026,7 +3026,10 @@ function buildImportCallReferenceEdges(
             ),
           )].map((match): string => match[1] ?? "");
       for (const memberName of new Set<string>(memberNames)) {
-        if (!binding.imported && !isExplicitlyExportedSymbol(importedFile, memberName, contentByPath)) continue;
+        const namespaceReexport = !binding.imported && !isExplicitlyExportedSymbol(importedFile, memberName, contentByPath)
+          ? resolveLocalReexportBinding(importedFile, memberName, byPath, contentByPath)
+          : null;
+        if (!binding.imported && !isExplicitlyExportedSymbol(importedFile, memberName, contentByPath) && !namespaceReexport) continue;
         let target: RepoSymbol | undefined = callableSymbols.find(
           (symbol) => symbol.file === importedFile.path && symbol.name === memberName,
         );
@@ -3034,12 +3037,7 @@ function buildImportCallReferenceEdges(
           target = resolveDefaultExportSymbol(importedFile, callableSymbols, contentByPath);
         }
         if (!target) {
-          const reexport = resolveLocalReexportBinding(
-            importedFile,
-            memberName,
-            byPath,
-            contentByPath,
-          );
+          const reexport = namespaceReexport ?? resolveLocalReexportBinding(importedFile, memberName, byPath, contentByPath);
           if (reexport) {
             target = callableSymbols.find(
               (symbol) => symbol.file === reexport.file && symbol.name === reexport.name,

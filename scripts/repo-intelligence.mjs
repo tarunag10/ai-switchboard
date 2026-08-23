@@ -1589,7 +1589,10 @@ function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
             ),
           )].map((match) => match[1]);
       for (const name of new Set(targetNames)) {
-        if (!binding.imported && !isExplicitlyExportedSymbol(repoRoot, targetFile, name)) {
+        const namespaceReexport = !binding.imported && !isExplicitlyExportedSymbol(repoRoot, targetFile, name)
+          ? resolveLocalReexportBinding(repoRoot, targetFile, name, files)
+          : null;
+        if (!binding.imported && !isExplicitlyExportedSymbol(repoRoot, targetFile, name) && !namespaceReexport) {
           continue;
         }
         let target = callableSymbols.find(
@@ -1598,13 +1601,8 @@ function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
         if (!target && binding.imported === "default") {
           target = resolveDefaultExportSymbol(repoRoot, targetFile, callableSymbols);
         }
-        if (!target && binding.imported) {
-          const reexport = resolveLocalReexportBinding(
-            repoRoot,
-            targetFile,
-            binding.imported,
-            files,
-          );
+        if (!target && (binding.imported || namespaceReexport)) {
+          const reexport = namespaceReexport ?? resolveLocalReexportBinding(repoRoot, targetFile, binding.imported, files);
           if (reexport) {
             target = callableSymbols.find(
               (symbol) => symbol.file === reexport.file && symbol.name === reexport.name,

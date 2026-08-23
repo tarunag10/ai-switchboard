@@ -137,6 +137,20 @@ test("CLI graph resolves exported namespace members and rejects private members"
   }
 });
 
+test("CLI graph resolves namespace members through a wildcard barrel", () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-namespace-barrel-"));
+  try {
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "src/utils.ts"), "export function normalize() {}\n");
+    fs.writeFileSync(path.join(repo, "src/barrel.ts"), "export * from './utils';\n");
+    fs.writeFileSync(path.join(repo, "src/consumer.ts"), "import * as utils from './barrel'; export function start() { utils.normalize(); }\n");
+    const summary = JSON.parse(execFileSync(process.execPath, ["scripts/repo-intelligence.mjs", repo, "--format", "json"], { encoding: "utf8" }));
+    assert.ok(summary.graph.symbolEdges.some((edge) => edge.to === "src/utils.ts#normalize" && edge.kind === "call_reference"));
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test("CLI graph resolves named default imports without global-name ambiguity", () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-repo-default-import-"));
   try {

@@ -950,6 +950,19 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("resolves namespace calls through a bounded wildcard re-export barrel", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/utils.ts", bytes: 120, content: "export function normalize() {}" },
+      { path: "src/barrel.ts", bytes: 100, content: "export * from './utils';" },
+      { path: "src/consumer.ts", bytes: 160, content: "import * as utils from './barrel'; export function start() { utils.normalize(); }" },
+    ]);
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: "src/utils.ts#normalize", kind: "call_reference" }),
+      ]),
+    );
+  });
+
   it("resolves bounded multi-hop re-exports but not dynamic or ambiguous calls", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/worker.ts", bytes: 100, content: "export function runTask() {}" },

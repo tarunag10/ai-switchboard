@@ -2542,17 +2542,25 @@ fn build_semantic_call_reference_edges(
                     .is_none()
                     .then(|| namespace_member_call_names(&content, &binding.local))
                     .unwrap_or_default();
-                let target_symbols = symbols.iter().filter(|symbol| {
-                    symbol.file == target_path
-                        && match target_name {
-                            Some(name) => symbol.name == name,
-                            None => namespace_member_names.contains(&symbol.name)
-                                && explicitly_exports_symbol(
-                                    repo_root,
-                                    &target_file.path,
-                                    &symbol.name,
-                                ),
-                        }
+                let namespace_target_names = if binding.imported.is_none() {
+                    namespace_member_names
+                        .iter()
+                        .filter_map(|name| {
+                            if explicitly_exports_symbol(repo_root, &target_file.path, name) {
+                                Some((target_file.path.clone(), name.clone()))
+                            } else {
+                                resolve_local_reexport(repo_root, target_file, name, files)
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                };
+                let target_symbols = symbols.iter().filter(|symbol| match target_name {
+                    Some(name) => symbol.file == target_path && symbol.name == name,
+                    None => namespace_target_names
+                        .iter()
+                        .any(|(path, name)| path == &symbol.file && name == &symbol.name),
                 });
                 for target in target_symbols {
                     let from = caller
@@ -4814,6 +4822,29 @@ export const mapValues = <T>(items: T[]) => items;
         assert!(!graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/entry.ts#start"
                 && edge.to == "src/utils.ts#hidden"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn resolves_namespace_import_member_calls_through_wildcard_barrel() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("utils.ts"), "export function normalize() {}\n")
+            .expect("write namespace target");
+        std::fs::write(src.join("barrel.ts"), "export * from './utils';\n")
+            .expect("write wildcard barrel");
+        std::fs::write(
+            src.join("entry.ts"),
+            "import * as utils from './barrel';\nexport function start() { utils.normalize(); }\n",
+        )
+        .expect("write namespace consumer");
+
+        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/entry.ts#start"
+                && edge.to == "src/utils.ts#normalize"
                 && edge.kind == RepoGraphEdgeKind::CallReference
         }));
     }
