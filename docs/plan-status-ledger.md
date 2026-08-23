@@ -1,6 +1,6 @@
 # Plan Status Ledger
 
-Updated: 2026-07-13
+Updated: 2026-08-23
 
 ## AI Switchboard Platform Rebrand
 
@@ -58,11 +58,21 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
   fields and Grok/xAI's documented endpoint are promoted; Cursor and the
   remaining provider schemas stay gated.
 - Reboot-proof automation is complete for the local workflow: arm, record, and check commands require a real post-reboot marker and cannot fabricate installed-app proof.
+- OSS harness integration is complete for the local, metadata-only slice:
+  redacted replay, deterministic routing strategies, bounded session events,
+  provider/tool capability registry, native capability command, frontend
+  loader, and fail-closed tests are shipped. Optional external interoperability
+  remains gated on pinned compatibility, rollback, provider-billed attribution,
+  and release evidence.
 
 ## Left
 
 - Repo Map now has explicit local cancellation, overlap protection, opt-in bounded CLI retries, and UI retry/cancel controls alongside typed per-tool progress and bounded aggregate status. Cancellation only targets the app-owned child process and never mutates the indexed repository.
 - Repo Intelligence can still deepen parser/call-graph semantic resolution beyond the current bounded symbol-level graph, while per-tool Repo Map progress semantics are shipped.
+- Repo Intelligence runtime versions intentionally remain explicit per surface
+  (native `path-graph-v13`, CLI `path-graph-v12`, frontend `path-graph-v11`)
+  until their extraction semantics are unified; the local summary checker
+  verifies each declared version rather than claiming cross-runtime parity.
 - Caveman, Ponytail, and MarkItDown now expose a guided before/after measurement workflow with local Token X-Ray capture, session/provider/model/timestamp provenance, manual credible-counter entry, request deltas, and strict measured-versus-estimated validation. Durable provider-billed counterfactual measurement remains pending where the provider does not expose it.
 - Leanctx promotion is now explicitly evidence-gated: loopback capability/version evidence, protected-content coverage, fail-open behavior, and shadow-contract checks are required before it can become eligible for review; provider routing remains disabled by design.
 - Semantic cache lifecycle hardening now requires exact namespace identity, invalidation across request variants, conservative no-cache handling, false-hit protection, and explicit hit/miss/storage evidence. Cache replay remains separate from compression and estimated until a credible counterfactual exists.

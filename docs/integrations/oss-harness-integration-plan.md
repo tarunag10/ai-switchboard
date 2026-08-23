@@ -62,10 +62,19 @@ The provider/tool registry is implemented in `scripts/oss-provider-registry.mjs`
 It exposes only bounded provider labels, model families, context limits,
 auth-source labels, and tool capabilities. Secrets are rejected, writes remain
 disabled, and approval evaluation fails closed in metadata-only mode.
+The native app command `get_oss_capability_registry` and typed frontend loader
+expose the same metadata-only boundary without importing provider credentials
+or runtimes.
 
-## Current next slice
+## Remaining work and gate
 
-The first local replay slice is `scripts/oss-harness-replay.mjs`. It consumes
-redacted route metadata only, produces deterministic counts and latency
-summaries, and remains separate from provider-billed quality evidence. It does
-not issue network requests and its output cannot promote automatic routing.
+The local replay, deterministic strategy fixtures, session-event ledger, and
+provider/tool registry slices are complete. They consume redacted metadata
+only, produce bounded deterministic summaries, and cannot promote automatic
+routing. Their tests are included in `check:oss-harness-integrations`.
+
+The remaining OSS work is optional external interoperability. It requires a
+specific upstream workflow with pinned compatibility evidence, a documented
+rollback path, attribution for provider-billed usage, and release-level
+verification. Until those artifacts exist, no upstream runtime is vendored,
+no network replay is enabled, and no provider/editor writes are promoted.

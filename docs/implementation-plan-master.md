@@ -469,9 +469,12 @@ the current checkout.
    Q remain guided or sidecar paths until their schemas are proven.
 5. **Provider-specific metrics:** add a provider adapter only when a stable,
    read-only usage API supports complete before/after attribution.
-6. **OSS harness integration:** implement the local redacted replay and route-
-   decision harness, then add event/session and strategy fixtures without
-   enabling automatic routing or importing unstable upstream runtimes.
+6. **OSS harness integration:** the local redacted replay, route-decision
+   strategies, bounded session events, provider/tool registry, native
+   capability command, and frontend loader are complete and covered by the OSS
+   integration gate. Remaining work is optional external interoperability only;
+   it stays gated until a concrete upstream workflow has compatibility,
+   rollback, attribution, and release evidence.
 
 ## Execution order
 
