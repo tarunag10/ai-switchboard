@@ -172,6 +172,15 @@ pub(crate) fn run_command_with_timeout(
     cwd: &Path,
     timeout: Duration,
 ) -> Result<()> {
+    run_command_capture_with_timeout(binary, args, cwd, timeout).map(|_| ())
+}
+
+pub(crate) fn run_command_capture_with_timeout(
+    binary: &Path,
+    args: &[&str],
+    cwd: &Path,
+    timeout: Duration,
+) -> Result<(String, String)> {
     use std::io::Read;
     use std::sync::mpsc;
 
@@ -258,7 +267,7 @@ pub(crate) fn run_command_with_timeout(
         }));
     }
 
-    Ok(())
+    Ok((stdout, stderr))
 }
 
 pub(crate) fn run_command(binary: &Path, args: &[&str], cwd: &Path) -> Result<()> {

@@ -7,8 +7,7 @@
 //! available as guided setup but are never written.
 
 use std::net::{SocketAddr, TcpStream};
-use std::path::PathBuf;
-use std::process::Command;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
@@ -23,6 +22,7 @@ use crate::client_adapter_contract::{
 };
 use crate::managed_files::{remove_managed_block, upsert_managed_block};
 use crate::models::{ManagedFootprintItem, SwitchboardMode};
+use crate::process_runner::run_command_capture_with_timeout;
 
 pub(crate) const DSH_ADAPTER_ID: &str = "deepseek_harness";
 pub(crate) const DSH_SUPPORTED_VERSION: &str = "0.1.0-rc.5";
@@ -32,6 +32,7 @@ pub(crate) const DSH_UPSTREAM_HOME_PATCH_SOURCE: &str = "https://github.com/deep
 pub(crate) const DSH_UPSTREAM_LLM_SCHEMA_SOURCE: &str = "https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/packages/llm/llm-deepseek/README.md";
 
 const DSH_PATCH_FILE: &str = "cordis.patch.yml";
+const DSH_VERSION_TIMEOUT: Duration = Duration::from_secs(2);
 const DSH_MANAGED_BLOCK_ID: &str = "deepseek-harness";
 const SWITCHBOARD_BASE_URL: &str = "http://127.0.0.1:6767/v1";
 const DSH_PATCH_BODY: &str = r#"- id: llm-deepseek
@@ -73,15 +74,33 @@ fn patch_path() -> PathBuf {
     dsh_home().join(DSH_PATCH_FILE)
 }
 
+fn dsh_binary() -> Option<PathBuf> {
+    std::env::var_os("PATH")?
+        .to_string_lossy()
+        .split(':')
+        .map(PathBuf::from)
+        .map(|directory| directory.join("dsh"))
+        .find(|candidate| candidate.is_file())
+}
+
 fn detected_version() -> (bool, Option<String>, String) {
-    match Command::new("dsh").arg("--version").output() {
-        Ok(output) => {
-            let rendered = if output.stdout.is_empty() {
-                String::from_utf8_lossy(&output.stderr).trim().to_string()
-            } else {
-                String::from_utf8_lossy(&output.stdout).trim().to_string()
-            };
+    let Some(binary) = dsh_binary() else {
+        return (
+            false,
+            None,
+            "dsh was not found on PATH; setup remains guided.".to_string(),
+        );
+    };
+    match run_command_capture_with_timeout(
+        &binary,
+        &["--version"],
+        Path::new("."),
+        DSH_VERSION_TIMEOUT,
+    ) {
+        Ok((stdout, stderr)) => {
+            let rendered = if stdout.trim().is_empty() { stderr } else { stdout };
             let version = rendered
+                .trim()
                 .split(|character: char| character.is_whitespace() || character == 'v')
                 .find(|part| part.starts_with(|character: char| character.is_ascii_digit()))
                 .map(|part| {
@@ -90,26 +109,16 @@ fn detected_version() -> (bool, Option<String>, String) {
                     })
                     .to_string()
                 });
-            let succeeded = output.status.success();
             (
                 true,
-                succeeded.then_some(version).flatten(),
-                if succeeded {
-                    "dsh --version completed without loading a profile or credentials.".to_string()
-                } else {
-                    format!("dsh was found but --version exited with {}.", output.status)
-                },
+                version,
+                "dsh --version completed without loading a profile or credentials.".to_string(),
             )
         }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => (
-            false,
-            None,
-            "dsh was not found on PATH; setup remains guided.".to_string(),
-        ),
         Err(error) => (
             true,
             None,
-            format!("dsh version inspection failed without reading credentials: {error}"),
+            format!("dsh version inspection failed safely without reading credentials: {error}"),
         ),
     }
 }
@@ -657,6 +666,20 @@ mod tests {
         let consent = ConsentToken::issue(&plan, &plan.confirmation_phrase).unwrap();
         let error = adapter.apply(&plan, consent).unwrap_err();
         assert!(error.to_string().contains("guided-only"));
+        assert!(!fixture.patch().exists());
+    }
+
+    #[test]
+    #[serial]
+    fn hanging_version_probe_is_bounded_and_guided() {
+        let fixture = FixtureHome::new(DSH_SUPPORTED_VERSION);
+        let executable = fixture.home.parent().unwrap().join("bin/dsh");
+        fs::write(&executable, "#!/bin/sh\nsleep 30\n").unwrap();
+        let adapter = DeepSeekHarnessAdapter;
+        let plan = adapter.plan(SwitchboardMode::Full).unwrap();
+        assert!(plan.evidence.iter().any(|line| line.contains("failed safely")));
+        let consent = ConsentToken::issue(&plan, &plan.confirmation_phrase).unwrap();
+        assert!(adapter.apply(&plan, consent).is_err());
         assert!(!fixture.patch().exists());
     }
 
