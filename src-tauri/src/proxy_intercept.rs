@@ -817,16 +817,7 @@ fn request_should_bypass_headroom(request_head: &[u8]) -> bool {
 
 fn request_content_length(request_head: &[u8]) -> Option<usize> {
     let end = find_header_end(request_head)?;
-    let text = std::str::from_utf8(&request_head[..end + 4]).ok()?;
-    for line in text.lines() {
-        let Some((name, value)) = line.split_once(':') else {
-            continue;
-        };
-        if name.eq_ignore_ascii_case("content-length") {
-            return value.trim().parse::<usize>().ok();
-        }
-    }
-    None
+    parse_request_head(&request_head[..end + 4])?.content_length
 }
 
 fn bounded_json_response_len(head: &[u8]) -> Option<usize> {
@@ -1825,7 +1816,14 @@ fn parse_request_head(buf: &[u8]) -> Option<ParsedRequestHead> {
         let name = name.trim().to_string();
         let value = value.trim().to_string();
         if name.eq_ignore_ascii_case("content-length") {
-            content_length = value.parse().ok();
+            let parsed = value.parse::<usize>().ok()?;
+            if let Some(existing) = content_length {
+                if existing != parsed {
+                    return None;
+                }
+            } else {
+                content_length = Some(parsed);
+            }
         }
         headers.push((name, value));
     }
@@ -2907,6 +2905,19 @@ mod tests {
         assert_eq!(parsed.method, "GET");
         assert_eq!(parsed.path, "/v1/models");
         assert_eq!(parsed.content_length, None);
+    }
+
+    #[test]
+    fn parse_request_head_accepts_identical_duplicate_content_lengths() {
+        let buf = b"POST /v1/messages HTTP/1.1\r\nContent-Length: 42\r\ncontent-length: 42\r\n\r\n";
+        let parsed = parse_request_head(buf).expect("identical duplicate lengths are equivalent");
+        assert_eq!(parsed.content_length, Some(42));
+    }
+
+    #[test]
+    fn parse_request_head_rejects_conflicting_duplicate_content_lengths() {
+        let buf = b"POST /v1/messages HTTP/1.1\r\nContent-Length: 42\r\nContent-Length: 43\r\n\r\n";
+        assert!(parse_request_head(buf).is_none());
     }
 
     #[test]
