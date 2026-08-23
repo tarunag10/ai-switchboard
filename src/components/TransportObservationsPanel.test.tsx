@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TransportObservationsPanel } from "./TransportObservationsPanel";
 
@@ -44,5 +44,41 @@ describe("TransportObservationsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
     expect(await screen.findByText("No transport observations yet.")).toBeInTheDocument();
+  });
+
+  it("refreshes live observations without requiring a manual click", async () => {
+    vi.useFakeTimers();
+    try {
+      load
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            eventId: "event-2",
+            startedAtMs: 200,
+            completedAtMs: 240,
+            route: "cache",
+            requestClass: "/v1/responses",
+            streaming: false,
+            statusCode: 200,
+            terminalOutcome: "success",
+          },
+        ]);
+
+      render(<TransportObservationsPanel />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByText("No transport observations yet.")).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText("Cache")).toBeInTheDocument();
+      expect(load).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

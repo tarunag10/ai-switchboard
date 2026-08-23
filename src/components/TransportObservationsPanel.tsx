@@ -1,5 +1,5 @@
 import { ArrowClockwise, Pulse } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   loadTransportObservations,
   type TransportObservation,
@@ -24,25 +24,33 @@ function outcomeClass(outcome: TransportObservation["terminalOutcome"]): string 
   return "failure";
 }
 
+const REFRESH_INTERVAL_MS = 5_000;
+
 export function TransportObservationsPanel() {
   const [observations, setObservations] = useState<TransportObservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
 
-  async function refresh() {
-    setLoading(true);
+  async function refresh(background = false) {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    if (!background) setLoading(true);
     setError(null);
     try {
       setObservations(await loadTransportObservations());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Transport telemetry is unavailable.");
     } finally {
-      setLoading(false);
+      refreshInFlight.current = false;
+      if (!background) setLoading(false);
     }
   }
 
   useEffect(() => {
     void refresh();
+    const interval = window.setInterval(() => void refresh(true), REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(interval);
   }, []);
 
   const summary = useMemo(() => {
