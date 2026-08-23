@@ -441,7 +441,7 @@ describe("managedChangeRecords", () => {
     );
     expect(preview.safetyNotes.join(" ")).toContain("native undo-all control");
     expect(preview.safetyNotes.join(" ")).toContain(
-      "Codex, Gemini, OpenCode, Windsurf, Zed",
+      "Codex, Gemini, OpenCode, Aider, Continue, Windsurf, Zed",
     );
     expect(preview.safetyNotes.join(" ")).toContain(
       "retained managed connector sidecar rollback paths",

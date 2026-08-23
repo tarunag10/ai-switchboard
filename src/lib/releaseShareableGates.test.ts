@@ -23,6 +23,6 @@ describe("shareable DMG gates", () => {
     expect(gateCopy).toContain("HEADROOM_UPDATER_ENDPOINTS");
     expect(gateCopy).toContain("smoke-preflight-summary.md");
     expect(gateCopy).toContain("managed connector readiness evidence");
-    expect(gateCopy).toContain("/Applications/Mac AI Switchboard.app");
+    expect(gateCopy).toContain("/Applications/AI Switchboard.app");
   });
 });

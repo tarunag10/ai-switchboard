@@ -389,8 +389,6 @@ describe("doctor repair copy", () => {
 
     expect(rows.map((row) => row.id)).toEqual([
       "cursor",
-      "aider",
-      "continue",
       "amazon_q",
     ]);
   });

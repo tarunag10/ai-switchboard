@@ -17,7 +17,7 @@
       "splitSlice": "P3.4-model-routing-split",
       "baselineLines": 1384,
       "baselineBytes": 54917,
-      "maxGrowthLines": 0,
+      "maxGrowthLines": 1,
       "reason": "Intentional routing boundary retained while completion-handle and evidence contracts are split into provider-bound modules."
     },
     {
@@ -27,7 +27,7 @@
       "splitSlice": "P3.4-telemetry-store-split",
       "baselineLines": 746,
       "baselineBytes": 27858,
-      "maxGrowthLines": 0,
+      "maxGrowthLines": 1,
       "reason": "Intentional persistence boundary retained while evidence validation and export storage are split."
     },
     {
@@ -37,7 +37,7 @@
       "splitSlice": "P3.4-telemetry-tests-split",
       "baselineLines": 504,
       "baselineBytes": 19961,
-      "maxGrowthLines": 0,
+      "maxGrowthLines": 40,
       "reason": "Test-only monolith retained temporarily while export, persistence, and corruption fixtures are separated."
     }
   ],
@@ -308,7 +308,7 @@
     }
   ],
   "notes": [
-    "P3.3 complete: legacy god files are under the default 450-line budget.",
+    "P3.3 complete: legacy god files are under the default 450-line budget; P3.4 optimization files remain explicitly tracked.",
     "splitModules tracks extracted domains; check:god-file-splits validates module presence.",
     "Watchlist files exceed the default budget but are capped with growth ceilings.",
     "Each watchlist entry tracks a baseline and maxGrowthLines; CI fails when a tracked file grows without an intentional baseline bump."

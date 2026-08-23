@@ -512,13 +512,13 @@ describe("planned connectors", () => {
     expect(cursor.nativeAutomationEnabled).toBe(false);
     expect(cursor.nativeNextBlockedStage).toBe("backupImplemented");
     expect(cursor.nativeWriteEvidence).toMatch(/documented.*schema/i);
-    expect(aider.nativeAutomationEnabled).toBe(false);
-    expect(aider.nativeNextBlockedStage).toBe("applyImplemented");
+    expect(aider.nativeAutomationEnabled).toBe(true);
+    expect(aider.nativeNextBlockedStage).toBeNull();
     expect(goose.nativeAutomationEnabled).toBe(true);
     expect(grok.nativeAutomationEnabled).toBe(true);
     expect(getPlannedConnectorReadinessContract(getPlannedConnector("aider")!)).toMatchObject({
-      nativeAutomationEnabled: false,
-      nativeNextBlockedStage: "applyImplemented",
+      nativeAutomationEnabled: true,
+      nativeNextBlockedStage: null,
     });
   });
 
@@ -676,7 +676,7 @@ describe("planned connectors", () => {
     expect(aider.firstAutomation).toContain("Native endpoint apply");
     expect(plan.automationEnabled).toBe(true);
     expect(promotedSidecarConnectorIds.has("aider")).toBe(true);
-    expect(promotedNativeConfigConnectorIds.has("aider")).toBe(false);
+    expect(promotedNativeConfigConnectorIds.has("aider")).toBe(true);
     expect(aiderManifest.config?.locations).toEqual([
       "~/.aider.conf.yml",
       "~/.config/aider",
@@ -706,8 +706,8 @@ it("keeps Continue sidecar managed with forbidden-read boundaries", () => {
   );
   expect(contract.setupPhase).toBe("Managed");
   expect(contract.automationEnabled).toBe(true);
-  expect(contract.nativeAutomationEnabled).toBe(false);
-  expect(contract.nativeNextBlockedStage).toBe("applyImplemented");
+  expect(contract.nativeAutomationEnabled).toBe(true);
+  expect(contract.nativeNextBlockedStage).toBeNull();
   expect(contract.stages.every((stage) => stage.state === "ready")).toBe(true);
   expect(promotedSidecarConnectorIds.has("continue")).toBe(true);
   expect(copy).toMatch(/Continue/);

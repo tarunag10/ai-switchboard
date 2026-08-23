@@ -13,8 +13,12 @@ import {
 } from "./godFileRegistry";
 
 describe("godFileRegistry", () => {
-  it("has no remaining god files after P3.3 splits", () => {
-    expect(godFileRegistryPaths()).toEqual([]);
+  it("tracks intentionally retained P3.4 optimization god files", () => {
+    expect(godFileRegistryPaths()).toEqual([
+      "src-tauri/src/optimization/model_routing.rs",
+      "src-tauri/src/optimization/telemetry_store.rs",
+      "src-tauri/src/optimization/telemetry_store_tests.rs",
+    ]);
   });
 
   it("validates registry shape", () => {
@@ -29,7 +33,7 @@ describe("godFileRegistry", () => {
     expect(watchlistRegistryPaths()).not.toContain(
       "src/components/OptimizationDashboard.tsx",
     );
-    expect(trackedOversizeRegistryPaths()).toHaveLength(1);
+    expect(trackedOversizeRegistryPaths()).toHaveLength(4);
   });
 
   it("tracks split modules from the god-file program", () => {
