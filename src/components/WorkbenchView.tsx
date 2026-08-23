@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   Stop,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SwitchboardMode } from "../lib/types";
 import {
@@ -24,6 +24,7 @@ import {
   WORKBENCH_CAPABILITIES,
   admitWorkbenchProcess,
   createWorkbenchSession,
+  deriveWorkbenchProcessAdmissionEligibility,
   exportWorkbenchSession,
   forkWorkbenchSession,
   getWorkbenchCapabilityProjection,
@@ -36,6 +37,7 @@ import {
   revokeWorkbenchProcessStartGrant,
   transitionWorkbenchSession,
   type WorkbenchCapabilityProjection,
+  type WorkbenchAdmissionEligibilitySnapshot,
   type WorkbenchProcessAdmission,
   type WorkbenchProcessStartGrantView,
   type WorkbenchRunPlan,
@@ -99,6 +101,15 @@ function formatTimestamp(value: string): string {
   }).format(timestamp);
 }
 
+function grantEligibility(
+  grant: WorkbenchProcessStartGrantView,
+  session: WorkbenchSession,
+): string {
+  if (session.status === "cancelled" || session.status === "completed") return "session_terminal";
+  if (session.status === "paused") return "session_paused";
+  return grant.effectiveState;
+}
+
 export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const [sessions, setSessions] = useState<WorkbenchSession[]>([]);
   const [projection, setProjection] = useState<WorkbenchCapabilityProjection | null>(null);
@@ -121,6 +132,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const [preparedRunSpec, setPreparedRunSpec] = useState<WorkbenchRunSpecInput | null>(null);
   const [processGrants, setProcessGrants] = useState<WorkbenchProcessStartGrantView[]>([]);
   const [processAdmissions, setProcessAdmissions] = useState<WorkbenchProcessAdmission[]>([]);
+  const [admissionEligibility, setAdmissionEligibility] = useState<WorkbenchAdmissionEligibilitySnapshot | null>(null);
   const [confirmationPhrase, setConfirmationPhrase] = useState("");
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -133,6 +145,20 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     [selectedSessionId, sessions],
   );
   const desktopRuntime = hasTauriRuntime();
+  const planRevision = useRef(0);
+
+  const invalidatePreparedPlan = useCallback(() => {
+    planRevision.current += 1;
+    setRunPlan(null);
+    setPreparedRunSpec(null);
+    setAdmissionEligibility(null);
+    setConfirmationPhrase("");
+  }, []);
+
+  const loadProcessReceipts = useCallback((sessionId: string) => Promise.all([
+    listWorkbenchProcessStartGrants(sessionId),
+    listWorkbenchProcessAdmissions(sessionId),
+  ]), []);
 
   const refresh = useCallback(async () => {
     if (!desktopRuntime) {
@@ -175,12 +201,13 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
           ? current
           : (ordered[0]?.sessionId ?? null),
       );
+      invalidatePreparedPlan();
     } catch (reason) {
       setError(messageFrom(reason, "Workbench metadata could not be loaded."));
     } finally {
       setLoading(false);
     }
-  }, [desktopRuntime]);
+  }, [desktopRuntime, invalidatePreparedPlan]);
 
   useEffect(() => {
     if (!hidden) void refresh();
@@ -188,22 +215,77 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    if (!desktopRuntime || !selectedSession) {
-      setProcessGrants([]);
-      return () => { cancelled = true; };
-    }
-    void Promise.all([
-      listWorkbenchProcessStartGrants(selectedSession.sessionId),
-      listWorkbenchProcessAdmissions(selectedSession.sessionId),
-    ])
+    setProcessGrants([]);
+    setProcessAdmissions([]);
+    setAdmissionEligibility(null);
+    if (hidden || !desktopRuntime || !selectedSession) return () => { cancelled = true; };
+    void loadProcessReceipts(selectedSession.sessionId)
       .then(([grants, admissions]) => {
         if (!cancelled) { setProcessGrants(grants); setProcessAdmissions(admissions); }
       })
       .catch((reason) => {
-        if (!cancelled) setError(messageFrom(reason, "Process authorization receipts could not be loaded."));
+        if (!cancelled) {
+          setProcessGrants([]);
+          setProcessAdmissions([]);
+          setError(messageFrom(reason, "Process authorization receipts could not be loaded."));
+        }
       });
     return () => { cancelled = true; };
-  }, [desktopRuntime, selectedSession?.sessionId]);
+  }, [desktopRuntime, hidden, loadProcessReceipts, selectedSession?.sessionId, selectedSession?.updatedAt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAdmissionEligibility(null);
+    if (hidden || !desktopRuntime || !selectedSession || !preparedRunSpec || !runPlan) {
+      return () => { cancelled = true; };
+    }
+    const expectedPlanId = runPlan.planId;
+    void deriveWorkbenchProcessAdmissionEligibility(preparedRunSpec)
+      .then((snapshot) => {
+        if (!cancelled && snapshot.currentPlanId === expectedPlanId) {
+          setAdmissionEligibility(snapshot);
+        }
+      })
+      .catch((reason) => {
+        if (!cancelled) {
+          setAdmissionEligibility(null);
+          setError(messageFrom(reason, "Current admission eligibility could not be derived."));
+        }
+      });
+    return () => { cancelled = true; };
+  }, [desktopRuntime, hidden, preparedRunSpec, runPlan, selectedSession?.sessionId, selectedSession?.updatedAt]);
+
+  useEffect(() => {
+    if (hidden || !desktopRuntime || !selectedSession) return;
+    const nextExpiry = processGrants
+      .filter((grant) => grant.effectiveState === "active")
+      .map((grant) => Date.parse(grant.expiresAt))
+      .filter(Number.isFinite)
+      .sort((left, right) => left - right)[0];
+    if (nextExpiry === undefined) return;
+    const delay = Math.max(1_000, Math.min(nextExpiry - Date.now() + 100, 2_147_000_000));
+    const timer = window.setTimeout(() => {
+      void loadProcessReceipts(selectedSession.sessionId)
+        .then(([grants, admissions]) => {
+          setProcessGrants(grants);
+          setProcessAdmissions(admissions);
+          if (preparedRunSpec && runPlan) {
+            return deriveWorkbenchProcessAdmissionEligibility(preparedRunSpec)
+              .then((snapshot) => {
+                if (snapshot.currentPlanId === runPlan.planId) setAdmissionEligibility(snapshot);
+              });
+          }
+          setAdmissionEligibility(null);
+        })
+        .catch((reason) => {
+          setProcessGrants([]);
+          setProcessAdmissions([]);
+          setAdmissionEligibility(null);
+          setError(messageFrom(reason, "Process authorization receipts could not be refreshed at expiry."));
+        });
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [desktopRuntime, hidden, loadProcessReceipts, preparedRunSpec, processGrants, runPlan, selectedSession]);
 
   async function createSession() {
     const digest = workspaceDigest.trim();
@@ -221,9 +303,10 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       });
       setSessions((current) => replaceSession(current, created));
       setSelectedSessionId(created.sessionId);
-      setRunPlan(null);
-      setPreparedRunSpec(null);
+      invalidatePreparedPlan();
       setProcessGrants([]);
+      setProcessAdmissions([]);
+      setAdmissionEligibility(null);
       setNotice("Local Workbench session created. No provider traffic or configuration changes occurred.");
     } catch (reason) {
       setError(messageFrom(reason, "Workbench session could not be created."));
@@ -240,8 +323,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     try {
       const next = await transitionWorkbenchSession(selectedSession.sessionId, action);
       setSessions((current) => replaceSession(current, next));
-      setRunPlan(null);
-      setPreparedRunSpec(null);
+      invalidatePreparedPlan();
       setNotice(`Session ${actionPastTense(action)} in the local content-free ledger.`);
     } catch (reason) {
       setError(messageFrom(reason, `Session could not ${action}.`));
@@ -260,8 +342,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       const fork = await forkWorkbenchSession(selectedSession.sessionId, event.eventId);
       await refresh();
       setSelectedSessionId(fork.sessionId);
-      setRunPlan(null);
-      setPreparedRunSpec(null);
+      invalidatePreparedPlan();
       setNotice("Fork created from the latest ledger event. The parent and child remain content-free.");
     } catch (reason) {
       setError(messageFrom(reason, "Session fork could not be created."));
@@ -295,14 +376,12 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setReplayReferenceId("");
     }
     setPresetId("");
-    setRunPlan(null);
-    setPreparedRunSpec(null);
+    invalidatePreparedPlan();
   }
 
   function selectAdapter(nextAdapterId: (typeof adapters)[number]["id"]) {
     setAdapterId(nextAdapterId);
-    setRunPlan(null);
-    setPreparedRunSpec(null);
+    invalidatePreparedPlan();
     if (nextAdapterId === "gemini_cli") {
       setCapabilityIds((current) =>
         current.filter((capabilityId) => capabilityId !== "adapter_command_readiness"),
@@ -312,8 +391,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
 
   function loadPreset(nextPresetId: string) {
     setPresetId(nextPresetId);
-    setRunPlan(null);
-    setPreparedRunSpec(null);
+    invalidatePreparedPlan();
     if (!nextPresetId) return;
     const preset = projection?.presets.find((candidate) => candidate.presetId === nextPresetId);
     if (!preset) {
@@ -355,6 +433,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setError("Adapter command readiness is currently limited to canonical Codex and Claude Code adapters.");
       return;
     }
+    const requestRevision = planRevision.current;
     setBusyAction("plan");
     setError(null);
     setNotice(null);
@@ -367,18 +446,22 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         routerDecisionId: decisionId,
         replayReferenceId: replayId || null,
         presetId: presetId || null,
-        requiredCapabilityIds: capabilityIds,
+        requiredCapabilityIds: [...capabilityIds],
         requestedMode,
       };
       const plan = await prepareWorkbenchRunPlan(runSpec);
+      if (planRevision.current !== requestRevision) return;
       setRunPlan(plan);
       setPreparedRunSpec(runSpec);
       setConfirmationPhrase("");
       setNotice("Adapter plan prepared only. It has not changed any client configuration.");
     } catch (reason) {
-      setRunPlan(null);
-      setPreparedRunSpec(null);
-      setError(messageFrom(reason, "Workbench run plan could not be prepared."));
+      if (planRevision.current === requestRevision) {
+        setRunPlan(null);
+        setPreparedRunSpec(null);
+        setAdmissionEligibility(null);
+        setError(messageFrom(reason, "Workbench run plan could not be prepared."));
+      }
     } finally {
       setBusyAction(null);
     }
@@ -399,7 +482,11 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         expectedProcessRunId: runPlan.processContainment.runId,
         confirmationPhrase,
       });
-      setProcessGrants((current) => [grant, ...current.filter((item) => item.grantId !== grant.grantId)]);
+      const [grants, admissions] = await loadProcessReceipts(grant.sessionId);
+      setProcessGrants(grants);
+      setProcessAdmissions(admissions);
+      const snapshot = await deriveWorkbenchProcessAdmissionEligibility(preparedRunSpec);
+      if (snapshot.currentPlanId === runPlan.planId) setAdmissionEligibility(snapshot);
       setConfirmationPhrase("");
       setNotice("Future process authorization recorded locally. It does not start a CLI, write files, or send provider traffic.");
     } catch (reason) {
@@ -418,6 +505,17 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setProcessGrants((current) => current.map((grant) =>
         grant.grantId === revoked.grantId ? revoked : grant,
       ));
+      if (selectedSession) {
+        const [grants, admissions] = await loadProcessReceipts(selectedSession.sessionId);
+        setProcessGrants(grants);
+        setProcessAdmissions(admissions);
+        if (preparedRunSpec && runPlan) {
+          const snapshot = await deriveWorkbenchProcessAdmissionEligibility(preparedRunSpec);
+          if (snapshot.currentPlanId === runPlan.planId) setAdmissionEligibility(snapshot);
+        } else {
+          setAdmissionEligibility(null);
+        }
+      }
       setNotice("Future process authorization revoked locally. No process was started.");
     } catch (reason) {
       setError(messageFrom(reason, "Future process authorization could not be revoked."));
@@ -438,11 +536,39 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
         expectedProcessRunId: runPlan.processContainment.runId,
         grantId,
       });
-      setProcessAdmissions((current) => [admission, ...current.filter((item) => item.admissionId !== admission.admissionId)]);
+      const [grants, admissions] = await loadProcessReceipts(admission.sessionId);
+      setProcessGrants(grants);
+      setProcessAdmissions(admissions);
+      const snapshot = await deriveWorkbenchProcessAdmissionEligibility(preparedRunSpec);
+      if (snapshot.currentPlanId === runPlan.planId) setAdmissionEligibility(snapshot);
       setNotice("Executor eligibility recorded. No binary was resolved or launched.");
     } catch (reason) {
       setError(messageFrom(reason, "Executor eligibility could not be recorded."));
     } finally { setBusyAction(null); }
+  }
+
+  async function refreshSelectedReceipts() {
+    if (!selectedSession) return;
+    setBusyAction("receipt-refresh");
+    setError(null);
+    try {
+      const [grants, admissions] = await loadProcessReceipts(selectedSession.sessionId);
+      setProcessGrants(grants);
+      setProcessAdmissions(admissions);
+      if (preparedRunSpec && runPlan) {
+        const snapshot = await deriveWorkbenchProcessAdmissionEligibility(preparedRunSpec);
+        if (snapshot.currentPlanId === runPlan.planId) setAdmissionEligibility(snapshot);
+      } else {
+        setAdmissionEligibility(null);
+      }
+    } catch (reason) {
+      setProcessGrants([]);
+      setProcessAdmissions([]);
+      setAdmissionEligibility(null);
+      setError(messageFrom(reason, "Process authorization receipts could not be refreshed."));
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   const canFork = selectedSession?.status === "active" || selectedSession?.status === "paused";
@@ -459,6 +585,12 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const processGrantPhrase = runPlan && processGrantPolicy
     ? processGrantPolicy.confirmationTemplate.replace("{planId}", runPlan.planId)
     : "";
+  const admissionEligibilityById = useMemo(
+    () => new Map(
+      (admissionEligibility?.receipts ?? []).map((receipt) => [receipt.admissionId, receipt]),
+    ),
+    [admissionEligibility],
+  );
 
   return (
     <div className="tray-content" hidden={hidden}>
@@ -561,7 +693,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   aria-pressed={selectedSessionId === session.sessionId}
                   className={`workbench-session${selectedSessionId === session.sessionId ? " is-selected" : ""}`}
                   key={session.sessionId}
-                  onClick={() => { setSelectedSessionId(session.sessionId); setRunPlan(null); setPreparedRunSpec(null); setConfirmationPhrase(""); }}
+                  onClick={() => { setSelectedSessionId(session.sessionId); invalidatePreparedPlan(); }}
                   type="button"
                 >
                   <span><strong>{session.taskClass}</strong> · {session.status}</span>
@@ -606,10 +738,10 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                 <div className="workbench-plan-fields">
                   <label className="workbench-field"><span>Client adapter</span><select aria-label="Client adapter" onChange={(event) => selectAdapter(event.target.value as (typeof adapters)[number]["id"])} value={adapterId}>{adapters.map((adapter) => <option key={adapter.id} value={adapter.id}>{adapter.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Plan preset</span><select aria-label="Workbench plan preset" disabled={!projection} onChange={(event) => loadPreset(event.target.value)} value={presetId}><option value="">Custom capability draft</option>{projection?.presets.map((preset: WorkbenchPlanPreset) => <option key={preset.presetId} value={preset.presetId}>{preset.label}</option>)}</select></label>
-                  <label className="workbench-field"><span>Requested Switchboard mode</span><select aria-label="Requested Switchboard mode" onChange={(event) => setRequestedMode(event.target.value as SwitchboardMode)} value={requestedMode}>{modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
-                  <label className="workbench-field"><span>Context pack SHA-256 digest (optional)</span><input aria-label="Context pack SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => setContextPackDigest(event.target.value)} placeholder="sha256:…" spellCheck={false} value={contextPackDigest} /></label>
-                  <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => setRouterDecisionId(event.target.value)} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
-                  <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => setReplayReferenceId(event.target.value)} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
+                  <label className="workbench-field"><span>Requested Switchboard mode</span><select aria-label="Requested Switchboard mode" onChange={(event) => { setRequestedMode(event.target.value as SwitchboardMode); invalidatePreparedPlan(); }} value={requestedMode}>{modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
+                  <label className="workbench-field"><span>Context pack SHA-256 digest (optional)</span><input aria-label="Context pack SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => { setContextPackDigest(event.target.value); invalidatePreparedPlan(); }} placeholder="sha256:…" spellCheck={false} value={contextPackDigest} /></label>
+                  <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => { setRouterDecisionId(event.target.value); invalidatePreparedPlan(); }} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
+                  <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => { setReplayReferenceId(event.target.value); invalidatePreparedPlan(); }} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
                 </div>
                 <p className="optimize-minimal__meta">Native presets only compose existing plan-only capabilities and evidence sources. Router and replay references are re-resolved before a plan is created; replay paths, events, and manually entered metadata are not accepted here.</p>
                 {selectedPreset ? <p className="optimize-minimal__meta">Preset evidence source: {selectedPreset.evidenceSource.replace(/_/g, " ")}. {selectedPreset.description}</p> : null}
@@ -673,47 +805,86 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                         ? "Recording authorization…"
                         : `Record ${Math.floor(processGrantPolicy.ttlSeconds / 60)}-minute authorization`}
                     </button>
-                    <div className="workbench-events" aria-label="Future process authorization receipts" role="list">
-                      {processGrants.length === 0 ? <p className="optimize-minimal__meta">No authorization receipts have been recorded for this session.</p> : null}
-                      {processGrants.map((grant) => (
-                        <div key={grant.grantId} role="listitem">
-                          <span><strong>{grant.effectiveState}</strong> · expires {formatTimestamp(grant.expiresAt)} · non-executable</span>
-                          <small>{grant.grantId}</small>
-                          {grant.effectiveState === "active" ? (
-                            <>
-                              <button
-                                className="secondary-button secondary-button--small"
-                                disabled={busyAction !== null || !preparedRunSpec || runPlan.adapterId !== "codex"}
-                                onClick={() => void validateExecutorEligibility(grant.grantId)}
-                                type="button"
-                              >
-                                {busyAction === `admit:${grant.grantId}` ? "Validating…" : "Validate executor eligibility"}
-                              </button>
-                              <button
-                                className="secondary-button secondary-button--small"
-                                disabled={busyAction !== null}
-                                onClick={() => void revokeProcessAuthorization(grant.grantId)}
-                                type="button"
-                              >
-                                {busyAction === `revoke-grant:${grant.grantId}` ? "Revoking…" : "Revoke authorization"}
-                              </button>
-                            </>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="workbench-events" aria-label="Executor eligibility records" role="list">
-                      {processAdmissions.map((admission) => (
-                        <div key={admission.admissionId} role="listitem">
-                          <span><strong>{admission.state.replace(/_/g, " ")}</strong> · Codex · non-executable</span>
-                          <small>{admission.admissionId}</small>
-                        </div>
-                      ))}
-                    </div>
                   </section>
                 ) : null}
               </article>
             ) : null}
+
+            <article className="soft-card panel-card" aria-labelledby="workbench-receipt-center-title">
+              <div className="panel-card__header">
+                <div>
+                  <h2 id="workbench-receipt-center-title">Session receipt center</h2>
+                  <p>Historical authorization and admission receipts for the selected session, with current native eligibility evaluated separately from their saved state.</p>
+                </div>
+                <button
+                  className="secondary-button secondary-button--small"
+                  disabled={busyAction !== null}
+                  onClick={() => void refreshSelectedReceipts()}
+                  type="button"
+                >
+                  <ArrowClockwise className={busyAction === "receipt-refresh" ? "is-spinning" : undefined} size={15} aria-hidden="true" />
+                  {busyAction === "receipt-refresh" ? "Refreshing…" : "Refresh receipts"}
+                </button>
+              </div>
+              <p className="optimize-minimal__meta">An active label means eligible for native revalidation only. No receipt can start a process, resolve a binary, send provider traffic, or write files.</p>
+              <div className="workbench-events" aria-label="Future process authorization receipts" role="list">
+                {processGrants.length === 0 ? <p className="optimize-minimal__meta">No authorization receipts have been recorded for this session.</p> : null}
+                {processGrants.map((grant) => {
+                  const currentEligibility = grantEligibility(grant, selectedSession);
+                  const matchesPreparedPlan = Boolean(
+                    preparedRunSpec
+                    && runPlan?.adapterId === "codex"
+                    && runPlan.planId === grant.planId
+                    && runPlan.processContainment?.runId === grant.processRunId,
+                  );
+                  return (
+                    <div key={grant.grantId} role="listitem">
+                      <span><strong>{currentEligibility.replace(/_/g, " ")}</strong> · grant {grant.effectiveState} · expires {formatTimestamp(grant.expiresAt)} · non-executable</span>
+                      <small>{grant.grantId}</small>
+                      {grant.effectiveState === "active" && currentEligibility === "active" && matchesPreparedPlan ? (
+                        <button
+                          className="secondary-button secondary-button--small"
+                          disabled={busyAction !== null}
+                          onClick={() => void validateExecutorEligibility(grant.grantId)}
+                          type="button"
+                        >
+                          {busyAction === `admit:${grant.grantId}` ? "Validating…" : "Validate executor eligibility"}
+                        </button>
+                      ) : null}
+                      {grant.effectiveState === "active" ? (
+                        <button
+                          className="secondary-button secondary-button--small"
+                          disabled={busyAction !== null}
+                          onClick={() => void revokeProcessAuthorization(grant.grantId)}
+                          type="button"
+                        >
+                          {busyAction === `revoke-grant:${grant.grantId}` ? "Revoking…" : "Revoke authorization"}
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="workbench-events" aria-label="Executor eligibility records" role="list">
+                {processAdmissions.length === 0 ? <p className="optimize-minimal__meta">No executor admission receipts have been recorded for this session.</p> : null}
+                {processAdmissions.map((admission) => {
+                  const eligibility = admissionEligibilityById.get(admission.admissionId);
+                  return (
+                    <div key={admission.admissionId} role="listitem">
+                      <span>
+                        <strong>{eligibility ? eligibility.currentEligibility.replace(/_/g, " ") : "not currently evaluated"}</strong>
+                        {eligibility ? ` (${eligibility.reason.replace(/_/g, " ")})` : " against a prepared plan"}
+                        {` · historical ${admission.state.replace(/_/g, " ")} · Codex · non-executable`}
+                      </span>
+                      <small>
+                        {admission.admissionId}
+                        {eligibility ? ` · evaluated ${formatTimestamp(eligibility.evaluatedAt)}` : ""}
+                      </small>
+                    </div>
+                  );
+                })}
+              </div>
+            </article>
           </>
         ) : null}
       </section>

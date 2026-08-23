@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ const listProcessStartGrants = vi.fn();
 const revokeProcessStartGrant = vi.fn();
 const admitProcess = vi.fn();
 const listProcessAdmissions = vi.fn();
+const deriveAdmissionEligibility = vi.fn();
 const listRouterDecisionReferences = vi.fn();
 const listReplayReferences = vi.fn();
 
@@ -44,6 +45,7 @@ vi.mock("../lib/workbench", async () => {
     revokeWorkbenchProcessStartGrant: (...args: unknown[]) => revokeProcessStartGrant(...args),
     admitWorkbenchProcess: (...args: unknown[]) => admitProcess(...args),
     listWorkbenchProcessAdmissions: (...args: unknown[]) => listProcessAdmissions(...args),
+    deriveWorkbenchProcessAdmissionEligibility: (...args: unknown[]) => deriveAdmissionEligibility(...args),
     exportWorkbenchSession: vi.fn(),
     forkWorkbenchSession: vi.fn(),
     transitionWorkbenchSession: vi.fn(),
@@ -167,6 +169,17 @@ describe("WorkbenchView", () => {
     listReplayReferences.mockResolvedValue([replayReference]);
     listProcessStartGrants.mockResolvedValue([]);
     listProcessAdmissions.mockResolvedValue([]);
+    deriveAdmissionEligibility.mockResolvedValue({
+      schemaVersion: 1,
+      sessionId: session.sessionId,
+      evaluatedAt: "2026-08-23T00:01:00Z",
+      currentPlanId: null,
+      currentProcessRunId: null,
+      receipts: [],
+      executionEnabled: false,
+      providerTraffic: "none",
+      writesEnabled: false,
+    });
   });
 
   it("surfaces the local plan-only boundary and shared capability registry", async () => {
@@ -192,6 +205,34 @@ describe("WorkbenchView", () => {
     render(<WorkbenchView hidden={false} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/ledger lock is unavailable/i);
+  });
+
+  it("keeps historical admission receipts visible without presenting them as current", async () => {
+    listProcessAdmissions.mockResolvedValue([{
+      schemaVersion: 1,
+      admissionId: "process-admission:historical",
+      sessionId: session.sessionId,
+      planId: "run-plan:historical",
+      processRunId: "process-run:historical",
+      grantId: "process-grant:historical",
+      adapterId: "codex",
+      admittedAt: "2026-08-23T00:01:00Z",
+      state: "authorized_not_started",
+      executionEnabled: false,
+      providerTraffic: "none",
+      writesEnabled: false,
+      receiptDigest: `sha256:${"1".repeat(64)}`,
+    }]);
+
+    render(<WorkbenchView hidden={false} />);
+
+    expect(await screen.findByText("Session receipt center")).toBeInTheDocument();
+    expect(await screen.findByText((_, element) =>
+      element?.tagName === "SPAN"
+      && element.textContent?.includes("not currently evaluated")
+      && element.textContent.includes("historical authorized not started"),
+    )).toBeInTheDocument();
+    expect(deriveAdmissionEligibility).not.toHaveBeenCalled();
   });
 
   it("creates a local session from a digest rather than a workspace path", async () => {
@@ -250,6 +291,45 @@ describe("WorkbenchView", () => {
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Observe-only Router decision ID")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Router evidence SHA-256 digest")).not.toBeInTheDocument();
+  });
+
+  it("discards a late prepared plan after a visible plan input changes", async () => {
+    const user = userEvent.setup();
+    let resolvePlan!: (value: Record<string, unknown>) => void;
+    preparePlan.mockReturnValue(new Promise((resolve) => { resolvePlan = resolve; }));
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
+    await user.click(screen.getByRole("button", { name: "Prepare plan only" }));
+    await waitFor(() => expect(preparePlan).toHaveBeenCalledOnce());
+    await user.selectOptions(screen.getByLabelText("Requested Switchboard mode"), "headroom");
+    await act(async () => {
+      resolvePlan({
+        schemaVersion: 1,
+        planId: "run-plan:stale",
+        sessionId: session.sessionId,
+        adapterId: "codex",
+        workspaceDigest,
+        contextPackDigest: null,
+        routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
+        replayReference: null,
+        preset: null,
+        requestedMode: "full",
+        adapterPlanId: "adapter-plan:stale",
+        adapterAction: "apply_managed_routing",
+        adapterReversible: true,
+        commandReadiness: null,
+        processContainment: null,
+        capabilityRequests: [],
+        executionMode: "plan_only",
+        providerTraffic: "none",
+        writesEnabled: false,
+      });
+    });
+
+    expect(screen.queryByText(/plan id: run-plan:stale/i)).not.toBeInTheDocument();
+    expect(deriveAdmissionEligibility).not.toHaveBeenCalled();
   });
 
   it("attaches a native replay receipt only when redacted replay is selected", async () => {
@@ -414,7 +494,7 @@ describe("WorkbenchView", () => {
       providerTraffic: "none",
       writesEnabled: false,
     });
-    issueProcessStartGrant.mockResolvedValue({
+    const activeGrant = {
       schemaVersion: 1,
       grantId: "process-grant:test",
       sessionId: session.sessionId,
@@ -422,29 +502,19 @@ describe("WorkbenchView", () => {
       processRunId: "process-run:1234567890abcdef1234567890abcdef",
       capabilityId: "adapter_process_start",
       issuedAt: "2026-08-23T00:00:00Z",
-      expiresAt: "2026-08-23T00:15:00Z",
+      expiresAt: "2099-08-23T00:15:00Z",
       effectiveState: "active",
       executionEnabled: false,
       providerTraffic: "none",
       writesEnabled: false,
       receiptDigest: `sha256:${"e".repeat(64)}`,
-    });
-    revokeProcessStartGrant.mockResolvedValue({
-      schemaVersion: 1,
-      grantId: "process-grant:test",
-      sessionId: session.sessionId,
-      planId: "run-plan:grant",
-      processRunId: "process-run:1234567890abcdef1234567890abcdef",
-      capabilityId: "adapter_process_start",
-      issuedAt: "2026-08-23T00:00:00Z",
-      expiresAt: "2026-08-23T00:15:00Z",
+    } as const;
+    const revokedGrant = {
+      ...activeGrant,
       effectiveState: "revoked",
-      executionEnabled: false,
-      providerTraffic: "none",
-      writesEnabled: false,
       receiptDigest: `sha256:${"f".repeat(64)}`,
-    });
-    admitProcess.mockResolvedValue({
+    } as const;
+    const admission = {
       schemaVersion: 1,
       admissionId: "process-admission:test",
       sessionId: session.sessionId,
@@ -458,7 +528,46 @@ describe("WorkbenchView", () => {
       providerTraffic: "none",
       writesEnabled: false,
       receiptDigest: `sha256:${"1".repeat(64)}`,
+    } as const;
+    const eligibilitySnapshot = (currentEligibility: "active" | "revoked") => ({
+      schemaVersion: 1,
+      sessionId: session.sessionId,
+      evaluatedAt: "2026-08-23T00:01:00Z",
+      currentPlanId: "run-plan:grant",
+      currentProcessRunId: "process-run:1234567890abcdef1234567890abcdef",
+      receipts: [{
+        ...admission,
+        currentEligibility,
+        reason: currentEligibility === "active" ? "bound_and_current" : "grant_revoked",
+        grantEffectiveState: currentEligibility,
+        evaluatedAt: "2026-08-23T00:01:00Z",
+        requiresStartRevalidation: true,
+        executionEnabled: false,
+        providerTraffic: "none",
+        writesEnabled: false,
+      }],
+      executionEnabled: false,
+      providerTraffic: "none",
+      writesEnabled: false,
     });
+    issueProcessStartGrant.mockResolvedValue(activeGrant);
+    revokeProcessStartGrant.mockResolvedValue(revokedGrant);
+    admitProcess.mockResolvedValue(admission);
+    listProcessStartGrants
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([activeGrant])
+      .mockResolvedValueOnce([activeGrant])
+      .mockResolvedValueOnce([revokedGrant]);
+    listProcessAdmissions
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([admission])
+      .mockResolvedValueOnce([admission]);
+    deriveAdmissionEligibility
+      .mockResolvedValueOnce({ ...eligibilitySnapshot("active"), receipts: [] })
+      .mockResolvedValueOnce({ ...eligibilitySnapshot("active"), receipts: [] })
+      .mockResolvedValueOnce(eligibilitySnapshot("active"))
+      .mockResolvedValueOnce(eligibilitySnapshot("revoked"));
     render(<WorkbenchView hidden={false} />);
     await screen.findAllByText("workbench:test");
 
@@ -497,9 +606,9 @@ describe("WorkbenchView", () => {
     )).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Revoke authorization" }));
     expect(revokeProcessStartGrant).toHaveBeenCalledWith("process-grant:test");
-    expect(await screen.findByText((_, element) =>
+    expect((await screen.findAllByText((_, element) =>
       element?.tagName === "SPAN" && element.textContent?.includes("revoked") && element.textContent.includes("non-executable"),
-    )).toBeInTheDocument();
+    )).length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByRole("button", { name: /execute|start/i })).not.toBeInTheDocument();
   });
 

@@ -127,7 +127,7 @@ pub(crate) fn admit_process(
 }
 
 impl WorkbenchProcessAdmission {
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         if self.schema_version != ADMISSION_SCHEMA_VERSION
             || self.adapter_id != "codex"
             || self.state != AUTHORIZED_NOT_STARTED

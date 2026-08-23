@@ -317,6 +317,20 @@ impl WorkbenchProcessGrantStore {
         Ok(grants)
     }
 
+    pub(crate) fn snapshot(
+        &self,
+        now: DateTime<Utc>,
+    ) -> Result<Vec<WorkbenchProcessStartGrantView>> {
+        let mut grants = self
+            .load()?
+            .grants
+            .into_values()
+            .map(|grant| grant.view_at(now))
+            .collect::<Vec<_>>();
+        grants.sort_by(|left, right| right.issued_at.cmp(&left.issued_at));
+        Ok(grants)
+    }
+
     pub(crate) fn issue(
         &self,
         grant: WorkbenchProcessStartGrant,
@@ -546,7 +560,10 @@ fn expire_stale_grants(
 ) -> Result<bool> {
     let mut changed = false;
     for grant in grants.values_mut() {
-        if grant.status == GRANTED && grant.effective_state_at(now)? == EXPIRED {
+        let expires_at = DateTime::parse_from_rfc3339(&grant.expires_at)
+            .map_err(|_| anyhow!("Workbench process grant expiry time is invalid"))?
+            .with_timezone(&Utc);
+        if grant.status == GRANTED && now >= expires_at {
             grant.status = EXPIRED.into();
             grant.receipt_digest = process_start_grant_digest(grant)?;
             grant.validate()?;
@@ -727,14 +744,21 @@ mod tests {
             .require_active_at(now + Duration::seconds(901))
             .is_err());
         let directory = tempfile::tempdir().expect("temporary directory");
-        let store = WorkbenchProcessGrantStore::at(directory.path().join("grants.json"));
+        let path = directory.path().join("grants.json");
+        let store = WorkbenchProcessGrantStore::at(path.clone());
         store.issue(fresh, now).expect("persist grant");
+        let before_rollback = std::fs::read(&path).expect("read grant ledger before rollback");
         assert_eq!(
             store
                 .list_for_session(&session.session_id, now - Duration::seconds(1))
                 .expect("clock rollback fails closed")[0]
                 .effective_state,
             "expired"
+        );
+        assert_eq!(
+            std::fs::read(&path).expect("read grant ledger after rollback"),
+            before_rollback,
+            "clock rollback must deny without persisting ordinary expiry"
         );
         assert_eq!(
             store

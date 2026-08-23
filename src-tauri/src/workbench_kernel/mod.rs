@@ -8,6 +8,7 @@ mod adapter_readiness;
 mod capability_grant;
 mod events;
 mod presets;
+mod process_eligibility;
 mod process_run_spec;
 mod process_supervisor;
 mod run_contract;
@@ -26,6 +27,10 @@ use capability_grant::{
 pub use capability_grant::{WorkbenchProcessStartGrantPolicy, WorkbenchProcessStartGrantView};
 pub use events::WorkbenchSessionAction;
 use presets::{all_workbench_plan_presets, WorkbenchPlanPreset};
+use process_eligibility::derive_admission_eligibility;
+pub use process_eligibility::{
+    WorkbenchAdmissionEligibilityInput, WorkbenchAdmissionEligibilitySnapshot,
+};
 pub use process_run_spec::ProcessRunSpec;
 pub use process_supervisor::WorkbenchProcessAdmission;
 use process_supervisor::{admit_process, WorkbenchProcessAdmissionStore};
@@ -294,6 +299,35 @@ pub fn list_workbench_process_admissions(
     WorkbenchProcessAdmissionStore::in_app_storage()
         .list_for_session(session_id.trim())
         .map_err(|error| error.to_string())
+}
+
+/// Re-evaluates historical admissions against the current session, a freshly
+/// prepared native plan, and the validated grant ledger. The snapshot is
+/// ephemeral and remains non-executable.
+#[tauri::command]
+pub fn derive_workbench_process_admission_eligibility(
+    input: WorkbenchAdmissionEligibilityInput,
+) -> Result<WorkbenchAdmissionEligibilitySnapshot, String> {
+    let (_guard, store) = locked_store()?;
+    let session = store
+        .get(input.run_spec.session_id.trim())
+        .map_err(|error| error.to_string())?;
+    let now = chrono::Utc::now();
+    let admissions = WorkbenchProcessAdmissionStore::in_app_storage()
+        .list_for_session(&session.session_id)
+        .map_err(|error| error.to_string())?;
+    if session.status == events::WorkbenchSessionStatus::Active {
+        let plan = run_contract::prepare_run_plan(&session, input.run_spec)
+            .map_err(|error| error.to_string())?;
+        let grants = WorkbenchProcessGrantStore::in_app_storage()
+            .snapshot(now)
+            .map_err(|error| error.to_string())?;
+        derive_admission_eligibility(&session, Some(&plan), admissions, &grants, now)
+            .map_err(|error| error.to_string())
+    } else {
+        derive_admission_eligibility(&session, None, admissions, &[], now)
+            .map_err(|error| error.to_string())
+    }
 }
 
 #[tauri::command]

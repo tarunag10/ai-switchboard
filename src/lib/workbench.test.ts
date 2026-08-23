@@ -9,6 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 import {
   admitWorkbenchProcess,
   createWorkbenchSession,
+  deriveWorkbenchProcessAdmissionEligibility,
   getWorkbenchCapabilityProjection,
   issueWorkbenchProcessStartGrant,
   isWorkbenchDigest,
@@ -179,4 +180,28 @@ it("lists process admissions through the scoped native command", async () => {
   expect(invoke).toHaveBeenCalledWith("list_workbench_process_admissions", {
     sessionId: "workbench:test",
   });
+});
+
+it("derives admission eligibility from the complete content-free run spec", async () => {
+  invoke.mockClear();
+  const runSpec = {
+    sessionId: "workbench:test",
+    adapterId: "codex" as const,
+    workspaceDigest: `sha256:${"a".repeat(64)}`,
+    contextPackDigest: null,
+    routerDecisionId: "routing-decision-1",
+    replayReferenceId: null,
+    presetId: null,
+    requiredCapabilityIds: ["router_observe", "adapter_command_readiness"],
+    requestedMode: "full" as const,
+  };
+  invoke.mockResolvedValueOnce({ receipts: [] });
+
+  await deriveWorkbenchProcessAdmissionEligibility(runSpec);
+
+  expect(invoke).toHaveBeenCalledOnce();
+  expect(invoke).toHaveBeenCalledWith(
+    "derive_workbench_process_admission_eligibility",
+    { input: { runSpec } },
+  );
 });

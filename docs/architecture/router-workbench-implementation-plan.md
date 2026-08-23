@@ -31,8 +31,8 @@ redaction, rollback, and release gates.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `09bff975` plus the
-admission-hardening change recorded in this commit, and against the visible
+This status was reconciled against committed `main` through `41e402c9` plus the
+receipt-eligibility change recorded in this commit, and against the visible
 frontend/native command wiring on 2026-08-24. Unrelated concurrent unstaged
 work is not counted as shipped. A check mark therefore means the capability is
 in the committed product boundary, not merely described in another plan or
@@ -51,9 +51,9 @@ present in an unrelated local diff.
 
 Current verification snapshot:
 
-- `34` focused frontend tests pass across selective activation, Workbench
-  bridge/view, model-routing controls, supporting panels, and advanced Settings.
-- `46` focused native `workbench_kernel` tests pass.
+- `19` focused Workbench bridge/view tests pass, including historical receipt
+  visibility and late-plan invalidation.
+- `50` focused native `workbench_kernel` tests pass.
 - The model-routing evidence gate passes: `13` Node contract tests, `35`
   native model-routing tests, and `18` native telemetry-store tests.
 - `npm run build` passes after preserving the authoritative
@@ -68,7 +68,7 @@ Current verification snapshot:
 |---|---|---|---|
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
 | Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, and durable Codex admission | Admission reaches only `authorized_not_started`; no binary, task payload, workspace handle, PID, output, or provider request exists | Native supervisor, version probe, process ownership, timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
-| Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions are informational | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
+| Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, and drift-safe rollback cover the managed actions | A run can end `partial`; the UI remembers only the current component's last run ID even though native state is persisted | Restore native selection/last receipt after restart, expose receipt history, and add safe retry/resume for failed tools without reapplying successful tools |
 | Ponytail, Caveman, RTK, MarkItDown | Visible Addons and selective activation paths; exact created/changed artifact fingerprints; narrow restore/removal; external-drift blocking; receipt preservation | Runtime installation or client prerequisites can still fail on a particular machine | Add end-to-end disposable-home matrix tests and an app-visible repair path for partial managed runtimes |
 | Chonkify-labelled pack mode | Promotion gate currently passes (`MIT`, wrong-omission gate `0%`); read-only pack preference and selective activation are usable | The current `switchboard-chonkify` adapter is Switchboard-authored head/tail compaction, not verified upstream Chonkify code | Rename it to Switchboard Pack Compaction and remove upstream attribution, or integrate a pinned upstream adapter with parity/provenance tests |
@@ -356,10 +356,11 @@ Deliverables:
   as cleanup. The terminal transition now remains successful and authoritative
   when injected grant cleanup fails, and a focused test reloads the persisted
   terminal session.
-- [ ] Treat admission as a historical receipt, not current eligibility. Derive
+- [x] Treat admission as a historical receipt, not current eligibility. Derive
   `active`, `expired`, `revoked`, `session_terminal`, and `superseded` status by
-  rechecking the grant/session/plan; never trust stored
-  `authorized_not_started` as a launch capability.
+  rechecking the grant/session/plan; also represent `session_paused` and
+  `unavailable` instead of forcing unsafe states into that five-state model.
+  Stored `authorized_not_started` is never trusted as a launch capability.
 - [x] Add `deny_unknown_fields` or equivalent explicit persisted-schema
   rejection for sessions, events, grants, and admissions, with corruption and
   forbidden prompt/path/credential/argv/output-field tests. Ledger envelopes
@@ -372,9 +373,11 @@ Deliverables:
 - [ ] Add a command-level fake-adapter test for the already-present
   verified-routing prerequisite; do not depend on a developer machine's real
   Codex installation or configuration.
-- [ ] Move authorization/admission history to a session-level receipt center,
+- [x] Move authorization/admission history to a session-level receipt center,
   refresh at grant expiry, clear stale data on session changes/errors, and
-  invalidate or freeze a prepared plan when any visible input changes.
+  invalidate or freeze a prepared plan when any visible input changes. The UI
+  keeps historical admissions separate from an ephemeral native eligibility
+  snapshot and discards late plan responses by revision.
 - [ ] Version probing or runnable-binary validation, only after an explicit
   process-start capability and containment/receipt model are available.
 - [ ] Process registry, actual bounded timeout/cancel enforcement,
@@ -386,10 +389,10 @@ Deliverables:
 
 Immediate Phase 4 order:
 
-1. **4.1 Admission correctness** — active-session enforcement, cross-ledger
+1. **4.1 Admission correctness — done** — active-session enforcement, cross-ledger
    failure handling, strict schemas, direct native/bridge tests, derived
    eligibility states, and bounded retention/reclamation.
-2. **4.2 Receipt and consent UX** — session-level history, expiry refresh,
+2. **4.2 Receipt and consent UX — done** — session-level history, expiry refresh,
    immutable prepared-plan summary, input-change invalidation, and truthful
    historical-versus-current labels.
 3. **4.3 Owned process controller** — Workbench-specific fixed command catalog,
@@ -475,8 +478,8 @@ selected. Do not combine their routing authority with Switchboard's Router.
 | P0 — Done | Restore repository gates | The full build and OSS integration checker were red | Preserve the compression-mode union and validate the shared Workbench capability projection; both gates now pass |
 | P0 | Correct Chonkify identity | The promoted adapter is local head/tail compaction while fixtures attribute upstream Chonkify | Rename/localize the feature and attribution, or pin and integrate upstream code with parity, licence, omission, and source-span tests |
 | P0 | Split planner from live Router status | The policy and endpoint planners are complete but have no production model-routing caller | Inventory and UI say planner/evidence done, live correlation remaining, approval remaining, automatic routing gated |
-| P1 | Historical versus current eligibility | Stored `authorized_not_started` remains visible after grant/session validity changes | Session receipt center derives current state and refreshes at expiry; launch always revalidates native state |
-| P1 | Immutable plan consent | Form edits can visually diverge from the saved plan snapshot | Any plan-input edit clears the plan or inputs are frozen with an exact immutable summary and plan ID |
+| P1 — Done | Historical versus current eligibility | Stored `authorized_not_started` remains visible after grant/session validity changes | Session receipt center derives current state and refreshes at expiry; the future launch boundary must still revalidate native state |
+| P1 — Done | Immutable plan consent | Form edits could visually diverge from the saved plan snapshot | Every visible plan-input edit clears the plan and eligibility snapshot; revision checks discard a late native plan response |
 | P1 | Restart-safe selective rollback | The persisted selective run cannot be rediscovered by the current card after restart | Native selection and last receipt load on mount; safe retry and drift-aware rollback remain available after relaunch |
 | P1 | Workbench-specific process controller | The generic runner can retain arguments/stdout/stderr and does not implement the declared graceful cleanup contract | Fake-process tests prove fixed command catalog, null stdin, allowlisted environment, bounded redaction, timeout, cancel, TERM/KILL, reaping, and restart cleanup |
 | P1 | Live Router provenance | Manual metrics are integrity-checked but not request-bound | One decision and completion receipt pair is generated by the same intercepted request lifecycle while model substitution stays off |

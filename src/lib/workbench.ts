@@ -150,6 +150,48 @@ export interface WorkbenchProcessAdmission {
   receiptDigest: string;
 }
 
+export type WorkbenchProcessAdmissionEligibility =
+  | "active"
+  | "expired"
+  | "revoked"
+  | "session_paused"
+  | "session_terminal"
+  | "superseded"
+  | "unavailable";
+
+export type WorkbenchProcessAdmissionEligibilityReason =
+  | "bound_and_current"
+  | "grant_expired"
+  | "clock_rollback"
+  | "grant_revoked"
+  | "grant_missing"
+  | "session_paused"
+  | "session_cancelled"
+  | "session_completed"
+  | "plan_changed"
+  | "process_containment_changed"
+  | "process_containment_removed";
+
+export interface WorkbenchAdmissionEligibility extends WorkbenchProcessAdmission {
+  currentEligibility: WorkbenchProcessAdmissionEligibility;
+  reason: WorkbenchProcessAdmissionEligibilityReason;
+  grantEffectiveState: "active" | "expired" | "revoked" | null;
+  evaluatedAt: string;
+  requiresStartRevalidation: true;
+}
+
+export interface WorkbenchAdmissionEligibilitySnapshot {
+  schemaVersion: number;
+  sessionId: string;
+  evaluatedAt: string;
+  currentPlanId: string | null;
+  currentProcessRunId: string | null;
+  receipts: WorkbenchAdmissionEligibility[];
+  executionEnabled: false;
+  providerTraffic: "none";
+  writesEnabled: false;
+}
+
 export interface WorkbenchProcessAdmissionInput {
   runSpec: WorkbenchRunSpecInput;
   expectedPlanId: string;
@@ -300,6 +342,15 @@ export function listWorkbenchProcessAdmissions(
   sessionId: string,
 ): Promise<WorkbenchProcessAdmission[]> {
   return invoke<WorkbenchProcessAdmission[]>("list_workbench_process_admissions", { sessionId });
+}
+
+export function deriveWorkbenchProcessAdmissionEligibility(
+  runSpec: WorkbenchRunSpecInput,
+): Promise<WorkbenchAdmissionEligibilitySnapshot> {
+  return invoke<WorkbenchAdmissionEligibilitySnapshot>(
+    "derive_workbench_process_admission_eligibility",
+    { input: { runSpec } },
+  );
 }
 
 export function getWorkbenchCapabilityProjection(): Promise<WorkbenchCapabilityProjection> {

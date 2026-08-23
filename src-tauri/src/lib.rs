@@ -896,6 +896,7 @@ pub fn run() {
             workbench_kernel::revoke_workbench_process_start_grant,
             workbench_kernel::admit_workbench_process,
             workbench_kernel::list_workbench_process_admissions,
+            workbench_kernel::derive_workbench_process_admission_eligibility,
             workbench_kernel::get_workbench_capability_projection,
             optimization_commands::run_preemptive_compaction,
             optimization_commands::get_optimization_action_policy,
