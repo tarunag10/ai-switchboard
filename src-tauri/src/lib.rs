@@ -782,6 +782,7 @@ pub fn run() {
             analytics_commands::get_daily_usage_briefing,
             analytics_commands::export_daily_usage_briefing,
             analytics_commands::list_daily_usage_briefings,
+            analytics_commands::list_usage_analytics_events,
             analytics_commands::preview_clear_usage_analytics,
             analytics_commands::clear_usage_analytics,
             gateway_readiness::get_gateway_readiness,

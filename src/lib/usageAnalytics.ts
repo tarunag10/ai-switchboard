@@ -13,6 +13,7 @@ export type AttentionItem = { id: string; severity: "info" | "warning" | "critic
 export type Recommendation = { id: string; title: string; evidence: string; destination?: string | null; priority: number };
 export interface DailyUsageBriefing { schemaVersion: number; dayKey: string; timezone: string; generatedAt: number; completeness: "complete" | "partial" | "insufficient-data"; headline: string | null; totals: Record<string, Metric>; agents: BriefingAgent[]; attentionItems: AttentionItem[]; recommendations: Recommendation[]; evidenceCoverage: { measured: number; estimated: number; inferred: number; unavailable: number; detail?: string | null }; }
 export type UsageAnalyticsClearPreview = { briefingCount: number; eventCount: number; dayKeys: string[]; scope: string; detail: string; };
+export type UsageAnalyticsEvent = { id: string; occurredAt: number; kind: string; label: string; confidence: EvidenceConfidence; inputTokens: number; outputTokens: number; savedTokens: number; avoidedTokens: number; requestCount: number; latencyMs: number | null; outcome: string | null; source: string; };
 
 const metric = (raw: unknown): Metric => {
   const value = typeof raw === "number" ? raw : typeof (raw as any)?.value === "number" ? (raw as any).value : null;
@@ -65,18 +66,41 @@ export async function loadTokenXrayLiveUpdate(sinceRevision: number | null): Pro
 }
 export async function loadDailyUsageBriefing() { return normalizeBriefing(await invoke("get_daily_usage_briefing")); }
 export async function loadDailyUsageBriefingHistory() { const result = await invoke<unknown[]>("list_daily_usage_briefings"); return list(result).map(normalizeBriefing); }
+export async function loadUsageAnalyticsEvents(): Promise<UsageAnalyticsEvent[]> {
+  const result = await invoke<unknown[]>("list_usage_analytics_events");
+  return list(result).map((value) => {
+    const raw = record(value);
+    const timestamp = (input: unknown) => typeof input === "number" ? input : typeof input === "string" ? Date.parse(input) || 0 : 0;
+    const nonNegative = (input: unknown) => typeof input === "number" && Number.isFinite(input) && input >= 0 ? input : 0;
+    return {
+      id: typeof raw.id === "string" ? raw.id : "event",
+      occurredAt: timestamp(raw.occurredAt ?? raw.occurred_at),
+      kind: typeof raw.kind === "string" ? raw.kind : "usage",
+      label: typeof raw.label === "string" ? raw.label : "Analytics event",
+      confidence: ["measured", "estimated", "inferred", "unavailable"].includes(String(raw.confidence)) ? raw.confidence as EvidenceConfidence : "unavailable",
+      inputTokens: nonNegative(raw.inputTokens ?? raw.input_tokens),
+      outputTokens: nonNegative(raw.outputTokens ?? raw.output_tokens),
+      savedTokens: nonNegative(raw.savedTokens ?? raw.saved_tokens),
+      avoidedTokens: nonNegative(raw.avoidedTokens ?? raw.avoided_tokens),
+      requestCount: nonNegative(raw.requestCount ?? raw.request_count),
+      latencyMs: raw.latencyMs ?? raw.latency_ms ?? null,
+      outcome: typeof raw.outcome === "string" ? raw.outcome : null,
+      source: typeof raw.source === "string" ? raw.source : "local analytics",
+    };
+  });
+}
 const normalizeClearPreview = (rawValue: unknown, fallback: string): UsageAnalyticsClearPreview => {
   const raw = record(rawValue);
   return {
     briefingCount: Number(raw.briefingCount ?? raw.briefing_count ?? raw.snapshotCount ?? raw.snapshot_count ?? raw.affectedBriefings ?? raw.deletedBriefings ?? 0),
     eventCount: Number(raw.eventCount ?? raw.event_count ?? raw.affectedEvents ?? raw.deletedEvents ?? 0),
     dayKeys: list<string>(raw.dayKeys ?? raw.day_keys),
-    scope: typeof raw.scope === "string" ? raw.scope : "daily_usage_briefing_snapshots_only",
+    scope: typeof raw.scope === "string" ? raw.scope : "daily_usage_briefing_snapshots_and_normalized_events",
     detail: typeof raw.detail === "string" ? raw.detail : typeof raw.summary === "string" ? raw.summary : fallback,
   };
 };
-export async function previewClearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { return normalizeClearPreview(await invoke("preview_clear_usage_analytics"), "This only removes local usage analytics. Your savings ledger is not included unless the preview explicitly says so."); }
-export async function clearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { return normalizeClearPreview(await invoke("clear_usage_analytics"), "Local analytics cleared. Detailed normalized event facts are not persisted yet, and the savings ledger was not modified."); }
+export async function previewClearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { return normalizeClearPreview(await invoke("preview_clear_usage_analytics"), "This removes local daily snapshots and normalized events only. Your savings ledger is not included."); }
+export async function clearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { return normalizeClearPreview(await invoke("clear_usage_analytics"), "Local analytics cleared. Normalized event facts and daily snapshots were removed; the savings ledger was not modified."); }
 export async function exportDailyUsageBriefing(format: "markdown" | "json") { const result = await invoke<{ markdown?: string; json?: string; briefing?: unknown }>("export_daily_usage_briefing"); return format === "markdown" ? result.markdown ?? "" : result.json ?? JSON.stringify(result.briefing ?? {}, null, 2); }
 export function metricLabel(metric: Metric) { return metric.confidence; }
 export function formatMetric(metric: Metric, currency = false) { if (metric.value === null) return "Unavailable"; return currency ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(metric.value) : new Intl.NumberFormat("en-US", { notation: metric.value >= 1000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(metric.value); }

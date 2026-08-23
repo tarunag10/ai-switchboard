@@ -86,7 +86,7 @@ pub struct OptimizationImpactV1 {
     pub last_observed_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TokenXrayEventKindV1 {
     Usage,
@@ -104,6 +104,29 @@ pub struct TokenXrayEventV1 {
     pub label: String,
     pub confidence: AnalyticsEvidenceConfidence,
     pub detail: Option<String>,
+}
+
+/// A durable, content-free event projection used by local analytics history.
+/// It intentionally stores counters and bounded classifications only; source
+/// request/response text, paths, headers, and credentials never cross this
+/// schema boundary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NormalizedAnalyticsEventV1 {
+    pub schema_version: u8,
+    pub id: String,
+    pub occurred_at: DateTime<Utc>,
+    pub kind: TokenXrayEventKindV1,
+    pub label: String,
+    pub confidence: AnalyticsEvidenceConfidence,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub saved_tokens: u64,
+    pub avoided_tokens: u64,
+    pub request_count: u64,
+    pub latency_ms: Option<u64>,
+    pub outcome: Option<String>,
+    pub source: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

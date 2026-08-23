@@ -5,6 +5,7 @@ import {
   formatMetric,
   loadDailyUsageBriefing,
   loadDailyUsageBriefingHistory,
+  loadUsageAnalyticsEvents,
   loadTokenXraySnapshot,
   metricLabel,
   normalizeBriefing,
@@ -171,13 +172,13 @@ describe("usage analytics contract normalization", () => {
 describe("usage analytics retention contract", () => {
   beforeEach(() => invokeMock.mockReset());
 
-  it("normalizes the versioned briefing preview and preserves an honest zero event count", async () => {
+  it("normalizes the versioned briefing preview and preserves event counts", async () => {
     invokeMock.mockResolvedValue({
       briefingCount: 2,
       eventCount: 0,
       dayKeys: ["2026-07-10", "2026-07-11"],
-      scope: "daily_usage_briefing_snapshots_only",
-      detail: "Detailed normalized event facts are not persisted yet.",
+      scope: "daily_usage_briefing_snapshots_and_normalized_events",
+      detail: "Normalized analytics events are retained for 30 days.",
     });
 
     const { previewClearUsageAnalytics } = await import("./usageAnalytics");
@@ -185,8 +186,8 @@ describe("usage analytics retention contract", () => {
       briefingCount: 2,
       eventCount: 0,
       dayKeys: ["2026-07-10", "2026-07-11"],
-      scope: "daily_usage_briefing_snapshots_only",
-      detail: "Detailed normalized event facts are not persisted yet.",
+      scope: "daily_usage_briefing_snapshots_and_normalized_events",
+      detail: "Normalized analytics events are retained for 30 days.",
     });
     expect(invokeMock).toHaveBeenCalledWith("preview_clear_usage_analytics");
   });
@@ -199,7 +200,7 @@ describe("usage analytics retention contract", () => {
     expect(preview.briefingCount).toBe(1);
     expect(preview.eventCount).toBe(0);
     expect(preview.dayKeys).toEqual(["2026-07-11"]);
-    expect(preview.scope).toBe("daily_usage_briefing_snapshots_only");
+    expect(preview.scope).toBe("daily_usage_briefing_snapshots_and_normalized_events");
     expect(preview.detail).toContain("savings ledger");
   });
 
@@ -225,6 +226,36 @@ describe("usage analytics retention contract", () => {
     await expect(loadDailyUsageBriefingHistory()).resolves.toEqual([]);
   });
 
+  it("normalizes bounded content-free event history", async () => {
+    invokeMock.mockResolvedValueOnce([
+      {
+        id: "usage-abc",
+        occurred_at: "2026-08-17T10:00:00Z",
+        kind: "usage",
+        label: "Agent request",
+        confidence: "estimated",
+        input_tokens: 100,
+        output_tokens: 20,
+        saved_tokens: 5,
+        avoided_tokens: 0,
+        request_count: 1,
+        latency_ms: 30,
+        outcome: "success",
+        source: "recent_usage",
+      },
+    ]);
+    await expect(loadUsageAnalyticsEvents()).resolves.toEqual([
+      expect.objectContaining({
+        id: "usage-abc",
+        occurredAt: Date.parse("2026-08-17T10:00:00Z"),
+        inputTokens: 100,
+        savedTokens: 5,
+        confidence: "estimated",
+      }),
+    ]);
+    expect(invokeMock).toHaveBeenCalledWith("list_usage_analytics_events");
+  });
+
   it("normalizes clear aliases, summary fallback, and exact command", async () => {
     invokeMock.mockResolvedValueOnce({
       affectedBriefings: "4",
@@ -237,7 +268,7 @@ describe("usage analytics retention contract", () => {
       briefingCount: 4,
       eventCount: 2,
       dayKeys: [],
-      scope: "daily_usage_briefing_snapshots_only",
+      scope: "daily_usage_briefing_snapshots_and_normalized_events",
       detail: "Done",
     });
     expect(invokeMock).toHaveBeenCalledWith("clear_usage_analytics");

@@ -1532,12 +1532,22 @@ impl AppState {
     }
 
     /// Rebuilds the current local calendar-day briefing from existing evidence,
-    /// then atomically refreshes only the new, content-free analytics snapshot.
+    /// then refreshes the content-free daily snapshot and durable normalized
+    /// event projections. Event writes are idempotent and independently
+    /// retained for the shorter detailed-analytics window.
     pub fn daily_usage_briefing(&self) -> crate::analytics_models::DailyUsageBriefingV1 {
+        let dashboard = self.dashboard();
+        let attribution = self.savings_attribution_events();
         let briefing = crate::daily_briefing::build_briefing(
-            &self.dashboard(),
-            self.savings_attribution_events(),
+            &dashboard,
+            attribution.clone(),
         );
+        let normalized = crate::analytics_normalization::normalize(&dashboard, attribution, |_| true, |_| true);
+        if let Err(error) =
+            crate::analytics_store::save_events(&self.analytics_dir, &normalized.events)
+        {
+            log::warn!("could not persist normalized analytics events: {error:#}");
+        }
         if let Err(error) =
             crate::analytics_store::save_daily_snapshot(&self.analytics_dir, &briefing)
         {
@@ -1565,6 +1575,12 @@ impl AppState {
         &self,
     ) -> Result<crate::analytics_store::UsageAnalyticsClearPreviewV1> {
         crate::analytics_store::clear(&self.analytics_dir)
+    }
+
+    pub fn list_usage_analytics_events(
+        &self,
+    ) -> Result<Vec<crate::analytics_models::NormalizedAnalyticsEventV1>> {
+        crate::analytics_store::list_events(&self.analytics_dir)
     }
 
     /// Observe a batch of transformations into ActivityFacts (for feed

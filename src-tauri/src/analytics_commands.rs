@@ -1,6 +1,8 @@
 use tauri::{AppHandle, Manager, State};
 
-use crate::analytics_models::{DailyUsageBriefingV1, TokenXrayLiveUpdateV1, TokenXraySnapshotV1};
+use crate::analytics_models::{
+    DailyUsageBriefingV1, NormalizedAnalyticsEventV1, TokenXrayLiveUpdateV1, TokenXraySnapshotV1,
+};
 use crate::analytics_store::UsageAnalyticsClearPreviewV1;
 use crate::daily_briefing::{self, DailyUsageBriefingExportV1};
 use crate::models::{DashboardState, SavingsAttributionEvent};
@@ -96,6 +98,20 @@ pub async fn list_daily_usage_briefings(
         let state: State<'_, AppState> = app.state();
         state
             .list_daily_usage_briefings()
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn list_usage_analytics_events(
+    app: AppHandle,
+) -> Result<Vec<NormalizedAnalyticsEventV1>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        state
+            .list_usage_analytics_events()
             .map_err(|error| error.to_string())
     })
     .await

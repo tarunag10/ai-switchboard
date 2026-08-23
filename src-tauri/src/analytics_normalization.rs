@@ -3,8 +3,12 @@
 use std::collections::{BTreeMap, HashSet};
 
 use chrono::{DateTime, Local, Utc};
+use sha2::{Digest, Sha256};
 
-use crate::analytics_models::{AnalyticsEvidenceConfidence, OptimizationImpactV1};
+use crate::analytics_models::{
+    AnalyticsEvidenceConfidence, NormalizedAnalyticsEventV1, OptimizationImpactV1,
+    TokenXrayEventKindV1,
+};
 use crate::models::{
     DashboardState, SavingsAttributionConfidence, SavingsAttributionEvent,
     SavingsAttributionSource, UsageEvent, UsageOutcome,
@@ -21,6 +25,7 @@ pub(crate) struct NormalizedAnalytics {
     pub avoided_tokens: u64,
     pub estimated_savings_usd: f64,
     pub source_impacts: Vec<OptimizationImpactV1>,
+    pub events: Vec<NormalizedAnalyticsEventV1>,
 }
 
 pub(crate) fn local_day_key(now: DateTime<Utc>) -> String {
@@ -98,21 +103,24 @@ pub(crate) fn normalize(
                 tokens_saved: Some(events.iter().map(|event| event.delta_tokens_saved).sum()),
                 estimated_savings_usd: Some(events.iter().map(|event| event.delta_usd).sum()),
                 event_count: events.len() as u64,
-                runtime_evidence_units: events
-                    .iter()
-                    .map(|event| event.request_delta as u64)
-                    .sum(),
+                runtime_evidence_units: events.iter().map(|event| event.request_delta as u64).sum(),
                 measured_event_count: events
                     .iter()
-                    .filter(|event| matches!(event.confidence, SavingsAttributionConfidence::Measured))
+                    .filter(|event| {
+                        matches!(event.confidence, SavingsAttributionConfidence::Measured)
+                    })
                     .count() as u64,
                 estimated_event_count: events
                     .iter()
-                    .filter(|event| matches!(event.confidence, SavingsAttributionConfidence::Estimated))
+                    .filter(|event| {
+                        matches!(event.confidence, SavingsAttributionConfidence::Estimated)
+                    })
                     .count() as u64,
                 inferred_event_count: events
                     .iter()
-                    .filter(|event| matches!(event.confidence, SavingsAttributionConfidence::Inferred))
+                    .filter(|event| {
+                        matches!(event.confidence, SavingsAttributionConfidence::Inferred)
+                    })
                     .count() as u64,
                 total_tokens_sent: events.iter().map(|event| event.total_tokens_sent).sum(),
                 evidence: events
@@ -125,6 +133,14 @@ pub(crate) fn normalize(
         })
         .collect();
 
+    let mut events = usage.iter().map(normalize_usage_event).collect::<Vec<_>>();
+    events.extend(attribution.iter().map(normalize_attribution_event));
+    events.sort_by(|left, right| {
+        left.occurred_at
+            .cmp(&right.occurred_at)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+
     NormalizedAnalytics {
         generated_at: Utc::now(),
         usage,
@@ -135,6 +151,81 @@ pub(crate) fn normalize(
         avoided_tokens,
         estimated_savings_usd,
         source_impacts,
+        events,
+    }
+}
+
+fn normalize_usage_event(event: &UsageEvent) -> NormalizedAnalyticsEventV1 {
+    let saved_tokens = event
+        .stages
+        .iter()
+        .map(|stage| stage.estimated_tokens_saved)
+        .sum();
+    NormalizedAnalyticsEventV1 {
+        schema_version: 1,
+        id: stable_event_id("usage", &event.id),
+        occurred_at: event.timestamp,
+        kind: TokenXrayEventKindV1::Usage,
+        label: "Agent request".into(),
+        confidence: AnalyticsEvidenceConfidence::Estimated,
+        input_tokens: event.estimated_input_tokens,
+        output_tokens: event.estimated_output_tokens,
+        saved_tokens,
+        avoided_tokens: 0,
+        request_count: 1,
+        latency_ms: Some(event.latency_ms),
+        outcome: Some(usage_outcome_label(&event.outcome).into()),
+        source: "recent_usage".into(),
+    }
+}
+
+fn normalize_attribution_event(event: &SavingsAttributionEvent) -> NormalizedAnalyticsEventV1 {
+    let (saved_tokens, avoided_tokens) =
+        if matches!(event.source, SavingsAttributionSource::RepoIntelligence) {
+            (0, event.delta_tokens_saved)
+        } else {
+            (event.delta_tokens_saved, 0)
+        };
+    NormalizedAnalyticsEventV1 {
+        schema_version: 1,
+        id: stable_event_id("attribution", &event.id),
+        occurred_at: event.observed_at,
+        kind: TokenXrayEventKindV1::Savings,
+        label: "Optimization attribution".into(),
+        confidence: confidence(event.confidence.clone()),
+        input_tokens: event.total_tokens_sent,
+        output_tokens: 0,
+        saved_tokens,
+        avoided_tokens,
+        request_count: event.request_delta as u64,
+        latency_ms: None,
+        outcome: None,
+        source: attribution_source_label(&event.source).into(),
+    }
+}
+
+fn stable_event_id(prefix: &str, value: &str) -> String {
+    format!("{prefix}-{:x}", Sha256::digest(value.as_bytes()))
+}
+
+fn usage_outcome_label(outcome: &UsageOutcome) -> &'static str {
+    match outcome {
+        UsageOutcome::Success => "success",
+        UsageOutcome::Bypassed => "bypassed",
+        UsageOutcome::Error => "error",
+    }
+}
+
+fn attribution_source_label(source: &SavingsAttributionSource) -> &'static str {
+    match source {
+        SavingsAttributionSource::HeadroomEngine => "headroom_engine",
+        SavingsAttributionSource::Rtk => "rtk",
+        SavingsAttributionSource::RepoIntelligence => "repo_intelligence",
+        SavingsAttributionSource::Caveman => "caveman",
+        SavingsAttributionSource::Ponytail => "ponytail",
+        SavingsAttributionSource::Markitdown => "markitdown",
+        SavingsAttributionSource::CompactChinese => "compact_chinese",
+        SavingsAttributionSource::AgentMemory => "agent_memory",
     }
 }
 
