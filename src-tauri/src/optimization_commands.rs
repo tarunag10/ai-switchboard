@@ -9,6 +9,13 @@ pub fn get_optimization_snapshot() -> optimization::OptimizationSnapshot {
     optimization::snapshot::build_optimization_snapshot()
 }
 
+/// Returns bounded, content-free proxy transport observations. This is a
+/// diagnostic surface only; it is not model-routing quality or cost evidence.
+#[tauri::command]
+pub fn get_transport_observations() -> Vec<crate::transport_observations::TransportObservation> {
+    crate::transport_observations::global().snapshot()
+}
+
 #[tauri::command]
 pub fn run_preemptive_compaction() -> optimization::compaction_action::PreemptiveCompactionReceipt {
     optimization::compaction_action::run_preemptive_compaction()

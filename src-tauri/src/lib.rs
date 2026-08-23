@@ -866,6 +866,7 @@ pub fn run() {
             activity_commands::get_headroom_request_count,
             activity_commands::get_headroom_request_counts_by_agent,
             optimization_commands::get_optimization_snapshot,
+            optimization_commands::get_transport_observations,
             optimization_commands::run_preemptive_compaction,
             optimization_commands::get_optimization_action_policy,
             optimization_commands::set_optimization_action_policy,
