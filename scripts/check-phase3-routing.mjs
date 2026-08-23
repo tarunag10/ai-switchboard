@@ -35,7 +35,20 @@ function runCommand(item, index) {
       cwd,
       env: process.env,
       stdio: ["inherit", "pipe", "pipe"],
+      detached: process.platform !== "win32",
     });
+
+    const terminate = (signal) => {
+      if (process.platform !== "win32" && child.pid) {
+        try {
+          process.kill(-child.pid, signal);
+          return;
+        } catch {
+          // Fall back to the launcher when a child has already exited.
+        }
+      }
+      child.kill(signal);
+    };
 
     const markPhase = (chunk) => {
       if (/Blocking waiting for file lock/i.test(chunk)) {
@@ -67,9 +80,9 @@ function runCommand(item, index) {
     const timeout = setTimeout(() => {
       timedOut = true;
       observedPhase = "timeout";
-      child.kill("SIGTERM");
+      terminate("SIGTERM");
       setTimeout(() => {
-        if (!settled) child.kill("SIGKILL");
+        if (!settled) terminate("SIGKILL");
       }, 5_000).unref();
     }, timeoutMs);
     child.once("error", (error) => finish({ error }));
