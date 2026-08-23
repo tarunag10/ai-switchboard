@@ -5,6 +5,7 @@ pub(crate) mod cache_metrics;
 pub(crate) mod compaction;
 pub(crate) mod compaction_action;
 pub(crate) mod model_routing;
+pub(crate) mod model_routing_completion;
 pub(crate) mod model_routing_validation;
 pub(crate) mod policy;
 pub(crate) mod provider_usage;
