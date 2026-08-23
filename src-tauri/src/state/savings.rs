@@ -26,6 +26,7 @@ const PONYTAIL_TEMPLATE_BASELINE_TOKENS: u64 = 1_400;
 const PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS: u64 = 520;
 const MARKITDOWN_TEMPLATE_BASELINE_TOKENS: u64 = 3_200;
 const MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS: u64 = 900;
+const MAX_PERSISTED_ATTRIBUTION_EVENTS: usize = 4_096;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(super) struct SavingsTotalsSnapshot {
@@ -568,6 +569,13 @@ impl SavingsTracker {
         text.lines()
             .filter_map(|line| serde_json::from_str::<SavingsAttributionEvent>(line).ok())
             .collect()
+    }
+
+    fn retain_recent_attribution_lines(lines: &mut Vec<String>, max_events: usize) {
+        if lines.len() > max_events {
+            let remove = lines.len() - max_events;
+            lines.drain(..remove);
+        }
     }
 
     pub(super) fn observe_rtk_gain_summary(&mut self, stats: &RtkGainSummary) {
@@ -1152,18 +1160,44 @@ impl SavingsTracker {
         {
             return Ok(());
         }
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.attribution_events_path)
-            .with_context(|| format!("opening {}", self.attribution_events_path.display()))?;
         let serialized =
             serde_json::to_string(event).context("serializing savings attribution event")?;
+        let existing = std::fs::read_to_string(&self.attribution_events_path).unwrap_or_default();
+        let mut lines = existing
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        lines.push(serialized);
+        if lines.len() <= MAX_PERSISTED_ATTRIBUTION_EVENTS {
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&self.attribution_events_path)
+                .with_context(|| format!("opening {}", self.attribution_events_path.display()))?;
+            use std::io::Write;
+            file.write_all(lines.last().expect("just appended attribution line").as_bytes())
+                .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+            file.write_all(b"\n")
+                .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+            return Ok(());
+        }
+
+        Self::retain_recent_attribution_lines(&mut lines, MAX_PERSISTED_ATTRIBUTION_EVENTS);
+        let temporary = self.attribution_events_path.with_extension("jsonl.tmp");
+        let mut file = std::fs::File::create(&temporary)
+            .with_context(|| format!("creating {}", temporary.display()))?;
         use std::io::Write;
-        file.write_all(serialized.as_bytes())
-            .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+        file.write_all(lines.join("\n").as_bytes())
+            .with_context(|| format!("writing {}", temporary.display()))?;
         file.write_all(b"\n")
-            .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+            .with_context(|| format!("writing {}", temporary.display()))?;
+        std::fs::rename(&temporary, &self.attribution_events_path).with_context(|| {
+            format!(
+                "replacing {} with bounded attribution ledger",
+                self.attribution_events_path.display()
+            )
+        })?;
         Ok(())
     }
 
@@ -2777,6 +2811,13 @@ mod tests {
         assert_eq!(events[0].id, "event-1");
         assert_eq!(events[0].delta_tokens_saved, 42);
         let _ = std::fs::remove_file(&tracker.attribution_events_path);
+    }
+
+    #[test]
+    fn attribution_ledger_retains_only_the_newest_bounded_window() {
+        let mut lines = vec!["one".to_string(), "two".to_string(), "three".to_string()];
+        SavingsTracker::retain_recent_attribution_lines(&mut lines, 2);
+        assert_eq!(lines, vec!["two", "three"]);
     }
 
     #[test]
