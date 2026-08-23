@@ -58,17 +58,17 @@ export const addonCopy: Record<string, AddonCopy> = {
   },
   ponytail: {
     whatItDoes:
-      "Ponytail registers its marketplace plugin in Claude Code and/or Codex when those CLIs are on PATH. It nudges agents toward smaller, simpler edits and can run an over-engineering audit.",
-    installing: "Registering Ponytail in available coding clients...",
-    uninstalling: "Removing Ponytail from registered coding clients...",
+      "Ponytail uses reviewed MIT text resources bundled with AI Switchboard. Its core guidance is written into configured Claude Code and Codex instruction files without a marketplace install, Node.js hook, download, or automatic update.",
+    installing: "Writing bundled Ponytail guidance into configured coding clients...",
+    uninstalling: "Removing Switchboard-managed Ponytail guidance...",
     uninstalled:
       "Ponytail removed. Your agent writes code without the Ponytail nudge.",
     installed:
-      "Ponytail installed. Run /ponytail-audit in an agent to scan this codebase for over-engineering.",
+      "Ponytail installed. The pinned 4.9.0 core profile is active in configured clients.",
     enabling: "Enabling Ponytail...",
     disabling: "Disabling Ponytail...",
     disabled:
-      "Ponytail is off. It stays installed but no longer nudges agents.",
+      "Ponytail is off. Its bundled resources remain in the app, but managed client guidance is removed.",
   },
 };
 

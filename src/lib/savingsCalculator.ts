@@ -216,7 +216,7 @@ function sourceEvidenceCaveat(
       case "markitdown":
         return "Estimated from a smoke-tested managed MarkItDown hook or instruction-file change; not a per-document provider bill.";
       case "ponytail":
-        return "Estimated from verified Ponytail plugin registration in connected agent hosts; not runtime-measured output.";
+        return "Estimated from verified Switchboard-managed Ponytail guidance in configured agent clients; not runtime-measured output.";
       case "caveman":
         return "Estimated from changed Caveman-managed instruction files and the audited terse-output template delta.";
       case "compact_chinese":

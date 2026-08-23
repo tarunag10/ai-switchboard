@@ -18,6 +18,13 @@ The authoritative machine-readable delivery and migration status is
 - **Switchboard Pack Compaction** — AI Switchboard-native deterministic,
   no-model pack compaction. The persisted value `chonkify` is retained only as
   a backwards-compatible preference ID. No upstream Chonkify source is embedded.
+- **Ponytail** — MIT, copyright (c) 2026 DietrichGebert. Six unmodified text
+  skills from commit `2ed6c52c9d7e5e56942508591085fd45dea277d3`
+  (`4.9.0`) are bundled with exact hashes. AI Switchboard applies the reviewed
+  core guidance through its own managed client blocks; upstream lifecycle
+  hooks, marketplace installation, runtime downloads, and automatic updates
+  are not included. The full upstream licence is bundled at
+  `third_party/ponytail/LICENSE`.
 
 ## Upstream projects referenced or externally installed today
 
@@ -25,8 +32,6 @@ The authoritative machine-readable delivery and migration status is
   `47f943859bef60e4160492346772ded9b24f765a`.
 - **NVIDIA NeMo Switchyard** — Apache-2.0. Any copied code must also reproduce
   the upstream `NOTICE` and identify modifications.
-- **Ponytail** — MIT. The current mutable host-plugin installation is scheduled
-  for replacement by reviewed app resources.
 - **Microsoft MarkItDown** — MIT. Its optional dependency set has independent
   licences and is not yet approved for bundling as a whole.
 - **leanctx** — MIT. Optional dependencies and model weights require separate

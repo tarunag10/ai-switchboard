@@ -73,9 +73,10 @@
         "../LICENSE",
         "../NOTICE",
         "../THIRD_PARTY_NOTICES.md",
-      "../scripts/check-repo-memory-mcp.mjs",
-      "../scripts/repo-intelligence.mjs",
-      "../third_party/oss-integrations.json"
+        "../scripts/check-repo-memory-mcp.mjs",
+        "../scripts/repo-intelligence.mjs",
+        "../third_party/ponytail/",
+        "../third_party/oss-integrations.json"
     ],
     "targets": "all",
     "icon": [

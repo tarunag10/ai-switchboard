@@ -142,7 +142,7 @@ Shipped:
 - Caveman and Compact Chinese savings attribution now records durable estimated events only when managed guidance actually changes client instruction files, including changed-file and backup evidence instead of unconditional inferred template rows.
 - Local-only network certification now has a repo-owned gate, `npm run check:local-only-network`, that verifies the remote destination registry, frontend/backend local-only guards, and documented app-owned remote-service surfaces.
 - Settings Legal now includes bundled license, notice, trademark, and asset-provenance summaries offline, including the logo provenance and branding guard command, without external legal links.
-- Ponytail savings attribution now records durable estimated events only when plugin registration is verified in connected agent hosts, including host evidence instead of unconditional inferred template rows.
+- Ponytail savings attribution now records durable estimated events only when the pinned app-bundled guidance block is verified in configured agent clients, including client evidence instead of unconditional inferred template rows.
 - Savings ledger caveats now use source-specific evidence language for estimated Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese rows instead of collapsing all estimates into a generic history/model warning.
 - The savings calculator now exposes the roadmap week scope in the Optimize UI, backed by saved local daily history over the trailing seven-day window alongside session, repo, today, month, and lifetime scopes.
 - The savings ledger now uses RTK daily gain rows as measured today/week/month evidence, so scoped command-output savings are no longer hidden behind lifetime-only RTK totals.

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "name": "Ponytail",
+  "repository": "https://github.com/DietrichGebert/ponytail",
+  "commit": "2ed6c52c9d7e5e56942508591085fd45dea277d3",
+  "packageVersion": "4.9.0",
+  "upstreamPackageJsonSha256": "5f7e5ab891c31ae006b986d34e0977fda44fc54e654cc4e07531dd5dd6f96b8f",
+  "license": "MIT",
+  "copiedAt": "2026-08-24",
+  "files": [
+    {
+      "upstreamPath": "LICENSE",
+      "localPath": "third_party/ponytail/LICENSE",
+      "sha256": "fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab",
+      "modified": false
+    },
+    {
+      "upstreamPath": "skills/ponytail/SKILL.md",
+      "localPath": "third_party/ponytail/skills/ponytail/SKILL.md",
+      "sha256": "1316a2f3f95741d2300b116fe0c2d81ce4a9568656ed0a62643f54aaf09957f2",
+      "modified": false
+    },
+    {
+      "upstreamPath": "skills/ponytail-review/SKILL.md",
+      "localPath": "third_party/ponytail/skills/ponytail-review/SKILL.md",
+      "sha256": "40df33b58fc6ef889b93585733feb9566b76e9586efa7f376785c1e995197ac0",
+      "modified": false
+    },
+    {
+      "upstreamPath": "skills/ponytail-audit/SKILL.md",
+      "localPath": "third_party/ponytail/skills/ponytail-audit/SKILL.md",
+      "sha256": "5560b8e383dbe2ddfddc873a1e2bf2e586e23e0cd7d995537482b2315331f6d1",
+      "modified": false
+    },
+    {
+      "upstreamPath": "skills/ponytail-debt/SKILL.md",
+      "localPath": "third_party/ponytail/skills/ponytail-debt/SKILL.md",
+      "sha256": "c84fba75f0ca12bfe83f9a78ea02fd125c5dd3f1fbb18124105a489937f284e6",
+      "modified": false
+    },
+    {
+      "upstreamPath": "skills/ponytail-gain/SKILL.md",
+      "localPath": "third_party/ponytail/skills/ponytail-gain/SKILL.md",
+      "sha256": "24e01d1c9715cb136ba1c4f1e52a95940c0193558b876828e537736480d6408b",
+      "modified": false
+    },
+    {
+      "upstreamPath": "skills/ponytail-help/SKILL.md",
+      "localPath": "third_party/ponytail/skills/ponytail-help/SKILL.md",
+      "sha256": "2264d1615117b02b0fd5a69ec84cd2757006471a78e4d6c22eed6d581c1d37a4",
+      "modified": false
+    }
+  ]
+}

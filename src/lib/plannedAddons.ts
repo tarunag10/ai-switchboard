@@ -129,13 +129,13 @@ export const plannedAddons: PlannedAddon[] = [
   },
   {
     id: "ponytail_hardening",
-    name: "Ponytail Hardening",
-    statusLabel: "Ready to harden",
+    name: "Ponytail Bundled Guidance",
+    statusLabel: "Self-contained",
     description:
-      "Agent behavior nudge smaller, more focused implementation slices, tracked as local add-on instead hidden prompt drift.",
+      "Pinned MIT guidance for smaller, focused implementation slices, tracked as a local add-on instead of hidden prompt drift.",
     bullets: [
       "Keep Ponytail opt-in so users can choose smaller-change nudges per workflow.",
-      "Show whether local Ponytail guidance installed, enabled, scoped to supported clients.",
+      "Show whether the bundled Ponytail snapshot is installed, enabled, and scoped to supported clients.",
       "Measure benefit through smaller context packs, fewer broad rewrites, easier verification handoffs.",
     ],
     healthChecks: [

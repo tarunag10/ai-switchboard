@@ -37,6 +37,7 @@ for (const resource of [
   "../LICENSE",
   "../NOTICE",
   "../THIRD_PARTY_NOTICES.md",
+  "../third_party/ponytail/",
   "../third_party/oss-integrations.json",
 ]) {
   if (!tauriBundle.includes(resource)) failures.push(`Tauri bundle missing ${resource}`);

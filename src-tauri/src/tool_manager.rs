@@ -376,12 +376,15 @@ impl ToolManager {
                 id: "ponytail".into(),
                 name: "Ponytail".into(),
                 description:
-                    "Plugin that nudges the agent to write the least code possible. Installs into Claude Code and Codex. Requires their CLI and Node.js on PATH."
+                    "App-bundled MIT guidance that nudges configured Claude Code and Codex clients to build the least code that safely works. No marketplace install, Node.js hook, runtime download, or auto-update."
                         .into(),
-                runtime: "plugin".into(),
+                runtime: "bundled-guidance".into(),
                 source_url: "https://github.com/DietrichGebert/ponytail".into(),
                 version: ponytail::PONYTAIL_DISPLAY_VERSION.into(),
-                checksum: None,
+                checksum: Some(
+                    "sha256:1316a2f3f95741d2300b116fe0c2d81ce4a9568656ed0a62643f54aaf09957f2"
+                        .into(),
+                ),
                 required: false,
             },
             ManagedToolManifest {
@@ -430,6 +433,14 @@ impl ToolManager {
                 checksum: manifest.checksum.clone(),
                 metadata: if manifest.id == "caveman" {
                     Some(json!({ "level": self.caveman_level() }))
+                } else if manifest.id == "ponytail" {
+                    Some(json!({
+                        "delivery": "bundled_guidance",
+                        "sourceCommit": crate::ponytail_bundled::PONYTAIL_SOURCE_COMMIT,
+                        "bundledResources": crate::ponytail_bundled::skill_ids(),
+                        "activeProfile": "ponytail",
+                        "commandsExposed": false,
+                    }))
                 } else {
                     None
                 },
@@ -4874,13 +4885,12 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn ponytail_disabled_receipt_reports_installed_not_missing() {
-        // A receipt with enabled:false means the user disabled it via the app.
-        // On hosts without a disable verb the plugin is gone, but the card must
-        // still show "installed" (Enable), not "not installed" (Install).
+        // A bundled receipt with enabled:false means the app owns no active
+        // guidance blocks, but the card remains installed and can be enabled.
         let (root, runtime, manager) = seed_test_runtime("ponytail-disabled");
         fs::write(
             runtime.tools_dir.join("ponytail.json"),
-            br#"{"version":"latest","enabled":false}"#,
+            br#"{"version":"4.9.0","enabled":false,"delivery":"bundled_guidance","sourceCommit":"2ed6c52c9d7e5e56942508591085fd45dea277d3","bundledResources":["ponytail","ponytail-review","ponytail-audit","ponytail-debt","ponytail-gain","ponytail-help"],"activeProfile":"ponytail","commandsExposed":false,"ownedClients":{},"legacyCleanupPending":[]}"#,
         )
         .expect("receipt");
         assert!(matches!(
@@ -4892,50 +4902,13 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn uninstall_ponytail_is_noop_without_receipt() {
-        // Cleanup must not touch plugin/marketplace config Headroom never wrote.
+        // Cleanup must not touch client guidance or plugin config without an
+        // app-owned receipt.
         let (root, _runtime, manager) = seed_test_runtime("ponytail-uninstall-noreceipt");
         manager
             .uninstall_ponytail()
             .expect("no-op when ponytail receipt is absent");
         let _ = fs::remove_dir_all(root);
-    }
-
-    /// End-to-end round trip against the real `claude`/`codex` plugin CLIs:
-    /// install, confirm both presence checks + smoke test flip on, then
-    /// uninstall and confirm they flip off. Ignored by default — it needs at
-    /// least one CLI on PATH plus network, and mutates the real ~/.claude and
-    /// ~/.codex plugin config. Run locally:
-    /// `cargo test --manifest-path src-tauri/Cargo.toml --lib -- --ignored ponytail_install_roundtrip`
-    #[test]
-    #[ignore]
-    fn ponytail_install_roundtrip() {
-        let (root, _runtime, manager) = seed_test_runtime("ponytail-roundtrip");
-
-        if crate::claude_cli::detect_claude_cli().is_none()
-            && crate::claude_cli::detect_codex_cli().is_none()
-        {
-            eprintln!("skipping ponytail_install_roundtrip: no claude/codex CLI on PATH");
-            let _ = fs::remove_dir_all(&root);
-            return;
-        }
-
-        // Capture every result and always run uninstall before asserting, so a
-        // failed assertion never leaves the plugin behind on the real machine.
-        let install = manager.install_ponytail();
-        let installed = manager.ponytail_installed();
-        let smoke_while_installed = manager.smoke_test_ponytail();
-        let uninstall = manager.uninstall_ponytail();
-        let gone = !manager.ponytail_installed();
-        let _ = fs::remove_dir_all(&root);
-
-        install.expect("install_ponytail should succeed");
-        assert!(
-            installed,
-            "ponytail_installed() should be true after install"
-        );
-        smoke_while_installed.expect("smoke_test_ponytail should pass while installed");
-        uninstall.expect("uninstall_ponytail should succeed");
-        assert!(gone, "ponytail_installed() should be false after uninstall");
     }
 
     #[test]

@@ -169,7 +169,7 @@ pub(crate) fn preview_dedicated_cleanup_rollback_inner(
             Ok(ManagedRollbackPreview {
                 record_id,
                 owner: PLUGINS_ROLLBACK_OWNER.to_string(),
-                target_path: "Ponytail plugin receipt and app-managed host registrations"
+                target_path: "Ponytail bundled-guidance receipt and app-managed client blocks"
                     .to_string(),
                 marker: PLUGINS_ROLLBACK_MARKER.to_string(),
                 backup_path: None,
@@ -182,13 +182,13 @@ pub(crate) fn preview_dedicated_cleanup_rollback_inner(
                 },
                 confirmation_phrase: PLUGINS_ROLLBACK_CONFIRMATION.to_string(),
                 proposed_action:
-                    "Remove only the Switchboard-receipted Ponytail plugin registration."
+                    "Remove only the Switchboard-receipted Ponytail managed guidance."
                         .to_string(),
                 blocked_reason: if receipt_present {
                     None
                 } else {
                     Some(
-                        "No Switchboard Ponytail receipt exists; plugin config may be user-owned."
+                        "No Switchboard Ponytail receipt exists; client instructions and plugins may be user-owned."
                             .to_string(),
                     )
                 },
@@ -196,7 +196,7 @@ pub(crate) fn preview_dedicated_cleanup_rollback_inner(
                     "Dedicated cleanup row: plugins-backups.".to_string(),
                     "Cleanup calls the existing Ponytail uninstall path, which is no-op without the app receipt.".to_string(),
                     format!(
-                        "Currently registered hosts: {}.",
+                        "Currently configured clients with managed guidance: {}.",
                         if registered_hosts.is_empty() {
                             "none detected".to_string()
                         } else {
@@ -353,7 +353,7 @@ pub(crate) fn execute_dedicated_cleanup_rollback_inner(
         }
         PLUGINS_ROLLBACK_RECORD_ID => {
             let state = state.ok_or_else(|| {
-                "Plugin cleanup requires app state to access the managed Ponytail receipt."
+                "Ponytail cleanup requires app state to access the managed receipt."
                     .to_string()
             })?;
             let before_hosts = state.tool_manager.ponytail_registered_hosts();
@@ -367,9 +367,9 @@ pub(crate) fn execute_dedicated_cleanup_rollback_inner(
             Ok(ManagedRollbackExecutionResult {
                 record_id,
                 owner: PLUGINS_ROLLBACK_OWNER.to_string(),
-                target_path: "Ponytail plugin receipt and app-managed host registrations"
+                target_path: "Ponytail bundled-guidance receipt and app-managed client blocks"
                     .to_string(),
-                restored_from: "Switchboard-receipted Ponytail plugin registration removed."
+                restored_from: "Switchboard-receipted Ponytail managed guidance removed."
                     .to_string(),
                 safety_backup_path: None,
                 marker: PLUGINS_ROLLBACK_MARKER.to_string(),
@@ -378,7 +378,7 @@ pub(crate) fn execute_dedicated_cleanup_rollback_inner(
                     "Existing Ponytail uninstall path completed.".to_string(),
                     "Ponytail receipt was absent after cleanup.".to_string(),
                     format!(
-                        "Previously registered hosts: {}.",
+                        "Previously configured clients with managed guidance: {}.",
                         if before_hosts.is_empty() {
                             "none detected".to_string()
                         } else {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 
 const root = process.cwd();
 const inventoryPath = path.join(root, "third_party/oss-integrations.json");
@@ -9,6 +10,13 @@ const noticesPath = path.join(root, "THIRD_PARTY_NOTICES.md");
 function fail(message) {
   console.error(`self-contained OSS inventory check failed: ${message}`);
   process.exit(1);
+}
+
+function sha256File(relativePath) {
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(path.join(root, relativePath)))
+    .digest("hex");
 }
 
 if (!fs.existsSync(inventoryPath)) fail("missing third_party/oss-integrations.json");
@@ -69,6 +77,12 @@ for (const entry of inventory.integrations ?? []) {
   if (entry.upstreamCodeEmbedded && !entry.notice) {
     fail(`${entry.id} embeds upstream code without a notice target`);
   }
+  if (entry.currentVersion === "latest" && entry.migrationStatus === "complete") {
+    fail(`${entry.id} cannot complete migration with a mutable latest version`);
+  }
+  if (entry.notice && !/^https?:/.test(entry.notice) && !fs.existsSync(path.join(root, entry.notice))) {
+    fail(`${entry.id} notice target does not exist: ${entry.notice}`);
+  }
   if (entry.migrationStatus === "complete") {
     if (entry.externalRuntimeRequired || entry.runtimeDownloadRequired) {
       fail(`${entry.id} is marked complete but still requires an external runtime or download`);
@@ -76,9 +90,38 @@ for (const entry of inventory.integrations ?? []) {
     if (!String(entry.currentDelivery).includes("switchboard_native")) {
       fail(`${entry.id} is marked complete without Switchboard-native delivery`);
     }
-  }
-  if (entry.currentVersion === "latest" && entry.migrationStatus === "complete") {
-    fail(`${entry.id} cannot complete migration with a mutable latest version`);
+    if (entry.upstreamCodeEmbedded) {
+      if (!/^[0-9a-f]{40}$/.test(entry.exactRevision ?? "")) {
+        fail(`${entry.id} embeds upstream code without an exact commit`);
+      }
+      if (!entry.sourceManifest || !entry.sourceManifestSha256) {
+        fail(`${entry.id} embeds upstream code without a source manifest and digest`);
+      }
+      if (!fs.existsSync(path.join(root, entry.sourceManifest))) {
+        fail(`${entry.id} source manifest does not exist`);
+      }
+      if (sha256File(entry.sourceManifest) !== entry.sourceManifestSha256) {
+        fail(`${entry.id} source manifest digest does not match`);
+      }
+      const source = JSON.parse(fs.readFileSync(path.join(root, entry.sourceManifest), "utf8"));
+      if (source.commit !== entry.exactRevision || source.packageVersion !== entry.currentVersion) {
+        fail(`${entry.id} source manifest does not match inventory provenance`);
+      }
+      const copied = new Set(entry.copiedPaths);
+      const manifested = new Set(source.files?.map((file) => file.localPath) ?? []);
+      if (copied.size !== manifested.size || [...copied].some((file) => !manifested.has(file))) {
+        fail(`${entry.id} copied paths do not match its source manifest`);
+      }
+      for (const file of source.files ?? []) {
+        if (file.modified !== false) fail(`${entry.id} source manifest must record copied-file modifications`);
+        if (!fs.existsSync(path.join(root, file.localPath))) {
+          fail(`${entry.id} copied file does not exist: ${file.localPath}`);
+        }
+        if (sha256File(file.localPath) !== file.sha256) {
+          fail(`${entry.id} copied file hash does not match: ${file.localPath}`);
+        }
+      }
+    }
   }
 }
 for (const id of requiredIds) {

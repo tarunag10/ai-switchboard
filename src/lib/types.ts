@@ -5,7 +5,7 @@ export interface ManagedTool {
   id: string;
   name: string;
   description: string;
-  runtime: "python" | "binary" | "plugin";
+  runtime: "python" | "binary" | "plugin" | "bundled-guidance";
   required: boolean;
   enabled: boolean;
   status: ToolStatus;

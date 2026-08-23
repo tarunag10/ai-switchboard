@@ -124,6 +124,7 @@ mod optimization_commands;
 mod oss_capabilities;
 mod oss_harness_replay;
 mod plugin_promotion_gate;
+mod ponytail_bundled;
 mod port_conflict;
 mod pricing;
 mod provider_upstream_profiles;
@@ -441,11 +442,11 @@ fn uninstall_and_quit(app: AppHandle) -> Result<Vec<String>, String> {
     {
         let state: tauri::State<'_, AppState> = app.state();
         state.stop_headroom();
-        // Ponytail lives in Claude Code's plugin registry, outside Headroom's
-        // own footprint that perform_full_cleanup() wipes, so remove it here
-        // while we still have the ToolManager. Best-effort.
+        // Ponytail managed guidance lives in client instruction files outside
+        // perform_full_cleanup()'s runtime footprint, so remove its receipted
+        // blocks here while the ToolManager is still available. Best-effort.
         if let Err(err) = state.tool_manager.uninstall_ponytail() {
-            log::warn!("uninstall: removing ponytail plugin failed: {err:#}");
+            log::warn!("uninstall: removing Ponytail managed guidance failed: {err:#}");
         }
     }
 

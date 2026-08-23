@@ -42,8 +42,9 @@ Uninstall removes only Switchboard-owned surfaces:
 
 - Managed Claude Code settings hooks and managed shell routing blocks.
 - Managed Codex provider/routing blocks and AGENTS.md guidance blocks.
-- Managed RTK, MarkItDown, Caveman, and Ponytail integration files or plugin
-  entries.
+- Managed RTK, MarkItDown, Caveman, and Ponytail integration files or guidance
+  blocks. A one-time migration removes only legacy Ponytail plugin entries
+  whose ownership was recorded by an older Switchboard receipt.
 - `~/Library/Application Support/Mac AI Switchboard`.
 - Preserved legacy `~/Library/Application Support/Headroom` after explicit
   uninstall confirmation.

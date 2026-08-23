@@ -293,7 +293,7 @@ export function doctorRepairHint(action: string): string {
     case "repair_caveman_guidance":
       return "Recreates the Caveman receipt and rewrites the managed guidance block for configured Claude Code and Codex instruction files.";
     case "repair_ponytail_plugin":
-      return "Re-registers the Ponytail plugin with available Claude Code and Codex hosts.";
+      return "Revalidates the bundled Ponytail snapshot and rewrites its Switchboard-managed guidance for configured Claude Code and Codex clients.";
     case "clear_repo_intelligence_index":
       return "Clears the saved Repo Intelligence summary from Switchboard managed storage so stale, missing, moved, corrupt, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.";
     case "install_repo_memory_mcp":

@@ -399,14 +399,14 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     id: "plugins-backups",
     kind: "plugin",
     owner: "Add-ons",
-    text: "Ponytail plugin registration and managed add-on backup inventory.",
+    text: "Ponytail bundled-guidance receipt and managed client blocks.",
     paths: [],
     markerId: "headroom:addon",
     backupPath:
       "add-on backups are inventoried only; automatic sweeping waits for a stricter allowlist",
     lastVerifiedLabel: "Verified by add-on health checks",
     rollback:
-      "Remove Switchboard-receipted Ponytail plugin registration; leave backup-file sweeping manual until a stricter allowlist exists.",
+      "Remove the Switchboard-receipted Ponytail guidance blocks; leave unrelated client instructions and user-owned plugins untouched, and keep backup-file sweeping manual until a stricter allowlist exists.",
   },
 ];
 

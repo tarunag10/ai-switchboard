@@ -1,60 +1,238 @@
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use crate::models::ToolStatus;
+use crate::ponytail_bundled::{skill_ids, verify_bundled_ponytail, PONYTAIL_SOURCE_COMMIT};
 use crate::process_runner::run_command_streaming;
 
 use super::ToolManager;
 
-const PONYTAIL_MARKETPLACE: &str = "DietrichGebert/ponytail";
+pub(super) use crate::ponytail_bundled::PONYTAIL_DISPLAY_VERSION;
+
 const PONYTAIL_PLUGIN_REF: &str = "ponytail@ponytail";
-pub(super) const PONYTAIL_DISPLAY_VERSION: &str = "latest";
+const PONYTAIL_DELIVERY: &str = "bundled_guidance";
+
+fn is_bundled_receipt(receipt: &Value) -> bool {
+    receipt.get("delivery").and_then(Value::as_str) == Some(PONYTAIL_DELIVERY)
+}
+
+fn receipt_string_map(receipt: &Value, key: &str) -> BTreeMap<String, String> {
+    receipt
+        .get(key)
+        .and_then(Value::as_object)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|(key, value)| {
+                    value.as_str().map(|value| (key.clone(), value.to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn receipt_string_list(receipt: &Value, key: &str) -> Vec<String> {
+    receipt
+        .get(key)
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_string)
+        .collect()
+}
+
+fn created_fingerprints(
+    before: &BTreeMap<String, String>,
+    after: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    after
+        .iter()
+        .filter(|(client, _)| !before.contains_key(*client))
+        .map(|(client, fingerprint)| (client.clone(), fingerprint.clone()))
+        .collect()
+}
 
 impl ToolManager {
-    /// Ponytail is a Claude Code plugin, not a binary we own, so "smoke test"
-    /// means confirming it is still registered in Claude Code's plugin registry.
-    /// No-op when our receipt says it was never installed.
-    pub fn smoke_test_ponytail(&self) -> Result<()> {
-        if !self.runtime.tools_dir.join("ponytail.json").exists() {
-            return Ok(());
+    fn current_ponytail_guidance(&self) -> Result<BTreeMap<String, String>> {
+        crate::client_integrations::ponytail_integration_fingerprints()
+    }
+
+    fn bundled_receipt(
+        enabled: bool,
+        owned_clients: &BTreeMap<String, String>,
+        legacy_cleanup_pending: &[String],
+    ) -> Value {
+        json!({
+            "version": PONYTAIL_DISPLAY_VERSION,
+            "enabled": enabled,
+            "delivery": PONYTAIL_DELIVERY,
+            "sourceCommit": PONYTAIL_SOURCE_COMMIT,
+            "bundledResources": skill_ids(),
+            "activeProfile": "ponytail",
+            "commandsExposed": false,
+            "ownedClients": owned_clients,
+            "legacyCleanupPending": legacy_cleanup_pending,
+        })
+    }
+
+    fn receipt_owned_clients(receipt: &Value) -> BTreeMap<String, String> {
+        receipt_string_map(receipt, "ownedClients")
+    }
+
+    fn legacy_cleanup_hosts(receipt: &Value) -> Vec<LegacyPluginHost> {
+        let key = if is_bundled_receipt(receipt) {
+            "legacyCleanupPending"
+        } else {
+            "ownedHosts"
+        };
+        receipt_string_list(receipt, key)
+            .into_iter()
+            .filter_map(|host| LegacyPluginHost::from_label(&host))
+            .collect()
+    }
+
+    fn cleanup_legacy_hosts(&self, hosts: &[LegacyPluginHost]) -> Result<()> {
+        let mut failures = Vec::new();
+        for host in hosts {
+            if host.plugin_fingerprint().is_none() {
+                continue;
+            }
+            let Some(cli) = host.cli() else {
+                failures.push(format!("{} CLI is unavailable", host.label()));
+                continue;
+            };
+            let label = host.label();
+            if let Err(error) = run_command_streaming(
+                &cli,
+                host.uninstall_args(),
+                &self.runtime.root_dir,
+                &mut |line: &str| log::info!("legacy ponytail cleanup [{label}]: {line}"),
+            ) {
+                failures.push(format!("{label}: {error:#}"));
+            } else if host.plugin_fingerprint().is_some() {
+                failures.push(format!("{label}: plugin entry remains after removal"));
+            }
         }
-        if !PluginHost::ALL.iter().any(|host| host.plugin_present()) {
-            bail!("ponytail receipt exists but the plugin is no longer registered with any host");
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            bail!(
+                "legacy Ponytail plugin cleanup is pending: {}",
+                failures.join("; ")
+            )
+        }
+    }
+
+    fn migrate_legacy_receipt(&self, enabled: bool, legacy: &Value) -> Result<()> {
+        verify_bundled_ponytail()?;
+        let existing = self.current_ponytail_guidance()?;
+        if !existing.is_empty() {
+            bail!("Ponytail managed guidance exists without bundled ownership metadata");
+        }
+        let owned_clients = if enabled {
+            crate::client_integrations::enable_ponytail_integration()?;
+            self.current_ponytail_guidance()?
+        } else {
+            BTreeMap::new()
+        };
+        let legacy_hosts = Self::legacy_cleanup_hosts(legacy);
+        let pending: Vec<String> = legacy_hosts
+            .iter()
+            .map(|host| host.label().to_string())
+            .collect();
+        if let Err(error) = self.write_tool_receipt(
+            "ponytail",
+            Self::bundled_receipt(enabled, &owned_clients, &pending),
+        ) {
+            if enabled {
+                let _ = crate::client_integrations::disable_ponytail_integration_if_unchanged(
+                    &owned_clients,
+                );
+            }
+            return Err(error);
+        }
+        self.cleanup_legacy_hosts(&legacy_hosts)?;
+        self.write_tool_receipt(
+            "ponytail",
+            Self::bundled_receipt(enabled, &owned_clients, &[]),
+        )
+    }
+
+    fn finish_pending_legacy_cleanup(&self, receipt: &Value) -> Result<Value> {
+        let hosts = Self::legacy_cleanup_hosts(receipt);
+        if hosts.is_empty() {
+            return Ok(receipt.clone());
+        }
+        self.cleanup_legacy_hosts(&hosts)?;
+        let enabled = receipt
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let owned = Self::receipt_owned_clients(receipt);
+        let completed = Self::bundled_receipt(enabled, &owned, &[]);
+        self.write_tool_receipt("ponytail", completed.clone())?;
+        Ok(completed)
+    }
+
+    pub fn smoke_test_ponytail(&self) -> Result<()> {
+        let Some(receipt) = self.ponytail_receipt_snapshot() else {
+            return Ok(());
+        };
+        verify_bundled_ponytail()?;
+        if !is_bundled_receipt(&receipt) {
+            bail!("Ponytail still has a legacy marketplace receipt");
+        }
+        if !receipt_string_list(&receipt, "legacyCleanupPending").is_empty() {
+            bail!("Ponytail legacy plugin cleanup is pending");
+        }
+        let expected = Self::receipt_owned_clients(&receipt);
+        let current = self.current_ponytail_guidance()?;
+        if current != expected {
+            bail!("Ponytail managed guidance differs from its ownership receipt");
+        }
+        let enabled = receipt
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        if enabled && !crate::client_integrations::ponytail_integration_matches()? {
+            bail!("Ponytail is enabled but its bundled managed guidance is missing or stale");
+        }
+        if !enabled && !current.is_empty() {
+            bail!("Ponytail is disabled but managed guidance remains active");
         }
         Ok(())
     }
 
-    /// A ponytail install is genuine only when our receipt exists AND at least
-    /// one host (Claude Code or Codex) still has the plugin registered, so a
-    /// user who removes it via `/plugin` doesn't leave the card stuck on
-    /// "Enabled".
     #[cfg(test)]
     pub fn ponytail_installed(&self) -> bool {
-        self.runtime.tools_dir.join("ponytail.json").exists()
-            && PluginHost::ALL.iter().any(|host| host.plugin_present())
+        self.ponytail_receipt_exists()
     }
 
     pub fn ponytail_registered_hosts(&self) -> Vec<String> {
-        PluginHost::ALL
-            .iter()
-            .copied()
-            .filter(|host| host.plugin_present())
-            .map(|host| host.label().to_string())
+        self.current_ponytail_guidance()
+            .unwrap_or_default()
+            .into_keys()
+            .map(|client| match client.as_str() {
+                "claude-code" => "Claude Code".to_string(),
+                "codex" => "Codex".to_string(),
+                _ => client,
+            })
             .collect()
     }
 
-    /// Fingerprints of the exact Ponytail plugin entries currently configured
-    /// by each supported host. The map intentionally contains no paths or
-    /// marketplace metadata: those belong to the user and are never rollback
-    /// targets.
+    /// Content-free fingerprints of Switchboard-owned managed guidance blocks.
+    /// The method name remains for schema-4 selective receipt compatibility.
     pub fn ponytail_host_fingerprints(&self) -> BTreeMap<String, String> {
-        PluginHost::ALL
-            .iter()
-            .copied()
+        self.current_ponytail_guidance().unwrap_or_default()
+    }
+
+    pub fn legacy_ponytail_host_fingerprints(&self) -> BTreeMap<String, String> {
+        LegacyPluginHost::ALL
+            .into_iter()
             .filter_map(|host| {
                 host.plugin_fingerprint()
                     .map(|fingerprint| (host.id().to_string(), fingerprint))
@@ -62,9 +240,6 @@ impl ToolManager {
             .collect()
     }
 
-    /// The managed Ponytail receipt is Switchboard-owned state. A selective
-    /// rollback may restore it only when it still exactly matches the receipt
-    /// written by that activation.
     pub fn ponytail_receipt_snapshot(&self) -> Option<Value> {
         self.read_tool_receipt("ponytail")
     }
@@ -73,209 +248,142 @@ impl ToolManager {
         self.runtime.tools_dir.join("ponytail.json").exists()
     }
 
-    fn run_ponytail_cmd(&self, cli: &Path, host: PluginHost, args: &[&str]) -> Result<()> {
-        let label = host.label();
-        run_command_streaming(cli, args, &self.runtime.root_dir, &mut |line: &str| {
-            log::info!("ponytail [{label}]: {line}")
-        })
-    }
-
-    /// Registers the marketplace (best-effort) and installs the plugin into a
-    /// single host. The return value records whether this operation created a
-    /// plugin entry that Switchboard may later remove.
-    fn install_ponytail_into(&self, host: PluginHost) -> Result<bool> {
-        let cli = host.cli().context("CLI not found on PATH")?;
-        let already_present = host.plugin_present();
-        // Re-adding an already-known marketplace is a benign error, so ignore it.
-        let _ = self.run_ponytail_cmd(&cli, host, host.marketplace_add_args());
-        self.run_ponytail_cmd(&cli, host, host.install_args())?;
-        if !host.plugin_present() {
-            bail!("install completed but the plugin was not registered");
-        }
-        Ok(!already_present)
-    }
-
-    fn uninstall_ponytail_plugin(&self, host: PluginHost) -> Result<()> {
-        let cli = host.cli().context("CLI not found on PATH")?;
-        self.run_ponytail_cmd(&cli, host, host.uninstall_args())
-    }
-
-    fn owned_hosts(&self) -> Vec<String> {
-        self.read_tool_receipt("ponytail")
-            .and_then(|receipt| receipt.get("ownedHosts").cloned())
-            .and_then(|hosts| hosts.as_array().cloned())
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|host| host.as_str().map(str::to_string))
-            .collect()
+    pub fn ponytail_requires_legacy_migration(&self) -> bool {
+        self.ponytail_receipt_snapshot()
+            .as_ref()
+            .is_some_and(|receipt| {
+                !is_bundled_receipt(receipt)
+                    || !receipt_string_list(receipt, "legacyCleanupPending").is_empty()
+            })
     }
 
     pub fn install_ponytail(&self) -> Result<()> {
-        let hosts: Vec<PluginHost> = PluginHost::ALL
-            .into_iter()
-            .filter(|host| host.cli().is_some())
-            .collect();
-        if hosts.is_empty() {
-            bail!(
-                "Neither the Claude Code CLI ('claude') nor the Codex CLI ('codex') was found on PATH. Install one, then try again."
-            );
+        verify_bundled_ponytail()?;
+        if self.ponytail_receipt_exists() {
+            return self.set_ponytail_enabled(true);
         }
-        let mut errors: Vec<String> = Vec::new();
-        let mut installed_any = false;
-        let mut owned_hosts = Vec::new();
-        for host in hosts {
-            match self.install_ponytail_into(host) {
-                Ok(owned) => {
-                    installed_any = true;
-                    if owned {
-                        owned_hosts.push(host.label().to_string());
-                    }
-                }
-                Err(err) => errors.push(format!("{}: {err:#}", host.label())),
-            }
+        let before = self.current_ponytail_guidance()?;
+        if !before.is_empty() {
+            bail!("Ponytail managed guidance exists without an ownership receipt");
         }
-        if !installed_any {
-            bail!(
-                "installing the ponytail plugin failed: {}",
-                errors.join("; ")
-            );
+        crate::client_integrations::enable_ponytail_integration()?;
+        let after = self.current_ponytail_guidance()?;
+        if let Err(error) =
+            self.write_tool_receipt("ponytail", Self::bundled_receipt(true, &after, &[]))
+        {
+            let _ = crate::client_integrations::disable_ponytail_integration_if_unchanged(&after);
+            return Err(error);
         }
-        if !errors.is_empty() {
-            let mut rollback_errors = Vec::new();
-            for host in PluginHost::ALL
-                .into_iter()
-                .filter(|host| owned_hosts.iter().any(|owned| owned == host.label()))
-            {
-                if let Err(err) = self.uninstall_ponytail_plugin(host) {
-                    rollback_errors.push(format!("{}: {err:#}", host.label()));
-                }
-            }
-            if rollback_errors.is_empty() {
-                bail!(
-                    "ponytail installation was rolled back after host failure: {}",
-                    errors.join("; ")
-                );
-            }
-            bail!(
-                "ponytail installation failed and rollback was incomplete: {}; cleanup: {}",
-                errors.join("; "),
-                rollback_errors.join("; ")
-            );
-        }
-        let version =
-            installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
-        self.write_tool_receipt(
-            "ponytail",
-            json!({ "version": version, "enabled": true, "ownedHosts": owned_hosts }),
-        )?;
         Ok(())
     }
 
     pub fn set_ponytail_enabled(&self, enabled: bool) -> Result<()> {
-        // Guard on the receipt, not host presence: a disabled app-owned plugin
-        // may be absent from hosts that do not expose a separate disable verb.
-        if !self.ponytail_receipt_exists() {
+        let Some(receipt) = self.ponytail_receipt_snapshot() else {
             bail!("ponytail is not installed");
+        };
+        verify_bundled_ponytail()?;
+        if !is_bundled_receipt(&receipt) {
+            return self.migrate_legacy_receipt(enabled, &receipt);
         }
-        let mut errors: Vec<String> = Vec::new();
-        let mut changed_any = false;
-        let mut owned_hosts = self.owned_hosts();
-        for host in PluginHost::ALL {
-            // Enabling re-installs where needed; disabling removes only plugin
-            // entries whose ownership is recorded in our receipt.
-            let owns_plugin = owned_hosts.iter().any(|owned| owned == host.label());
-            let result = if enabled {
-                self.install_ponytail_into(host)
-            } else if owns_plugin && host.plugin_present() {
-                self.uninstall_ponytail_plugin(host).map(|()| false)
-            } else {
-                continue;
-            };
-            match result {
-                Ok(owned) => {
-                    changed_any = true;
-                    if enabled && owned && !owned_hosts.iter().any(|value| value == host.label()) {
-                        owned_hosts.push(host.label().to_string());
-                    }
-                }
-                Err(err) => errors.push(format!("{}: {err:#}", host.label())),
+        let receipt = self.finish_pending_legacy_cleanup(&receipt)?;
+        let expected = Self::receipt_owned_clients(&receipt);
+        let current = self.current_ponytail_guidance()?;
+        if current != expected {
+            bail!("Ponytail managed guidance changed after activation; it was preserved");
+        }
+
+        if enabled {
+            crate::client_integrations::enable_ponytail_integration()?;
+            let after = self.current_ponytail_guidance()?;
+            let created = created_fingerprints(&current, &after);
+            if let Err(error) =
+                self.write_tool_receipt("ponytail", Self::bundled_receipt(true, &after, &[]))
+            {
+                let _ =
+                    crate::client_integrations::disable_ponytail_integration_if_unchanged(&created);
+                return Err(error);
+            }
+        } else {
+            crate::client_integrations::disable_ponytail_integration_if_unchanged(&expected)?;
+            if let Err(error) = self.write_tool_receipt(
+                "ponytail",
+                Self::bundled_receipt(false, &BTreeMap::new(), &[]),
+            ) {
+                let _ = crate::client_integrations::enable_ponytail_integration();
+                return Err(error);
             }
         }
-        if !changed_any && !errors.is_empty() {
-            bail!("toggling ponytail failed: {}", errors.join("; "));
-        }
-        let version =
-            installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
-        self.write_tool_receipt(
-            "ponytail",
-            json!({ "version": version, "enabled": enabled, "ownedHosts": owned_hosts }),
-        )?;
         Ok(())
     }
 
     pub fn uninstall_ponytail(&self) -> Result<()> {
-        // No receipt means Headroom never installed it. Don't touch the user's
-        // plugin config or marketplace registration (which they may own).
-        if !self.ponytail_receipt_exists() {
+        let Some(receipt) = self.ponytail_receipt_snapshot() else {
             return Ok(());
+        };
+        if !is_bundled_receipt(&receipt) {
+            self.migrate_legacy_receipt(false, &receipt)?;
         }
-        let owned_hosts = self.owned_hosts();
-        for host in PluginHost::ALL
-            .into_iter()
-            .filter(|host| owned_hosts.iter().any(|owned| owned == host.label()))
-        {
-            if let Err(err) = self.uninstall_ponytail_plugin(host) {
-                log::warn!(
-                    "ponytail plugin cleanup failed for {}: {err:#}",
-                    host.label()
-                );
+        let receipt = self
+            .ponytail_receipt_snapshot()
+            .context("Ponytail receipt disappeared during migration")?;
+        let receipt = self.finish_pending_legacy_cleanup(&receipt)?;
+        let expected = Self::receipt_owned_clients(&receipt);
+        let current = self.current_ponytail_guidance()?;
+        if current != expected {
+            bail!("Ponytail managed guidance changed after activation; it was preserved");
+        }
+        let was_enabled = receipt
+            .get("enabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        crate::client_integrations::disable_ponytail_integration_if_unchanged(&expected)?;
+        let receipt_path = self.runtime.tools_dir.join("ponytail.json");
+        if let Err(error) = std::fs::remove_file(&receipt_path) {
+            if was_enabled {
+                let _ = crate::client_integrations::enable_ponytail_integration();
             }
-        }
-        // Marketplace ownership is not observable through the supported CLI
-        // contract. Never remove a marketplace registration that may predate
-        // Switchboard; plugin ownership is the only cleanup boundary we can
-        // prove from the receipt.
-        let receipt = self.runtime.tools_dir.join("ponytail.json");
-        if receipt.exists() {
-            std::fs::remove_file(&receipt)
-                .with_context(|| format!("removing {}", receipt.display()))?;
+            return Err(error).with_context(|| format!("removing {}", receipt_path.display()));
         }
         Ok(())
     }
 
-    /// Removes a single plugin entry only when the host's current entry still
-    /// has the exact fingerprint captured after activation. This deliberately
-    /// leaves marketplace registrations untouched.
     pub fn remove_ponytail_host_if_unchanged(
         &self,
         host_id: &str,
         expected_fingerprint: &str,
     ) -> Result<()> {
-        let host = PluginHost::from_id(host_id)
-            .with_context(|| format!("unknown Ponytail host identifier: {host_id}"))?;
-        let current = host
-            .plugin_fingerprint()
-            .context("Ponytail plugin entry is no longer present")?;
-        if current != expected_fingerprint {
-            bail!(
-                "Ponytail plugin entry for {} changed after activation",
-                host.label()
-            );
+        crate::client_integrations::remove_ponytail_client_if_unchanged(
+            host_id,
+            expected_fingerprint,
+        )
+    }
+
+    pub fn remove_legacy_ponytail_host_if_unchanged(
+        &self,
+        host_id: &str,
+        expected_fingerprint: &str,
+    ) -> Result<()> {
+        let host = LegacyPluginHost::from_id(host_id)
+            .with_context(|| format!("unknown legacy Ponytail host identifier: {host_id}"))?;
+        if host.plugin_fingerprint().as_deref() != Some(expected_fingerprint) {
+            bail!("legacy Ponytail plugin entry changed after activation for {host_id}");
         }
-        self.uninstall_ponytail_plugin(host)?;
+        let cli = host
+            .cli()
+            .context("legacy Ponytail host CLI is unavailable")?;
+        let label = host.label();
+        run_command_streaming(
+            &cli,
+            host.uninstall_args(),
+            &self.runtime.root_dir,
+            &mut |line: &str| log::info!("legacy ponytail rollback [{label}]: {line}"),
+        )?;
         if host.plugin_fingerprint().is_some() {
-            bail!(
-                "Ponytail plugin entry for {} remains after removal",
-                host.label()
-            );
+            bail!("legacy Ponytail plugin entry remains after rollback for {host_id}");
         }
         Ok(())
     }
 
-    /// Restores only the Switchboard-owned Ponytail receipt. Host plugin
-    /// entries must be rolled back separately, first, with their own exact
-    /// fingerprints. JSON equality intentionally ignores formatting changes
-    /// while rejecting any content change.
     pub fn restore_ponytail_receipt_if_unchanged(
         &self,
         previous_receipt: Option<&Value>,
@@ -295,166 +403,148 @@ impl ToolManager {
     }
 
     pub(super) fn ponytail_status(&self) -> ToolStatus {
-        let Some(receipt) = self.read_tool_receipt("ponytail") else {
+        let Some(receipt) = self.ponytail_receipt_snapshot() else {
             return ToolStatus::NotInstalled;
         };
-        // Intentionally disabled via the app: the plugin may be gone from
-        // hosts that lack a disable verb (Codex), but the receipt means it's
-        // still installed -- report Healthy so the card shows Enable, not Install.
+        if verify_bundled_ponytail().is_err()
+            || !is_bundled_receipt(&receipt)
+            || !receipt_string_list(&receipt, "legacyCleanupPending").is_empty()
+        {
+            return ToolStatus::Degraded;
+        }
+        let expected = Self::receipt_owned_clients(&receipt);
+        let Ok(current) = self.current_ponytail_guidance() else {
+            return ToolStatus::Degraded;
+        };
+        if current != expected {
+            return ToolStatus::Degraded;
+        }
         let enabled = receipt
             .get("enabled")
             .and_then(Value::as_bool)
             .unwrap_or(true);
         if !enabled {
-            return ToolStatus::Healthy;
+            return if current.is_empty() {
+                ToolStatus::Healthy
+            } else {
+                ToolStatus::Degraded
+            };
         }
-        // Enabled per our receipt: require it still be registered with a host,
-        // so a manual `/plugin` removal surfaces as not-installed.
-        if PluginHost::ALL.iter().any(|host| host.plugin_present()) {
-            ToolStatus::Healthy
-        } else {
-            ToolStatus::NotInstalled
+        match crate::client_integrations::ponytail_integration_matches() {
+            Ok(true) if !expected.is_empty() => ToolStatus::Healthy,
+            Ok(_) | Err(_) => ToolStatus::Degraded,
         }
     }
 
     pub(super) fn installed_ponytail_version(&self) -> Option<String> {
-        installed_ponytail_version()
+        self.ponytail_receipt_snapshot().and_then(|receipt| {
+            receipt
+                .get("version")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
     }
 }
 
-/// Ponytail ships a marketplace plugin that both Claude Code and Codex can
-/// install through their own `<cli> plugin ...` managers. Their verbs differ
-/// (Claude has enable/disable/install/uninstall; Codex only add/remove), so
-/// each host carries its own argument vectors.
-#[derive(Clone, Copy)]
-enum PluginHost {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LegacyPluginHost {
     ClaudeCode,
     Codex,
 }
 
-impl PluginHost {
-    const ALL: [PluginHost; 2] = [PluginHost::ClaudeCode, PluginHost::Codex];
+impl LegacyPluginHost {
+    const ALL: [Self; 2] = [Self::ClaudeCode, Self::Codex];
 
-    fn label(self) -> &'static str {
-        match self {
-            PluginHost::ClaudeCode => "Claude Code",
-            PluginHost::Codex => "Codex",
+    fn from_id(value: &str) -> Option<Self> {
+        match value {
+            "claude-code" => Some(Self::ClaudeCode),
+            "codex" => Some(Self::Codex),
+            _ => None,
+        }
+    }
+
+    fn from_label(value: &str) -> Option<Self> {
+        match value {
+            "Claude Code" => Some(Self::ClaudeCode),
+            "Codex" => Some(Self::Codex),
+            _ => None,
         }
     }
 
     fn id(self) -> &'static str {
         match self {
-            PluginHost::ClaudeCode => "claude-code",
-            PluginHost::Codex => "codex",
+            Self::ClaudeCode => "claude-code",
+            Self::Codex => "codex",
         }
     }
 
-    fn from_id(value: &str) -> Option<Self> {
-        match value {
-            "claude-code" => Some(PluginHost::ClaudeCode),
-            "codex" => Some(PluginHost::Codex),
-            _ => None,
-        }
-    }
-
-    fn cli(self) -> Option<PathBuf> {
+    fn label(self) -> &'static str {
         match self {
-            PluginHost::ClaudeCode => crate::claude_cli::detect_claude_cli(),
-            PluginHost::Codex => crate::claude_cli::detect_codex_cli(),
+            Self::ClaudeCode => "Claude Code",
+            Self::Codex => "Codex",
         }
     }
 
-    fn marketplace_add_args(self) -> &'static [&'static str] {
-        &["plugin", "marketplace", "add", PONYTAIL_MARKETPLACE]
-    }
-
-    fn install_args(self) -> &'static [&'static str] {
+    fn cli(self) -> Option<std::path::PathBuf> {
         match self {
-            PluginHost::ClaudeCode => {
-                &["plugin", "install", PONYTAIL_PLUGIN_REF, "--scope", "user"]
-            }
-            PluginHost::Codex => &["plugin", "add", PONYTAIL_PLUGIN_REF],
+            Self::ClaudeCode => crate::claude_cli::detect_claude_cli(),
+            Self::Codex => crate::claude_cli::detect_codex_cli(),
         }
     }
 
     fn uninstall_args(self) -> &'static [&'static str] {
         match self {
-            PluginHost::ClaudeCode => &["plugin", "uninstall", PONYTAIL_PLUGIN_REF],
-            PluginHost::Codex => &["plugin", "remove", PONYTAIL_PLUGIN_REF],
+            Self::ClaudeCode => &["plugin", "uninstall", PONYTAIL_PLUGIN_REF],
+            Self::Codex => &["plugin", "remove", PONYTAIL_PLUGIN_REF],
         }
-    }
-
-    fn plugin_present(self) -> bool {
-        self.plugin_fingerprint().is_some()
     }
 
     fn plugin_fingerprint(self) -> Option<String> {
         match self {
-            PluginHost::ClaudeCode => claude_ponytail_fingerprint(),
-            PluginHost::Codex => codex_ponytail_fingerprint(),
+            Self::ClaudeCode => claude_legacy_plugin_entry().map(|entry| json_fingerprint(&entry)),
+            Self::Codex => codex_legacy_plugin_block().map(text_fingerprint),
         }
     }
 }
 
-fn ponytail_installed_plugins() -> Option<Value> {
+fn claude_legacy_plugin_entry() -> Option<Value> {
     let path = dirs::home_dir()?
         .join(".claude")
         .join("plugins")
         .join("installed_plugins.json");
-    serde_json::from_slice(&std::fs::read(path).ok()?).ok()
-}
-
-/// Claude Code records installs in `~/.claude/plugins/installed_plugins.json`
-/// under `plugins["ponytail@ponytail"]` as a non-empty array of install records.
-fn claude_ponytail_fingerprint() -> Option<String> {
-    claude_ponytail_entry(ponytail_installed_plugins()?).map(|entry| json_fingerprint(&entry))
-}
-
-/// Codex records installs in `~/.codex/config.toml` under a
-/// `[plugins."ponytail@ponytail"]` table. Keys containing `@` are always
-/// quoted, so a header substring match is reliable and avoids a TOML parse
-/// dependency (matching how client_adapters edits this file).
-fn codex_ponytail_fingerprint() -> Option<String> {
-    let Some(path) = dirs::home_dir().map(|h| h.join(".codex").join("config.toml")) else {
-        return None;
-    };
-    let Ok(text) = std::fs::read_to_string(path) else {
-        return None;
-    };
-    codex_ponytail_block(&text).map(text_fingerprint)
-}
-
-fn claude_ponytail_entry(plugins: Value) -> Option<Value> {
-    let entry = plugins.get("plugins")?.get(PONYTAIL_PLUGIN_REF)?.clone();
-    let has_installs = entry
+    let value: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+    let entry = value.get("plugins")?.get(PONYTAIL_PLUGIN_REF)?.clone();
+    entry
         .as_array()
-        .is_some_and(|installs| !installs.is_empty());
-    has_installs.then_some(entry)
+        .is_some_and(|entries| !entries.is_empty())
+        .then_some(entry)
 }
 
-fn codex_ponytail_block(text: &str) -> Option<&str> {
+fn codex_legacy_plugin_block() -> Option<String> {
+    let path = dirs::home_dir()?.join(".codex").join("config.toml");
+    let text = std::fs::read_to_string(path).ok()?;
     let header = format!("[plugins.\"{PONYTAIL_PLUGIN_REF}\"]");
     let mut offset = 0;
     let mut start = None;
     for segment in text.split_inclusive('\n') {
         let line = segment.trim_end_matches(['\r', '\n']);
         if start.is_some() && line.trim_start().starts_with('[') {
-            return start.map(|start| &text[start..offset]);
+            return start.map(|start| text[start..offset].to_string());
         }
         if start.is_none() && line.trim_start() == header {
             start = Some(offset);
         }
         offset += segment.len();
     }
-    start.map(|start| &text[start..])
+    start.map(|start| text[start..].to_string())
 }
 
 fn json_fingerprint(value: &Value) -> String {
-    let payload = serde_json::to_vec(value).expect("serializing JSON value for fingerprint");
+    let payload = serde_json::to_vec(value).expect("serializing legacy Ponytail entry");
     bytes_fingerprint(&payload)
 }
 
-fn text_fingerprint(value: &str) -> String {
+fn text_fingerprint(value: String) -> String {
     bytes_fingerprint(value.as_bytes())
 }
 
@@ -464,54 +554,49 @@ fn bytes_fingerprint(value: &[u8]) -> String {
     format!("sha256:{:x}", hasher.finalize())
 }
 
-fn installed_ponytail_version() -> Option<String> {
-    let plugins = ponytail_installed_plugins()?;
-    let installs = plugins
-        .get("plugins")?
-        .get(PONYTAIL_PLUGIN_REF)?
-        .as_array()?;
-    installs
-        .first()?
-        .get("version")?
-        .as_str()
-        .map(str::to_string)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{claude_ponytail_entry, codex_ponytail_block, text_fingerprint, PluginHost};
+    use super::{
+        codex_legacy_plugin_block, created_fingerprints, is_bundled_receipt, receipt_string_map,
+        LegacyPluginHost,
+    };
     use serde_json::json;
+    use std::collections::BTreeMap;
 
     #[test]
-    fn ponytail_hosts_have_stable_receipt_identifiers() {
-        assert_eq!(PluginHost::ClaudeCode.id(), "claude-code");
-        assert_eq!(PluginHost::Codex.id(), "codex");
-        assert!(PluginHost::from_id("unknown").is_none());
+    fn bundled_receipt_detection_keeps_legacy_migration_explicit() {
+        assert!(is_bundled_receipt(
+            &json!({ "delivery": "bundled_guidance" })
+        ));
+        assert!(!is_bundled_receipt(&json!({ "version": "latest" })));
     }
 
     #[test]
-    fn claude_fingerprint_ignores_an_empty_plugin_array() {
-        assert!(claude_ponytail_entry(json!({
-            "plugins": { "ponytail@ponytail": [] }
-        }))
-        .is_none());
+    fn owned_client_maps_are_content_free_and_created_delta_is_exact() {
+        let receipt = json!({ "ownedClients": { "codex": "sha256:one" } });
+        assert_eq!(receipt_string_map(&receipt, "ownedClients").len(), 1);
+        let before = BTreeMap::from([("codex".to_string(), "sha256:one".to_string())]);
+        let after = BTreeMap::from([
+            ("claude-code".to_string(), "sha256:two".to_string()),
+            ("codex".to_string(), "sha256:one".to_string()),
+        ]);
+        assert_eq!(
+            created_fingerprints(&before, &after),
+            BTreeMap::from([("claude-code".to_string(), "sha256:two".to_string())])
+        );
     }
 
     #[test]
-    fn codex_fingerprint_targets_only_the_ponytail_table() {
-        let config = concat!(
-            "[plugins.\"ponytail@ponytail\"]\n",
-            "enabled = true\n",
-            "[plugins.\"another@plugin\"]\n",
-            "enabled = true\n"
+    fn legacy_host_ids_and_labels_remain_receipt_compatible() {
+        assert_eq!(
+            LegacyPluginHost::from_label("Claude Code"),
+            Some(LegacyPluginHost::ClaudeCode)
         );
         assert_eq!(
-            codex_ponytail_block(config),
-            Some("[plugins.\"ponytail@ponytail\"]\nenabled = true\n")
+            LegacyPluginHost::from_id("codex"),
+            Some(LegacyPluginHost::Codex)
         );
-        assert_ne!(
-            text_fingerprint(codex_ponytail_block(config).unwrap()),
-            text_fingerprint(config)
-        );
+        assert!(LegacyPluginHost::from_label("unknown").is_none());
+        let _ = codex_legacy_plugin_block();
     }
 }

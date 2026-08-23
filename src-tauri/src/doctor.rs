@@ -613,8 +613,8 @@ repair_action: Some("repair_rtk_integrations".to_string()),
     if tool_needs_repair("ponytail") {
         issues.push(DoctorIssue {
             id: "ponytail_plugin_inactive".to_string(),
-            title: "Ponytail plugin is not active".to_string(),
-            body: "Ponytail should be registered with Claude Code or Codex when its add-on is enabled. Repair will re-run the plugin install for available local hosts.".to_string(),
+            title: "Ponytail bundled guidance is not active".to_string(),
+            body: "Ponytail should have an exact Switchboard-managed guidance block in each configured Claude Code or Codex instruction file. Repair will revalidate the bundled snapshot and recreate only those owned blocks.".to_string(),
             severity: DoctorSeverity::Warning,
             repair_action: Some("repair_ponytail_plugin".to_string()),
         });

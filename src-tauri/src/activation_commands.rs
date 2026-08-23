@@ -83,6 +83,13 @@ pub struct PonytailActivationSnapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct PonytailBundledActivationSnapshot {
+    pub receipt: Option<Value>,
+    pub client_fingerprints: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct CavemanActivationSnapshot {
     pub receipt: Option<Value>,
     pub integration: client_adapters::CavemanIntegrationSnapshot,
@@ -125,10 +132,17 @@ pub struct SelectiveActivationReceipt {
     pub previous_ponytail: Option<PonytailActivationSnapshot>,
     #[serde(default)]
     pub after_ponytail: Option<PonytailActivationSnapshot>,
-    /// Exact host entries created by this activation. Fingerprints prove the
-    /// narrow rollback target without storing host paths or marketplace state.
+    /// Schema 2/3 legacy plugin entries. These fields retain their original
+    /// meaning and are never populated by schema 4 bundled-guidance runs.
     #[serde(default)]
     pub ponytail_created_hosts: BTreeMap<String, String>,
+    #[serde(default)]
+    pub previous_ponytail_bundled: Option<PonytailBundledActivationSnapshot>,
+    #[serde(default)]
+    pub after_ponytail_bundled: Option<PonytailBundledActivationSnapshot>,
+    /// Schema 4 managed client blocks created by this activation.
+    #[serde(default)]
+    pub ponytail_created_clients: BTreeMap<String, String>,
     #[serde(default)]
     pub previous_caveman: Option<CavemanActivationSnapshot>,
     #[serde(default)]
@@ -275,7 +289,8 @@ fn chonkify_gate() -> (String, bool) {
         }
     }
     (
-        "repo_pack_eligible: Switchboard-native provenance and wrong-omission fixtures passed".into(),
+        "repo_pack_eligible: Switchboard-native provenance and wrong-omission fixtures passed"
+            .into(),
         true,
     )
 }
@@ -326,10 +341,10 @@ fn leanctx_snapshot(state: &AppState) -> LeanctxActivationSnapshot {
     }
 }
 
-fn ponytail_snapshot(state: &AppState) -> PonytailActivationSnapshot {
-    PonytailActivationSnapshot {
+fn ponytail_bundled_snapshot(state: &AppState) -> PonytailBundledActivationSnapshot {
+    PonytailBundledActivationSnapshot {
         receipt: state.tool_manager.ponytail_receipt_snapshot(),
-        host_fingerprints: state.tool_manager.ponytail_host_fingerprints(),
+        client_fingerprints: state.tool_manager.ponytail_host_fingerprints(),
     }
 }
 
@@ -421,6 +436,18 @@ fn newly_created_ponytail_hosts(
         .iter()
         .filter(|(host_id, _)| !previous.host_fingerprints.contains_key(*host_id))
         .map(|(host_id, fingerprint)| (host_id.clone(), fingerprint.clone()))
+        .collect()
+}
+
+fn newly_created_ponytail_clients(
+    previous: &PonytailBundledActivationSnapshot,
+    after: &PonytailBundledActivationSnapshot,
+) -> BTreeMap<String, String> {
+    after
+        .client_fingerprints
+        .iter()
+        .filter(|(client_id, _)| !previous.client_fingerprints.contains_key(*client_id))
+        .map(|(client_id, fingerprint)| (client_id.clone(), fingerprint.clone()))
         .collect()
 }
 
@@ -589,7 +616,7 @@ fn validate_rollback_request(
     receipt: &SelectiveActivationReceipt,
     run_id: &str,
 ) -> Result<(), String> {
-    if !matches!(receipt.schema_version, 2 | 3) {
+    if !matches!(receipt.schema_version, 2 | 3 | 4) {
         return Err("This activation receipt predates rollback ownership metadata.".into());
     }
     if receipt.run_id != run_id {
@@ -662,7 +689,7 @@ fn activate_managed_addon(state: &AppState, id: &str) -> Result<String, String> 
                     .set_ponytail_enabled(true)
                     .map_err(|error| error.to_string())?;
             }
-            Ok("Ponytail managed plugin integration enabled.".into())
+            Ok("Ponytail app-bundled guidance enabled for configured clients.".into())
         }
         "caveman" => {
             if !state.tool_manager.caveman_receipt_exists() {
@@ -743,6 +770,11 @@ fn ordered_ids(selected: &[String]) -> Vec<String> {
 }
 
 fn preflight_selected_tools(state: &AppState, selected: &[String]) -> Result<(), String> {
+    if selected.iter().any(|id| id == "ponytail")
+        && state.tool_manager.ponytail_requires_legacy_migration()
+    {
+        return Err("Ponytail has a legacy or cleanup-pending marketplace receipt. Repair it once from Addons before select-five activation so rollback never claims it can restore a removed external plugin.".into());
+    }
     if selected.iter().any(|id| id == "response-cache")
         && !selected.iter().any(|id| id == "headroom")
         && matches!(
@@ -819,10 +851,10 @@ pub async fn activate_selected_tools(
         .iter()
         .any(|id| id == "leanctx")
         .then(|| leanctx_snapshot(&state));
-    let previous_ponytail = selected_tool_ids
+    let previous_ponytail_bundled = selected_tool_ids
         .iter()
         .any(|id| id == "ponytail")
-        .then(|| ponytail_snapshot(&state));
+        .then(|| ponytail_bundled_snapshot(&state));
     let previous_caveman = selected_tool_ids
         .iter()
         .any(|id| id == "caveman")
@@ -857,8 +889,8 @@ pub async fn activate_selected_tools(
     if previous_leanctx.is_some() {
         owned_changes.push("leanctx_state".into());
     }
-    if previous_ponytail.is_some() {
-        owned_changes.push("ponytail_ownership".into());
+    if previous_ponytail_bundled.is_some() {
+        owned_changes.push("ponytail_bundled_guidance".into());
     }
     if previous_caveman.is_some() {
         owned_changes.push("caveman_state".into());
@@ -898,8 +930,9 @@ pub async fn activate_selected_tools(
                 let _ = state.token_xray_live_update(None);
                 Ok("Content-free local Token X-Ray evidence refreshed.".into())
             }
-            "chonkify" => set_chonkify_preference(&state, "chonkify")
-                .map(|_| "Switchboard Pack Compaction enabled for read-only Repo Intelligence packs.".into()),
+            "chonkify" => set_chonkify_preference(&state, "chonkify").map(|_| {
+                "Switchboard Pack Compaction enabled for read-only Repo Intelligence packs.".into()
+            }),
             addon => activate_managed_addon(&state, addon),
         };
         match activation {
@@ -953,13 +986,13 @@ pub async fn activate_selected_tools(
             .map(|preference| preference.effective_mode)
     });
     let after_leanctx = previous_leanctx.as_ref().map(|_| leanctx_snapshot(&state));
-    let after_ponytail = previous_ponytail
+    let after_ponytail_bundled = previous_ponytail_bundled
         .as_ref()
-        .map(|_| ponytail_snapshot(&state));
-    let ponytail_created_hosts = previous_ponytail
+        .map(|_| ponytail_bundled_snapshot(&state));
+    let ponytail_created_clients = previous_ponytail_bundled
         .as_ref()
-        .zip(after_ponytail.as_ref())
-        .map(|(previous, after)| newly_created_ponytail_hosts(previous, after))
+        .zip(after_ponytail_bundled.as_ref())
+        .map(|(previous, after)| newly_created_ponytail_clients(previous, after))
         .unwrap_or_default();
     let after_caveman = previous_caveman
         .as_ref()
@@ -1010,7 +1043,7 @@ pub async fn activate_selected_tools(
         })
         .unwrap_or(false);
     let receipt = SelectiveActivationReceipt {
-        schema_version: 3,
+        schema_version: 4,
         run_id,
         selected_tool_ids,
         overall_status: overall_status.into(),
@@ -1024,9 +1057,12 @@ pub async fn activate_selected_tools(
         after_chonkify_mode,
         previous_leanctx,
         after_leanctx,
-        previous_ponytail,
-        after_ponytail,
-        ponytail_created_hosts,
+        previous_ponytail: None,
+        after_ponytail: None,
+        ponytail_created_hosts: BTreeMap::new(),
+        previous_ponytail_bundled,
+        after_ponytail_bundled,
+        ponytail_created_clients,
         previous_caveman,
         after_caveman,
         caveman_changed_clients,
@@ -1588,13 +1624,13 @@ pub async fn rollback_selective_activation(
                     rollback_results.push(SelectiveRollbackResult {
                         tool_id,
                         state: "restored".into(),
-                        detail: "Ponytail plugin entry was already removed by an earlier rollback attempt.".into(),
+                        detail: "Legacy Ponytail plugin entry was already removed by an earlier rollback attempt.".into(),
                     });
                     continue;
                 }
                 let current = state
                     .tool_manager
-                    .ponytail_host_fingerprints()
+                    .legacy_ponytail_host_fingerprints()
                     .get(host_id)
                     .cloned();
                 if current.as_deref() != Some(expected_fingerprint) {
@@ -1602,19 +1638,21 @@ pub async fn rollback_selective_activation(
                     rollback_results.push(SelectiveRollbackResult {
                         tool_id,
                         state: "blocked_external_change".into(),
-                        detail: "Current Ponytail plugin entry differs from this run's recorded post-activation fingerprint; it was preserved.".into(),
+                        detail: "Current legacy Ponytail plugin entry differs from this run's recorded post-activation fingerprint; it was preserved.".into(),
                     });
-                    failures.push(format!("Ponytail {host_id} entry changed after activation"));
+                    failures.push(format!(
+                        "Legacy Ponytail {host_id} plugin entry changed after activation"
+                    ));
                     continue;
                 }
                 match state
                     .tool_manager
-                    .remove_ponytail_host_if_unchanged(host_id, expected_fingerprint)
+                    .remove_legacy_ponytail_host_if_unchanged(host_id, expected_fingerprint)
                 {
                     Ok(()) => rollback_results.push(SelectiveRollbackResult {
                         tool_id,
                         state: "restored".into(),
-                        detail: "Ponytail plugin entry created by this activation was removed; marketplace registration was preserved.".into(),
+                        detail: "Legacy Ponytail plugin entry created by this activation was removed; marketplace registration was preserved.".into(),
                     }),
                     Err(error) => {
                         hosts_restored = false;
@@ -1646,7 +1684,7 @@ pub async fn rollback_selective_activation(
                     Ok(()) => rollback_results.push(SelectiveRollbackResult {
                         tool_id: "ponytail".into(),
                         state: "restored".into(),
-                        detail: "Ponytail receipt restored; only plugin entries created by this activation were removed and marketplaces were preserved.".into(),
+                        detail: "Legacy Ponytail receipt restored; only plugin entries created by this activation were removed and marketplace registration was preserved.".into(),
                     }),
                     Err(error) => {
                         failures.push(error.to_string());
@@ -1666,6 +1704,112 @@ pub async fn rollback_selective_activation(
                     .into(),
             });
             failures.push("Ponytail rollback metadata is missing".into());
+        }
+    }
+    if receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "ponytail_bundled_guidance")
+    {
+        let previously_restored_clients: BTreeSet<String> = receipt
+            .rollback_results
+            .iter()
+            .filter(|result| result.state == "restored")
+            .filter_map(|result| result.tool_id.strip_prefix("ponytail:").map(str::to_string))
+            .collect();
+        let ponytail_created_clients = receipt.ponytail_created_clients.clone();
+        if let (Some(previous), Some(after)) = (
+            receipt.previous_ponytail_bundled.clone(),
+            receipt.after_ponytail_bundled.clone(),
+        ) {
+            let mut clients_restored = true;
+            for (client_id, expected_fingerprint) in &ponytail_created_clients {
+                let tool_id = format!("ponytail:{client_id}");
+                if previously_restored_clients.contains(client_id) {
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Ponytail managed guidance was already removed by an earlier rollback attempt.".into(),
+                    });
+                    continue;
+                }
+                let current = state
+                    .tool_manager
+                    .ponytail_host_fingerprints()
+                    .get(client_id)
+                    .cloned();
+                if current.as_deref() != Some(expected_fingerprint) {
+                    clients_restored = false;
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "blocked_external_change".into(),
+                        detail: "Current Ponytail managed guidance differs from this run's recorded post-activation fingerprint; it was preserved.".into(),
+                    });
+                    failures.push(format!(
+                        "Ponytail {client_id} guidance changed after activation"
+                    ));
+                    continue;
+                }
+                match state
+                    .tool_manager
+                    .remove_ponytail_host_if_unchanged(client_id, expected_fingerprint)
+                {
+                    Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Ponytail managed guidance created by this activation was removed."
+                            .into(),
+                    }),
+                    Err(error) => {
+                        clients_restored = false;
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id,
+                            state: "failed".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+                if let Err(error) =
+                    persist_rollback_progress(&state, &mut receipt, &rollback_results)
+                {
+                    clients_restored = false;
+                    failures.push(error.clone());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "ponytail".into(),
+                        state: "failed".into(),
+                        detail: format!("Recording Ponytail rollback progress failed: {error}"),
+                    });
+                }
+            }
+            if clients_restored {
+                match state.tool_manager.restore_ponytail_receipt_if_unchanged(
+                    previous.receipt.as_ref(),
+                    after.receipt.as_ref(),
+                ) {
+                    Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "ponytail".into(),
+                        state: "restored".into(),
+                        detail: "Ponytail receipt restored; only managed guidance created by this activation was removed.".into(),
+                    }),
+                    Err(error) => {
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "ponytail".into(),
+                            state: "blocked_external_change".into(),
+                            detail: error.to_string(),
+                        });
+                    }
+                }
+            }
+        } else {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "ponytail".into(),
+                state: "failed".into(),
+                detail: "Ponytail bundled-guidance rollback metadata is missing from this activation receipt."
+                    .into(),
+            });
+            failures.push("Ponytail bundled-guidance rollback metadata is missing".into());
         }
     }
     for tool_id in receipt.selected_tool_ids.iter().filter(|id| {
@@ -1764,10 +1908,11 @@ pub fn save_selective_activation_selection(
 #[cfg(test)]
 mod tests {
     use super::{
-        changed_caveman_clients, chonkify_gate, newly_created_ponytail_hosts,
-        ordered_markitdown_artifacts, ordered_rtk_artifacts, validate_caveman_snapshot,
-        validate_ids, validate_rollback_request, CavemanActivationSnapshot,
-        PonytailActivationSnapshot, SelectiveActivationReceipt,
+        changed_caveman_clients, chonkify_gate, newly_created_ponytail_clients,
+        newly_created_ponytail_hosts, ordered_markitdown_artifacts, ordered_rtk_artifacts,
+        validate_caveman_snapshot, validate_ids, validate_rollback_request,
+        CavemanActivationSnapshot, PonytailActivationSnapshot, PonytailBundledActivationSnapshot,
+        SelectiveActivationReceipt,
     };
     use crate::client_adapters::{CavemanIntegrationSnapshot, CavemanManagedBlockSnapshot};
     use crate::models::SwitchboardMode;
@@ -1829,6 +1974,25 @@ mod tests {
         };
         assert_eq!(
             newly_created_ponytail_hosts(&before, &after),
+            BTreeMap::from([("codex".into(), "created".into())])
+        );
+    }
+
+    #[test]
+    fn ponytail_bundled_delta_tracks_only_new_client_blocks() {
+        let before = PonytailBundledActivationSnapshot {
+            receipt: Some(json!({ "delivery": "bundled_guidance", "enabled": false })),
+            client_fingerprints: BTreeMap::from([("claude-code".into(), "before".into())]),
+        };
+        let after = PonytailBundledActivationSnapshot {
+            receipt: Some(json!({ "delivery": "bundled_guidance", "enabled": true })),
+            client_fingerprints: BTreeMap::from([
+                ("claude-code".into(), "changed-but-preexisting".into()),
+                ("codex".into(), "created".into()),
+            ]),
+        };
+        assert_eq!(
+            newly_created_ponytail_clients(&before, &after),
             BTreeMap::from([("codex".into(), "created".into())])
         );
     }
@@ -1948,7 +2112,7 @@ mod tests {
 
     fn receipt() -> SelectiveActivationReceipt {
         SelectiveActivationReceipt {
-            schema_version: 3,
+            schema_version: 4,
             run_id: "run-1".into(),
             selected_tool_ids: vec!["headroom".into()],
             overall_status: "succeeded".into(),
@@ -1965,6 +2129,9 @@ mod tests {
             previous_ponytail: None,
             after_ponytail: None,
             ponytail_created_hosts: Default::default(),
+            previous_ponytail_bundled: None,
+            after_ponytail_bundled: None,
+            ponytail_created_clients: Default::default(),
             previous_caveman: None,
             after_caveman: None,
             caveman_changed_clients: Vec::new(),
@@ -1987,6 +2154,8 @@ mod tests {
         let receipt = receipt();
         assert!(validate_rollback_request(&receipt, "other-run").is_err());
         let mut prior_rollback_schema = receipt.clone();
+        prior_rollback_schema.schema_version = 3;
+        assert!(validate_rollback_request(&prior_rollback_schema, "run-1").is_ok());
         prior_rollback_schema.schema_version = 2;
         assert!(validate_rollback_request(&prior_rollback_schema, "run-1").is_ok());
         let mut legacy = receipt;

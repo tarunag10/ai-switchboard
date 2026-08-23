@@ -218,7 +218,7 @@ pub(super) fn build_addon_attribution_event(
                     PONYTAIL_TEMPLATE_BASELINE_TOKENS,
                     PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
                     SavingsAttributionConfidence::Estimated,
-                    "Ponytail plugin registration was verified in connected agent hosts",
+                    "Ponytail bundled guidance was verified in configured agent clients",
                     hosts.len(),
                 )
             }
@@ -303,7 +303,7 @@ pub(super) fn build_addon_attribution_event(
     if addon_id == "ponytail" {
         let hosts = ponytail_hosts.unwrap_or(&[]);
         evidence.push(format!(
-            "Ponytail plugin registered with {} agent host{}: {}.",
+            "Ponytail bundled guidance active in {} configured agent client{}: {}.",
             hosts.len(),
             if hosts.len() == 1 { "" } else { "s" },
             hosts.join(", ")
@@ -3160,7 +3160,7 @@ mod tests {
     }
 
     #[test]
-    fn addon_attribution_event_records_estimated_ponytail_host_registration() {
+    fn addon_attribution_event_records_estimated_ponytail_managed_guidance() {
         let hosts = vec!["Claude Code".to_string(), "Codex".to_string()];
         let event = build_addon_attribution_event("ponytail", None, None, None, Some(&hosts))
             .expect("ponytail attribution");
@@ -3170,7 +3170,7 @@ mod tests {
         assert_eq!(event.delta_tokens_saved, 880);
         assert_eq!(event.request_delta, 2);
         let evidence = event.evidence.join(" ");
-        assert!(evidence.contains("registered with 2 agent hosts"));
+        assert!(evidence.contains("active in 2 configured agent clients"));
         assert!(evidence.contains("Claude Code"));
         assert!(evidence.contains("Codex"));
     }

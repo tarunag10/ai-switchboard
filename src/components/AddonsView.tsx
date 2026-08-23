@@ -334,7 +334,7 @@ export function AddonsView({
                 <AddonCard
                   key={tool.id}
                   name={tool.name}
-                  version="0.0.0"
+                  version={tool.version}
                   installed={installed}
                   enabled={tool.enabled}
                   description={tool.description}

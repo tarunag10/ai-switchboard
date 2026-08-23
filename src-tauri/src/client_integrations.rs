@@ -738,6 +738,251 @@ pub fn disable_caveman_integration() -> Result<bool> {
     Ok(changed)
 }
 
+fn configured_ponytail_clients() -> Vec<(&'static str, PathBuf)> {
+    configured_caveman_clients()
+}
+
+fn all_ponytail_clients() -> [(&'static str, PathBuf); 2] {
+    [
+        ("claude-code", caveman_claude_md_path()),
+        ("codex", caveman_codex_agents_path()),
+    ]
+}
+
+fn ponytail_client_path(client_id: &str) -> Option<PathBuf> {
+    caveman_client_path(client_id)
+}
+
+fn ponytail_block_range(content: &str) -> Result<Option<(usize, usize)>> {
+    let mut found = None;
+    for slug in SwitchboardIdentitySlug::marker_prefixes() {
+        let start = managed_marker_start(slug.as_str(), "ponytail");
+        let end = managed_marker_end(slug.as_str(), "ponytail");
+        let starts: Vec<_> = content.match_indices(&start).collect();
+        let ends: Vec<_> = content.match_indices(&end).collect();
+        if starts.is_empty() && ends.is_empty() {
+            continue;
+        }
+        if starts.len() != 1 || ends.len() != 1 || starts[0].0 >= ends[0].0 {
+            bail!("Ponytail managed block markers are ambiguous or malformed");
+        }
+        if found.is_some() {
+            bail!("multiple Ponytail managed blocks were found");
+        }
+        found = Some((starts[0].0, ends[0].0 + end.len()));
+    }
+    Ok(found)
+}
+
+fn ponytail_block_at(path: &Path) -> Result<Option<String>> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
+    };
+    Ok(ponytail_block_range(&content)?.map(|(start, end)| content[start..end].to_string()))
+}
+
+fn ponytail_block_fingerprint(block: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(block.as_bytes());
+    format!("sha256:{:x}", hasher.finalize())
+}
+
+fn build_ponytail_nudge() -> Result<String> {
+    Ok(format!(
+        "## Ponytail (AI Switchboard bundled profile)\n\
+         Source: DietrichGebert/ponytail 4.9.0 at commit {} (MIT). AI Switchboard\n\
+         applies the reviewed core guidance below without marketplace installation,\n\
+         lifecycle hooks, runtime downloads, or automatic updates.\n\n{}",
+        crate::ponytail_bundled::PONYTAIL_SOURCE_COMMIT,
+        crate::ponytail_bundled::core_guidance()?
+    ))
+}
+
+fn canonical_ponytail_block() -> Result<String> {
+    let start = managed_marker_start(primary_marker_prefix(), "ponytail");
+    let end = managed_marker_end(primary_marker_prefix(), "ponytail");
+    Ok(format!("{start}\n{}\n{end}", build_ponytail_nudge()?))
+}
+
+pub fn ponytail_integration_fingerprints() -> Result<BTreeMap<String, String>> {
+    let mut fingerprints = BTreeMap::new();
+    for (client_id, path) in all_ponytail_clients() {
+        if let Some(block) = ponytail_block_at(&path)? {
+            fingerprints.insert(client_id.to_string(), ponytail_block_fingerprint(&block));
+        }
+    }
+    Ok(fingerprints)
+}
+
+pub fn ponytail_registered_clients() -> Result<Vec<String>> {
+    Ok(ponytail_integration_fingerprints()?.into_keys().collect())
+}
+
+/// Installs the immutable app-bundled Ponytail core profile into the same
+/// Switchboard-owned instruction-file boundary used by Caveman. Existing
+/// non-canonical managed content is preserved and blocks activation.
+pub fn enable_ponytail_integration() -> Result<(Vec<String>, Vec<String>)> {
+    let clients = configured_ponytail_clients();
+    if clients.is_empty() {
+        bail!("Ponytail needs a configured Claude Code or Codex client");
+    }
+    let canonical = canonical_ponytail_block()?;
+    for (_, path) in &clients {
+        if let Some(existing) = ponytail_block_at(path)? {
+            if existing != canonical {
+                bail!(
+                    "Ponytail managed guidance differs in {}; it was preserved",
+                    path.display()
+                );
+            }
+        }
+    }
+
+    let body = build_ponytail_nudge()?;
+    let mut changed_files = Vec::new();
+    let mut backup_files = Vec::new();
+    let mut created_blocks: Vec<PathBuf> = Vec::new();
+    for (_, path) in clients {
+        let result = upsert_managed_block(&path, "ponytail", &body);
+        let (changed, backup) = match result {
+            Ok(result) => result,
+            Err(error) => {
+                let mut cleanup_errors = Vec::new();
+                for created in created_blocks.iter().rev() {
+                    if let Err(cleanup) = remove_managed_block(created, "ponytail") {
+                        cleanup_errors.push(cleanup.to_string());
+                    }
+                }
+                if cleanup_errors.is_empty() {
+                    return Err(error)
+                        .context("writing bundled Ponytail guidance; partial writes rolled back");
+                }
+                bail!(
+                    "writing bundled Ponytail guidance failed: {error:#}; rollback also failed: {}",
+                    cleanup_errors.join("; ")
+                );
+            }
+        };
+        if changed {
+            changed_files.push(path.display().to_string());
+            created_blocks.push(path.clone());
+        }
+        if let Some(backup) = backup {
+            backup_files.push(backup.display().to_string());
+        }
+    }
+    Ok((changed_files, backup_files))
+}
+
+pub fn ponytail_integration_matches() -> Result<bool> {
+    let clients = configured_ponytail_clients();
+    if clients.is_empty() {
+        return Ok(false);
+    }
+    let canonical = canonical_ponytail_block()?;
+    for (_, path) in clients {
+        if ponytail_block_at(&path)?.as_deref() != Some(canonical.as_str()) {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+pub fn disable_ponytail_integration() -> Result<bool> {
+    let canonical_fingerprint = ponytail_block_fingerprint(&canonical_ponytail_block()?);
+    let current = ponytail_integration_fingerprints()?;
+    if current
+        .values()
+        .any(|value| value != &canonical_fingerprint)
+    {
+        bail!("Ponytail managed guidance changed after activation; it was preserved");
+    }
+    disable_ponytail_integration_if_unchanged(&current)
+}
+
+pub fn disable_ponytail_integration_if_unchanged(
+    expected: &BTreeMap<String, String>,
+) -> Result<bool> {
+    for (client_id, fingerprint) in expected {
+        let path = ponytail_client_path(client_id)
+            .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
+        let current = ponytail_block_at(&path)?
+            .as_deref()
+            .map(ponytail_block_fingerprint);
+        if current.as_deref() != Some(fingerprint.as_str()) {
+            bail!("Ponytail managed guidance changed after activation for {client_id}");
+        }
+    }
+
+    let mut removed = Vec::new();
+    for client_id in expected.keys() {
+        let path = ponytail_client_path(client_id)
+            .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
+        match remove_managed_block(&path, "ponytail") {
+            Ok(true) => removed.push(path),
+            Ok(false) => {}
+            Err(error) => {
+                let body = build_ponytail_nudge()?;
+                let mut cleanup_errors = Vec::new();
+                for removed_path in removed.iter().rev() {
+                    if let Err(cleanup) = upsert_managed_block(removed_path, "ponytail", &body) {
+                        cleanup_errors.push(cleanup.to_string());
+                    }
+                }
+                if cleanup_errors.is_empty() {
+                    return Err(error)
+                        .context("removing Ponytail guidance; partial removals restored");
+                }
+                bail!(
+                    "removing Ponytail guidance failed: {error:#}; restoring partial removals also failed: {}",
+                    cleanup_errors.join("; ")
+                );
+            }
+        }
+    }
+    Ok(!removed.is_empty())
+}
+
+pub fn remove_ponytail_client_if_unchanged(
+    client_id: &str,
+    expected_fingerprint: &str,
+) -> Result<()> {
+    let path = ponytail_client_path(client_id)
+        .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
+    let block = ponytail_block_at(&path)?.context("Ponytail managed block is no longer present")?;
+    let actual = ponytail_block_fingerprint(&block);
+    if actual != expected_fingerprint {
+        bail!("Ponytail managed block changed after activation for {client_id}");
+    }
+    remove_managed_block(&path, "ponytail")?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod ponytail_bundled_tests {
+    use super::{canonical_ponytail_block, ponytail_block_range};
+
+    #[test]
+    fn bundled_ponytail_block_is_attributed_and_content_complete() {
+        let block = canonical_ponytail_block().expect("canonical Ponytail block");
+        assert!(block.contains("DietrichGebert/ponytail 4.9.0"));
+        assert!(block.contains("The shortest path to done is the right path."));
+        assert!(block.contains("ai-switchboard:ponytail"));
+    }
+
+    #[test]
+    fn ponytail_block_parser_rejects_ambiguous_markers() {
+        let canonical = canonical_ponytail_block().expect("canonical Ponytail block");
+        assert_eq!(
+            ponytail_block_range(&canonical).unwrap(),
+            Some((0, canonical.len()))
+        );
+        assert!(ponytail_block_range(&format!("{canonical}\n{canonical}")).is_err());
+    }
+}
+
 /// Adds or removes a `Bash(<shim> *)` entry in `permissions.allow` so the Office
 /// nudge can run `markitdown` without prompting. Returns whether settings changed.
 fn set_markitdown_bash_permission(shim_path: &Path, present: bool) -> Result<bool> {

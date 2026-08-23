@@ -483,7 +483,7 @@ describe("savings calculator", () => {
             totalTokensSent: 0,
             requestDelta: 2,
             evidence: [
-              "Estimated Ponytail plugin registered with 2 agent hosts: Claude Code, Codex.",
+              "Estimated Ponytail bundled guidance active in 2 configured agent clients: Claude Code, Codex.",
             ],
           },
           {
@@ -534,12 +534,12 @@ describe("savings calculator", () => {
       savedUsd: null,
       recordedAt: "2026-06-25T10:06:00Z",
       caveat:
-        "Estimated from verified Ponytail plugin registration in connected agent hosts; not runtime-measured output.",
+        "Estimated from verified Switchboard-managed Ponytail guidance in configured agent clients; not runtime-measured output.",
     });
     expect(ponytail?.detail).toContain(
       "1 estimated Ponytail session event across 2 evidence units",
     );
-    expect(ponytail?.detail).toContain("plugin registered with 2 agent hosts");
+    expect(ponytail?.detail).toContain("bundled guidance active in 2 configured agent clients");
     expect(rows.filter((row) => row.source === "ponytail")).toHaveLength(1);
     expect(markitdown).toMatchObject({
       id: "markitdown_attribution_events",
@@ -595,7 +595,7 @@ describe("savings calculator", () => {
             totalTokensSent: 0,
             requestDelta: 2,
             evidence: [
-              "Estimated Ponytail plugin registered with 2 agent hosts: Claude Code, Codex.",
+              "Estimated Ponytail bundled guidance active in 2 configured agent clients: Claude Code, Codex.",
             ],
           },
         ],
@@ -619,7 +619,7 @@ describe("savings calculator", () => {
       confidence: "estimated",
       savedTokens: 880,
     });
-    expect(ponytail?.detail).toContain("plugin registered with 2 agent hosts");
+    expect(ponytail?.detail).toContain("bundled guidance active in 2 configured agent clients");
     expect(ponytail?.detail).toContain("2 evidence units");
     expect(rows.filter((row) => row.source === "caveman")).toHaveLength(1);
     expect(rows.filter((row) => row.source === "ponytail")).toHaveLength(1);

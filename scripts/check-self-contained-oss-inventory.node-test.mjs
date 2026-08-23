@@ -18,11 +18,18 @@ function runFixture(mutator = () => {}) {
     const fixture = structuredClone(inventory);
     mutator(fixture);
     fs.mkdirSync(path.join(directory, "third_party"));
+    fs.cpSync(
+      path.join(root, "third_party/ponytail"),
+      path.join(directory, "third_party/ponytail"),
+      { recursive: true },
+    );
     fs.writeFileSync(
       path.join(directory, "third_party/oss-integrations.json"),
       `${JSON.stringify(fixture, null, 2)}\n`,
     );
     fs.writeFileSync(path.join(directory, "THIRD_PARTY_NOTICES.md"), notices);
+    fs.copyFileSync(path.join(root, "LICENSE"), path.join(directory, "LICENSE"));
+    fs.copyFileSync(path.join(root, "NOTICE"), path.join(directory, "NOTICE"));
     return spawnSync(process.execPath, [checker], {
       cwd: directory,
       encoding: "utf8",
@@ -38,19 +45,26 @@ test("accepts the authoritative self-contained migration inventory", () => {
   const report = JSON.parse(result.stdout);
   assert.equal(report.ok, true);
   assert.equal(report.integrations, 11);
+  assert.equal(report.complete, 3);
   assert.equal(report.runtimeDownloadsAllowedAtTarget, false);
 });
 
 test("rejects a completed integration that still tracks latest", () => {
   const result = runFixture((fixture) => {
     const ponytail = fixture.integrations.find((entry) => entry.id === "ponytail");
-    ponytail.migrationStatus = "complete";
-    ponytail.currentDelivery = "switchboard_native";
-    ponytail.externalRuntimeRequired = false;
-    ponytail.runtimeDownloadRequired = false;
+    ponytail.currentVersion = "latest";
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /mutable latest version/);
+});
+
+test("rejects drift in a completed embedded source manifest", () => {
+  const result = runFixture((fixture) => {
+    const ponytail = fixture.integrations.find((entry) => entry.id === "ponytail");
+    ponytail.sourceManifestSha256 = "0".repeat(64);
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /source manifest digest does not match/);
 });
 
 test("rejects research intent that discards upstream licence obligations", () => {

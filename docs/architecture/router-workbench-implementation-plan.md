@@ -77,7 +77,8 @@ Current verification snapshot:
 | Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, and durable Codex admission | Admission reaches only `authorized_not_started`; no binary, task payload, workspace handle, PID, output, or provider request exists | Native supervisor, version probe, process ownership, timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, and drift-safe rollback cover the managed actions | A run can end `partial`; the UI remembers only the current component's last run ID even though native state is persisted | Restore native selection/last receipt after restart, expose receipt history, and add safe retry/resume for failed tools without reapplying successful tools |
-| Ponytail, Caveman, RTK, MarkItDown | Visible Addons and selective activation paths; exact created/changed artifact fingerprints; narrow restore/removal; external-drift blocking; receipt preservation | Runtime installation or client prerequisites can still fail on a particular machine | Add end-to-end disposable-home matrix tests and an app-visible repair path for partial managed runtimes |
+| Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
+| Caveman, RTK, MarkItDown | Visible Addons and selective activation paths; exact created/changed artifact fingerprints; narrow restore/removal; external-drift blocking; receipt preservation | RTK and MarkItDown still install managed external artifacts; client prerequisites can fail on a particular machine | Add end-to-end disposable-home matrix tests, app-visible repair for partial runtimes, and complete their separate source-bundling phases |
 | Switchboard Pack Compaction | The deterministic no-model adapter, read-only pack preference, selective activation, native readiness, source spans, hashes, and zero-wrong-omission gate are Switchboard-owned | Persisted mode/tool ID `chonkify` remains accepted only for backwards compatibility | Keep the compatibility alias out of user-visible copy and never attribute this implementation to upstream Chonkify |
 | Leanctx | Loopback-only shadow setup and selective activation/rollback are visible | Requires an already configured executable despite UI copy saying install-and-enable; remains shadow-only | Correct the copy, pin a supported runtime/version if distribution is desired, and pass health/containment/promotion evidence before live routing |
 | OSS harness reuse | Internal pinned DeepSeek Harness preview adapter, maturity audit/context prototype, redacted replay, deterministic strategy fixtures, session-event prototype, and shared metadata-only registry | DeepSeek is not in the normal connector UI; Switchyard and JCode are evaluated references; `twaldin/harness` contributes only a contract idea | Expose DeepSeek honestly as Experimental or remove prototype-only production modules; then choose and prove one optional pinned workflow |
@@ -472,16 +473,18 @@ content into the session ledger.
 - [ ] A specific pinned DeepSeek/Switchyard/JCode workflow with compatibility,
   licence attribution, privacy, rollback, operational ownership and release
   evidence.
-- [ ] A dedicated bundled profile that is disabled by default and removable
+- [x] A dedicated Ponytail bundled profile is disabled by default and removable
   through a receipt-owned rollback.
 - [ ] Resolve JCode's conflicting repository references before reuse; expose the
   existing DeepSeek adapter as an explicit Experimental connector with preview,
   consent, apply, verify, rollback, and separate configuration-versus-runtime
   health—or remove its prototype-only modules from the production graph.
-- [ ] Replace Ponytail `latest` with reviewed bundled text resources; replace
-  MarkItDown runtime PyPI installation with a minimal locked app-bundled wheel
-  set; bundle leanctx's no-model core; build RTK from an exact reviewed source
-  revision as an app sidecar; and classify Caveman as completed
+- [x] Replace Ponytail `latest` with six reviewed, hash-checked bundled text
+  resources, its full MIT licence, a native core-guidance integration, and
+  receipt-compatible legacy cleanup without marketplace install or auto-update.
+- [ ] Replace MarkItDown runtime PyPI installation with a minimal locked
+  app-bundled wheel set; bundle leanctx's no-model core; build RTK from an exact
+  reviewed source revision as an app sidecar; and classify Caveman as completed
   Switchboard-native guidance.
 - [ ] Remove external runtime/download requirements from Headroom and the
   selected DeepSeek subset only after source-to-bundle hashes, licence closure,
@@ -515,11 +518,11 @@ Switchboard's Router.
 | P1 | Transactional routing evidence | Duplicate/retention checks can race across SQLite connections | Unique index plus immediate transaction rejects concurrent duplicate and 128/129-boundary inserts deterministically |
 | P1 | Joint model/endpoint decision | Current endpoint planning proves only the requested model before any candidate substitution | Canonical candidate model is selected first and only an endpoint supporting that exact model/capability/cost/latency envelope is eligible |
 | P1 | Workspace and task privacy seam | Execution needs a working directory and task while durable ledgers prohibit both | Native transient workspace handle and ephemeral task envelope are digest-bound, bounded, consented, and absent from persisted artifacts |
-| P1 | Reproducible self-contained add-on supply chain | Ponytail tracks `latest`; MarkItDown pins the top package but `[all]` transitives are not locked | Replace runtime installs with reviewed bundled resources/artifacts, exact source pins, checksums/locks, licence copies, offline tests, and receipt-owned rollback |
+| P1 — Ponytail done; other runtimes open | Reproducible self-contained add-on supply chain | Ponytail is pinned and bundled; MarkItDown pins the top package but `[all]` transitives are not locked, while RTK and leanctx remain external | Apply the Ponytail source-manifest/hash/licence pattern to each remaining runtime with offline tests and receipt-owned rollback |
 | P1 — Foundation done | OSS identity and UI reconciliation | JCode references disagree; several features are external while Caveman and pack compaction are native | The machine inventory and notice index now expose current truth and target delivery; remaining entries cannot be marked complete while external/runtime-download flags remain true |
 | P2 | Receipt retention and repair | Grant/admission ledgers fail when they reach 128 records; partial add-on runtimes need recovery | Terminal/inactive record reclamation is deterministic and auditable; UI offers non-destructive export/repair rather than silent deletion |
 | P2 | Route/component reachability contract | A production component can regress into an imported-only or polling-while-hidden state | Test maps every top-level route to navigation and asserts inactive mounted views suspend timers/subscriptions |
-| P2 | OSS optional profile | Evaluations alone do not create user value | One disabled-by-default pinned profile has attribution, compatibility, diagnostics, consent, and receipt-owned uninstall evidence |
+| P2 — Done for Ponytail | OSS optional profile | Evaluations alone do not create user value | The pinned Ponytail profile is disabled by default and has attribution, integrity checks, diagnostics, explicit activation, and receipt-owned uninstall evidence |
 
 ## Remove or keep out
 
@@ -604,10 +607,10 @@ started by weakening an earlier gate.
     switches.
 12. **Goal/subagent orchestration** — queue, locks, budgets, checkpoints,
     attach/resume/cancel/fork, and capability-separated tools.
-13. **Bundled OSS slices** — dependency-ordered DeepSeek contracts, Switchyard
-    protocol conversion, Ponytail resources, minimal MarkItDown, leanctx core,
-    RTK sidecar, and resolved JCode semantics; each separately verified and
-    pushed.
+13. **Bundled OSS slices — Ponytail done; remainder open** — dependency-ordered
+    DeepSeek contracts, Switchyard protocol conversion, minimal MarkItDown,
+    leanctx core, RTK sidecar, and resolved JCode semantics; each separately
+    verified and pushed.
 14. **Release evidence** — clean build/test/check suite, signed package, and
     separate manual runtime/accessibility/security acceptance.
 
@@ -653,9 +656,14 @@ Current gate truth on 2026-08-24:
   `25` shared Workbench/Addons frontend tests, `2` native registry tests, the
   exact native Workbench projection test, and the required-file/observe-only
   boundary checker.
-- Self-contained OSS inventory: `4` validator/negative tests pass; the
-  authoritative ledger contains `11` entries (`2` complete, `1` partial, `6`
+- Self-contained OSS inventory: `5` validator/negative tests pass; the
+  authoritative ledger contains `11` entries (`3` complete, `1` partial, `5`
   pending, `2` blocked) and forbids runtime downloads in the target state.
+- Bundled Ponytail: the `ponytail` native selector passes `15` tests and the
+  activation-command selector passes `10`, covering resource integrity,
+  frontmatter stripping, managed-block parsing, schema-2/3 plugin versus
+  schema-4 guidance ownership, status, attribution, and selective rollback
+  helpers; the old networked real-CLI test and `latest` installer were removed.
 
 Manual acceptance remains separate from automated proof. Before execution is
 called usable, verify cancellation and full child-tree cleanup in a disposable
