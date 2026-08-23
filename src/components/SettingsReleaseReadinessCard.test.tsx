@@ -87,4 +87,28 @@ describe("SettingsReleaseReadinessCard", () => {
       screen.getByRole("button", { name: /copy report snapshot/i }),
     ).toBeInTheDocument();
   });
+
+  it("disables checkout-only evidence actions for packaged-app payloads", () => {
+    renderCard({
+      releaseReadinessReport: {
+        reportPath: "/Applications/AI Switchboard.app/dist/release-readiness-report.json",
+        report: null,
+        environment: {
+          available: false,
+          kind: "packaged",
+          workspacePath: "/Applications/AI Switchboard.app",
+          reason: "Run release evidence from a repository checkout.",
+        },
+      },
+    });
+
+    expect(
+      screen.getByText(/Release evidence unavailable in this packaged app/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /refresh report/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /run local evidence/i }),
+    ).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: /run evidence/i })[0]).toBeDisabled();
+  });
 });

@@ -22,6 +22,12 @@ export interface ReleaseEvidenceResult {
 export interface ReleaseReadinessReportPayload {
   reportPath: string | null;
   report: ReleaseReadinessReportSnapshot | null;
+  environment?: {
+    available: boolean;
+    kind: "checkout" | "packaged";
+    workspacePath: string | null;
+    reason: string;
+  };
 }
 
 interface ReleaseReadinessRow {
@@ -88,6 +94,11 @@ export function SettingsReleaseReadinessCard({
   runLocalReleaseEvidenceSequence,
   runReleaseEvidenceCommand,
 }: SettingsReleaseReadinessCardProps) {
+  const releaseEvidenceAvailable =
+    releaseReadinessReport?.environment?.available ?? true;
+  const releaseEnvironmentReason =
+    releaseReadinessReport?.environment?.reason ??
+    "Release evidence is available when the app is running from a repository checkout.";
   const releaseReadinessNextActionCopy =
     typeof releaseReadinessAction === "string"
       ? releaseReadinessAction
@@ -109,7 +120,7 @@ export function SettingsReleaseReadinessCard({
         <div className="release-readiness-card__actions">
           <button
             className="secondary-button secondary-button--small"
-            disabled={releaseReadinessRefreshing}
+            disabled={releaseReadinessRefreshing || !releaseEvidenceAvailable}
             onClick={() => void refreshReleaseReadinessReport()}
             type="button"
           >
@@ -118,7 +129,9 @@ export function SettingsReleaseReadinessCard({
           </button>
           <button
             className="secondary-button secondary-button--small"
-            disabled={releaseEvidenceBusyId !== null}
+            disabled={
+              releaseEvidenceBusyId !== null || !releaseEvidenceAvailable
+            }
             onClick={() => void runLocalReleaseEvidenceSequence()}
             title={formatLocalReleaseEvidenceSequenceCopy()}
             type="button"
@@ -153,6 +166,17 @@ export function SettingsReleaseReadinessCard({
       </p>
       <p className="release-readiness-card__source">
         {releaseReadinessEvidence.copy}
+      </p>
+      <p
+        aria-live="polite"
+        className="release-readiness-card__source"
+        data-environment={
+          releaseEvidenceAvailable ? "available" : "checkout-required"
+        }
+      >
+        {releaseEvidenceAvailable
+          ? releaseEnvironmentReason
+          : `Release evidence unavailable in this packaged app: ${releaseEnvironmentReason}`}
       </p>
       <p className="release-readiness-card__source">
         {releaseReadinessNextActionCopy}
@@ -244,7 +268,10 @@ export function SettingsReleaseReadinessCard({
                   {item.executable ? (
                     <button
                       className="secondary-button secondary-button--small"
-                      disabled={releaseEvidenceBusyId !== null}
+                      disabled={
+                        releaseEvidenceBusyId !== null ||
+                        !releaseEvidenceAvailable
+                      }
                       onClick={() => void runReleaseEvidenceCommand(item.id)}
                       type="button"
                     >

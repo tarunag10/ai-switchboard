@@ -5,6 +5,12 @@ import type { ReleaseReadinessReportSnapshot } from "./releaseReadiness";
 export interface ReleaseReadinessReportPayload {
   reportPath: string;
   report: ReleaseReadinessReportSnapshot | null;
+  environment?: {
+    available: boolean;
+    kind: "checkout" | "packaged";
+    workspacePath: string | null;
+    reason: string;
+  };
 }
 
 export interface ReleaseEvidenceCommandResult {

@@ -9,6 +9,16 @@ use serde_json::Value;
 pub(crate) struct ReleaseReadinessReportPayload {
     pub(crate) report_path: String,
     pub(crate) report: Option<Value>,
+    pub(crate) environment: ReleaseEvidenceEnvironment,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ReleaseEvidenceEnvironment {
+    pub(crate) available: bool,
+    pub(crate) kind: String,
+    pub(crate) workspace_path: Option<String>,
+    pub(crate) reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -32,6 +42,17 @@ struct ReleaseEvidenceCommandSpec {
 pub(crate) fn load_release_readiness_report_from(
     path: &Path,
 ) -> Result<ReleaseReadinessReportPayload, String> {
+    let environment = path
+        .parent()
+        .map(release_evidence_environment)
+        .unwrap_or_else(|| release_evidence_environment(Path::new(".")));
+    load_release_readiness_report_from_with_environment(path, environment)
+}
+
+fn load_release_readiness_report_from_with_environment(
+    path: &Path,
+    environment: ReleaseEvidenceEnvironment,
+) -> Result<ReleaseReadinessReportPayload, String> {
     let report_path = path.to_string_lossy().into_owned();
     match std::fs::read_to_string(path) {
         Ok(raw) => {
@@ -40,29 +61,63 @@ pub(crate) fn load_release_readiness_report_from(
             Ok(ReleaseReadinessReportPayload {
                 report_path,
                 report: Some(report),
+                environment,
             })
         }
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             Ok(ReleaseReadinessReportPayload {
                 report_path,
                 report: None,
+                environment,
             })
         }
         Err(err) => Err(format!("failed to read release readiness report: {err}")),
     }
 }
 
+fn release_evidence_environment(cwd: &Path) -> ReleaseEvidenceEnvironment {
+    let available = cwd.join("package.json").is_file()
+        && cwd.join("scripts").is_dir()
+        && cwd.join("src-tauri").is_dir();
+    ReleaseEvidenceEnvironment {
+        available,
+        kind: if available {
+            "checkout".to_string()
+        } else {
+            "packaged".to_string()
+        },
+        workspace_path: Some(cwd.to_string_lossy().into_owned()),
+        reason: if available {
+            "Repository checkout detected; local release evidence actions are available."
+                .to_string()
+        } else {
+            "This packaged app does not contain the repository release runtime. Run release evidence from a repository checkout.".to_string()
+        },
+    }
+}
+
+fn checkout_workspace() -> Result<(std::path::PathBuf, ReleaseEvidenceEnvironment), String> {
+    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let environment = release_evidence_environment(&cwd);
+    if !environment.available {
+        return Err(environment.reason);
+    }
+    Ok((cwd, environment))
+}
+
 #[tauri::command]
 pub fn load_release_readiness_report() -> Result<ReleaseReadinessReportPayload, String> {
-    let path = std::env::current_dir()
-        .map_err(|err| err.to_string())?
-        .join("dist/release-readiness-report.json");
-    load_release_readiness_report_from(&path)
+    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let environment = release_evidence_environment(&cwd);
+    load_release_readiness_report_from_with_environment(
+        &cwd.join("dist/release-readiness-report.json"),
+        environment,
+    )
 }
 
 #[tauri::command]
 pub fn refresh_release_readiness_report() -> Result<ReleaseReadinessReportPayload, String> {
-    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let (cwd, environment) = checkout_workspace()?;
     let output = Command::new("npm")
         .args(["run", "release:ready", "--", "--json"])
         .current_dir(&cwd)
@@ -86,7 +141,10 @@ pub fn refresh_release_readiness_report() -> Result<ReleaseReadinessReportPayloa
         });
     }
 
-    load_release_readiness_report_from(&cwd.join("dist/release-readiness-report.json"))
+    load_release_readiness_report_from_with_environment(
+        &cwd.join("dist/release-readiness-report.json"),
+        environment,
+    )
 }
 
 #[tauri::command]
@@ -201,7 +259,7 @@ pub fn run_release_evidence_command(
         }
     };
 
-    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let (cwd, _) = checkout_workspace()?;
     let mut combined_stdout = Vec::new();
     let mut combined_stderr = Vec::new();
     for (program, args) in spec.steps {
