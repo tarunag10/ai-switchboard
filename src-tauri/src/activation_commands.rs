@@ -63,6 +63,15 @@ pub struct SelectiveRollbackResult {
     pub detail: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LeanctxActivationSnapshot {
+    pub configured: bool,
+    pub enabled: bool,
+    pub running: bool,
+    pub mode: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectiveActivationReceipt {
@@ -78,6 +87,8 @@ pub struct SelectiveActivationReceipt {
     pub after_response_cache_enabled: Option<bool>,
     pub previous_chonkify_mode: Option<String>,
     pub after_chonkify_mode: Option<String>,
+    pub previous_leanctx: Option<LeanctxActivationSnapshot>,
+    pub after_leanctx: Option<LeanctxActivationSnapshot>,
     pub owned_changes: Vec<String>,
     pub rollback_status: Option<String>,
     pub rollback_results: Vec<SelectiveRollbackResult>,
@@ -218,6 +229,16 @@ fn read_chonkify_preference(state: &AppState) -> Result<RepoPackCompressionPrefe
     }
     preference.gate_verdict = gate_verdict;
     Ok(preference)
+}
+
+fn leanctx_snapshot(state: &AppState) -> LeanctxActivationSnapshot {
+    let status = state.tool_manager.leanctx_sidecar_status();
+    LeanctxActivationSnapshot {
+        configured: status.configured,
+        enabled: status.enabled,
+        running: status.running,
+        mode: status.mode,
+    }
 }
 
 fn set_chonkify_preference(
@@ -537,6 +558,10 @@ pub async fn activate_selected_tools(
                 .map(|preference| preference.effective_mode)
         })
         .flatten();
+    let previous_leanctx = selected_tool_ids
+        .iter()
+        .any(|id| id == "leanctx")
+        .then(|| leanctx_snapshot(&state));
     let mut owned_changes = Vec::new();
     if selected_tool_ids
         .iter()
@@ -549,6 +574,9 @@ pub async fn activate_selected_tools(
     }
     if selected_tool_ids.iter().any(|id| id == "chonkify") {
         owned_changes.push("chonkify_preference".into());
+    }
+    if previous_leanctx.is_some() {
+        owned_changes.push("leanctx_state".into());
     }
     let mut results = Vec::new();
     let mut failed = false;
@@ -633,6 +661,7 @@ pub async fn activate_selected_tools(
             .ok()
             .map(|preference| preference.effective_mode)
     });
+    let after_leanctx = previous_leanctx.as_ref().map(|_| leanctx_snapshot(&state));
     let receipt = SelectiveActivationReceipt {
         schema_version: 2,
         run_id,
@@ -646,6 +675,8 @@ pub async fn activate_selected_tools(
         after_response_cache_enabled,
         previous_chonkify_mode,
         after_chonkify_mode,
+        previous_leanctx,
+        after_leanctx,
         owned_changes,
         rollback_status: None,
         rollback_results: Vec::new(),
@@ -775,10 +806,47 @@ pub async fn rollback_selective_activation(
             });
         }
     }
+    if receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "leanctx_state")
+    {
+        let current = leanctx_snapshot(&state);
+        if Some(current.clone()) != receipt.after_leanctx {
+            rollback_results.push(SelectiveRollbackResult {
+                tool_id: "leanctx".into(),
+                state: "blocked_external_change".into(),
+                detail: "Current Leanctx state differs from this run's post-activation state; no overwrite was attempted.".into(),
+            });
+            failures.push("Leanctx state changed after activation".into());
+        } else if let Some(previous) = receipt.previous_leanctx.as_ref() {
+            let restore = if previous.enabled {
+                Ok(())
+            } else {
+                state.tool_manager.set_leanctx_enabled(false).map(|_| ())
+            };
+            match restore {
+                Ok(()) => rollback_results.push(SelectiveRollbackResult {
+                    tool_id: "leanctx".into(),
+                    state: "restored".into(),
+                    detail: "Previous Leanctx shadow state restored; configured sidecar preserved."
+                        .into(),
+                }),
+                Err(error) => {
+                    failures.push(error.to_string());
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id: "leanctx".into(),
+                        state: "failed".into(),
+                        detail: error.to_string(),
+                    });
+                }
+            }
+        }
+    }
     for tool_id in receipt.selected_tool_ids.iter().filter(|id| {
         !matches!(
             id.as_str(),
-            "headroom" | "rtk" | "response-cache" | "chonkify"
+            "headroom" | "rtk" | "response-cache" | "chonkify" | "leanctx"
         )
     }) {
         rollback_results.push(SelectiveRollbackResult {
@@ -923,6 +991,8 @@ mod tests {
             after_response_cache_enabled: None,
             previous_chonkify_mode: None,
             after_chonkify_mode: None,
+            previous_leanctx: None,
+            after_leanctx: None,
             owned_changes: vec!["switchboard_mode".into()],
             rollback_status: None,
             rollback_results: Vec::new(),
