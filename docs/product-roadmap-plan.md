@@ -157,7 +157,7 @@ Shipped:
 - Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction, Rust module/import-reference edges, and `package.json` script graph edges, so one-click packs cover more macOS app and build/release workflow code without broad file dumps.
 - Repo Intelligence frontend and CLI/MCP graphing now include CSS `@import`/`url(...)`, HTML script/style/image links, and CSS/HTML symbols, so one-click packs can follow web asset entrypoints without broad file dumps.
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
-- Add-on health cards now include bounded trend evidence: Headroom uses recent optimized usage or saved local history, RTK uses per-day command-output history, and MarkItDown/Ponytail explicitly show current-only history until durable counters exist.
+- Add-on health cards now include bounded trend evidence: Headroom uses recent optimized usage or saved local history, RTK uses per-day command-output history, and MarkItDown/Ponytail consume source-isolated durable local attribution events with explicit measured/estimated confidence and no provider-billed inference.
 - Caveman, Ponytail, and MarkItDown add-on attribution now carries durable runtime counter units in backend counters: changed instruction files/artifacts for Caveman and MarkItDown, and verified agent-host registrations for Ponytail.
 - Codex context-pressure guidance now uses saved local daily token history as fallback evidence after relaunch, while still labeling session-only Codex events separately from broader local history.
 - Savings anomaly alerts now cover output growth, low savings ratio on high-token sessions, and session cost-growth estimates instead of only showing backend output-growth warnings.
@@ -453,7 +453,7 @@ Suggested commit:
 - Broader savings anomaly thresholds beyond the shipped session output-growth, low-savings, and cost-growth alerts, especially durable day/week trends once backend attribution can persist richer baselines.
 - Broader per-client savings history beyond the shipped saved provider-history fallback, including exact request counts once backend daily/hourly history can persist client counts directly.
 - Broader Codex advisor history beyond the shipped saved daily-history fallback, including per-Codex durable history once backend attribution can separate clients across launches.
-- Deeper add-on health history beyond the shipped bounded trend cards, especially durable MarkItDown/Ponytail counters.
+- Deeper add-on health history beyond the shipped bounded event-backed MarkItDown/Ponytail trends, especially a dedicated Caveman health card and longer-lived day/week rollups.
 - Broader settings migration that can apply connector/add-on changes after each native config gate has restore evidence; preview classification is shipped, but connector/add-on application remains manual.
 - Broader Rollback Center native restore coverage for provider-specific connector configs beyond the shipped Codex/OpenCode/Windsurf/Zed native rows, Gemini managed cleanup, sidecar connector cleanup, managed-storage, Repo Intelligence summary, LaunchAgent, app-state, and Ponytail receipt/plugin rows.
 

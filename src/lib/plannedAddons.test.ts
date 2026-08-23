@@ -5,7 +5,11 @@ import {
   getPlannedAddon,
   plannedAddons,
 } from "./plannedAddons";
-import type { ManagedTool, RuntimeStatus } from "./types";
+import type {
+  ManagedTool,
+  RuntimeStatus,
+  SavingsAttributionEvent,
+} from "./types";
 
 function runtimeFixture(
   overrides: Partial<RuntimeStatus> = {},
@@ -258,6 +262,49 @@ describe("planned add-ons", () => {
     expect(
       cards.find((card) => card.id === "headroom_engine")?.trend.points,
     ).toHaveLength(1);
+  });
+
+  it("uses source-isolated durable local attribution for add-on trends", () => {
+    const event = (
+      source: SavingsAttributionEvent["source"],
+      confidence: SavingsAttributionEvent["confidence"],
+      id: string,
+      tokens: number,
+    ): SavingsAttributionEvent => ({
+      schemaVersion: 1,
+      id,
+      observedAt: "2026-06-30T09:00:00Z",
+      scope: "session",
+      source,
+      confidence,
+      deltaTokensSaved: tokens,
+      deltaUsd: 0,
+      totalTokensSent: 100,
+      requestDelta: 1,
+      evidence: ["local fixture"],
+    });
+    const cards = buildAddonHealthCards(runtimeFixture(), [
+      toolFixture({ id: "markitdown" }),
+      toolFixture({ id: "ponytail", name: "Ponytail", runtime: "plugin" }),
+    ], {
+      attributionEvents: [
+        event("markitdown", "measured", "mark-1", 120),
+        event("ponytail", "estimated", "pony-1", 80),
+        event("caveman", "inferred", "caveman-1", 900),
+      ],
+    });
+
+    expect(cards.find((card) => card.id === "markitdown")?.trend).toMatchObject({
+      label: "MarkItDown local attribution trend",
+      value: "120 tokens",
+      detail: expect.stringContaining("measured"),
+    });
+    expect(cards.find((card) => card.id === "markitdown")?.trend.detail).not.toContain("900");
+    expect(cards.find((card) => card.id === "ponytail")?.trend).toMatchObject({
+      label: "Ponytail local attribution trend",
+      value: "80 tokens",
+      detail: expect.stringContaining("estimated"),
+    });
   });
 
   it("surfaces degraded runtime and incomplete RTK wiring as actionable warnings", () => {

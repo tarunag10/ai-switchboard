@@ -4,6 +4,7 @@ import type {
   ClientConnectorStatus,
   DashboardState,
   RuntimeStatus,
+  SavingsAttributionEvent,
 } from "../lib/types";
 import type { TrayView } from "../lib/trayHelpers";
 import {
@@ -34,6 +35,7 @@ export interface AddonsViewProps {
   addonError: string | null;
   runtimeStatus: RuntimeStatus | null;
   dashboard: DashboardState;
+  savingsAttributionEvents: SavingsAttributionEvent[];
   connectors: ClientConnectorStatus[];
   addonCopy: Record<string, AddonCopy>;
   addonInfoId: string | null;
@@ -69,6 +71,7 @@ export function AddonsView({
   addonError,
   runtimeStatus,
   dashboard,
+  savingsAttributionEvents,
   connectors,
   addonCopy,
   addonInfoId,
@@ -134,8 +137,9 @@ export function AddonsView({
         {addonError ? <p className="addons__error">{addonError}</p> : null}
         <AddonHealthStrip
           cards={buildAddonHealthCards(runtimeStatus, dashboard.tools, {
-            dailySavings: dashboard.dailySavings,
-            recentUsage: dashboard.recentUsage,
+          dailySavings: dashboard.dailySavings,
+          recentUsage: dashboard.recentUsage,
+          attributionEvents: savingsAttributionEvents,
           })}
         />
         <article className="soft-card panel-card" aria-labelledby="oss-capabilities-title">

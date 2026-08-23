@@ -485,6 +485,7 @@ export function TrayAppShell({
           addonError={addonError}
           runtimeStatus={runtimeStatus}
           dashboard={dashboard}
+          savingsAttributionEvents={savingsAttributionEvents}
           connectors={connectors}
           addonCopy={addonCopy}
           addonInfoId={addonInfoId}

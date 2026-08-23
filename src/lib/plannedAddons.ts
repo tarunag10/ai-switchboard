@@ -5,6 +5,7 @@ import type {
   RuntimeStatus,
   UsageEvent,
 } from "./types";
+import type { SavingsAttributionEvent } from "./types";
 
 export interface PlannedAddon {
   id: string;
@@ -46,6 +47,7 @@ export interface AddonHealthTrend {
 export interface AddonHealthHistoryInputs {
   recentUsage?: UsageEvent[];
   dailySavings?: DailySavingsPoint[];
+  attributionEvents?: SavingsAttributionEvent[];
 }
 
 export const plannedAddons: PlannedAddon[] = [
@@ -209,6 +211,40 @@ function noDurableHistoryTrend(addonName: string): AddonHealthTrend {
   };
 }
 
+function buildAddonAttributionTrend(
+  history: AddonHealthHistoryInputs,
+  source: "markitdown" | "ponytail",
+  addonName: string,
+): AddonHealthTrend {
+  const events = (history.attributionEvents ?? [])
+    .filter(
+      (event) =>
+        event.source === source && Math.max(0, event.deltaTokensSaved) > 0,
+    )
+    .sort((left, right) => left.observedAt.localeCompare(right.observedAt));
+  const points = events.slice(-7).map((event) => ({
+    label: shortDateLabel(event.observedAt.slice(0, 10)),
+    value: Math.max(0, event.deltaTokensSaved),
+  }));
+  if (points.length === 0) return noDurableHistoryTrend(addonName);
+
+  const measured = events.filter((event) => event.confidence === "measured").length;
+  const estimated = events.filter((event) => event.confidence === "estimated").length;
+  const inferred = events.filter((event) => event.confidence === "inferred").length;
+  const confidence = [
+    measured > 0 ? "measured" : null,
+    estimated > 0 ? "estimated" : null,
+    inferred > 0 ? "inferred" : null,
+  ].filter(Boolean).join(", ");
+  const tokensSaved = points.reduce((sum, point) => sum + point.value, 0);
+  return {
+    label: `${addonName} local attribution trend`,
+    value: `${formatCount(tokensSaved)} tokens`,
+    detail: `${events.length} persisted local ${addonName} attribution event${events.length === 1 ? "" : "s"}; evidence confidence: ${confidence}. Provider-billed cost is not inferred.`,
+    points,
+  };
+}
+
 function buildHeadroomHealthTrend(
   history: AddonHealthHistoryInputs,
 ): AddonHealthTrend {
@@ -326,6 +362,7 @@ function managedToolHealth(
   id: "markitdown" | "ponytail",
   name: string,
   installedAction: string,
+  history: AddonHealthHistoryInputs,
 ): AddonHealthCard {
   if (!tool || tool.status === "not_installed") {
     return {
@@ -335,7 +372,7 @@ function managedToolHealth(
       tone: "offline",
       detail: `${name} is not installed in managed app storage yet.`,
       evidence: ["No managed tool record is healthy for this add-on."],
-      trend: noDurableHistoryTrend(name),
+      trend: buildAddonAttributionTrend(history, id, name),
       nextAction: "Install from this Addons page.",
     };
   }
@@ -351,7 +388,7 @@ function managedToolHealth(
         `Tool status: ${tool.status}.`,
         tool.version ? `Version: ${tool.version}.` : "Version is not reported.",
       ],
-      trend: noDurableHistoryTrend(name),
+      trend: buildAddonAttributionTrend(history, id, name),
       nextAction: installedAction,
     };
   }
@@ -367,7 +404,7 @@ function managedToolHealth(
         `Tool status: ${tool.status}.`,
         tool.version ? `Version: ${tool.version}.` : "Version is not reported.",
       ],
-      trend: noDurableHistoryTrend(name),
+      trend: buildAddonAttributionTrend(history, id, name),
       nextAction: "Enable it from this Addons page or leave it off intentionally.",
     };
   }
@@ -382,7 +419,7 @@ function managedToolHealth(
       `Tool status: ${tool.status}.`,
       tool.version ? `Version: ${tool.version}.` : "Version is not reported.",
     ],
-    trend: noDurableHistoryTrend(name),
+    trend: buildAddonAttributionTrend(history, id, name),
     nextAction: "No action needed.",
   };
 }
@@ -494,12 +531,14 @@ export function buildAddonHealthCards(
       "markitdown",
       "MarkItDown",
       "Run the MarkItDown smoke check or reinstall the add-on.",
+      history,
     ),
     managedToolHealth(
       toolById(tools, "ponytail"),
       "ponytail",
       "Ponytail",
       "Reinstall Ponytail or run Doctor to refresh managed guidance.",
+      history,
     ),
   ];
 }
