@@ -32,7 +32,7 @@ const scanRoots = frontendOnly
   : [
       "dist",
       "src-tauri/target/release/bundle",
-      "src-tauri/target/release/Mac AI Switchboard.app",
+      "src-tauri/target/release/AI Switchboard.app",
     ];
 
 const forbiddenStrings = [

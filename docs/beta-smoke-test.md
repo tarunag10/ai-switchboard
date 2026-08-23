@@ -13,7 +13,7 @@ APP_PATH=""
 for candidate in \
   "/Applications/AI Switchboard for Mac.app" \
   "/Applications/AI Switchboard.app" \
-  "/Applications/Mac AI Switchboard.app" \
+  "/Applications/AI Switchboard.app" \
   "/Applications/Mac Switchboard.app"; do
   if [ -d "$candidate" ]; then APP_PATH="$candidate"; break; fi
 done

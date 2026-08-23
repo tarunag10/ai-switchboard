@@ -167,6 +167,9 @@ the current checkout.
 - Native managed-config previews now redact secret-keyed values in JSON and
   TOML surfaces as well as YAML, while raw state remains internal for
   confirmation hashing and apply preservation.
+- Operational install, smoke, release, and deployment guidance now derives
+  from the canonical `/Applications/AI Switchboard.app` identity; legacy names
+  remain confined to historical evidence or compatibility artifact notes.
 
 ### Done — prepared and shipped
 

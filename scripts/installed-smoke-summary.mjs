@@ -27,7 +27,7 @@ if (!appPresent) {
 if (!bundleMetadataPresent) {
   console.error(`Installed app metadata missing: ${appInfoPlistPath}`);
   console.error(
-    "Install the signed DMG by dragging Mac AI Switchboard.app into /Applications, then rerun npm run smoke:installed -- --confirm.",
+    "Install the signed DMG by dragging AI Switchboard.app into /Applications, then rerun npm run smoke:installed -- --confirm.",
   );
   process.exit(1);
 }
@@ -43,7 +43,7 @@ if (!preflightPresent) {
 if (!confirmed) {
   console.error("Installed-app smoke confirmation missing.");
   console.error(
-    "After docs/beta-smoke-test.md passes on /Applications/Mac AI Switchboard.app, rerun: npm run smoke:installed -- --confirm",
+    "After docs/beta-smoke-test.md passes on /Applications/AI Switchboard.app, rerun: npm run smoke:installed -- --confirm",
   );
   console.error(
     "Automation may set MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED=1 instead.",

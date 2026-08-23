@@ -43,7 +43,7 @@ npm install
 npm run build:mac:local-install
 ```
 
-That script builds a local DMG, installs the current compatibility bundle at `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed bundle for local execution, runs `npm run smoke:installed:local`, and opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` when you want the same local evidence without launching the app window.
+That script builds a local DMG, installs the canonical bundle at `/Applications/AI Switchboard.app`, ad-hoc signs the installed bundle for local execution, runs `npm run smoke:installed:local`, and opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` when you want the same local evidence without launching the app window.
 
 Local unsigned DMGs are build output, not source artifacts. They are ignored by git under `src-tauri/target/` and should not be committed as a substitute for a GitHub Release.
 
@@ -88,7 +88,7 @@ Do not share a public DMG until all gates are true:
 3. Rust backend validation ready: `npm run fmt:desktop` and `npm run test:desktop` pass locally or in CI for the release commit.
 4. Updater signing is configured with `HEADROOM_UPDATER_PUBLIC_KEY` and `HEADROOM_UPDATER_ENDPOINTS`.
 5. `npm run smoke:preflight` passes and writes `dist/smoke-preflight-summary.md`.
-6. The DMG is installed as the current compatibility bundle at `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
+6. The DMG is installed as the canonical bundle at `/Applications/AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
 7. `docs/beta-smoke-test.md` is run against the installed app.
 8. `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, degraded-mode Doctor guidance, managed connector automation gates, manual workflow, config creation plan, Repo Intelligence recipes, Savings calculator copyable summary, per-tool agent handoffs, and Codex compression recovery.
 9. Record reboot-level proof without fabricating it: run `npm run smoke:reboot-level:arm`, reboot the Mac, then run `npm run smoke:reboot-level:record`. The record command refuses to create a marker unless the macOS boot session changed and the app installed in `/Applications` passes codesign, Gatekeeper, and notarization-stapler validation. If the release DMG is still available locally, set `MAC_AI_SWITCHBOARD_PUBLIC_ARTIFACT_PATH=/absolute/path/to/release.dmg` for the record command to verify and checksum it. Finally run `npm run smoke:reboot-level:local` and `npm run smoke:reboot-level:local:check`.

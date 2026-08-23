@@ -20,7 +20,7 @@ export function actionForBlocker(blocker) {
 export function installedSmokeActions(report) {
   const actions = [];
   if (!report.installedSmoke.installedAppPresent) {
-    actions.push({ label: "Install signed DMG", command: "npm run build:mac:dmg", detail: "Install the signed/notarized DMG into /Applications/Mac AI Switchboard.app." });
+    actions.push({ label: "Install signed DMG", command: "npm run build:mac:dmg", detail: "Install the signed/notarized DMG into /Applications/AI Switchboard.app." });
   }
   if (!report.installedSmoke.evidenceReady) {
     actions.push({ label: "Record installed smoke evidence", command: "npm run smoke:installed -- --confirm", detail: `Missing evidence: ${report.installedSmoke.missingEvidence.join(", ") || "installed smoke summary"}.` });
