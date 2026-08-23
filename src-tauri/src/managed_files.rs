@@ -1,12 +1,212 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
+
 use serde_json::Value;
 use uuid::Uuid;
 
-
 use crate::switchboard_identity::{primary_marker_prefix, SwitchboardIdentitySlug};
+
+/// Writes through a same-directory temporary file so an interrupted or
+/// disk-full write cannot truncate the current managed file. Existing
+/// permissions are copied to the replacement before the atomic rename.
+pub(crate) fn atomic_write_bytes(file_path: &Path, content: &[u8]) -> Result<()> {
+    atomic_write_bytes_with_commit(file_path, content, |temporary, destination| {
+        std::fs::rename(temporary, destination).with_context(|| {
+            format!(
+                "atomically replacing {} from {}",
+                destination.display(),
+                temporary.display()
+            )
+        })
+    })
+}
+
+/// Publishes a fully synced file only if the destination is still absent.
+/// The hard-link operation is the no-clobber commit point: a file created by
+/// another writer wins and is never replaced.
+pub(crate) fn atomic_write_bytes_if_absent(file_path: &Path, content: &[u8]) -> Result<()> {
+    atomic_write_bytes_with_commit(file_path, content, |temporary, destination| {
+        std::fs::hard_link(temporary, destination).with_context(|| {
+            format!(
+                "publishing {} only while it remains absent",
+                destination.display()
+            )
+        })?;
+        std::fs::remove_file(temporary)
+            .with_context(|| format!("removing temporary link {}", temporary.display()))
+    })
+}
+
+/// Atomically replaces a file only when its complete current bytes still
+/// match the caller's snapshot. The final comparison happens after the
+/// replacement has been fully written and synced, immediately before rename.
+pub(crate) fn atomic_write_bytes_if_unchanged(
+    file_path: &Path,
+    expected: &[u8],
+    replacement: &[u8],
+) -> Result<()> {
+    atomic_write_bytes_with_commit(file_path, replacement, |temporary, destination| {
+        let current = std::fs::read(destination).with_context(|| {
+            format!("revalidating {} before replacement", destination.display())
+        })?;
+        if current != expected {
+            anyhow::bail!(
+                "{} changed before its managed update; current content was preserved",
+                destination.display()
+            );
+        }
+        std::fs::rename(temporary, destination).with_context(|| {
+            format!(
+                "atomically replacing {} from {}",
+                destination.display(),
+                temporary.display()
+            )
+        })
+    })
+}
+
+/// Removes a managed file only while its complete bytes still match the
+/// caller's snapshot. Comparison and unlink share the directory write lock.
+pub(crate) fn atomic_remove_file_if_unchanged(file_path: &Path, expected: &[u8]) -> Result<()> {
+    let parent = file_path
+        .parent()
+        .ok_or_else(|| anyhow!("{} has no parent directory", file_path.display()))?;
+    std::fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    let _directory_lock = DirectoryWriteLock::acquire(parent)?;
+    match std::fs::symlink_metadata(file_path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            anyhow::bail!(
+                "refusing to remove symlinked managed file {}; its target was preserved",
+                file_path.display()
+            );
+        }
+        Ok(_) => {}
+        Err(error) => {
+            return Err(error).with_context(|| format!("inspecting {}", file_path.display()));
+        }
+    }
+    let current = std::fs::read(file_path)
+        .with_context(|| format!("revalidating {} before removal", file_path.display()))?;
+    if current != expected {
+        anyhow::bail!(
+            "{} changed before its managed removal; current content was preserved",
+            file_path.display()
+        );
+    }
+    std::fs::remove_file(file_path)
+        .with_context(|| format!("atomically removing {}", file_path.display()))?;
+    #[cfg(unix)]
+    if let Ok(directory) = std::fs::File::open(parent) {
+        let _ = directory.sync_all();
+    }
+    Ok(())
+}
+
+fn atomic_write_bytes_with_commit<F>(file_path: &Path, content: &[u8], commit: F) -> Result<()>
+where
+    F: FnOnce(&Path, &Path) -> Result<()>,
+{
+    let parent = file_path
+        .parent()
+        .ok_or_else(|| anyhow!("{} has no parent directory", file_path.display()))?;
+    std::fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    // Every Switchboard managed-file writer takes the same directory lock, so
+    // its compare and commit form one serialized operation. The no-clobber
+    // helper below additionally protects absent destinations from any writer.
+    let _directory_lock = DirectoryWriteLock::acquire(parent)?;
+    match std::fs::symlink_metadata(file_path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            anyhow::bail!(
+                "refusing to replace symlinked managed file {}; its target was preserved",
+                file_path.display()
+            );
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(error).with_context(|| format!("inspecting {}", file_path.display()));
+        }
+    }
+    let file_name = file_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("managed-file");
+    let temporary = parent.join(format!(
+        ".{file_name}.ai-switchboard-{}.tmp",
+        Uuid::new_v4()
+    ));
+
+    let write_result = (|| -> Result<()> {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        let mut file = options
+            .open(&temporary)
+            .with_context(|| format!("creating temporary file {}", temporary.display()))?;
+        if let Ok(metadata) = std::fs::metadata(file_path) {
+            file.set_permissions(metadata.permissions())
+                .with_context(|| format!("preserving permissions for {}", file_path.display()))?;
+        }
+        file.write_all(content)
+            .with_context(|| format!("writing temporary file {}", temporary.display()))?;
+        file.sync_all()
+            .with_context(|| format!("syncing temporary file {}", temporary.display()))?;
+        drop(file);
+        commit(&temporary, file_path)?;
+        #[cfg(unix)]
+        if let Ok(directory) = std::fs::File::open(parent) {
+            let _ = directory.sync_all();
+        }
+        Ok(())
+    })();
+
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    write_result
+}
+
+#[cfg(unix)]
+struct DirectoryWriteLock(std::fs::File);
+
+#[cfg(unix)]
+impl DirectoryWriteLock {
+    fn acquire(parent: &Path) -> Result<Self> {
+        use std::os::fd::AsRawFd;
+
+        let directory = std::fs::File::open(parent)
+            .with_context(|| format!("opening {} for managed-write locking", parent.display()))?;
+        let result = unsafe { libc::flock(directory.as_raw_fd(), libc::LOCK_EX) };
+        if result != 0 {
+            return Err(std::io::Error::last_os_error())
+                .with_context(|| format!("locking {} for managed write", parent.display()));
+        }
+        Ok(Self(directory))
+    }
+}
+
+#[cfg(unix)]
+impl Drop for DirectoryWriteLock {
+    fn drop(&mut self) {
+        use std::os::fd::AsRawFd;
+
+        unsafe {
+            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+struct DirectoryWriteLock;
+
+#[cfg(not(unix))]
+impl DirectoryWriteLock {
+    fn acquire(_parent: &Path) -> Result<Self> {
+        Ok(Self)
+    }
+}
 
 pub(crate) fn find_managed_block_range(content: &str, block_id: &str) -> Option<(usize, usize)> {
     for slug in SwitchboardIdentitySlug::marker_prefixes() {
@@ -45,8 +245,7 @@ pub(crate) fn upsert_managed_block(
     }
 
     let backup = backup_if_exists(file_path)?;
-    std::fs::write(file_path, updated)
-        .with_context(|| format!("writing {}", file_path.display()))?;
+    atomic_write_bytes(file_path, updated.as_bytes())?;
     Ok((true, backup))
 }
 
@@ -126,8 +325,7 @@ pub(crate) fn write_file_if_changed(
     }
 
     let backup = backup_if_exists(file_path)?;
-    std::fs::write(file_path, content)
-        .with_context(|| format!("writing {}", file_path.display()))?;
+    atomic_write_bytes(file_path, content.as_bytes())?;
 
     #[cfg(unix)]
     if executable {
@@ -201,8 +399,7 @@ fn remove_marker_range(
     }
 
     let backup = backup_if_exists(file_path)?;
-    std::fs::write(file_path, rebuilt)
-        .with_context(|| format!("writing {}", file_path.display()))?;
+    atomic_write_bytes(file_path, rebuilt.as_bytes())?;
     Ok((true, backup))
 }
 
@@ -271,7 +468,143 @@ pub(crate) fn backup_if_exists(path: &Path) -> Result<Option<PathBuf>> {
 
 #[cfg(test)]
 mod security_tests {
-    use super::backup_if_exists;
+    use super::{
+        atomic_remove_file_if_unchanged, atomic_write_bytes, atomic_write_bytes_if_absent,
+        atomic_write_bytes_if_unchanged, atomic_write_bytes_with_commit, backup_if_exists,
+    };
+
+    #[test]
+    fn atomic_write_replaces_content_without_leaving_a_temporary_file() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let path = temp.path().join("receipt.json");
+        std::fs::write(&path, b"before").expect("seed file");
+
+        atomic_write_bytes(&path, b"after").expect("atomic write");
+
+        assert_eq!(std::fs::read(&path).expect("replacement"), b"after");
+        assert_eq!(
+            std::fs::read_dir(temp.path()).expect("directory").count(),
+            1
+        );
+    }
+
+    #[test]
+    fn failed_atomic_commit_preserves_current_file_and_cleans_temporary_file() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let path = temp.path().join("receipt.json");
+        std::fs::write(&path, b"owned-before").expect("seed file");
+
+        let error = atomic_write_bytes_with_commit(&path, b"new-value", |_temporary, _path| {
+            anyhow::bail!("injected commit failure")
+        })
+        .expect_err("commit must fail");
+
+        assert!(error.to_string().contains("injected commit failure"));
+        assert_eq!(
+            std::fs::read(&path).expect("preserved current file"),
+            b"owned-before"
+        );
+        assert_eq!(
+            std::fs::read_dir(temp.path()).expect("directory").count(),
+            1
+        );
+    }
+
+    #[test]
+    fn compare_and_replace_preserves_a_concurrently_changed_file() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let path = temp.path().join("instructions.md");
+        std::fs::write(&path, b"new-editor-content").expect("seed current file");
+
+        let error =
+            atomic_write_bytes_if_unchanged(&path, b"stale-snapshot", b"switchboard-replacement")
+                .expect_err("stale compare must fail");
+
+        assert!(error
+            .to_string()
+            .contains("changed before its managed update"));
+        assert_eq!(
+            std::fs::read(&path).expect("preserved editor content"),
+            b"new-editor-content"
+        );
+        assert_eq!(
+            std::fs::read_dir(temp.path()).expect("directory").count(),
+            1
+        );
+    }
+
+    #[test]
+    fn no_clobber_publish_preserves_a_concurrently_created_file() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let path = temp.path().join("AGENTS.md");
+        std::fs::write(&path, b"editor-created").expect("seed competing file");
+
+        let error = atomic_write_bytes_if_absent(&path, b"switchboard-created")
+            .expect_err("existing destination must win");
+
+        assert!(error.to_string().contains("only while it remains absent"));
+        assert_eq!(
+            std::fs::read(&path).expect("preserved competing file"),
+            b"editor-created"
+        );
+        assert_eq!(
+            std::fs::read_dir(temp.path()).expect("directory").count(),
+            1
+        );
+    }
+
+    #[test]
+    fn compare_and_remove_preserves_a_concurrently_changed_file() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let path = temp.path().join("ponytail.json");
+        std::fs::write(&path, b"new-receipt").expect("seed changed receipt");
+
+        let error = atomic_remove_file_if_unchanged(&path, b"stale-receipt")
+            .expect_err("stale removal must fail");
+
+        assert!(error
+            .to_string()
+            .contains("changed before its managed removal"));
+        assert_eq!(
+            std::fs::read(&path).expect("preserved receipt"),
+            b"new-receipt"
+        );
+    }
+
+    #[test]
+    fn compare_and_remove_unlinks_the_exact_owned_file() {
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let path = temp.path().join("ponytail.json");
+        std::fs::write(&path, b"owned-receipt").expect("seed owned receipt");
+
+        atomic_remove_file_if_unchanged(&path, b"owned-receipt").expect("exact removal");
+
+        assert!(!path.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_rejects_symlinks_without_replacing_link_or_target() {
+        use std::os::unix::fs::symlink;
+
+        let temp = tempfile::TempDir::new().expect("temp dir");
+        let target = temp.path().join("shared-instructions.md");
+        let link = temp.path().join("AGENTS.md");
+        std::fs::write(&target, b"shared-before").expect("seed target");
+        symlink(&target, &link).expect("create symlink");
+
+        let error = atomic_write_bytes(&link, b"replacement").expect_err("symlink must fail");
+
+        assert!(error.to_string().contains("refusing to replace symlinked"));
+        assert!(std::fs::symlink_metadata(&link)
+            .expect("link metadata")
+            .file_type()
+            .is_symlink());
+        assert_eq!(
+            std::fs::read(&target).expect("preserved target"),
+            b"shared-before"
+        );
+    }
 
     #[cfg(unix)]
     #[test]

@@ -143,6 +143,7 @@
       "upstreamPackageJsonSha256": "5f7e5ab891c31ae006b986d34e0977fda44fc54e654cc4e07531dd5dd6f96b8f",
       "notice": "third_party/ponytail/LICENSE",
       "activation": "managed_core_guidance_for_configured_claude_code_and_codex_clients",
+      "managedProfileAdaptation": "replace_unavailable_slash_command_sentence_with_addons_controls",
       "bundledSkillIds": [
         "ponytail",
         "ponytail-review",

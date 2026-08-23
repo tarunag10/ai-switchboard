@@ -92,7 +92,7 @@ pub(crate) fn verify_bundled_ponytail() -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn core_guidance() -> Result<&'static str> {
+pub(crate) fn core_guidance() -> Result<String> {
     verify_bundled_ponytail()?;
     let source = CORE_SKILL
         .strip_prefix("---\n")
@@ -100,7 +100,10 @@ pub(crate) fn core_guidance() -> Result<&'static str> {
     let (_, body) = source
         .split_once("\n---\n")
         .context("bundled Ponytail core skill has malformed frontmatter")?;
-    Ok(body.trim())
+    Ok(body.trim().replace(
+        "Switch: `/ponytail lite|full|ultra`.",
+        "AI Switchboard activates the upstream full profile; use the Addons controls to enable or disable it.",
+    ))
 }
 
 pub(crate) fn skill_ids() -> [&'static str; 6] {
@@ -129,6 +132,8 @@ mod tests {
         let guidance = core_guidance().expect("valid core guidance");
         assert!(guidance.starts_with("# Ponytail"));
         assert!(!guidance.contains("argument-hint:"));
+        assert!(!guidance.contains("/ponytail"));
+        assert!(guidance.contains("use the Addons controls"));
         assert!(guidance.contains("Never simplify away: input validation"));
     }
 }

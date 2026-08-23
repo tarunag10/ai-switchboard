@@ -21,10 +21,11 @@ The authoritative machine-readable delivery and migration status is
 - **Ponytail** — MIT, copyright (c) 2026 DietrichGebert. Six unmodified text
   skills from commit `2ed6c52c9d7e5e56942508591085fd45dea277d3`
   (`4.9.0`) are bundled with exact hashes. AI Switchboard applies the reviewed
-  core guidance through its own managed client blocks; upstream lifecycle
-  hooks, marketplace installation, runtime downloads, and automatic updates
-  are not included. The full upstream licence is bundled at
-  `third_party/ponytail/LICENSE`.
+  core guidance through its own managed client blocks, replacing only the
+  unavailable `/ponytail` slash-command sentence with truthful Addons-control
+  instructions. Upstream lifecycle hooks, marketplace installation, runtime
+  downloads, and automatic updates are not included. The full upstream licence
+  is bundled at `third_party/ponytail/LICENSE`.
 
 ## Upstream projects referenced or externally installed today
 

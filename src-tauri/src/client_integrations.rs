@@ -14,8 +14,9 @@ use crate::client_setup_apply::{
 };
 use crate::client_setup_state::{is_claude_code_enabled, is_codex_enabled};
 use crate::managed_files::{
-    backup_if_exists, managed_marker_end, managed_marker_start, parse_json_object,
-    remove_managed_block, upsert_managed_block, write_file_if_changed,
+    atomic_write_bytes_if_absent, atomic_write_bytes_if_unchanged, backup_if_exists,
+    managed_marker_end, managed_marker_start, parse_json_object, remove_managed_block,
+    upsert_managed_block, write_file_if_changed,
 };
 use crate::switchboard_identity::{primary_marker_prefix, SwitchboardIdentitySlug};
 
@@ -806,6 +807,123 @@ fn canonical_ponytail_block() -> Result<String> {
     Ok(format!("{start}\n{}\n{end}", build_ponytail_nudge()?))
 }
 
+#[derive(Debug, Default)]
+pub struct PonytailGuidanceRefresh {
+    previous_blocks: BTreeMap<String, String>,
+    refreshed_fingerprints: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Default)]
+pub struct PonytailRemovalSnapshot {
+    removed_blocks: BTreeMap<String, String>,
+}
+
+impl PonytailRemovalSnapshot {
+    fn is_empty(&self) -> bool {
+        self.removed_blocks.is_empty()
+    }
+}
+
+fn replace_ponytail_block_if_unchanged(
+    client_id: &str,
+    expected_fingerprint: &str,
+    replacement_block: &str,
+) -> Result<String> {
+    let path = ponytail_client_path(client_id)
+        .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
+    let existing =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let (start, end) =
+        ponytail_block_range(&existing)?.context("Ponytail managed block is no longer present")?;
+    let previous_block = existing[start..end].to_string();
+    if ponytail_block_fingerprint(&previous_block) != expected_fingerprint {
+        bail!("Ponytail managed block changed after activation for {client_id}");
+    }
+    if previous_block == replacement_block {
+        return Ok(previous_block);
+    }
+    let mut replacement = String::with_capacity(
+        existing.len() + replacement_block.len().saturating_sub(previous_block.len()),
+    );
+    replacement.push_str(&existing[..start]);
+    replacement.push_str(replacement_block);
+    replacement.push_str(&existing[end..]);
+    backup_if_exists(&path)?;
+    atomic_write_bytes_if_unchanged(&path, existing.as_bytes(), replacement.as_bytes())?;
+    Ok(previous_block)
+}
+
+pub fn restore_ponytail_guidance_refresh(refresh: &PonytailGuidanceRefresh) -> Result<()> {
+    let mut failures = Vec::new();
+    for (client_id, previous_block) in refresh.previous_blocks.iter().rev() {
+        let Some(expected_fingerprint) = refresh.refreshed_fingerprints.get(client_id) else {
+            failures.push(format!("missing refreshed fingerprint for {client_id}"));
+            continue;
+        };
+        if let Err(error) =
+            replace_ponytail_block_if_unchanged(client_id, expected_fingerprint, previous_block)
+        {
+            failures.push(format!("{client_id}: {error:#}"));
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        bail!(
+            "restoring the previous Ponytail managed profile failed: {}",
+            failures.join("; ")
+        )
+    }
+}
+
+pub fn refresh_ponytail_guidance_if_unchanged(
+    expected: &BTreeMap<String, String>,
+) -> Result<PonytailGuidanceRefresh> {
+    let replacement = canonical_ponytail_block()?;
+    let replacement_fingerprint = ponytail_block_fingerprint(&replacement);
+    let mut refresh = PonytailGuidanceRefresh::default();
+    for (client_id, expected_fingerprint) in expected {
+        let path = ponytail_client_path(client_id)
+            .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
+        let Some(current_block) = ponytail_block_at(&path)? else {
+            continue;
+        };
+        if ponytail_block_fingerprint(&current_block) != *expected_fingerprint {
+            let primary = anyhow!(
+                "Ponytail managed block changed after activation for {client_id}; it was preserved"
+            );
+            return match restore_ponytail_guidance_refresh(&refresh) {
+                Ok(()) => Err(primary),
+                Err(rollback) => Err(anyhow!(
+                    "{primary:#}; compensating profile restoration also failed: {rollback:#}"
+                )),
+            };
+        }
+        if current_block == replacement {
+            continue;
+        }
+        match replace_ponytail_block_if_unchanged(client_id, expected_fingerprint, &replacement) {
+            Ok(previous_block) => {
+                refresh
+                    .previous_blocks
+                    .insert(client_id.clone(), previous_block);
+                refresh
+                    .refreshed_fingerprints
+                    .insert(client_id.clone(), replacement_fingerprint.clone());
+            }
+            Err(primary) => {
+                return match restore_ponytail_guidance_refresh(&refresh) {
+                    Ok(()) => Err(primary),
+                    Err(rollback) => Err(anyhow!(
+                        "{primary:#}; compensating profile restoration also failed: {rollback:#}"
+                    )),
+                };
+            }
+        }
+    }
+    Ok(refresh)
+}
+
 pub fn ponytail_integration_fingerprints() -> Result<BTreeMap<String, String>> {
     let mut fingerprints = BTreeMap::new();
     for (client_id, path) in all_ponytail_clients() {
@@ -814,6 +932,12 @@ pub fn ponytail_integration_fingerprints() -> Result<BTreeMap<String, String>> {
         }
     }
     Ok(fingerprints)
+}
+
+pub fn ponytail_integration_fingerprint(client_id: &str) -> Result<Option<String>> {
+    let path = ponytail_client_path(client_id)
+        .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
+    ponytail_block_at(&path).map(|block| block.as_deref().map(ponytail_block_fingerprint))
 }
 
 pub fn ponytail_registered_clients() -> Result<Vec<String>> {
@@ -843,15 +967,18 @@ pub fn enable_ponytail_integration() -> Result<(Vec<String>, Vec<String>)> {
     let body = build_ponytail_nudge()?;
     let mut changed_files = Vec::new();
     let mut backup_files = Vec::new();
-    let mut created_blocks: Vec<PathBuf> = Vec::new();
-    for (_, path) in clients {
+    let canonical_fingerprint = ponytail_block_fingerprint(&canonical);
+    let mut created_blocks: Vec<(String, String)> = Vec::new();
+    for (client_id, path) in clients {
         let result = upsert_managed_block(&path, "ponytail", &body);
         let (changed, backup) = match result {
             Ok(result) => result,
             Err(error) => {
                 let mut cleanup_errors = Vec::new();
-                for created in created_blocks.iter().rev() {
-                    if let Err(cleanup) = remove_managed_block(created, "ponytail") {
+                for (created_client, expected_fingerprint) in created_blocks.iter().rev() {
+                    if let Err(cleanup) =
+                        remove_ponytail_client_if_unchanged(created_client, expected_fingerprint)
+                    {
                         cleanup_errors.push(cleanup.to_string());
                     }
                 }
@@ -867,7 +994,7 @@ pub fn enable_ponytail_integration() -> Result<(Vec<String>, Vec<String>)> {
         };
         if changed {
             changed_files.push(path.display().to_string());
-            created_blocks.push(path.clone());
+            created_blocks.push((client_id.to_string(), canonical_fingerprint.clone()));
         }
         if let Some(backup) = backup {
             backup_files.push(backup.display().to_string());
@@ -899,12 +1026,12 @@ pub fn disable_ponytail_integration() -> Result<bool> {
     {
         bail!("Ponytail managed guidance changed after activation; it was preserved");
     }
-    disable_ponytail_integration_if_unchanged(&current)
+    disable_ponytail_integration_if_unchanged(&current).map(|snapshot| !snapshot.is_empty())
 }
 
 pub fn disable_ponytail_integration_if_unchanged(
     expected: &BTreeMap<String, String>,
-) -> Result<bool> {
+) -> Result<PonytailRemovalSnapshot> {
     for (client_id, fingerprint) in expected {
         let path = ponytail_client_path(client_id)
             .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
@@ -916,48 +1043,104 @@ pub fn disable_ponytail_integration_if_unchanged(
         }
     }
 
-    let mut removed = Vec::new();
-    for client_id in expected.keys() {
-        let path = ponytail_client_path(client_id)
-            .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
-        match remove_managed_block(&path, "ponytail") {
-            Ok(true) => removed.push(path),
-            Ok(false) => {}
+    let mut removed = PonytailRemovalSnapshot::default();
+    for (client_id, expected_fingerprint) in expected {
+        match remove_ponytail_client_if_unchanged(client_id, expected_fingerprint) {
+            Ok(previous_block) => {
+                removed
+                    .removed_blocks
+                    .insert(client_id.clone(), previous_block);
+            }
             Err(error) => {
-                let body = build_ponytail_nudge()?;
-                let mut cleanup_errors = Vec::new();
-                for removed_path in removed.iter().rev() {
-                    if let Err(cleanup) = upsert_managed_block(removed_path, "ponytail", &body) {
-                        cleanup_errors.push(cleanup.to_string());
-                    }
-                }
-                if cleanup_errors.is_empty() {
+                if let Err(rollback) = restore_ponytail_removal(&removed) {
+                    bail!(
+                        "removing Ponytail guidance failed: {error:#}; restoring partial removals also failed: {rollback:#}"
+                    );
+                } else {
                     return Err(error)
                         .context("removing Ponytail guidance; partial removals restored");
                 }
-                bail!(
-                    "removing Ponytail guidance failed: {error:#}; restoring partial removals also failed: {}",
-                    cleanup_errors.join("; ")
-                );
             }
         }
     }
-    Ok(!removed.is_empty())
+    Ok(removed)
+}
+
+fn restore_ponytail_client_if_absent(client_id: &str, block: &str) -> Result<()> {
+    let path = ponytail_client_path(client_id)
+        .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
+    let (existing, was_absent) = match std::fs::read_to_string(&path) {
+        Ok(existing) => (existing, false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => (String::new(), true),
+        Err(error) => return Err(error).with_context(|| format!("reading {}", path.display())),
+    };
+    if let Some(current) =
+        ponytail_block_range(&existing)?.map(|(start, end)| existing[start..end].to_string())
+    {
+        if current == block {
+            return Ok(());
+        }
+        bail!("Ponytail managed guidance changed during compensation for {client_id}");
+    }
+    let replacement = if existing.trim().is_empty() {
+        format!("{block}\n")
+    } else {
+        format!("{}\n{block}\n", existing.trim_end())
+    };
+    backup_if_exists(&path)?;
+    if was_absent {
+        atomic_write_bytes_if_absent(&path, replacement.as_bytes())?;
+    } else {
+        atomic_write_bytes_if_unchanged(&path, existing.as_bytes(), replacement.as_bytes())?;
+    }
+    Ok(())
+}
+
+pub fn restore_ponytail_removal(snapshot: &PonytailRemovalSnapshot) -> Result<()> {
+    let mut failures = Vec::new();
+    for (client_id, block) in &snapshot.removed_blocks {
+        if let Err(error) = restore_ponytail_client_if_absent(client_id, block) {
+            failures.push(format!("{client_id}: {error:#}"));
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        bail!(
+            "restoring exact Ponytail receipt-owned guidance failed: {}",
+            failures.join("; ")
+        )
+    }
 }
 
 pub fn remove_ponytail_client_if_unchanged(
     client_id: &str,
     expected_fingerprint: &str,
-) -> Result<()> {
+) -> Result<String> {
     let path = ponytail_client_path(client_id)
         .ok_or_else(|| anyhow!("unknown Ponytail client identifier: {client_id}"))?;
-    let block = ponytail_block_at(&path)?.context("Ponytail managed block is no longer present")?;
+    let existing =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let (start, end) =
+        ponytail_block_range(&existing)?.context("Ponytail managed block is no longer present")?;
+    let block = &existing[start..end];
     let actual = ponytail_block_fingerprint(&block);
     if actual != expected_fingerprint {
         bail!("Ponytail managed block changed after activation for {client_id}");
     }
-    remove_managed_block(&path, "ponytail")?;
-    Ok(())
+    let tail = existing[end..].trim_start_matches('\n');
+    let mut replacement = String::with_capacity(existing.len());
+    replacement.push_str(existing[..start].trim_end());
+    if !replacement.is_empty() && !tail.is_empty() {
+        replacement.push('\n');
+    }
+    replacement.push_str(tail);
+    if !replacement.is_empty() && !replacement.ends_with('\n') {
+        replacement.push('\n');
+    }
+    backup_if_exists(&path)?;
+    atomic_write_bytes_if_unchanged(&path, existing.as_bytes(), replacement.as_bytes())?;
+    Ok(block.to_string())
 }
 
 #[cfg(test)]

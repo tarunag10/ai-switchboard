@@ -56,6 +56,10 @@ fn exact_cache_recommended_issue(
     })
 }
 
+fn optional_tool_needs_repair(receipt_exists: bool, enabled: bool, healthy: bool) -> bool {
+    receipt_exists && enabled && !healthy
+}
+
 pub(crate) fn infer_switchboard_mode(
     runtime: &RuntimeStatus,
     enabled_client_count: usize,
@@ -610,11 +614,22 @@ repair_action: Some("repair_rtk_integrations".to_string()),
             repair_action: Some("repair_caveman_guidance".to_string()),
         });
     }
-    if tool_needs_repair("ponytail") {
+    let ponytail_needs_repair =
+        tools
+            .iter()
+            .find(|tool| tool.id == "ponytail")
+            .is_some_and(|tool| {
+                optional_tool_needs_repair(
+                    state.tool_manager.ponytail_receipt_exists(),
+                    tool.enabled,
+                    matches!(tool.status, crate::models::ToolStatus::Healthy),
+                )
+            });
+    if ponytail_needs_repair {
         issues.push(DoctorIssue {
             id: "ponytail_plugin_inactive".to_string(),
             title: "Ponytail bundled guidance is not active".to_string(),
-            body: "Ponytail should have an exact Switchboard-managed guidance block in each configured Claude Code or Codex instruction file. Repair will revalidate the bundled snapshot and recreate only those owned blocks.".to_string(),
+            body: "Ponytail should have an exact Switchboard-managed guidance block in each configured Claude Code or Codex instruction file. Repair revalidates the bundle and restores missing receipt-owned blocks for configured clients; changed blocks are preserved and reported.".to_string(),
             severity: DoctorSeverity::Warning,
             repair_action: Some("repair_ponytail_plugin".to_string()),
         });
@@ -669,6 +684,14 @@ mod doctor_tests {
     use crate::models::ClientConnectorStatus;
     use crate::models::ClientSetupResult;
     use crate::switchboard_commands::switchboard_mode_wants_rtk;
+
+    #[test]
+    fn optional_tool_repair_respects_absent_and_disabled_states() {
+        assert!(!optional_tool_needs_repair(false, true, false));
+        assert!(!optional_tool_needs_repair(true, false, false));
+        assert!(!optional_tool_needs_repair(true, true, true));
+        assert!(optional_tool_needs_repair(true, true, false));
+    }
 
     #[test]
     fn planned_connector_doctor_body_includes_backend_metadata() {

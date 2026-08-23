@@ -341,11 +341,19 @@ fn leanctx_snapshot(state: &AppState) -> LeanctxActivationSnapshot {
     }
 }
 
-fn ponytail_bundled_snapshot(state: &AppState) -> PonytailBundledActivationSnapshot {
-    PonytailBundledActivationSnapshot {
-        receipt: state.tool_manager.ponytail_receipt_snapshot(),
-        client_fingerprints: state.tool_manager.ponytail_host_fingerprints(),
-    }
+fn ponytail_bundled_snapshot(
+    state: &AppState,
+) -> Result<PonytailBundledActivationSnapshot, String> {
+    Ok(PonytailBundledActivationSnapshot {
+        receipt: state
+            .tool_manager
+            .ponytail_receipt_snapshot_checked()
+            .map_err(|error| error.to_string())?,
+        client_fingerprints: state
+            .tool_manager
+            .ponytail_host_fingerprints_checked()
+            .map_err(|error| error.to_string())?,
+    })
 }
 
 fn caveman_snapshot(state: &AppState) -> Result<CavemanActivationSnapshot, String> {
@@ -622,6 +630,55 @@ fn validate_rollback_request(
     if receipt.run_id != run_id {
         return Err("Activation run ID does not match the stored receipt.".into());
     }
+    validate_ponytail_rollback_schema(receipt)?;
+    Ok(())
+}
+
+fn validate_ponytail_rollback_schema(receipt: &SelectiveActivationReceipt) -> Result<(), String> {
+    let owns_legacy = receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "ponytail_ownership");
+    let owns_bundled = receipt
+        .owned_changes
+        .iter()
+        .any(|change| change == "ponytail_bundled_guidance");
+    if owns_legacy && owns_bundled {
+        return Err("Ponytail rollback receipt mixes legacy-plugin and bundled-guidance ownership. No changes were made.".into());
+    }
+
+    match receipt.schema_version {
+        2 | 3 => {
+            if owns_bundled
+                || receipt.previous_ponytail_bundled.is_some()
+                || receipt.after_ponytail_bundled.is_some()
+                || !receipt.ponytail_created_clients.is_empty()
+            {
+                return Err("Schema 2/3 Ponytail receipts cannot own bundled guidance. No changes were made.".into());
+            }
+            if owns_legacy
+                && (receipt.previous_ponytail.is_none() || receipt.after_ponytail.is_none())
+            {
+                return Err("Schema 2/3 Ponytail plugin ownership metadata is incomplete. No changes were made.".into());
+            }
+        }
+        4 => {
+            if owns_legacy
+                || receipt.previous_ponytail.is_some()
+                || receipt.after_ponytail.is_some()
+                || !receipt.ponytail_created_hosts.is_empty()
+            {
+                return Err("Schema 4 Ponytail receipts cannot own legacy plugin entries. No changes were made.".into());
+            }
+            if owns_bundled
+                && (receipt.previous_ponytail_bundled.is_none()
+                    || receipt.after_ponytail_bundled.is_none())
+            {
+                return Err("Schema 4 Ponytail bundled-guidance ownership metadata is incomplete. No changes were made.".into());
+            }
+        }
+        _ => {}
+    }
     Ok(())
 }
 
@@ -854,7 +911,8 @@ pub async fn activate_selected_tools(
     let previous_ponytail_bundled = selected_tool_ids
         .iter()
         .any(|id| id == "ponytail")
-        .then(|| ponytail_bundled_snapshot(&state));
+        .then(|| ponytail_bundled_snapshot(&state))
+        .transpose()?;
     let previous_caveman = selected_tool_ids
         .iter()
         .any(|id| id == "caveman")
@@ -988,7 +1046,8 @@ pub async fn activate_selected_tools(
     let after_leanctx = previous_leanctx.as_ref().map(|_| leanctx_snapshot(&state));
     let after_ponytail_bundled = previous_ponytail_bundled
         .as_ref()
-        .map(|_| ponytail_bundled_snapshot(&state));
+        .map(|_| ponytail_bundled_snapshot(&state))
+        .transpose()?;
     let ponytail_created_clients = previous_ponytail_bundled
         .as_ref()
         .zip(after_ponytail_bundled.as_ref())
@@ -1628,11 +1687,42 @@ pub async fn rollback_selective_activation(
                     });
                     continue;
                 }
-                let current = state
-                    .tool_manager
-                    .legacy_ponytail_host_fingerprints()
-                    .get(host_id)
-                    .cloned();
+                let current = match state.tool_manager.legacy_ponytail_host_fingerprint(host_id) {
+                    Ok(current) => current,
+                    Err(error) => {
+                        hosts_restored = false;
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id,
+                            state: "blocked_external_change".into(),
+                            detail: format!(
+                                "Legacy Ponytail plugin entry could not be observed safely and was preserved: {error:#}"
+                            ),
+                        });
+                        continue;
+                    }
+                };
+                if current.is_none() {
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Legacy Ponytail plugin entry is already absent; rollback treats the run-owned removal as idempotently complete.".into(),
+                    });
+                    if let Err(error) =
+                        persist_rollback_progress(&state, &mut receipt, &rollback_results)
+                    {
+                        hosts_restored = false;
+                        failures.push(error.clone());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "ponytail".into(),
+                            state: "failed".into(),
+                            detail: format!(
+                                "Recording idempotent Ponytail rollback progress failed: {error}"
+                            ),
+                        });
+                    }
+                    continue;
+                }
                 if current.as_deref() != Some(expected_fingerprint) {
                     hosts_restored = false;
                     rollback_results.push(SelectiveRollbackResult {
@@ -1733,11 +1823,42 @@ pub async fn rollback_selective_activation(
                     });
                     continue;
                 }
-                let current = state
-                    .tool_manager
-                    .ponytail_host_fingerprints()
-                    .get(client_id)
-                    .cloned();
+                let current = match state.tool_manager.ponytail_host_fingerprint(client_id) {
+                    Ok(current) => current,
+                    Err(error) => {
+                        clients_restored = false;
+                        failures.push(error.to_string());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id,
+                            state: "blocked_external_change".into(),
+                            detail: format!(
+                                "Ponytail managed guidance could not be observed safely and was preserved: {error:#}"
+                            ),
+                        });
+                        continue;
+                    }
+                };
+                if current.is_none() {
+                    rollback_results.push(SelectiveRollbackResult {
+                        tool_id,
+                        state: "restored".into(),
+                        detail: "Ponytail managed guidance is already absent; rollback treats the run-owned removal as idempotently complete.".into(),
+                    });
+                    if let Err(error) =
+                        persist_rollback_progress(&state, &mut receipt, &rollback_results)
+                    {
+                        clients_restored = false;
+                        failures.push(error.clone());
+                        rollback_results.push(SelectiveRollbackResult {
+                            tool_id: "ponytail".into(),
+                            state: "failed".into(),
+                            detail: format!(
+                                "Recording idempotent Ponytail rollback progress failed: {error}"
+                            ),
+                        });
+                    }
+                    continue;
+                }
                 if current.as_deref() != Some(expected_fingerprint) {
                     clients_restored = false;
                     rollback_results.push(SelectiveRollbackResult {
@@ -2161,5 +2282,53 @@ mod tests {
         let mut legacy = receipt;
         legacy.schema_version = 1;
         assert!(validate_rollback_request(&legacy, "run-1").is_err());
+    }
+
+    #[test]
+    fn rollback_rejects_cross_schema_ponytail_ownership_before_mutation() {
+        let mut mixed = receipt();
+        mixed.owned_changes = vec![
+            "ponytail_ownership".into(),
+            "ponytail_bundled_guidance".into(),
+        ];
+        assert!(validate_rollback_request(&mixed, "run-1").is_err());
+
+        let mut schema_three_with_bundled = receipt();
+        schema_three_with_bundled.schema_version = 3;
+        schema_three_with_bundled.owned_changes = vec!["ponytail_bundled_guidance".into()];
+        schema_three_with_bundled.previous_ponytail_bundled =
+            Some(PonytailBundledActivationSnapshot {
+                receipt: None,
+                client_fingerprints: BTreeMap::new(),
+            });
+        schema_three_with_bundled.after_ponytail_bundled =
+            schema_three_with_bundled.previous_ponytail_bundled.clone();
+        assert!(validate_rollback_request(&schema_three_with_bundled, "run-1").is_err());
+
+        let mut schema_four_with_legacy = receipt();
+        schema_four_with_legacy.owned_changes = vec!["ponytail_ownership".into()];
+        schema_four_with_legacy.previous_ponytail = Some(PonytailActivationSnapshot {
+            receipt: None,
+            host_fingerprints: BTreeMap::new(),
+        });
+        schema_four_with_legacy.after_ponytail = schema_four_with_legacy.previous_ponytail.clone();
+        assert!(validate_rollback_request(&schema_four_with_legacy, "run-1").is_err());
+    }
+
+    #[test]
+    fn rollback_accepts_complete_schema_four_ponytail_ownership() {
+        let mut bundled = receipt();
+        bundled.owned_changes = vec!["ponytail_bundled_guidance".into()];
+        bundled.previous_ponytail_bundled = Some(PonytailBundledActivationSnapshot {
+            receipt: None,
+            client_fingerprints: BTreeMap::new(),
+        });
+        bundled.after_ponytail_bundled = Some(PonytailBundledActivationSnapshot {
+            receipt: Some(json!({ "delivery": "bundled_guidance" })),
+            client_fingerprints: BTreeMap::from([("codex".into(), "sha256:owned".into())]),
+        });
+        bundled.ponytail_created_clients =
+            BTreeMap::from([("codex".into(), "sha256:owned".into())]);
+        assert!(validate_rollback_request(&bundled, "run-1").is_ok());
     }
 }

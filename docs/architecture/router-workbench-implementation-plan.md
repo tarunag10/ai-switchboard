@@ -659,8 +659,9 @@ Current gate truth on 2026-08-24:
 - Self-contained OSS inventory: `5` validator/negative tests pass; the
   authoritative ledger contains `11` entries (`3` complete, `1` partial, `5`
   pending, `2` blocked) and forbids runtime downloads in the target state.
-- Bundled Ponytail: the `ponytail` native selector passes `15` tests and the
-  activation-command selector passes `10`, covering resource integrity,
+- Bundled Ponytail: the `ponytail` native selector passes `17` tests, the
+activation-command selector passes `12`, and `8` managed-file tests pass,
+  covering atomic replacement and failure preservation, resource integrity,
   frontmatter stripping, managed-block parsing, schema-2/3 plugin versus
   schema-4 guidance ownership, status, attribution, and selective rollback
   helpers; the old networked real-CLI test and `latest` installer were removed.

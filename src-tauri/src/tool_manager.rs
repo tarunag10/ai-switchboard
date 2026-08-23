@@ -2380,9 +2380,9 @@ impl ToolManager {
         payload: serde_json::Value,
     ) -> Result<()> {
         let path = self.runtime.tools_dir.join(format!("{tool_id}.json"));
-        std::fs::write(
+        crate::managed_files::atomic_write_bytes(
             &path,
-            serde_json::to_vec_pretty(&payload).context("serializing managed tool receipt")?,
+            &serde_json::to_vec_pretty(&payload).context("serializing managed tool receipt")?,
         )
         .with_context(|| format!("writing {}", path.display()))?;
         Ok(())
@@ -2392,6 +2392,20 @@ impl ToolManager {
         let path = self.runtime.tools_dir.join(format!("{tool_id}.json"));
         let bytes = std::fs::read(path).ok()?;
         serde_json::from_slice(&bytes).ok()
+    }
+
+    pub(super) fn read_tool_receipt_checked(&self, tool_id: &str) -> Result<Option<Value>> {
+        let path = self.runtime.tools_dir.join(format!("{tool_id}.json"));
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => {
+                return Err(error).with_context(|| format!("reading {}", path.display()));
+            }
+        };
+        let receipt = serde_json::from_slice(&bytes)
+            .with_context(|| format!("decoding managed tool receipt {}", path.display()))?;
+        Ok(Some(receipt))
     }
 
     /// Optional tools persist an `enabled` flag in their receipt. Required core

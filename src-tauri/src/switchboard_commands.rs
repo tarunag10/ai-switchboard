@@ -301,19 +301,10 @@ fn repair_caveman_guidance(state: &AppState) -> Result<(), String> {
 }
 
 fn repair_ponytail_plugin(state: &AppState) -> Result<(), String> {
-    if state.tool_manager.list_tools().iter().any(|tool| {
-        tool.id == "ponytail" && !matches!(tool.status, crate::models::ToolStatus::Healthy)
-    }) {
-        state
-            .tool_manager
-            .install_ponytail()
-            .map_err(|err| err.to_string())?;
-    } else {
-        state
-            .tool_manager
-            .set_ponytail_enabled(true)
-            .map_err(|err| err.to_string())?;
-    }
+    state
+        .tool_manager
+        .repair_ponytail()
+        .map_err(|err| err.to_string())?;
     let hosts = state.tool_manager.ponytail_registered_hosts();
     let _ = state.record_ponytail_attribution(&hosts);
     Ok(())
