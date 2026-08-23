@@ -19,7 +19,13 @@ if (!fs.existsSync(reportPath)) {
   fail(`${reportPath} missing; run npm run smoke:repo-intelligence:local first`);
 }
 
-const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+} catch (error) {
+  const detail = error instanceof SyntaxError ? "contains invalid JSON" : "could not be read";
+  fail(`${reportPath} ${detail}`);
+}
 const backendSource = fs.readFileSync("src-tauri/src/repo_intelligence.rs", "utf8");
 const frontendSource = fs.readFileSync("src/lib/repoIntelligence.ts", "utf8");
 const cliSource = fs.readFileSync("scripts/repo-intelligence.mjs", "utf8");

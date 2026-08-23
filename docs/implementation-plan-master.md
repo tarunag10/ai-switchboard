@@ -158,6 +158,9 @@ the current checkout.
 - Model-routing disabled-client matching and policy uniqueness now trim
   surrounding whitespace, closing a kill-switch bypass and whitespace-variant
   duplicate gap.
+- Local Repo Intelligence summary validation now reports corrupt generated JSON
+  with a concise operator error, and its local check command runs the
+  corruption regression harness before accepting a report.
 
 ### Done — prepared and shipped
 
