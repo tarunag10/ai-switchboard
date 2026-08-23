@@ -44,6 +44,7 @@ function renderPanel(
       connectors={[{ ...codexConnector, ...overrides }]}
       connectorsBusy={false}
       connectorsError={null}
+      verifyConnectors={vi.fn()}
       copyPlannedConnectorCommand={copyPlannedConnectorCommand}
       openConnectorHelpId={openConnectorHelpId}
       plannedConnectorCopyNotice={null}
@@ -147,6 +148,7 @@ describe("SettingsConnectorPanel", () => {
         connectors={[codexConnector]}
         connectorsBusy={true}
         connectorsError="Could not refresh connectors."
+        verifyConnectors={vi.fn()}
         copyPlannedConnectorCommand={vi.fn()}
         openConnectorHelpId={null}
         plannedConnectorCopyNotice="Copied Codex setup."

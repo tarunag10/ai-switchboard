@@ -50,7 +50,7 @@ function props(overrides: Partial<SettingsViewProps> = {}): SettingsViewProps {
     settingsImportBusy: false, copySettingsExport: vi.fn(), previewSettingsImport: vi.fn(), applySettingsImport: vi.fn(),
     plannedConnectorReadiness: { headline: "Ready", detail: "", detectedCount: 0, manualOnlyCount: 0, notDetectedCount: 0, safeTodayCount: 0, automationGateCount: 0 },
     plannedConnectorCopyNotice: null, connectorsBusy: false, connectorsError: null, openConnectorHelpId: null,
-    setOpenConnectorHelpId: vi.fn(), toggleConnector: vi.fn(), copyPlannedConnectorCommand: vi.fn(),
+    setOpenConnectorHelpId: vi.fn(), toggleConnector: vi.fn(), verifyConnectors: vi.fn(), copyPlannedConnectorCommand: vi.fn(),
     autostartEnabled: false, autostartBusy: false, handleAutostartToggle: vi.fn(),
     showHeadroomDetails: false, setShowHeadroomDetails: vi.fn(), setHeadroomLogLines: vi.fn(), headroomLogLines: [],
     headroomLogRef: createRef<HTMLPreElement>(), headroomVersion: "1.0", headroomLifetimeSavingsPct: null,

@@ -12,7 +12,7 @@ const codex = { clientId: "codex", name: "Codex", supportStatus: "managed", setu
 const cursor = { clientId: "cursor", name: "Cursor", supportStatus: "planned", setupPhase: "manual", installed: true, enabled: false, verified: false, setupVerification: null, lastConfiguredAt: null } as any;
 
 function renderPanel(overrides: Record<string, unknown> = {}) {
-  const p = { connectors: [codex, cursor], plannedConnectorReadiness: readiness, plannedConnectorCopyNotice: null, connectorsBusy: false, connectorsError: null,
+  const p = { connectors: [codex, cursor], plannedConnectorReadiness: readiness, plannedConnectorCopyNotice: null, connectorsBusy: false, connectorsError: null, verifyConnectors: vi.fn(),
     openConnectorHelpId: null, setOpenConnectorHelpId: vi.fn(), toggleConnector: vi.fn(), copyPlannedConnectorCommand: vi.fn(), ...overrides } as any;
   return { p, ...render(<SettingsConnectorPanel {...p} />) };
 }
@@ -25,10 +25,12 @@ describe("SettingsConnectorPanel alternate connector branches", () => {
     const { p } = renderPanel({ connectors: [codex] });
     await user.click(screen.getByRole("button", { name: /Copy checks/ }));
     await user.click(screen.getByRole("button", { name: /Copy config plans/ }));
+    await user.click(screen.getByRole("button", { name: "Verify now" }));
     await user.click(screen.getByRole("button", { name: "Disable" }));
     expect(p.copyPlannedConnectorCommand).toHaveBeenNthCalledWith(1, expect.stringContaining("connector"), "Connector checklist");
     expect(p.copyPlannedConnectorCommand).toHaveBeenNthCalledWith(2, expect.any(String), "Connector config plans");
     expect(p.toggleConnector).toHaveBeenCalledWith(expect.objectContaining({ clientId: "codex" }), false);
+    expect(p.verifyConnectors).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Restart Codex to start routing/)).toBeInTheDocument();
   });
 

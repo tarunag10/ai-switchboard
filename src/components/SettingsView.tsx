@@ -84,6 +84,7 @@ export interface SettingsViewProps {
 
   connectorsBusy: boolean;
   connectorsError: string | null;
+  verifyConnectors: () => Promise<void>;
   openConnectorHelpId: string | null;
   setOpenConnectorHelpId: Dispatch<SetStateAction<string | null>>;
   toggleConnector: (
@@ -162,6 +163,7 @@ export function SettingsView({
   plannedConnectorCopyNotice,
   connectorsBusy,
   connectorsError,
+  verifyConnectors,
   openConnectorHelpId,
   setOpenConnectorHelpId,
   toggleConnector,
@@ -254,6 +256,7 @@ export function SettingsView({
           connectors={connectors}
           connectorsBusy={connectorsBusy}
           connectorsError={connectorsError}
+          verifyConnectors={verifyConnectors}
           copyPlannedConnectorCommand={copyPlannedConnectorCommand}
           openConnectorHelpId={openConnectorHelpId}
           plannedConnectorCopyNotice={plannedConnectorCopyNotice}

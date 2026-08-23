@@ -2737,6 +2737,16 @@ export default function TrayApp() {
     }
   }
 
+  async function verifyConnectors() {
+    if (connectorsBusy) return;
+    setConnectorsBusy(true);
+    try {
+      await refreshConnectors();
+    } finally {
+      setConnectorsBusy(false);
+    }
+  }
+
   function dismissCodexNudge() {
     setCodexNudgeDismissed(true);
     try {
@@ -3362,6 +3372,7 @@ export default function TrayApp() {
           plannedConnectorCopyNotice={plannedConnectorCopyNotice}
           connectorsBusy={connectorsBusy}
           connectorsError={connectorsError}
+          verifyConnectors={verifyConnectors}
           openConnectorHelpId={openConnectorHelpId}
           setOpenConnectorHelpId={setOpenConnectorHelpId}
           toggleConnector={toggleConnector}

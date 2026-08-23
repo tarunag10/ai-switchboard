@@ -48,6 +48,7 @@ export interface SettingsConnectorPanelProps {
   plannedConnectorCopyNotice: string | null;
   connectorsBusy: boolean;
   connectorsError: string | null;
+  verifyConnectors: () => Promise<void>;
   openConnectorHelpId: string | null;
   setOpenConnectorHelpId: Dispatch<SetStateAction<string | null>>;
   toggleConnector: (
@@ -70,6 +71,7 @@ export function SettingsConnectorPanel({
   plannedConnectorCopyNotice,
   connectorsBusy,
   connectorsError,
+  verifyConnectors,
   openConnectorHelpId,
   setOpenConnectorHelpId,
   toggleConnector,
@@ -154,6 +156,14 @@ export function SettingsConnectorPanel({
           >
             <Copy size={13} weight="bold" />
             Copy config plans
+          </button>
+          <button
+            type="button"
+            className="connector-readiness__copy"
+            onClick={() => void verifyConnectors()}
+            disabled={connectorsBusy}
+          >
+            {connectorsBusy ? "Verifying…" : "Verify now"}
           </button>
         </div>
       </div>
