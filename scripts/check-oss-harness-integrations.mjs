@@ -10,6 +10,8 @@ const required = [
   "src-tauri/src/deepseek_harness.rs",
   "src-tauri/src/dsh_plugin_maturity.rs",
   "src-tauri/src/dsh_context_prototype.rs",
+  "scripts/oss-harness-strategies.mjs",
+  "scripts/oss-harness-strategies.node-test.mjs",
 ];
 const failures = [];
 for (const relative of required) {
@@ -28,4 +30,3 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(JSON.stringify({ ok: true, requiredFiles: required.length, automaticPromotion: "disabled" }, null, 2));
-

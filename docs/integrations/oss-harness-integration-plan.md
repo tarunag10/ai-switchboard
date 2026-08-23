@@ -44,6 +44,15 @@ trust, and user-approved configuration changes.
 - Do not enable automatic routing, semantic replay, remote execution, or native
   connector writes from fixtures alone.
 
+## Current status
+
+The deterministic strategy-fixture slice is now implemented in
+`scripts/oss-harness-strategies.mjs`. Random, stage, escalation, and fallback
+strategies produce bounded metadata-only observations with deterministic seeds,
+health checks, fail-closed exhaustion, and `automaticPromotion: disabled`.
+The fixtures are covered by `scripts/oss-harness-strategies.node-test.mjs` and
+remain outside the live proxy route path.
+
 ## Current next slice
 
 The first local replay slice is `scripts/oss-harness-replay.mjs`. It consumes
