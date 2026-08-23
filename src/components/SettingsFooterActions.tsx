@@ -27,7 +27,7 @@ export function SettingsFooterActions({
       setError(
         err instanceof Error
           ? err.message
-          : "Could not quit Mac AI Switchboard.",
+          : "Could not quit AI Switchboard for Mac.",
       );
     }
   }
@@ -39,14 +39,14 @@ export function SettingsFooterActions({
         onClick={() => void openSupport()}
         type="button"
       >
-        Support
+        Contact us
       </button>
       <button
         className="quit-button"
         onClick={() => void quitApp()}
         type="button"
       >
-        Quit Mac AI Switchboard
+        Quit AI Switchboard for Mac
       </button>
       {error ? <p className="runtime-status__error">{error}</p> : null}
     </>

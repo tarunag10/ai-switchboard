@@ -121,6 +121,16 @@ describe("SettingsView integration", () => {
     await waitFor(() => expect(p.setHeadroomLogLines).toHaveBeenCalledWith(["Failed to load headroom logs."]));
   });
 
+  it("surfaces support command failures through production Settings", async () => {
+    const user = userEvent.setup();
+    invokeMock.mockRejectedValueOnce(new Error("Support opener unavailable"));
+    render(<SettingsView {...props()} />);
+
+    await user.click(screen.getByRole("button", { name: "Contact us" }));
+
+    expect(screen.getByText("Support opener unavailable")).toBeVisible();
+  });
+
   it("forwards connector, autostart, updater, and release evidence actions", async () => {
     const user = userEvent.setup();
     const p = props();

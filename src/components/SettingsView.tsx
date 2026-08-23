@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ProxySessionAuthCard } from "./ProxySessionAuthCard";
 import { RollbackCenter } from "./RollbackCenter";
 import { SettingsConnectorPanel } from "./SettingsConnectorPanel";
+import { SettingsFooterActions } from "./SettingsFooterActions";
 import { SettingsHeadroomAdvancedCard } from "./SettingsHeadroomAdvancedCard";
 import { SettingsLegalPanel } from "./SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./SettingsOpenLoginCard";
@@ -341,24 +342,7 @@ export function SettingsView({
           }}
         />
 
-        <button
-          className="contact-link"
-          onClick={() =>
-            void invoke("open_external_link", {
-              url: SUPPORT_ISSUES_URL,
-            })
-          }
-          type="button"
-        >
-          Contact us
-        </button>
-        <button
-          className="quit-button"
-          onClick={() => void invoke("quit_headroom")}
-          type="button"
-        >
-          Quit AI Switchboard for Mac
-        </button>
+        <SettingsFooterActions supportUrl={SUPPORT_ISSUES_URL} />
       </section>
     </div>
   );

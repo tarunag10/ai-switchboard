@@ -21,9 +21,9 @@ describe("SettingsFooterActions", () => {
 
     render(<SettingsFooterActions supportUrl="https://example.test/support" />);
 
-    await user.click(screen.getByRole("button", { name: "Support" }));
+    await user.click(screen.getByRole("button", { name: "Contact us" }));
     await user.click(
-      screen.getByRole("button", { name: /quit mac ai switchboard/i }),
+      screen.getByRole("button", { name: "Quit AI Switchboard for Mac" }),
     );
 
     expect(invokeMock).toHaveBeenNthCalledWith(1, "open_external_link", {
@@ -38,7 +38,7 @@ describe("SettingsFooterActions", () => {
 
     render(<SettingsFooterActions supportUrl="https://example.test/support" />);
 
-    await user.click(screen.getByRole("button", { name: "Support" }));
+    await user.click(screen.getByRole("button", { name: "Contact us" }));
 
     expect(screen.getByText("Link opener unavailable")).toBeInTheDocument();
   });
@@ -50,9 +50,24 @@ describe("SettingsFooterActions", () => {
     render(<SettingsFooterActions supportUrl="https://example.test/support" />);
 
     await user.click(
-      screen.getByRole("button", { name: /quit mac ai switchboard/i }),
+      screen.getByRole("button", { name: "Quit AI Switchboard for Mac" }),
     );
 
     expect(screen.getByText("Quit command unavailable")).toBeInTheDocument();
+  });
+
+  it("uses current branding when Tauri rejects with a non-Error value", async () => {
+    const user = userEvent.setup();
+    invokeMock.mockRejectedValueOnce("quit unavailable");
+
+    render(<SettingsFooterActions supportUrl="https://example.test/support" />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Quit AI Switchboard for Mac" }),
+    );
+
+    expect(
+      screen.getByText("Could not quit AI Switchboard for Mac."),
+    ).toBeInTheDocument();
   });
 });

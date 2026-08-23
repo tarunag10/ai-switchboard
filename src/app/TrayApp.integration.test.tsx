@@ -96,6 +96,7 @@ describe("TrayApp integrated shell", () => {
       "Optimize",
       "Repo Intelligence",
       "Routing",
+      "Workbench",
       "Savings",
       "Doctor",
       "Token X-Ray",
@@ -111,6 +112,11 @@ describe("TrayApp integrated shell", () => {
       const button = within(navigation).getByRole("button", { name: label });
       fireEvent.click(button);
       expect(button).toHaveClass("is-active");
+      if (label === "Workbench") {
+        expect(
+          screen.getByRole("heading", { level: 1, name: "Workbench" }),
+        ).toBeVisible();
+      }
     }
 
     const settingsButton = screen.getByRole("button", { name: "Settings" });

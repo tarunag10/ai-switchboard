@@ -38,12 +38,12 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `9b61b283` plus the
-deterministic fake-controller phase recorded with this update, and against the
-visible frontend/native command wiring on 2026-08-24. Unrelated concurrent
-unstaged work is not counted as shipped. A check mark therefore means the
-capability is in the committed product boundary, not merely described in
-another plan or present in an unrelated local diff.
+This status was reconciled against committed `main` through `321d254a` plus the
+Settings reachability repair recorded with this update, and against the visible
+frontend/native command wiring on 2026-08-24. Unrelated concurrent unstaged
+work is not counted as shipped. A check mark therefore means the capability is
+in the committed product boundary, not merely described in another plan or
+present in an unrelated local diff.
 
 - **Done** — implemented on `main`, reachable through its intended product
   surface, and covered by focused deterministic checks.
@@ -84,7 +84,7 @@ Current verification snapshot:
 | Switchboard Pack Compaction | The deterministic no-model adapter, read-only pack preference, selective activation, native readiness, source spans, hashes, and zero-wrong-omission gate are Switchboard-owned | Persisted mode/tool ID `chonkify` remains accepted only for backwards compatibility | Keep the compatibility alias out of user-visible copy and never attribute this implementation to upstream Chonkify |
 | Leanctx | Loopback-only shadow setup and selective activation/rollback are visible | Requires an already configured executable despite UI copy saying install-and-enable; remains shadow-only | Correct the copy, pin a supported runtime/version if distribution is desired, and pass health/containment/promotion evidence before live routing |
 | OSS harness reuse | Internal pinned DeepSeek Harness preview adapter, maturity audit/context prototype, redacted replay, deterministic strategy fixtures, session-event prototype, and shared metadata-only registry | DeepSeek is not in the normal connector UI; Switchyard and JCode are evaluated references; `twaldin/harness` contributes only a contract idea | Expose DeepSeek honestly as Experimental or remove prototype-only production modules; then choose and prove one optional pinned workflow |
-| UI visibility | Workbench and Routing are top-level routes; selective activation is in Addons; advanced Headroom settings are in Settings; inactive routes use `hidden` as navigation state rather than product concealment | Some controls correctly remain disabled because their backend is absent or unsafe | Maintain a reachability test for every production component and ensure every mounted hidden route suspends polling/subscriptions |
+| UI visibility | Workbench and Routing are top-level routes; selective activation is in Addons; advanced Headroom settings are in Settings; the shared support/quit footer is mounted with visible native-command errors; the assembled-app route test now includes Workbench; inactive routes use `hidden` as navigation state rather than product concealment | Some controls correctly remain disabled because their backend is absent or unsafe | Extend reachability from top-level routes to production components and ensure every mounted hidden route suspends polling/subscriptions |
 
 The largest product gap is therefore not another card or policy schema. The
 fake controller now proves the narrow lifecycle/persistence contract, but the
@@ -542,7 +542,7 @@ Switchboard's Router.
 | P1 — Ponytail done; other runtimes open | Reproducible self-contained add-on supply chain | Ponytail is pinned and bundled; MarkItDown pins the top package but `[all]` transitives are not locked, while RTK and leanctx remain external | Apply the Ponytail source-manifest/hash/licence pattern to each remaining runtime with offline tests and receipt-owned rollback |
 | P1 — Foundation done | OSS identity and UI reconciliation | JCode references disagree; several features are external while Caveman and pack compaction are native | The machine inventory and notice index now expose current truth and target delivery; remaining entries cannot be marked complete while external/runtime-download flags remain true |
 | P2 | Receipt retention and repair | Grant/admission ledgers fail when they reach 128 records; partial add-on runtimes need recovery | Terminal/inactive record reclamation is deterministic and auditable; UI offers non-destructive export/repair rather than silent deletion |
-| P2 | Route/component reachability contract | A production component can regress into an imported-only or polling-while-hidden state | Test maps every top-level route to navigation and asserts inactive mounted views suspend timers/subscriptions |
+| P2 — route map done; component/polling checks open | Route/component reachability contract | A production component can regress into an imported-only or polling-while-hidden state | The assembled-app test maps every top-level route, including Workbench, to navigation; next map production components and assert inactive mounted views suspend timers/subscriptions |
 | P2 — Done for Ponytail | OSS optional profile | Evaluations alone do not create user value | The pinned Ponytail profile is disabled by default and has attribution, integrity checks, diagnostics, explicit activation, and receipt-owned uninstall evidence |
 
 ## Remove or keep out
@@ -613,8 +613,18 @@ started by weakening an earlier gate.
    index, research-only intent, truthful delivery states, aggregate validation,
    bundled governance resources, and the Switchboard Pack Compaction
    identity/compatibility migration.
-6. **Fake process controller** — no real CLI; deterministic resolver, registry,
-   output/redaction, timeout/cancel/cleanup state machine and tests.
+6. **Fake process lifecycle — Done (`321d254a`)** — no real CLI or Tauri
+   command; current-grant gate, registry/state transitions, bounded content-free
+   stream metadata, exact-byte CAS, launch-epoch reconciliation, terminal
+   reclamation/finality, and deterministic tests.
+6. **Settings and route reachability repair — Done with this update** — mount
+   the existing support/quit component in production Settings so command errors
+   are visible, and include Workbench in the assembled every-sidebar-route
+   contract.
+6. **Verified-routing admission test seam — next** — inject only deterministic
+   verifier/storage test dependencies into the existing admission orchestration;
+   prove denied/error verification cannot persist an admission and add no new
+   command or execution authority.
 7. **Codex probe and opt-in manual harness** — fixed binary catalog/version,
    disposable workspace, no provider credential, no workspace write.
 8. **Single Codex executor** — new explicit execution capability, ephemeral task
@@ -662,6 +672,10 @@ git diff --check
 
 Current gate truth on 2026-08-24:
 
+- Settings/footer/assembled-route reachability: `13 passed` across three
+  frontend suites; support and quit preserve exact native commands, rejected
+  support commands are visible in production Settings, and Workbench is part
+  of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
 - Native Workbench: `64 passed`, including `14` deterministic fake-controller
