@@ -16,6 +16,7 @@ import { ClientSavingsTrendsCard } from "./ClientSavingsTrendsCard";
 import { DailySavingsChart } from "./DailySavingsChart";
 import { OutputReductionChip } from "./OutputReductionChip";
 import { SavingsCalculatorCard } from "./SavingsCalculatorCard";
+import { SavingsAttributionCountersPanel } from "./SavingsAttributionCountersPanel";
 import type { SavingsChartMode } from "./SavingsChartTooltip";
 
 interface UsageSavingsViewProps {
@@ -143,6 +144,7 @@ export function UsageSavingsView({
           scope={savingsCalculatorScope}
           onScopeChange={setSavingsCalculatorScope}
         />
+        <SavingsAttributionCountersPanel hidden={hidden} />
 
         <ClientSavingsTrendsCard dashboard={dashboard} />
 
