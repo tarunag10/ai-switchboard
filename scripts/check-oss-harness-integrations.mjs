@@ -12,6 +12,8 @@ const required = [
   "src-tauri/src/dsh_context_prototype.rs",
   "scripts/oss-harness-strategies.mjs",
   "scripts/oss-harness-strategies.node-test.mjs",
+  "scripts/oss-session-events.mjs",
+  "scripts/oss-session-events.node-test.mjs",
 ];
 const failures = [];
 for (const relative of required) {

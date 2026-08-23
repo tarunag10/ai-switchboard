@@ -53,6 +53,11 @@ health checks, fail-closed exhaustion, and `automaticPromotion: disabled`.
 The fixtures are covered by `scripts/oss-harness-strategies.node-test.mjs` and
 remain outside the live proxy route path.
 
+The session-event backbone is implemented in `scripts/oss-session-events.mjs`.
+It enforces bounded contiguous metadata events, redaction, attach/pause/resume/
+cancel/complete lifecycle transitions, and deterministic fork-at-event IDs;
+all outputs remain observe-only and local.
+
 ## Current next slice
 
 The first local replay slice is `scripts/oss-harness-replay.mjs`. It consumes
