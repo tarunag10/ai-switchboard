@@ -16,7 +16,7 @@ use crate::managed_files::{
     backup_if_exists, managed_marker_end, managed_marker_start, parse_json_object,
     remove_managed_block, upsert_managed_block, write_file_if_changed,
 };
-use crate::switchboard_identity::SwitchboardIdentitySlug;
+use crate::switchboard_identity::{primary_marker_prefix, SwitchboardIdentitySlug};
 
 fn markitdown_claude_md_path() -> PathBuf {
     home_dir().join(".claude").join("CLAUDE.md")
@@ -168,13 +168,24 @@ fn caveman_codex_agents_path() -> PathBuf {
     codex_home().join("AGENTS.md")
 }
 
-/// The exact Switchboard-owned Caveman blocks for configured clients. The
-/// snapshot stores no absolute paths: client IDs are stable and the blocks are
-/// narrowly limited to the managed guidance that selective rollback owns.
+/// A non-sensitive observation of a single Switchboard-owned Caveman block.
+/// `level` is present only for canonical guidance that this build can recreate;
+/// custom or legacy content is recorded as an opaque fingerprint and is never
+/// overwritten by the rollback-capable activation flow.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CavemanManagedBlockSnapshot {
+    pub level: Option<String>,
+    pub fingerprint: String,
+}
+
+/// Switchboard-owned Caveman blocks for configured clients. The receipt uses
+/// logical client IDs and canonical levels/fingerprints only—never paths,
+/// whole instruction files, or arbitrary user-authored prompt text.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CavemanIntegrationSnapshot {
-    pub blocks: BTreeMap<String, String>,
+    pub blocks: BTreeMap<String, CavemanManagedBlockSnapshot>,
 }
 
 fn configured_caveman_clients() -> Vec<(&'static str, PathBuf)> {
@@ -263,6 +274,23 @@ fn caveman_block_fingerprint(block: &str) -> String {
     format!("sha256:{:x}", hasher.finalize())
 }
 
+fn canonical_caveman_block(level: &str) -> String {
+    let start = managed_marker_start(primary_marker_prefix(), "caveman");
+    let end = managed_marker_end(primary_marker_prefix(), "caveman");
+    format!("{start}\n{}\n{end}", build_caveman_nudge(level))
+}
+
+fn caveman_block_snapshot(block: &str) -> CavemanManagedBlockSnapshot {
+    let level = ["scoped", "aggressive", "compact_chinese"]
+        .into_iter()
+        .find(|level| canonical_caveman_block(level) == block)
+        .map(str::to_string);
+    CavemanManagedBlockSnapshot {
+        level,
+        fingerprint: caveman_block_fingerprint(block),
+    }
+}
+
 /// Terse-output guidance body keyed by level. Scoped is the conservative
 /// default: terse only where short output is safe, never hiding required
 /// legal, safety, or debugging detail. Aggressive asks for terseness broadly.
@@ -335,7 +363,7 @@ pub fn caveman_integration_snapshot() -> Result<CavemanIntegrationSnapshot> {
     let mut blocks = BTreeMap::new();
     for (client_id, path) in configured_caveman_clients() {
         if let Some(block) = caveman_block_at(&path)? {
-            blocks.insert(client_id.to_string(), block);
+            blocks.insert(client_id.to_string(), caveman_block_snapshot(&block));
         }
     }
     Ok(CavemanIntegrationSnapshot { blocks })
@@ -346,22 +374,34 @@ pub fn caveman_integration_snapshot() -> Result<CavemanIntegrationSnapshot> {
 /// user edit while allowing unrelated instructions in the same file to evolve.
 pub fn restore_caveman_client_if_unchanged(
     client_id: &str,
-    previous_block: Option<&str>,
-    after_block: Option<&str>,
+    previous_block: Option<&CavemanManagedBlockSnapshot>,
+    after_block: Option<&CavemanManagedBlockSnapshot>,
 ) -> Result<bool> {
     let path = caveman_client_path(client_id)
         .ok_or_else(|| anyhow!("unknown Caveman client identifier: {client_id}"))?;
-    let current = caveman_block_at(&path)?;
-    if current.as_deref() != after_block {
-        let expected = after_block.map(caveman_block_fingerprint);
-        let actual = current.as_deref().map(caveman_block_fingerprint);
+    let current = caveman_block_at(&path)?
+        .as_deref()
+        .map(caveman_block_snapshot);
+    if current.as_ref() != after_block {
+        let expected = after_block.map(|block| block.fingerprint.as_str());
+        let actual = current.as_ref().map(|block| block.fingerprint.as_str());
         bail!(
             "Caveman block changed after activation for {client_id} (expected {}, found {})",
             expected.as_deref().unwrap_or("absent"),
             actual.as_deref().unwrap_or("absent")
         );
     }
-    replace_caveman_block(&path, previous_block)
+    let replacement = match previous_block {
+        Some(previous_block) => {
+            let level = previous_block
+                .level
+                .as_deref()
+                .context("Caveman block predates the canonical rollback contract")?;
+            Some(canonical_caveman_block(level))
+        }
+        None => None,
+    };
+    replace_caveman_block(&path, replacement.as_deref())
 }
 
 pub fn caveman_integration_matches_level(level: &str) -> Result<bool> {
@@ -515,7 +555,8 @@ fn shell_double_quote(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        caveman_block_fingerprint, caveman_block_range, remove_markitdown_cache_if_present,
+        canonical_caveman_block, caveman_block_fingerprint, caveman_block_range,
+        caveman_block_snapshot, remove_markitdown_cache_if_present,
         remove_markitdown_hook_if_present,
     };
 
@@ -560,5 +601,17 @@ mod tests {
             caveman_block_fingerprint(&content[start..end]),
             caveman_block_fingerprint(content)
         );
+    }
+
+    #[test]
+    fn caveman_snapshot_keeps_only_canonical_level_and_fingerprint() {
+        let canonical = canonical_caveman_block("scoped");
+        assert_eq!(
+            caveman_block_snapshot(&canonical).level.as_deref(),
+            Some("scoped")
+        );
+        assert!(caveman_block_snapshot("# custom caveman marker")
+            .level
+            .is_none());
     }
 }

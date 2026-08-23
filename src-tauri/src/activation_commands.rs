@@ -286,6 +286,22 @@ fn caveman_snapshot(state: &AppState) -> Result<CavemanActivationSnapshot, Strin
     })
 }
 
+fn validate_caveman_snapshot(snapshot: &CavemanActivationSnapshot) -> Result<(), String> {
+    let unknown_clients: Vec<&str> = snapshot
+        .integration
+        .blocks
+        .iter()
+        .filter_map(|(client_id, block)| block.level.is_none().then_some(client_id.as_str()))
+        .collect();
+    if unknown_clients.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "Caveman has custom or legacy managed guidance for {}; update it from Addons before selective activation so it can be restored safely.",
+        unknown_clients.join(", ")
+    ))
+}
+
 fn newly_created_ponytail_hosts(
     previous: &PonytailActivationSnapshot,
     after: &PonytailActivationSnapshot,
@@ -658,6 +674,9 @@ pub async fn activate_selected_tools(
         .any(|id| id == "caveman")
         .then(|| caveman_snapshot(&state))
         .transpose()?;
+    if let Some(snapshot) = previous_caveman.as_ref() {
+        validate_caveman_snapshot(snapshot)?;
+    }
     let mut owned_changes = Vec::new();
     if selected_tool_ids
         .iter()
@@ -1002,13 +1021,11 @@ pub async fn rollback_selective_activation(
                     previous
                         .integration
                         .blocks
-                        .get(&client_id)
-                        .map(String::as_str),
+                        .get(&client_id),
                     after
                         .integration
                         .blocks
-                        .get(&client_id)
-                        .map(String::as_str),
+                        .get(&client_id),
                 ) {
                     Ok(_) => rollback_results.push(SelectiveRollbackResult {
                         tool_id,
@@ -1261,11 +1278,11 @@ pub fn save_selective_activation_selection(
 #[cfg(test)]
 mod tests {
     use super::{
-        changed_caveman_clients, chonkify_gate, newly_created_ponytail_hosts, validate_ids,
-        validate_rollback_request, CavemanActivationSnapshot, PonytailActivationSnapshot,
-        SelectiveActivationReceipt,
+        changed_caveman_clients, chonkify_gate, newly_created_ponytail_hosts,
+        validate_caveman_snapshot, validate_ids, validate_rollback_request,
+        CavemanActivationSnapshot, PonytailActivationSnapshot, SelectiveActivationReceipt,
     };
-    use crate::client_adapters::CavemanIntegrationSnapshot;
+    use crate::client_adapters::{CavemanIntegrationSnapshot, CavemanManagedBlockSnapshot};
     use crate::models::SwitchboardMode;
     use serde_json::json;
     use std::collections::BTreeMap;
@@ -1335,8 +1352,20 @@ mod tests {
             receipt: Some(json!({ "enabled": false })),
             integration: CavemanIntegrationSnapshot {
                 blocks: BTreeMap::from([
-                    ("claude-code".into(), "existing".into()),
-                    ("codex".into(), "unchanged".into()),
+                    (
+                        "claude-code".into(),
+                        CavemanManagedBlockSnapshot {
+                            level: Some("scoped".into()),
+                            fingerprint: "existing".into(),
+                        },
+                    ),
+                    (
+                        "codex".into(),
+                        CavemanManagedBlockSnapshot {
+                            level: Some("scoped".into()),
+                            fingerprint: "unchanged".into(),
+                        },
+                    ),
                 ]),
             },
         };
@@ -1344,8 +1373,20 @@ mod tests {
             receipt: Some(json!({ "enabled": true })),
             integration: CavemanIntegrationSnapshot {
                 blocks: BTreeMap::from([
-                    ("claude-code".into(), "rewritten".into()),
-                    ("codex".into(), "unchanged".into()),
+                    (
+                        "claude-code".into(),
+                        CavemanManagedBlockSnapshot {
+                            level: Some("scoped".into()),
+                            fingerprint: "rewritten".into(),
+                        },
+                    ),
+                    (
+                        "codex".into(),
+                        CavemanManagedBlockSnapshot {
+                            level: Some("scoped".into()),
+                            fingerprint: "unchanged".into(),
+                        },
+                    ),
                 ]),
             },
         };
@@ -1353,6 +1394,23 @@ mod tests {
             changed_caveman_clients(&previous, &after),
             vec!["claude-code"]
         );
+    }
+
+    #[test]
+    fn caveman_snapshot_rejects_custom_managed_guidance() {
+        let snapshot = CavemanActivationSnapshot {
+            receipt: None,
+            integration: CavemanIntegrationSnapshot {
+                blocks: BTreeMap::from([(
+                    "codex".into(),
+                    CavemanManagedBlockSnapshot {
+                        level: None,
+                        fingerprint: "sha256:custom".into(),
+                    },
+                )]),
+            },
+        };
+        assert!(validate_caveman_snapshot(&snapshot).is_err());
     }
 
     fn receipt() -> SelectiveActivationReceipt {
