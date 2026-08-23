@@ -161,6 +161,9 @@ the current checkout.
 - Local Repo Intelligence summary validation now reports corrupt generated JSON
   with a concise operator error, and its local check command runs the
   corruption regression harness before accepting a report.
+- Local release artifact selection now rejects same-version DMGs that do not
+  carry the Switchboard product identity before applying freshness/tie-break
+  selection.
 
 ### Done — prepared and shipped
 
