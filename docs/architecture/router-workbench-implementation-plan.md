@@ -38,12 +38,12 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `41e402c9` plus the
-receipt-eligibility change recorded in this commit, and against the visible
-frontend/native command wiring on 2026-08-24. Unrelated concurrent unstaged
-work is not counted as shipped. A check mark therefore means the capability is
-in the committed product boundary, not merely described in another plan or
-present in an unrelated local diff.
+This status was reconciled against committed `main` through `9b61b283` plus the
+deterministic fake-controller phase recorded with this update, and against the
+visible frontend/native command wiring on 2026-08-24. Unrelated concurrent
+unstaged work is not counted as shipped. A check mark therefore means the
+capability is in the committed product boundary, not merely described in
+another plan or present in an unrelated local diff.
 
 - **Done** — implemented on `main`, reachable through its intended product
   surface, and covered by focused deterministic checks.
@@ -60,7 +60,9 @@ Current verification snapshot:
 
 - `19` focused Workbench bridge/view tests pass, including historical receipt
   visibility and late-plan invalidation.
-- `50` focused native `workbench_kernel` tests pass.
+- `64` focused native `workbench_kernel` tests pass, including `14` fake
+  process-controller lifecycle, restart, authorization, persistence, and
+  fail-closed CAS tests.
 - The model-routing evidence gate passes: `13` Node contract tests, `35`
   native model-routing tests, and `18` native telemetry-store tests.
 - `npm run build` passes after preserving the authoritative
@@ -74,7 +76,7 @@ Current verification snapshot:
 | Area | Already done | Prepared or partial | Still left |
 |---|---|---|---|
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
-| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, and durable Codex admission | Admission reaches only `authorized_not_started`; no binary, task payload, workspace handle, PID, output, or provider request exists | Native supervisor, version probe, process ownership, timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
+| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | The controller models lifecycle and persistence only; no binary, task payload, workspace handle, PID, output, provider request, Tauri command, or actual process exists | Native supervisor, version probe, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, and drift-safe rollback cover the managed actions | A run can end `partial`; the UI remembers only the current component's last run ID even though native state is persisted | Restore native selection/last receipt after restart, expose receipt history, and add safe retry/resume for failed tools without reapplying successful tools |
 | Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
@@ -84,12 +86,13 @@ Current verification snapshot:
 | OSS harness reuse | Internal pinned DeepSeek Harness preview adapter, maturity audit/context prototype, redacted replay, deterministic strategy fixtures, session-event prototype, and shared metadata-only registry | DeepSeek is not in the normal connector UI; Switchyard and JCode are evaluated references; `twaldin/harness` contributes only a contract idea | Expose DeepSeek honestly as Experimental or remove prototype-only production modules; then choose and prove one optional pinned workflow |
 | UI visibility | Workbench and Routing are top-level routes; selective activation is in Addons; advanced Headroom settings are in Settings; inactive routes use `hidden` as navigation state rather than product concealment | Some controls correctly remain disabled because their backend is absent or unsafe | Maintain a reachability test for every production component and ensure every mounted hidden route suspends polling/subscriptions |
 
-The largest product gap is therefore not another card or policy schema. It is
-the narrow native execution seam between a valid Workbench admission and one
-owned, cancellable Codex child process. The largest Router gap is the separate
-seam between observe-only decisions and a real request completion lifecycle.
-Neither gap should be filled by exposing arbitrary commands, paths, prompts,
-or provider credentials to the renderer.
+The largest product gap is therefore not another card or policy schema. The
+fake controller now proves the narrow lifecycle/persistence contract, but the
+remaining gap is the real native execution seam between a valid Workbench
+admission and one owned, cancellable Codex child process. The largest Router
+gap is the separate seam between observe-only decisions and a real request
+completion lifecycle. Neither gap should be filled by exposing arbitrary
+commands, paths, prompts, or provider credentials to the renderer.
 
 ## Current inventory
 
@@ -105,6 +108,7 @@ or provider credentials to the renderer.
 | Selective activation receipts | `activation_commands.rs` | Done | Use the same ownership/rollback model for future capability changes. |
 | Durable Workbench session/run authority | `src-tauri/src/workbench_kernel/` | Done, plan-only | Persist opaque sessions and prepare non-executable router/adapter plans. |
 | Process authorization and admission | `capability_grant.rs`, `process_supervisor.rs` | Prepared, non-executing | Revalidate a plan, issue/revoke a fixed-expiry grant, and record Codex `authorized_not_started`; do not describe this as process supervision. |
+| Fake process lifecycle controller | `process_controller.rs` and its focused submodules | Done as deterministic no-process infrastructure | Revalidate the durable grant ledger at start, persist content-free state with exact-byte CAS, preserve same-launch ownership, orphan changed-launch active receipts once, reclaim terminal receipts with non-resurrectable tombstones, and keep this crate-only until a separate real-executor gate passes. |
 | Select-five optimization UI | `SelectiveActivationCard.tsx`, `activationTools.ts` | Done, restart follow-up open | Keep exactly five of the ten explicit tools and show each native result; add native last-receipt recovery. |
 | DeepSeek Harness preview adapter | `deepseek_harness.rs`, `dsh_plugin_maturity.rs` | Prepared, internal experimental pin | Expose its normal consent/verify/rollback lifecycle as an explicit Experimental connector or remove production-only prototypes; retain guided-only fallback for unknown versions. |
 | Real agent execution backend | — | Remaining build, deliberately gated | Add only after the non-autonomous kernel and UI are verified. |
@@ -365,8 +369,11 @@ Deliverables:
 - [x] Require `session.status == active` independently in both the admission
   command and core admission function. Terminal session state denies admission
   even if a pre-existing grant record still appears active.
-- [ ] Repeat the authoritative session/grant/plan revalidation immediately
-  before future execution. No execution boundary exists yet.
+- [x] Repeat active-session, exact process/admission binding, and current
+  durable-grant/time revalidation immediately before the fake controller's
+  `authorized -> starting` transition. A real executor must additionally load
+  authoritative persisted session/admission/plan state and atomically consume
+  or claim the grant at its final process-start boundary.
 - [x] Make terminal transition and grant retirement fail-safe across the two
   ledgers, or make session state the authoritative denial and treat revocation
   as cleanup. The terminal transition now remains successful and authoritative
@@ -396,12 +403,21 @@ Deliverables:
   snapshot and discards late plan responses by revision.
 - [ ] Version probing or runnable-binary validation, only after an explicit
   process-start capability and containment/receipt model are available.
-- [ ] Process registry, actual bounded timeout/cancel enforcement,
-  content-free metrics, receipt-backed cleanup, and a separately gated native
-  executor. The current authorization receipt is intentionally insufficient to
-  start or supervise a process.
-- [ ] Deterministic fake-adapter tests, then a separate opt-in local manual
-  test. No provider credentials are read by the planning path.
+- [x] Add a crate-only deterministic fake process registry and state machine.
+  It performs no process, shell, network, provider, workspace, or Tauri action;
+  persists only bounded content-free stream counters and digests; uses exact-
+  byte compare-and-swap; distinguishes same-launch opens from changed-launch
+  orphan reconciliation; and reclaims the oldest terminal receipt while
+  retaining a non-resurrectable retired-run tombstone.
+- [ ] Add actual bounded timeout/cancel enforcement, process ownership and
+  reaping, receipt-backed cleanup, and a separately gated native executor. The
+  current authorization/admission/fake-controller chain is intentionally
+  insufficient to start or supervise a process.
+- [x] Add deterministic fake-controller tests for lifecycle idempotency,
+  invalid transitions, active-session/current-grant revalidation, bounded
+  redacted stream metadata, capacity/reclamation/finality, restart epochs,
+  corrupt content, stale writers, byte-only drift, deletion, and symlink
+  substitution. A separate opt-in local manual process test remains gated.
 
 Immediate Phase 4 order:
 
@@ -411,11 +427,15 @@ Immediate Phase 4 order:
 2. **4.2 Receipt and consent UX — done** — session-level history, expiry refresh,
    immutable prepared-plan summary, input-change invalidation, and truthful
    historical-versus-current labels.
-3. **4.3 Owned process controller** — Workbench-specific fixed command catalog,
-   version probe, app-owned process group, null stdin, environment allowlist,
-   bounded redacted buffers, fixed timeout, idempotent cancellation, reaping,
-   and TERM-then-KILL cleanup. Reuse process-group and Leanctx shutdown ideas,
-   not the generic runner's argument/stdout/stderr-bearing error surface.
+3. **4.3 Owned process controller — fake lifecycle foundation done; real
+   controller remaining** — the deterministic no-process registry, current
+   grant gate, state transitions, CAS persistence, restart epoch, terminal
+   finality, and bounded content-free stream metadata are implemented. Still
+   add the Workbench-specific fixed command catalog, version probe, app-owned
+   process group, null stdin, environment allowlist, bounded redacted buffers,
+   fixed timeout, idempotent cancellation, reaping, and TERM-then-KILL cleanup.
+   Reuse process-group and Leanctx shutdown ideas, not the generic runner's
+   argument/stdout/stderr-bearing error surface.
 4. **4.4 One-adapter opt-in executor** — canonical Codex only, behind a new
    explicit execution capability. Revalidate session, grant, admission,
    adapter/routing verification, binary identity, and workspace digest at the
@@ -439,10 +459,11 @@ Deliverables:
 - [ ] Bounded ephemeral task envelope, separately consented and digest-bound to
   the grant/admission. Do not persist prompt/task text in session, grant,
   admission, telemetry, crash, or execution-receipt ledgers.
-- [ ] Native run state machine (`starting`, `running`, `cancelling`, terminal),
-  immutable content-free exit receipt, restart reconciliation, stale-process
-  cleanup, and user-visible diagnostics that cannot disclose command output or
-  credentials.
+- [ ] Promote the tested fake run state machine (`starting`, `running`,
+  `stopping`, terminal), immutable content-free receipt, launch-epoch
+  reconciliation, and terminal finality into a real owned-process controller;
+  then add stale-process cleanup and user-visible diagnostics that cannot
+  disclose command output or credentials.
 - [ ] Goal queue, bounded subagent scheduler, workspace lock/conflict model,
   and human approval checkpoints.
 - [ ] Attach/resume/cancel and replay/fork semantics with execution receipts.
@@ -643,8 +664,8 @@ Current gate truth on 2026-08-24:
 
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `50 passed`; the focused Workbench bridge/view gate has
-  `19 passed`.
+- Native Workbench: `64 passed`, including `14` deterministic fake-controller
+  tests; the focused Workbench bridge/view gate has `19 passed`.
 - Model-routing evidence: `13` Node, `35` native routing, and `18` native
   telemetry tests pass.
 - Switchboard Pack Compaction promotion gate: passes with
@@ -660,7 +681,7 @@ Current gate truth on 2026-08-24:
   authoritative ledger contains `11` entries (`3` complete, `1` partial, `5`
   pending, `2` blocked) and forbids runtime downloads in the target state.
 - Bundled Ponytail: the `ponytail` native selector passes `17` tests, the
-activation-command selector passes `12`, and `8` managed-file tests pass,
+  activation-command selector passes `12`, and `8` managed-file tests pass,
   covering atomic replacement and failure preservation, resource integrity,
   frontmatter stripping, managed-block parsing, schema-2/3 plugin versus
   schema-4 guidance ownership, status, attribution, and selective rollback

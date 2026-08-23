@@ -8,6 +8,7 @@ mod adapter_readiness;
 mod capability_grant;
 mod events;
 mod presets;
+pub(crate) mod process_controller;
 mod process_eligibility;
 mod process_run_spec;
 mod process_supervisor;
