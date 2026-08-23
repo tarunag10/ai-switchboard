@@ -539,6 +539,14 @@ requireType(report, "installedSmoke.appPath", "string");
 requireType(report, "installedSmoke.appInfoPlistPath", "string");
 requireType(report, "installedSmoke.smokeSummaryPath", "string");
 requireType(report, "installedSmoke.betaSmokeDoc", "string");
+for (const field of ["artifactSha256", "recordedArtifactSha256"]) {
+  if (
+    report.installedSmoke[field] !== null &&
+    typeof report.installedSmoke[field] !== "string"
+  ) {
+    fail(`installedSmoke.${field} must be string or null`);
+  }
+}
 const currentChecklistSha256 = report.installedSmoke.currentChecklistSha256;
 if (
   currentChecklistSha256 !== null &&
