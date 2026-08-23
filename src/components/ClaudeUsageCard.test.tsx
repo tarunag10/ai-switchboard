@@ -13,7 +13,7 @@ describe("ClaudeUsageCard", () => {
     render(<ClaudeUsageCard hidden={false} />);
     expect(await screen.findByText("Five-hour window")).toBeInTheDocument();
     expect(screen.getByText("42.5% used")).toBeInTheDocument();
-    expect(screen.getByText(/Extra usage: enabled/)).toBeInTheDocument();
+    expect(screen.getByText(/Extra usage: enabled.*2 credits used of 20 monthly/)).toBeInTheDocument();
     load.mockResolvedValueOnce({ fiveHour: null, sevenDay: null, extraUsage: null });
     fireEvent.click(screen.getByRole("button", { name: "Refresh usage" }));
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));

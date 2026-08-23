@@ -65,6 +65,8 @@ export function ClaudeUsageCard({ hidden }: { hidden: boolean }) {
           <p className="optimize-minimal__meta">
             Extra usage: {usage.extraUsage ? usage.extraUsage.isEnabled ? "enabled" : "disabled" : "Unavailable"}
             {usage.extraUsage?.utilization !== null && usage.extraUsage?.utilization !== undefined ? ` · ${percent(usage.extraUsage.utilization)}` : ""}
+            {usage.extraUsage?.usedCredits !== null && usage.extraUsage?.usedCredits !== undefined ? ` · ${usage.extraUsage.usedCredits} credits used` : ""}
+            {usage.extraUsage?.monthlyLimit !== null && usage.extraUsage?.monthlyLimit !== undefined ? ` of ${usage.extraUsage.monthlyLimit} monthly` : ""}
           </p>
         </>
       ) : null}
