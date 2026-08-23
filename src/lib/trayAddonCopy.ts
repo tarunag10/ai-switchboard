@@ -34,15 +34,15 @@ export const addonCopy: Record<string, AddonCopy> = {
   },
   markitdown: {
     whatItDoes:
-      "MarkItDown installs into the managed Python runtime, registers a document Read hook, and adds one Switchboard-owned Claude permission for its app-owned conversion shim. Documents can be converted to Markdown before an agent reads them, without installing anything system-wide.",
+      "MarkItDown installs into the managed Python runtime, registers a document Read hook, adds one Switchboard-owned Claude permission for its app-owned conversion shim, and uses a local /tmp/headroom-markitdown conversion cache. Documents can be converted to Markdown before an agent reads them, without installing anything system-wide.",
     installing: "Installing MarkItDown and registering the Read hook...",
-    uninstalling: "Removing MarkItDown and its Read hook...",
+    uninstalling: "Removing MarkItDown, its Read hook, permission, and local conversion cache...",
     uninstalled:
       "MarkItDown removed. Your agent reads documents in their original format again.",
     enabling: "Enabling MarkItDown...",
-    disabling: "Disabling MarkItDown...",
+    disabling: "Disabling MarkItDown and removing its managed Read hook and permission...",
     disabled:
-      "MarkItDown is off. It stays installed but no longer converts documents.",
+      "MarkItDown is off. Its managed Read hook and permission are removed; the package stays installed but no longer converts documents.",
   },
   caveman: {
     whatItDoes:

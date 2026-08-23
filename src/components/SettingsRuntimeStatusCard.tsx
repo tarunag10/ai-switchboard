@@ -158,7 +158,7 @@ export function SettingsRuntimeStatusCard({
               return (
                 <button
                   key={s.name}
-                  aria-label={`${statusLabel}. Open Headroom dashboard`}
+                  aria-label={`${statusLabel}. Open routing dashboard`}
                   className="runtime-status__item runtime-status__item--clickable runtime-status__item-button"
                   onClick={s.onClick}
                   title={s.ok === null ? `${s.name} status unknown` : undefined}

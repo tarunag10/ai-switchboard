@@ -10,6 +10,7 @@ use url::Url;
 use crate::storage;
 
 pub const PROVIDER_UPSTREAM_PROFILE_FILE: &str = "provider-upstream-profiles.json";
+pub const PROVIDER_UPSTREAM_PROFILE_VERSION: u8 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
@@ -33,11 +34,31 @@ pub struct ProviderUpstreamProfilesState {
 impl ProviderUpstreamProfilesState {
     pub fn new() -> Self {
         Self {
-            version: 1,
+            version: PROVIDER_UPSTREAM_PROFILE_VERSION,
             openai: ProviderUpstreamOverride::default(),
             anthropic: ProviderUpstreamOverride::default(),
         }
     }
+}
+
+fn normalize_provider_upstream_profiles(
+    mut state: ProviderUpstreamProfilesState,
+) -> ProviderUpstreamProfilesState {
+    if state.version != PROVIDER_UPSTREAM_PROFILE_VERSION {
+        return ProviderUpstreamProfilesState::new();
+    }
+    state.version = PROVIDER_UPSTREAM_PROFILE_VERSION;
+    state
+}
+
+fn validate_provider_upstream_profile_version(state: &ProviderUpstreamProfilesState) -> Result<()> {
+    if state.version != PROVIDER_UPSTREAM_PROFILE_VERSION {
+        bail!(
+            "unsupported provider upstream profile version {}",
+            state.version
+        );
+    }
+    Ok(())
 }
 
 pub fn provider_upstream_profiles_path() -> PathBuf {
@@ -52,7 +73,9 @@ pub fn load_provider_upstream_profiles() -> ProviderUpstreamProfilesState {
         return ProviderUpstreamProfilesState::new();
     }
     match fs::read_to_string(&path) {
-        Ok(body) => serde_json::from_str(&body).unwrap_or_else(|_| ProviderUpstreamProfilesState::new()),
+        Ok(body) => serde_json::from_str(&body)
+            .map(normalize_provider_upstream_profiles)
+            .unwrap_or_else(|_| ProviderUpstreamProfilesState::new()),
         Err(err) => {
             log::warn!("load_provider_upstream_profiles: {err:#}");
             ProviderUpstreamProfilesState::new()
@@ -61,13 +84,14 @@ pub fn load_provider_upstream_profiles() -> ProviderUpstreamProfilesState {
 }
 
 pub fn save_provider_upstream_profiles(state: &ProviderUpstreamProfilesState) -> Result<()> {
-    validate_provider_upstream_profiles(state)?;
+    validate_provider_upstream_profile_version(state)?;
+    let state = normalize_provider_upstream_profiles(state.clone());
+    validate_provider_upstream_profiles(&state)?;
     let path = provider_upstream_profiles_path();
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
     }
-    let body = serde_json::to_vec_pretty(state)?;
+    let body = serde_json::to_vec_pretty(&state)?;
     let tmp = path.with_extension("json.tmp");
     fs::write(&tmp, body).with_context(|| format!("writing {}", tmp.display()))?;
     fs::rename(&tmp, &path).with_context(|| format!("renaming {}", path.display()))?;
@@ -182,10 +206,7 @@ pub fn test_provider_upstream_url(provider: &str, raw_url: &str) -> ProviderUpst
 }
 
 pub fn doctor_upstream_issue(state: &ProviderUpstreamProfilesState) -> Option<(String, String)> {
-    for (provider, override_state) in [
-        ("openai", &state.openai),
-        ("anthropic", &state.anthropic),
-    ] {
+    for (provider, override_state) in [("openai", &state.openai), ("anthropic", &state.anthropic)] {
         if !override_state.enabled {
             continue;
         }
@@ -245,5 +266,33 @@ mod tests {
         let mut command = Command::new("/bin/echo");
         apply_provider_upstream_env(&mut command, &state);
         assert!(validate_provider_upstream_profiles(&state).is_ok());
+    }
+
+    #[test]
+    fn unknown_versions_fail_closed_to_defaults() {
+        let mut state = ProviderUpstreamProfilesState::new();
+        state.version = 99;
+        state.openai.enabled = true;
+        assert_eq!(
+            normalize_provider_upstream_profiles(state),
+            ProviderUpstreamProfilesState::new()
+        );
+    }
+
+    #[test]
+    fn supported_version_is_canonicalized() {
+        let mut state = ProviderUpstreamProfilesState::new();
+        state.openai.enabled = true;
+        assert_eq!(
+            normalize_provider_upstream_profiles(state).version,
+            PROVIDER_UPSTREAM_PROFILE_VERSION
+        );
+    }
+
+    #[test]
+    fn unsupported_version_cannot_be_saved() {
+        let mut state = ProviderUpstreamProfilesState::new();
+        state.version = 99;
+        assert!(validate_provider_upstream_profile_version(&state).is_err());
     }
 }
