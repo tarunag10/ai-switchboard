@@ -32,3 +32,25 @@ test("rejects unsupported routes and malformed latency", () => {
   assert.throws(() => replayRedactedRouteEvents({ schemaVersion: 1, events: [{ ...events[0], latencyMs: -1 }] }), /latencyMs/);
 });
 
+test("accepts ingress observations and rejects duplicate or oversized input", () => {
+  const ingress = replayRedactedRouteEvents({
+    schemaVersion: 1,
+    events: [{ ...events[0], route: "ingress", outcome: "timeout" }],
+  });
+  assert.equal(ingress.routeCounts.ingress, 1);
+  assert.throws(
+    () => replayRedactedRouteEvents({ schemaVersion: 1, events: [events[0], events[0]] }),
+    /duplicate eventId/,
+  );
+  assert.throws(
+    () => replayRedactedRouteEvents({ schemaVersion: 1, events: Array.from({ length: 10_001 }, (_, index) => ({ ...events[0], eventId: `e-${index}` })) }),
+    /exceeds 10000 events/,
+  );
+});
+
+test("redaction checks sensitive keys case-insensitively", () => {
+  assert.throws(
+    () => replayRedactedRouteEvents({ schemaVersion: 1, events: [{ ...events[0], Authorization: "secret" }] }),
+    /sensitive field is not allowed/,
+  );
+});

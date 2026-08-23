@@ -3,24 +3,33 @@ import crypto from "node:crypto";
 const FORBIDDEN_KEYS = new Set([
   "prompt", "messages", "input", "output", "response", "body", "headers",
   "authorization", "apiKey", "api_key", "token", "secret", "credential",
-]);
-const ROUTES = new Set(["headroom", "direct_anthropic", "direct_openai", "cache", "switchyard_observe"]);
+].map((key) => key.toLowerCase()));
+const ROUTES = new Set(["ingress", "headroom", "direct_anthropic", "direct_openai", "cache", "switchyard_observe"]);
 const OUTCOMES = new Set(["success", "upstream_http_error", "connect_failure", "write_failure", "read_failure", "timeout", "client_disconnect", "local_rejection"]);
+const MAX_EVENTS = 10_000;
+const MAX_IDENTIFIER_LENGTH = 128;
 
 function rejectSensitive(value, path = "event") {
   if (!value || typeof value !== "object") return;
   for (const [key, child] of Object.entries(value)) {
-    if (FORBIDDEN_KEYS.has(key)) throw new Error(`sensitive field is not allowed: ${path}.${key}`);
+    if (FORBIDDEN_KEYS.has(key.toLowerCase())) throw new Error(`sensitive field is not allowed: ${path}.${key}`);
     rejectSensitive(child, `${path}.${key}`);
+  }
+}
+
+function validateIdentifier(value, label, index) {
+  if (typeof value !== "string" || value.trim() === "" || value.length > MAX_IDENTIFIER_LENGTH || [...value].some((character) => character.charCodeAt(0) < 32)) {
+    throw new Error(`event ${index} requires a bounded ${label}`);
   }
 }
 
 function validateEvent(event, index) {
   if (!event || typeof event !== "object" || Array.isArray(event)) throw new Error(`event ${index} must be an object`);
   rejectSensitive(event, `events[${index}]`);
-  for (const key of ["eventId", "taskClass", "route", "outcome"]) {
-    if (typeof event[key] !== "string" || event[key].trim() === "") throw new Error(`event ${index} requires ${key}`);
-  }
+  validateIdentifier(event.eventId, "eventId", index);
+  validateIdentifier(event.taskClass, "taskClass", index);
+  validateIdentifier(event.route, "route", index);
+  validateIdentifier(event.outcome, "outcome", index);
   if (!ROUTES.has(event.route)) throw new Error(`event ${index} has unsupported route`);
   if (!OUTCOMES.has(event.outcome)) throw new Error(`event ${index} has unsupported outcome`);
   if (event.latencyMs !== undefined && (!Number.isSafeInteger(event.latencyMs) || event.latencyMs < 0)) {
@@ -32,7 +41,13 @@ export function replayRedactedRouteEvents(input) {
   if (!input || input.schemaVersion !== 1 || !Array.isArray(input.events)) {
     throw new Error("replay input requires schemaVersion 1 and an events array");
   }
+  if (input.events.length > MAX_EVENTS) throw new Error(`replay input exceeds ${MAX_EVENTS} events`);
   input.events.forEach(validateEvent);
+  const eventIds = new Set();
+  for (const event of input.events) {
+    if (eventIds.has(event.eventId)) throw new Error(`duplicate eventId: ${event.eventId}`);
+    eventIds.add(event.eventId);
+  }
   const canonical = input.events.map(({ eventId, taskClass, route, outcome, latencyMs = null }) => ({ eventId, taskClass, route, outcome, latencyMs }));
   const routeCounts = Object.fromEntries([...ROUTES].map((route) => [route, 0]));
   const outcomeCounts = Object.fromEntries([...OUTCOMES].map((outcome) => [outcome, 0]));
@@ -62,4 +77,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const raw = await import("node:fs/promises").then((fs) => fs.readFile(process.argv[2], "utf8"));
   console.log(JSON.stringify(replayRedactedRouteEvents(JSON.parse(raw)), null, 2));
 }
-
