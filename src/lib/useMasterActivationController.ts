@@ -244,6 +244,29 @@ export function useMasterActivationController({
           "The full local mode did not bring the Headroom runtime online.",
         );
       }
+      let managedAddonDetail = "Runtime and connector health refreshed.";
+      let managedAddonStatus: MasterFeatureStatus = "complete";
+      try {
+        const managedActivation = await invoke<{
+          receipt?: {
+            overallStatus?: string;
+            results?: Array<{ toolId: string; state: string; detail: string }>;
+          };
+        }>("activate_selected_tools", {
+          selectedToolIds: ["headroom", "rtk", "ponytail", "caveman", "markitdown"],
+        });
+        const results = managedActivation?.receipt?.results ?? [];
+        const failed = results.filter((item) => item.state === "failed");
+        managedAddonDetail = failed.length > 0
+          ? `Managed add-on activation was partial: ${failed.map((item) => `${item.toolId}: ${item.detail}`).join("; ")}`
+          : managedActivation?.receipt?.overallStatus === "succeeded"
+            ? "RTK, Ponytail, Caveman, and MarkItDown activation was applied through the native receipt path."
+            : "Managed add-on activation returned no native receipt; health was refreshed without claiming completion.";
+        if (failed.length > 0 || !managedActivation?.receipt) managedAddonStatus = "partial";
+      } catch (error) {
+        managedAddonStatus = "partial";
+        managedAddonDetail = `Managed add-on activation needs attention: ${error instanceof Error ? error.message : "native activation failed."}`;
+      }
       let leanctxSidecar: {
         configured: boolean;
         promotion?: {
@@ -337,8 +360,8 @@ export function useMasterActivationController({
         refreshDoctorReport(),
       ]);
       setMasterFeature("addons", {
-        status: "complete",
-        detail: "Runtime and connector health refreshed.",
+        status: managedAddonStatus,
+        detail: managedAddonDetail,
       });
       setMasterFeature("doctor", {
         status: "complete",

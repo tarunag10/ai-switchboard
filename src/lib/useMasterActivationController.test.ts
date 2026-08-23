@@ -234,6 +234,9 @@ describe("useMasterActivationController", () => {
 
     expect(setupResult.handleSetSwitchboardMode).toHaveBeenCalledWith("full");
     expect(mocks.invoke).toHaveBeenCalledWith("get_runtime_status");
+    expect(mocks.invoke).toHaveBeenCalledWith("activate_selected_tools", {
+      selectedToolIds: ["headroom", "rtk", "ponytail", "caveman", "markitdown"],
+    });
     expect(mocks.invoke).toHaveBeenCalledWith("set_semantic_cache_enabled", {
       enabled: true,
     });
