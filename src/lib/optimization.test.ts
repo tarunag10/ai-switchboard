@@ -349,12 +349,15 @@ describe("optimization helpers", () => {
       latencyMs: 700,
       followUpRework: false,
     };
-    invokeMock.mockResolvedValueOnce(handle).mockResolvedValueOnce(undefined);
+    const artifact = { evidenceClass: "local_runtime_observation", promotionEligible: false };
+    invokeMock.mockResolvedValueOnce(handle).mockResolvedValueOnce(undefined).mockResolvedValueOnce(artifact);
     await expect(issueModelRoutingCompletionHandle(input)).resolves.toEqual(handle);
     await expect(completeModelRoutingCompletion(handle.handleId, metrics)).resolves.toBeUndefined();
+    await expect(exportModelRoutingEvidence(handle.runId, "formatting")).resolves.toEqual(artifact);
     expect(invokeMock.mock.calls).toEqual([
       ["issue_model_routing_completion_handle", { input }],
       ["complete_model_routing_completion", { handleId: handle.handleId, metrics }],
+      ["export_model_routing_evidence", { runId: handle.runId, taskClass: "formatting" }],
     ]);
   });
 

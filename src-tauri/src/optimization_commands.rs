@@ -166,8 +166,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        complete_model_routing_completion_for_state, issue_model_routing_completion_handle_for_state,
-        record_model_routing_evidence,
+        complete_model_routing_completion_for_state, export_model_routing_evidence,
+        issue_model_routing_completion_handle_for_state, record_model_routing_evidence,
     };
     use crate::optimization::model_routing::{
         ModelRouteInput, ModelRoutingCompletionMetrics, ModelRoutingEvidenceArm,
@@ -238,6 +238,25 @@ mod tests {
             &state,
         )
         .expect("completion should persist");
+        record_model_routing_evidence(ModelRoutingEvidenceObservation {
+            run_id: handle.run_id.clone(),
+            captured_at: chrono::Utc::now().to_rfc3339(),
+            task_class: "formatting".to_string(),
+            arm: ModelRoutingEvidenceArm::Candidate,
+            baseline_model: "frontier".to_string(),
+            candidate_model: "fast/local".to_string(),
+            succeeded: true,
+            successful_task_cost_microunits: Some(700),
+            quality_score_bps: 9_700,
+            latency_ms: 820,
+            follow_up_rework: false,
+        })
+        .expect("paired candidate evidence should persist under the native run ID");
+        let artifact = export_model_routing_evidence(handle.run_id.clone(), "formatting".to_string())
+            .expect("native-issued run ID should export its evidence");
+        assert_eq!(artifact.provenance.run_id, handle.run_id);
+        assert_eq!(artifact.provenance.task_class, "formatting");
+        assert!(!artifact.promotion_eligible);
         let duplicate_error = complete_model_routing_completion_for_state(
             handle.handle_id,
             ModelRoutingCompletionMetrics {

@@ -210,6 +210,7 @@ export type ModelRoutingCompletionMetrics = ModelRoutingCompletionEvidence;
 
 export interface ModelRoutingCompletionHandle {
   handleId: string;
+  runId: string;
   issuedAt: string;
   expiresAt: string;
   decision: ModelRoutingRouteDecision;

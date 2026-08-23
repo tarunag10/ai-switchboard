@@ -186,13 +186,15 @@ pub(crate) struct ModelRouteDecision {
 }
 
 /// Native-issued capability for recording one completed routing run. The
-/// handle is intentionally opaque to the frontend; completion accepts only
-/// this identifier and content-free metrics, never a caller-supplied route
-/// decision.
+/// handle is opaque for completion; its native-generated run identifier is
+/// exposed only so the resulting redacted evidence can be exported without
+/// inventing provenance. Completion still accepts only the handle identifier
+/// and content-free metrics, never a caller-supplied route decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ModelRoutingCompletionHandle {
     pub(crate) handle_id: String,
+    pub(crate) run_id: String,
     pub(crate) issued_at: String,
     pub(crate) expires_at: String,
     pub(crate) decision: ModelRouteDecision,
@@ -231,6 +233,7 @@ pub(crate) fn new_completion_handle(
     (
         ModelRoutingCompletionHandle {
             handle_id,
+            run_id: run_id.clone(),
             issued_at: now.to_rfc3339(),
             expires_at: expires_at.to_rfc3339(),
             decision: decision.clone(),
