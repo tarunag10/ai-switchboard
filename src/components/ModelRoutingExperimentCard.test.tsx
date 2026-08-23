@@ -14,5 +14,7 @@ describe("ModelRoutingExperimentCard", () => {
     expect(markup).toContain("Disabled clients");
     expect(markup).toContain("100 samples");
     expect(markup).toContain("follow-up rework");
+    expect(markup).not.toContain("Record observation");
+    expect(markup).toContain("Export completion evidence");
   });
 });

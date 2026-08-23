@@ -183,22 +183,6 @@ export interface ModelRoutingInput {
   enabled: boolean;
 }
 
-export type ModelRoutingEvidenceArm = "baseline" | "candidate";
-
-export interface ModelRoutingEvidenceObservation {
-  runId: string;
-  capturedAt: string;
-  taskClass: string;
-  arm: ModelRoutingEvidenceArm;
-  baselineModel: string;
-  candidateModel: string;
-  succeeded: boolean;
-  successfulTaskCostMicrounits?: number | null;
-  qualityScoreBps: number;
-  latencyMs: number;
-  followUpRework: boolean;
-}
-
 export interface ModelRoutingRouteDecision {
   selectedModel: string;
   actualModel: string;
@@ -512,12 +496,6 @@ export async function saveModelRoutingExperimentPolicy(
   return invoke<ModelRoutingExperimentPolicy>("set_model_routing_experiment_policy", { policy });
 }
 
-export function recordModelRoutingEvidence(
-  observation: ModelRoutingEvidenceObservation,
-): Promise<void> {
-  return invoke<void>("record_model_routing_evidence", { observation });
-}
-
 export function issueModelRoutingCompletionHandle(
   input: ModelRoutingInput,
 ): Promise<ModelRoutingCompletionHandle> {
@@ -529,16 +507,6 @@ export function completeModelRoutingCompletion(
   metrics: ModelRoutingCompletionMetrics,
 ): Promise<void> {
   return invoke<void>("complete_model_routing_completion", { handleId, metrics });
-}
-
-export function exportModelRoutingEvidence(
-  runId: string,
-  taskClass: string,
-): Promise<ModelRoutingEvidenceArtifact> {
-  return invoke<ModelRoutingEvidenceArtifact>("export_model_routing_evidence", {
-    runId,
-    taskClass,
-  });
 }
 
 export function exportModelRoutingEvidenceForHandle(

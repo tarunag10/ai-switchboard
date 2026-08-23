@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defaultModelRoutingExperimentPolicy,
   defaultOptimizationActionPolicy,
-  exportModelRoutingEvidence,
   exportModelRoutingEvidenceForHandle,
   formatCompactNumber,
   getPromptCacheAction,
@@ -13,7 +12,6 @@ import {
   loadOptimizationSnapshot,
   normalizeOptimizationSnapshot,
   runPreemptiveCompaction,
-  recordModelRoutingEvidence,
   completeModelRoutingCompletion,
   issueModelRoutingCompletionHandle,
   modelRoutingEffectiveStageReceipt,
@@ -321,30 +319,6 @@ describe("optimization helpers", () => {
     ]);
   });
 
-  it("records and exports only the redacted observe-only routing evidence contract", async () => {
-    const observation = {
-      runId: "run-1",
-      capturedAt: "2026-08-21T10:00:00Z",
-      taskClass: "formatting",
-      arm: "baseline" as const,
-      baselineModel: "frontier",
-      candidateModel: "fast/local",
-      succeeded: true,
-      successfulTaskCostMicrounits: 1000,
-      qualityScoreBps: 9800,
-      latencyMs: 800,
-      followUpRework: false,
-    };
-    const artifact = { evidenceClass: "local_runtime_observation", promotionEligible: false };
-    invokeMock.mockResolvedValueOnce(undefined).mockResolvedValueOnce(artifact);
-    await expect(recordModelRoutingEvidence(observation)).resolves.toBeUndefined();
-    await expect(exportModelRoutingEvidence("run-1", "formatting")).resolves.toEqual(artifact);
-    expect(invokeMock.mock.calls).toEqual([
-      ["record_model_routing_evidence", { observation }],
-      ["export_model_routing_evidence", { runId: "run-1", taskClass: "formatting" }],
-    ]);
-  });
-
   it("uses native-issued handles for completion metrics", async () => {
     const input = {
       client: "claude_code",
@@ -366,11 +340,11 @@ describe("optimization helpers", () => {
     invokeMock.mockResolvedValueOnce(handle).mockResolvedValueOnce(undefined).mockResolvedValueOnce(artifact);
     await expect(issueModelRoutingCompletionHandle(input)).resolves.toEqual(handle);
     await expect(completeModelRoutingCompletion(handle.handleId, metrics)).resolves.toBeUndefined();
-    await expect(exportModelRoutingEvidence(handle.runId, "formatting")).resolves.toEqual(artifact);
+    await expect(exportModelRoutingEvidenceForHandle(handle.handleId, "formatting")).resolves.toEqual(artifact);
     expect(invokeMock.mock.calls).toEqual([
       ["issue_model_routing_completion_handle", { input }],
       ["complete_model_routing_completion", { handleId: handle.handleId, metrics }],
-      ["export_model_routing_evidence", { runId: handle.runId, taskClass: "formatting" }],
+      ["export_model_routing_evidence_for_handle", { handleId: handle.handleId, taskClass: "formatting" }],
     ]);
   });
 

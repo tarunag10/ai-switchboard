@@ -2,11 +2,8 @@ import { useState } from "react";
 
 import {
   completeModelRoutingCompletion,
-  exportModelRoutingEvidence,
   exportModelRoutingEvidenceForHandle,
   issueModelRoutingCompletionHandle,
-  recordModelRoutingEvidence,
-  type ModelRoutingEvidenceArm,
   type ModelRoutingEvidenceArtifact,
   type ModelRoutingCompletionHandle,
 } from "../lib/optimization";
@@ -14,9 +11,6 @@ import {
 type CaptureState = {
   runId: string;
   taskClass: string;
-  arm: ModelRoutingEvidenceArm;
-  baselineModel: string;
-  candidateModel: string;
   succeeded: boolean;
   costMicrounits: string;
   qualityScoreBps: string;
@@ -31,9 +25,6 @@ type CaptureState = {
 const initialState: CaptureState = {
   runId: "",
   taskClass: "formatting",
-  arm: "baseline",
-  baselineModel: "",
-  candidateModel: "",
   succeeded: true,
   costMicrounits: "",
   qualityScoreBps: "10000",
@@ -65,46 +56,21 @@ export function ModelRoutingEvidenceCapture() {
     setArtifact(null);
   };
 
-  const record = async () => {
-    setWorking(true);
-    setNotice(null);
-    setArtifact(null);
-    try {
-      await recordModelRoutingEvidence({
-        runId: state.runId.trim(),
-        capturedAt: new Date().toISOString(),
-        taskClass: state.taskClass.trim(),
-        arm: state.arm,
-        baselineModel: state.baselineModel.trim(),
-        candidateModel: state.candidateModel.trim(),
-        succeeded: state.succeeded,
-        successfulTaskCostMicrounits: state.succeeded
-          ? numericValue(state.costMicrounits, "Successful task cost")
-          : null,
-        qualityScoreBps: numericValue(state.qualityScoreBps, "Quality score"),
-        latencyMs: numericValue(state.latencyMs, "Latency"),
-        followUpRework: state.followUpRework,
-      });
-      setNotice("Redacted routing observation recorded locally.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setWorking(false);
-    }
-  };
-
   const exportRun = async () => {
+    if (!completionHandle) {
+      setNotice("Issue and complete a native completion handle before exporting evidence.");
+      return;
+    }
     setWorking(true);
     setNotice(null);
     try {
-      const next = completionHandle
-        ? await exportModelRoutingEvidenceForHandle(completionHandle.handleId, state.taskClass.trim())
-        : await exportModelRoutingEvidence(state.runId.trim(), state.taskClass.trim());
+      const next = await exportModelRoutingEvidenceForHandle(
+        completionHandle.handleId,
+        state.taskClass.trim(),
+      );
       setArtifact(next);
       setCompletionHandle(null);
-      setNotice(completionHandle
-        ? "Completion-bound observe-only evidence exported once; automatic routing remains disabled."
-        : "Observe-only routing evidence exported; automatic routing remains disabled.");
+      setNotice("Completion-bound observe-only evidence exported once; automatic routing remains disabled.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     } finally {
@@ -170,27 +136,12 @@ export function ModelRoutingEvidenceCapture() {
           <input aria-label="Routing evidence client" value={state.client} onChange={(event) => update("client", event.target.value)} />
         </label>
         <label>
-          Run ID
-          <input aria-label="Routing evidence run ID" value={state.runId} onChange={(event) => update("runId", event.target.value)} />
+          Native run ID (issued)
+          <input aria-label="Native routing run ID" readOnly value={state.runId} />
         </label>
         <label>
           Task class
           <input aria-label="Routing evidence task class" value={state.taskClass} onChange={(event) => update("taskClass", event.target.value)} />
-        </label>
-        <label>
-          Arm
-          <select aria-label="Routing evidence arm" value={state.arm} onChange={(event) => update("arm", event.target.value as ModelRoutingEvidenceArm)}>
-            <option value="baseline">Baseline</option>
-            <option value="candidate">Candidate</option>
-          </select>
-        </label>
-        <label>
-          Baseline model ID
-          <input aria-label="Baseline model ID" value={state.baselineModel} onChange={(event) => update("baselineModel", event.target.value)} />
-        </label>
-        <label>
-          Candidate model ID
-          <input aria-label="Candidate model ID" value={state.candidateModel} onChange={(event) => update("candidateModel", event.target.value)} />
         </label>
         <label>
           Requested model
@@ -226,8 +177,7 @@ export function ModelRoutingEvidenceCapture() {
       <div className="optimization-evidence-capture__actions">
         <button className="addon-card__action" disabled={working} onClick={() => void issueHandle()} type="button">Issue completion handle</button>
         <button className="addon-card__action" disabled={working || !completionHandle} onClick={() => void completeHandle()} type="button">Complete provider outcome</button>
-        <button className="addon-card__action addon-card__action--primary" disabled={working} onClick={() => void record()} type="button">Record observation</button>
-        <button className="addon-card__action" disabled={working || (completionHandle === null && !state.runId.trim())} onClick={() => void exportRun()} type="button">{completionHandle ? "Export completion evidence" : "Export run evidence"}</button>
+        <button className="addon-card__action" disabled={working || completionHandle === null} onClick={() => void exportRun()} type="button">Export completion evidence</button>
       </div>
       {completionHandle ? <p role="status">Active handle: {completionHandle.handleId} ({completionHandle.decision.stage}; {completionHandle.decision.selectedModel})</p> : null}
       {notice ? <p role="status">{notice}</p> : null}
