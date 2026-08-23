@@ -141,7 +141,8 @@ fn complete_model_routing_completion_for_state(
     )?;
     {
         let mut handles = state.model_routing_completion_handles.lock();
-        handles.retain(|_, value| value.expires_at > now);
+        let now_monotonic = Instant::now();
+        handles.retain(|_, value| value.expires_monotonic > now_monotonic);
         handles
             .remove(handle_id)
             .ok_or_else(|| "model-routing completion handle is unknown, expired, or already consumed".to_string())?
@@ -270,7 +271,7 @@ mod tests {
             .expect("pending handle")
             .expires_monotonic = std::time::Instant::now() - std::time::Duration::from_secs(1);
         let expired_error = complete_model_routing_completion_for_state(
-            expired_handle.handle_id,
+            expired_handle.handle_id.clone(),
             ModelRoutingCompletionMetrics {
                 succeeded: true,
                 successful_task_cost_microunits: Some(1_000),
@@ -282,6 +283,26 @@ mod tests {
         )
         .expect_err("expired handles must fail closed");
         assert!(expired_error.contains("unknown, expired, or already consumed"));
+        let replacement_handle = issue_model_routing_completion_handle_for_state(
+            ModelRouteInput {
+                client: "claude_code".to_string(),
+                task: "format this file".to_string(),
+                requested_model: "frontier".to_string(),
+                cheap_model: "fast/local".to_string(),
+                capable_model: "frontier".to_string(),
+                enabled: true,
+            },
+            &state,
+        )
+        .expect("monotonically expired handle should be pruned before replacement");
+        assert!(!state
+            .model_routing_completion_handles
+            .lock()
+            .contains_key(&expired_handle.handle_id));
+        assert!(state
+            .model_routing_completion_handles
+            .lock()
+            .contains_key(&replacement_handle.handle_id));
 
 
         match previous_home {
