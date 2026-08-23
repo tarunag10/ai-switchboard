@@ -34,7 +34,7 @@ export const addonCopy: Record<string, AddonCopy> = {
   },
   markitdown: {
     whatItDoes:
-      "MarkItDown installs into the managed Python runtime and registers a document Read hook. Documents can be converted to Markdown before an agent reads them, without installing anything system-wide.",
+      "MarkItDown installs into the managed Python runtime, registers a document Read hook, and adds one Switchboard-owned Claude permission for its app-owned conversion shim. Documents can be converted to Markdown before an agent reads them, without installing anything system-wide.",
     installing: "Installing MarkItDown and registering the Read hook...",
     uninstalling: "Removing MarkItDown and its Read hook...",
     uninstalled:

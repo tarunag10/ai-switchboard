@@ -9,7 +9,6 @@ use crate::process_runner::run_command_streaming;
 use super::ToolManager;
 
 const PONYTAIL_MARKETPLACE: &str = "DietrichGebert/ponytail";
-const PONYTAIL_MARKETPLACE_NAME: &str = "ponytail";
 const PONYTAIL_PLUGIN_REF: &str = "ponytail@ponytail";
 pub(super) const PONYTAIL_DISPLAY_VERSION: &str = "latest";
 
@@ -58,16 +57,33 @@ impl ToolManager {
     }
 
     /// Registers the marketplace (best-effort) and installs the plugin into a
-    /// single host. Used for both first install and re-enable.
-    fn install_ponytail_into(&self, host: PluginHost) -> Result<()> {
+    /// single host. The return value records whether this operation created a
+    /// plugin entry that Switchboard may later remove.
+    fn install_ponytail_into(&self, host: PluginHost) -> Result<bool> {
         let cli = host.cli().context("CLI not found on PATH")?;
+        let already_present = host.plugin_present();
         // Re-adding an already-known marketplace is a benign error, so ignore it.
         let _ = self.run_ponytail_cmd(&cli, host, host.marketplace_add_args());
         self.run_ponytail_cmd(&cli, host, host.install_args())?;
         if !host.plugin_present() {
             bail!("install completed but the plugin was not registered");
         }
-        Ok(())
+        Ok(!already_present)
+    }
+
+    fn uninstall_ponytail_plugin(&self, host: PluginHost) -> Result<()> {
+        let cli = host.cli().context("CLI not found on PATH")?;
+        self.run_ponytail_cmd(&cli, host, host.uninstall_args())
+    }
+
+    fn owned_hosts(&self) -> Vec<String> {
+        self.read_tool_receipt("ponytail")
+            .and_then(|receipt| receipt.get("ownedHosts").cloned())
+            .and_then(|hosts| hosts.as_array().cloned())
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|host| host.as_str().map(str::to_string))
+            .collect()
     }
 
     pub fn install_ponytail(&self) -> Result<()> {
@@ -82,9 +98,15 @@ impl ToolManager {
         }
         let mut errors: Vec<String> = Vec::new();
         let mut installed_any = false;
+        let mut owned_hosts = Vec::new();
         for host in hosts {
             match self.install_ponytail_into(host) {
-                Ok(()) => installed_any = true,
+                Ok(owned) => {
+                    installed_any = true;
+                    if owned {
+                        owned_hosts.push(host.label().to_string());
+                    }
+                }
                 Err(err) => errors.push(format!("{}: {err:#}", host.label())),
             }
         }
@@ -95,39 +117,63 @@ impl ToolManager {
             );
         }
         if !errors.is_empty() {
-            log::warn!(
-                "ponytail installed for some hosts but not all: {}",
-                errors.join("; ")
+            let mut rollback_errors = Vec::new();
+            for host in PluginHost::ALL
+                .into_iter()
+                .filter(|host| owned_hosts.iter().any(|owned| owned == host.label()))
+            {
+                if let Err(err) = self.uninstall_ponytail_plugin(host) {
+                    rollback_errors.push(format!("{}: {err:#}", host.label()));
+                }
+            }
+            if rollback_errors.is_empty() {
+                bail!(
+                    "ponytail installation was rolled back after host failure: {}",
+                    errors.join("; ")
+                );
+            }
+            bail!(
+                "ponytail installation failed and rollback was incomplete: {}; cleanup: {}",
+                errors.join("; "),
+                rollback_errors.join("; ")
             );
         }
         let version =
             installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
-        self.write_tool_receipt("ponytail", json!({ "version": version, "enabled": true }))?;
+        self.write_tool_receipt(
+            "ponytail",
+            json!({ "version": version, "enabled": true, "ownedHosts": owned_hosts }),
+        )?;
         Ok(())
     }
 
     pub fn set_ponytail_enabled(&self, enabled: bool) -> Result<()> {
-        // Guard on the receipt, not host presence: disabling on a host without a
-        // disable verb (Codex) removes the plugin, so `ponytail_installed()`
-        // would be false and re-enabling could never get past this check.
+        // Guard on the receipt, not host presence: a disabled app-owned plugin
+        // may be absent from hosts that do not expose a separate disable verb.
         if !self.ponytail_receipt_exists() {
             bail!("ponytail is not installed");
         }
         let mut errors: Vec<String> = Vec::new();
         let mut changed_any = false;
+        let mut owned_hosts = self.owned_hosts();
         for host in PluginHost::ALL {
-            let Some(cli) = host.cli() else { continue };
-            // Codex has no enable/disable verb, so enabling re-installs and
-            // disabling removes. Skip disabling a host that isn't present.
+            // Enabling re-installs where needed; disabling removes only plugin
+            // entries whose ownership is recorded in our receipt.
+            let owns_plugin = owned_hosts.iter().any(|owned| owned == host.label());
             let result = if enabled {
                 self.install_ponytail_into(host)
-            } else if host.plugin_present() {
-                self.run_ponytail_cmd(&cli, host, host.disable_args())
+            } else if owns_plugin && host.plugin_present() {
+                self.uninstall_ponytail_plugin(host).map(|()| false)
             } else {
                 continue;
             };
             match result {
-                Ok(()) => changed_any = true,
+                Ok(owned) => {
+                    changed_any = true;
+                    if enabled && owned && !owned_hosts.iter().any(|value| value == host.label()) {
+                        owned_hosts.push(host.label().to_string());
+                    }
+                }
                 Err(err) => errors.push(format!("{}: {err:#}", host.label())),
             }
         }
@@ -138,7 +184,7 @@ impl ToolManager {
             installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
         self.write_tool_receipt(
             "ponytail",
-            json!({ "version": version, "enabled": enabled }),
+            json!({ "version": version, "enabled": enabled, "ownedHosts": owned_hosts }),
         )?;
         Ok(())
     }
@@ -149,12 +195,22 @@ impl ToolManager {
         if !self.ponytail_receipt_exists() {
             return Ok(());
         }
-        for host in PluginHost::ALL {
-            if let Some(cli) = host.cli() {
-                let _ = self.run_ponytail_cmd(&cli, host, host.uninstall_args());
-                let _ = self.run_ponytail_cmd(&cli, host, host.marketplace_remove_args());
+        let owned_hosts = self.owned_hosts();
+        for host in PluginHost::ALL
+            .into_iter()
+            .filter(|host| owned_hosts.iter().any(|owned| owned == host.label()))
+        {
+            if let Err(err) = self.uninstall_ponytail_plugin(host) {
+                log::warn!(
+                    "ponytail plugin cleanup failed for {}: {err:#}",
+                    host.label()
+                );
             }
         }
+        // Marketplace ownership is not observable through the supported CLI
+        // contract. Never remove a marketplace registration that may predate
+        // Switchboard; plugin ownership is the only cleanup boundary we can
+        // prove from the receipt.
         let receipt = self.runtime.tools_dir.join("ponytail.json");
         if receipt.exists() {
             std::fs::remove_file(&receipt)
@@ -222,23 +278,12 @@ impl PluginHost {
         &["plugin", "marketplace", "add", PONYTAIL_MARKETPLACE]
     }
 
-    fn marketplace_remove_args(self) -> &'static [&'static str] {
-        &["plugin", "marketplace", "remove", PONYTAIL_MARKETPLACE_NAME]
-    }
-
     fn install_args(self) -> &'static [&'static str] {
         match self {
             PluginHost::ClaudeCode => {
                 &["plugin", "install", PONYTAIL_PLUGIN_REF, "--scope", "user"]
             }
             PluginHost::Codex => &["plugin", "add", PONYTAIL_PLUGIN_REF],
-        }
-    }
-
-    fn disable_args(self) -> &'static [&'static str] {
-        match self {
-            PluginHost::ClaudeCode => &["plugin", "disable", PONYTAIL_PLUGIN_REF],
-            PluginHost::Codex => &["plugin", "remove", PONYTAIL_PLUGIN_REF],
         }
     }
 
