@@ -14,6 +14,7 @@ import {
   connectorCompatibilityRoutingEvidenceLabel,
   connectorDashboardStatus,
   connectorSupportsAutomaticSetup,
+  connectorSupportsSidecarSetup,
   currency,
   currencyExact,
   dayOfMonthTickFormatter,
@@ -440,6 +441,16 @@ describe("dashboard helpers", () => {
         verified: false,
       }),
     ).toBe(false);
+    expect(
+      connectorSupportsSidecarSetup({
+        clientId: "cursor",
+        name: "Cursor",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
+    ).toBe(true);
   });
 
   it("keeps managed and planned switchboard connectors visible", () => {
@@ -614,11 +625,7 @@ describe("dashboard helpers", () => {
         enabled: false,
         verified: false,
       }),
-    ).toEqual({
-      disabled: true,
-      reason:
-        "Cursor is detected, but automatic provider setup is off for now. Manual guide only. Cursor provider setup stays manual for now.",
-    });
+    ).toEqual({ disabled: false, reason: null });
 
     expect(
       connectorControlState({
@@ -1318,14 +1325,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 3,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 33,
+      safeTodayCount: 34,
       plannedCapabilityCount: 1,
       automationGateCount: 47,
       detectedNames: ["Gemini CLI", "Grok / xAI CLI", "Cursor"],
       notDetectedNames: ["Aider"],
       headline: "3 connector tools detected locally",
       detail:
-        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 33 safe capabilities are available now; 1 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
+        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 34 safe capabilities are available now; 1 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
     });
   });
 });

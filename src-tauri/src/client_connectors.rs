@@ -665,6 +665,13 @@ pub(crate) fn planned_connector_has_implemented_setup(client_id: &str) -> bool {
             )
 }
 
+/// Cursor has no supported native provider schema, but its Switchboard-owned
+/// routing-intent sidecar is independently reversible and safe to manage.
+/// Keep this capability separate from promoted native/provider setup.
+pub(crate) fn planned_connector_has_implemented_sidecar_setup(client_id: &str) -> bool {
+    normalized_connector_id(client_id) == "cursor"
+}
+
 fn normalized_connector_id(client_id: &str) -> &str {
     match client_id {
         "codex" | "codex_gui" => "codex_cli",

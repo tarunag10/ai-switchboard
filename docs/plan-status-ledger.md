@@ -68,6 +68,10 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
   the existing bounded graph is visible in-app through a read-only table for
   test/source links, imports, and reverse-dependency hubs, with search,
   filters, 40-row rendering bounds, and explicit empty/no-index states.
+- Cursor sidecar setup is now usable from Settings: only the Switchboard-owned
+  routing-intent marker is managed, with existing backup, exact-consent,
+  verification, rollback, and Off cleanup paths. Cursor native provider,
+  account, credential, and model writes remain gated.
 
 ## Left
 

@@ -12,7 +12,7 @@ use crate::client_connectors::{
     connector_manifest, manifest_config_locations, manifest_detection_sources,
     manifest_forbidden_reads, manifest_support_status, planned_config_creation_step_details,
     managed_connector_dry_run_preview, planned_connector_dry_run_preview,
-    planned_connector_has_implemented_setup,
+    planned_connector_has_implemented_setup, planned_connector_has_implemented_sidecar_setup,
     PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
 };
 use crate::models::{ClientConnectorStatus, ClientConnectorSupportStatus, ClientStatus};
@@ -150,9 +150,12 @@ pub fn list_client_connectors(
             .unwrap_or_else(|| vec!["Not checked yet.".to_string()]);
         let config_dry_run_preview = planned_connector_dry_run_preview(spec, &detection_evidence);
         let has_implemented_setup = planned_connector_has_implemented_setup(spec.id);
+        let has_implemented_sidecar_setup =
+            planned_connector_has_implemented_sidecar_setup(spec.id);
         let lifecycle_managed =
             has_implemented_setup && connector_has_complete_lifecycle_fixture(spec.id);
-        let enabled = has_implemented_setup && is_configured(&setup_state, spec.id);
+        let enabled = (has_implemented_setup || has_implemented_sidecar_setup)
+            && is_configured(&setup_state, spec.id);
         let adapter_contract = detected_client
             .and_then(|detected| {
                 adapter_status_for_listing(spec.id, detected, enabled)

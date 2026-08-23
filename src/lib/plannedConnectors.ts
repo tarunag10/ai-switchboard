@@ -477,9 +477,9 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
-      "Show Cursor as a guided editor target and let users copy Repo Intelligence packs into sessions.",
+      "Use the reversible Switchboard-owned routing-intent sidecar while keeping Cursor provider, account, credential, and model settings manual.",
     firstAutomation:
-      "Profile-aware settings discovery and dry-run diff preview are available; backup, exact consent, verify, rollback, and Off cleanup still gate native writes.",
+      "The Switchboard-owned sidecar is available with backup, exact consent, verification, rollback, and Off cleanup; native Cursor provider writes still require profile-aware dry-run diff preview evidence.",
     capabilityRows: [
       {
         label: "App detection",
@@ -487,10 +487,16 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Switchboard can show Cursor as a gated editor connector.",
       },
       {
+        label: "Switchboard sidecar",
+        state: "Available now",
+        detail:
+          "Enable only the Switchboard-owned routing-intent marker; provider, account, credential, and model settings remain untouched.",
+      },
+      {
         label: "Manual setup",
         state: "Manual today",
         detail:
-          "Open Cursor settings and review model/provider routing with approval.",
+          "Open Cursor settings and review model/provider routing with approval; native provider writes remain gated.",
       },
       {
         label: "Settings adapter",

@@ -7,6 +7,7 @@ import {
   connectorCompatibilityRoutingEvidenceLabel,
   connectorControlState,
   connectorSupportsAutomaticSetup,
+  connectorSupportsSidecarSetup,
   formatPlannedConnectorConfigGateSummary,
   sortClientConnectors,
 } from "../lib/dashboardHelpers";
@@ -180,8 +181,11 @@ export function SettingsConnectorPanel({
             const unavailableReason = getConnectorUnavailableReason(connector);
             const detectionWarning = getConnectorDetectionWarning(connector);
             const toggleDisabled = connectorsBusy || controlState.disabled;
+            const sidecarSetup = connectorSupportsSidecarSetup(connector);
             const manualOnly =
-              controlState.disabled && !connectorSupportsAutomaticSetup(connector);
+              controlState.disabled &&
+              !connectorSupportsAutomaticSetup(connector) &&
+              !sidecarSetup;
             const plannedConnector = getPlannedConnector(connector.clientId);
             const plannedSetupGuide = plannedConnector
               ? getPlannedConnectorSetupGuide(plannedConnector.id)
@@ -209,7 +213,7 @@ export function SettingsConnectorPanel({
                     {connectorLabel}
                     {connector.supportStatus === "planned" ? (
                       <span className="connector-item__badge connector-item__badge--planned">
-                        Gated
+                        {sidecarSetup ? "Sidecar available · native gated" : "Gated"}
                       </span>
                     ) : null}
                     <button
@@ -564,6 +568,8 @@ export function SettingsConnectorPanel({
                         ? "Disable"
                         : connectorSupportsAutomaticSetup(connector)
                           ? "Enable"
+                          : sidecarSetup
+                            ? "Enable sidecar"
                           : "Manual setup"}
                     </button>
                   )}

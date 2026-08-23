@@ -49,4 +49,22 @@ describe("SettingsConnectorPanel alternate connector branches", () => {
     expect(p.copyPlannedConnectorCommand).toHaveBeenCalledWith(expect.any(String), "Cursor config plan");
   });
 
+  it("exposes Cursor's safe sidecar toggle while keeping native routing gated", async () => {
+    const user = userEvent.setup();
+    const { p } = renderPanel({ connectors: [cursor] });
+    const item = screen.getByText("Cursor", { selector: "h3" }).closest("article");
+    if (!item) throw new Error("Cursor item missing");
+    const card = within(item);
+
+    expect(card.getByText("Sidecar available · native gated")).toBeInTheDocument();
+    expect(card.getByRole("button", { name: "Enable sidecar" })).toBeEnabled();
+    await user.click(card.getByRole("button", { name: "Enable sidecar" }));
+
+    expect(p.toggleConnector).toHaveBeenCalledWith(
+      expect.objectContaining({ clientId: "cursor" }),
+      true,
+    );
+    expect(card.getByText("Sidecar available · native gated")).toBeInTheDocument();
+  });
+
 });

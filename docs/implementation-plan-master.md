@@ -112,6 +112,10 @@ the current checkout.
   test/source links, imports, and reverse-dependency hubs, with search,
   relationship-type filters, and explicit no-index/no-match states; the UI
   caps the rendered view at 40 rows and never exposes file contents.
+- Cursor now exposes a usable Switchboard-owned routing-intent sidecar from
+  Settings with reversible apply, verification, rollback, and Off cleanup;
+  Cursor native provider/editor writes remain separately gated by the missing
+  upstream schema and profile-aware lifecycle proof.
 - Release readiness now has a deterministic blocked no-refresh rehearsal that
   verifies exact action mapping without rewriting the supplied report.
 - Managed connector listings now expose read-only config previews for the

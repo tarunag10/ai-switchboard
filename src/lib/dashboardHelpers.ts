@@ -586,6 +586,15 @@ export function connectorControlState(connector: ClientConnectorStatus): {
   disabled: boolean;
   reason: string | null;
 } {
+  if (connectorSupportsSidecarSetup(connector)) {
+    if (connector.installed) return { disabled: false, reason: null };
+    return {
+      disabled: true,
+      reason:
+        "Cursor must be detected before its Switchboard-owned sidecar can be enabled.",
+    };
+  }
+
   if (!connectorSupportsAutomaticSetup(connector)) {
     const releaseCopy = connector.installed
       ? "is detected, but automatic provider setup is off for now"
@@ -644,6 +653,17 @@ export function connectorSupportsAutomaticSetup(
     (connector.setupPhase ?? "managed") === "managed" &&
     (connector.supportStatus ?? "managed") === "managed"
   );
+}
+
+/**
+ * Safe sidecar setup is separate from native provider/editor setup. Cursor can
+ * create only a Switchboard-owned routing-intent marker; provider settings,
+ * account state, credentials, and model selection remain gated.
+ */
+export function connectorSupportsSidecarSetup(
+  connector: ClientConnectorStatus,
+) {
+  return connector.clientId === "cursor" && connector.supportStatus === "planned";
 }
 
 export interface ConnectorCompatibilityReport {

@@ -83,6 +83,10 @@ Created and shipped:
 - Savings evidence now separates measured, estimated, inferred, and fixture-backed rows. The benchmark checker requires Caveman, Ponytail, and MarkItDown source rows before local evidence can pass.
 - Rollback Center evidence now includes relaunch-survival proof from a persisted probe artifact re-read by a fresh process.
 - Connector readiness evidence now proves Aider/Cursor native-write gates remain disabled until all seven lifecycle stages are ready.
+- Cursor's Switchboard-owned routing-intent sidecar is now available from the
+  connector UI with reversible apply, Doctor verification, rollback, and Off
+  cleanup; native Cursor provider/editor writes remain gated on a supported
+  profile-aware schema.
 - Release readiness now validates local evidence when present but still supports a plain blocked report for normal release triage.
 - Repo Map UX now shows missing tool install hints during preflight instead of leaving users with a generic failure.
 

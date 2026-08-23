@@ -9,7 +9,8 @@ use sha2::{Digest, Sha256};
 
 use crate::client_connector_status::MANAGED_CLIENT_SPECS;
 use crate::client_connectors::{
-    planned_connector_has_implemented_setup, planned_sidecar_spec, PlannedSidecarSpec,
+    planned_connector_has_implemented_setup, planned_connector_has_implemented_sidecar_setup,
+    planned_sidecar_spec, PlannedSidecarSpec,
     PLANNED_SIDECAR_SPECS,
 };
 use crate::client_detection::codex_home;
@@ -243,7 +244,9 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             backup_files.extend(updates.1);
         }
         other if planned_sidecar_spec(other).is_some() => {
-            if !planned_connector_has_implemented_setup(other) {
+            if !planned_connector_has_implemented_setup(other)
+                && !planned_connector_has_implemented_sidecar_setup(other)
+            {
                 return Err(anyhow!(
                     "Automatic setup is not supported yet for {other}. Use the guided workflow until backup, verify, rollback, and Off mode coverage are promoted."
                 ));
