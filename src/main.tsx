@@ -14,6 +14,7 @@ import "./styles/savings.css";
 import "./styles/optimize.css";
 import "./styles/components-a.css";
 import "./styles/components-b.css";
+import "./styles/workbench.css";
 import "./styles.css";
 import "./switchboard-theme.css";
 import "./styles/design-system.css";

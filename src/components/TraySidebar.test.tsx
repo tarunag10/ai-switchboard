@@ -22,8 +22,8 @@ describe("TraySidebar", () => {
       "Optimize",
       "Repo Intelligence",
       "Routing",
+      "Workbench",
       "Savings",
-      "Doctor",
     ]);
   });
 
@@ -33,7 +33,7 @@ describe("TraySidebar", () => {
     render(<TraySidebar activeView="repoIntelligence" localOnlyMode={false} onSelectView={onSelectView} />);
     const destinations = [
       ["Overview", "home"], ["Optimize", "optimization"], ["Repo Intelligence", "repoIntelligence"],
-      ["Routing", "routingModels"], ["Savings", "usage"], ["Doctor", "doctor"], ["Token X-Ray", "xray"],
+      ["Routing", "routingModels"], ["Workbench", "workbench"], ["Savings", "usage"], ["Doctor", "doctor"], ["Token X-Ray", "xray"],
       ["Daily Briefing", "briefing"], ["Agent Memory", "agentMemory"], ["Event Log", "notifications"],
       ["Repo Map", "repoMap"], ["Addons", "addons"], ["Upgrade", "upgrade"], ["Settings", "settings"],
     ] as const;

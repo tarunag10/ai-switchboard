@@ -41,7 +41,7 @@ redaction, rollback, and release gates.
 | Context packs and agent memory | `src/lib/agentSessionPacks.ts`, `src-tauri/src/agent_memory/` | Done, bounded | Reference pack IDs/digests only; do not persist prompts or source content. |
 | OSS capability metadata/promotion gate | `oss_capabilities.rs`, `plugin_promotion_gate.rs` | Done, metadata only | Project from Kernel registry/grants while retaining fail-closed promotion. |
 | Selective activation receipts | `activation_commands.rs` | Done | Use the same ownership/rollback model for future capability changes. |
-| Durable Workbench session/run authority | — | Remaining build | Implement now as the shared kernel. |
+| Durable Workbench session/run authority | `src-tauri/src/workbench_kernel/` | Done, plan-only | Persist opaque sessions and prepare non-executable router/adapter plans. |
 | Real agent execution backend | — | Remaining build, deliberately gated | Add only after the non-autonomous kernel and UI are verified. |
 
 ## OSS reuse and provenance policy
@@ -64,10 +64,7 @@ existing `plugin_promotion_gate.rs` remains the promotion authority.
 workbench_kernel/
   session.rs       durable content-free identity, status, lineage, timestamps
   events.rs        bounded versioned lifecycle ledger and deterministic forks
-  run_contract.rs  RunSpec, RunPlan, RunResult, adapter status, capability grants
-  capabilities.rs  visible registry projection and approval/receipt evaluation
-  router.rs        reference to an existing Router decision; no proxy routing
-  adapters.rs      maps CodingClientAdapter plan results into a RunPlan
+  run_contract.rs  RunSpec, RunPlan, Router reference, and capability requests
   storage.rs       atomic local ledger persistence and bounded retention
 ```
 
@@ -78,16 +75,17 @@ Invariants:
   digests. Prompts, model messages, outputs, headers, endpoint URLs,
   credentials, filesystem paths, and tool arguments are forbidden.
 - Session events are contiguous, append-only, bounded, and transition through
-  `planned -> active -> paused -> completed|cancelled`; forking is explicit
-  and deterministic.
+  `active -> paused -> active|completed|cancelled`; forking is explicit and
+  deterministic.
 - A `RunSpec` is declarative and non-executable by default. It holds an
   existing workspace/reference digest, adapter ID, context-pack digest, route
   decision reference, capability grants, and receipt IDs—not content.
 - `RunPlan` may expose configuration dry-run evidence from the existing
   `CodingClientAdapter` contract but cannot apply it. Existing adapter consent
   and rollback rules remain unchanged.
-- Capability grants are default-deny, workspace/session scoped, expiry-bound,
-  visible in the UI, and receipt-backed when a later backend performs a change.
+- Capability requests are default-deny, session scoped, visible in the UI, and
+  non-executable. Expiry-bound grants and change receipts remain a later
+  execution-gate deliverable.
 - The Router has one decision owner: existing model routing. A Workbench plan
   may link to the decision but cannot alter a live provider request.
 
@@ -105,7 +103,7 @@ Invariants:
   Ponytail, Caveman, Leanctx, Chonkify, and master native add-ons. MarkItDown
   receipt-owned rollback remains a separate remaining phase.
 
-### Phase 1 — consolidated architecture and provenance — In progress
+### Phase 1 — consolidated architecture and provenance — Done
 
 Deliverables:
 
@@ -135,22 +133,44 @@ Deliverables:
 
 Acceptance met: a user can create, inspect, transition, fork, list, and
 prepare an inspectable local plan without provider traffic, shell launch,
-workspace mutation, or secret/content persistence. UI delivery remains Phase 3.
+workspace mutation, or secret/content persistence. The visible UI follows in
+Phase 3.
 
-### Phase 3 — visible Workbench UI — Remaining build
+### Phase 3 — visible Workbench core UI — Done
 
 Deliverables:
 
-- [ ] Workbench navigation surface with Router-only and Workbench presets.
-- [ ] Session timeline, route decision summary, adapter dry-run, capability
-  grant table, replay/export/fork controls, and truthful empty/error states.
-- [ ] Existing Addons registry becomes a Kernel projection while preserving
-  its current fail-closed capability labels.
-- [ ] UI tests for accessibility, loaded/empty/error state, and the invariant
-  that no execution control appears enabled in plan-only mode.
+- [x] Workbench navigation surface beside Routing, with visible plan-only,
+  provider-traffic, and write-state badges.
+- [x] Content-free session creation, selection, timeline, explicit lifecycle,
+  deterministic latest-event fork, and copy-only ledger export controls.
+- [x] Observe-only Router decision references, adapter dry-run plans, bounded
+  capability request controls, and truthful desktop/empty/error states.
+- [x] Focused UI/bridge tests for navigation, loaded state, digest-only input,
+  plan preparation, and the absence of an execution control.
 
-Acceptance: every non-autonomous capability is visible and actionable from
-the UI; unavailable execution is labelled as planned rather than hidden.
+Acceptance met: the non-autonomous Workbench kernel is visible and usable from
+the desktop UI; unavailable execution is labelled as unavailable rather than
+hidden.
+
+### Phase 3.1 — cross-surface observability — Prepared, gated
+
+Deliverables:
+
+- [ ] Replace the Addons-local OSS registry fetch with the shared Workbench
+  projection only after parity tests prove no capability label or fail-closed
+  state changes.
+- [ ] Add a Router-decision picker only after the existing Router publishes
+  durable, content-free decision IDs and evidence digests. Raw route payloads
+  must remain unavailable to the Workbench.
+- [ ] Add reusable Router-only/Workbench presets only when each preset maps to
+  an existing non-mutating decision policy and has a visible evidence source.
+- [ ] Add replay selection to Workbench by reusing the existing redacted replay
+  validator; it must not introduce a second file parser or automatic promotion.
+
+Gate: do not collapse existing Addons, Router, or replay authorities into a
+new Workbench copy. Each link must retain its current promotion and rollback
+rules.
 
 ### Phase 4 — execution adapter readiness — Prepared, gated
 

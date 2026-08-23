@@ -11,6 +11,7 @@ import { OptimizationView, type OptimizationViewProps } from "./OptimizationView
 import { RepoIntelligencePreview } from "./RepoIntelligencePreview";
 import { RepoMapView } from "./RepoMapView";
 import { RoutingModelsView } from "./RoutingModelsView";
+import { WorkbenchView } from "./WorkbenchView";
 import { SavingsInfoDialog } from "./SavingsInfoDialog";
 import { TokenXrayView } from "./TokenXrayView";
 import { TraySidebar } from "./TraySidebar";
@@ -479,6 +480,8 @@ export function TrayAppShell({
         </div>
 
         <RoutingModelsView hidden={activeView !== "routingModels"} />
+
+        <WorkbenchView hidden={activeView !== "workbench"} />
 
         <AddonsView
           activeView={activeView}

@@ -19,6 +19,7 @@ export type TrayView =
   | "repoMap"
   | "repoIntelligence"
   | "routingModels"
+  | "workbench"
   | "addons"
   | "upgrade"
   | "upgradeAuth"

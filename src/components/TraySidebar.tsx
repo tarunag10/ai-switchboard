@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
   { id: "routingModels", label: "Routing", icon: Graph },
+  { id: "workbench", label: "Workbench", icon: Graph },
   { id: "usage", label: "Savings", icon: Calculator },
   { id: "doctor", label: "Doctor", icon: FirstAidKit },
   { id: "xray", label: "Token X-Ray", icon: Eye },
