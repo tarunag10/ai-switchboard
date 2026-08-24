@@ -57,15 +57,27 @@ fn session_serialization_is_valid_and_deterministic() {
 }
 
 #[test]
-fn session_serialization_rejects_content_and_does_not_echo_values() {
+fn session_serialization_rejects_unknown_field_without_echoing_values() {
     let mut value = session_value();
     value["prompt"] = json!("private prompt contents must never be echoed");
     let input = serde_json::to_vec(&value).expect("content-bearing session");
     let (code, output, error) = run(&["workbench", "session", "serialize"], &input);
     assert_eq!(code, EXIT_USAGE);
     assert!(output.is_empty());
-    assert!(error.contains("invalid Workbench session JSON"));
+    assert!(error.contains("unsupported field"));
     assert!(!error.contains("private prompt contents"));
+}
+
+#[test]
+fn session_serialization_rejects_unknown_enum_without_echoing_values() {
+    let mut value = session_value();
+    value["status"] = json!("totally-unknown");
+    let input = serde_json::to_vec(&value).expect("status mismatch session");
+    let (code, output, error) = run(&["workbench", "session", "serialize"], &input);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("unsupported enum value"));
+    assert!(!error.contains("totally-unknown"));
 }
 
 #[test]
@@ -73,9 +85,10 @@ fn session_serialization_rejects_invalid_digest_and_status() {
     let mut value = session_value();
     value["workspaceDigest"] = json!("/Users/alice/private-repo");
     let input = serde_json::to_vec(&value).expect("invalid session");
-    let (code, output, _) = run(&["workbench", "session", "serialize"], &input);
+    let (code, output, error) = run(&["workbench", "session", "serialize"], &input);
     assert_eq!(code, EXIT_USAGE);
     assert!(output.is_empty());
+    assert!(error.contains("failed validation"));
 
     let mut value = session_value();
     value["status"] = json!("completed");
@@ -83,7 +96,7 @@ fn session_serialization_rejects_invalid_digest_and_status() {
     let (code, output, error) = run(&["workbench", "session", "serialize"], &input);
     assert_eq!(code, EXIT_USAGE);
     assert!(output.is_empty());
-    assert!(error.contains("status does not match"));
+    assert!(error.contains("failed validation"));
 }
 
 #[test]
@@ -94,7 +107,7 @@ fn session_serialization_rejects_bad_sequence_and_session_timestamps() {
     let (code, output, error) = run(&["workbench", "session", "serialize"], &input);
     assert_eq!(code, EXIT_USAGE);
     assert!(output.is_empty());
-    assert!(error.contains("sequence must be contiguous"));
+    assert!(error.contains("failed validation"));
 
     let mut value = session_value();
     value["createdAt"] = json!("private text in a timestamp field");
@@ -102,8 +115,31 @@ fn session_serialization_rejects_bad_sequence_and_session_timestamps() {
     let (code, output, error) = run(&["workbench", "session", "serialize"], &input);
     assert_eq!(code, EXIT_USAGE);
     assert!(output.is_empty());
-    assert!(error.contains("createdAt must be a bounded RFC3339 timestamp"));
+    assert!(error.contains("failed validation"));
     assert!(!error.contains("private text"));
+}
+
+#[test]
+fn session_serialization_rejects_malformed_json_without_echoing_input() {
+    let malformed = b"{\"schemaVersion\":1,\"sessionId\":\"workbench:test\",";
+    let (code, output, error) = run(&["workbench", "session", "serialize"], malformed);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("malformed"));
+    assert!(!error.contains("schemaVersion"));
+    assert!(!error.contains("workbench:test"));
+}
+
+#[test]
+fn session_serialization_rejects_control_characters_without_echoing_them() {
+    let mut value = session_value();
+    value["sessionId"] = json!("workbench:test\u{0007}");
+    let input = serde_json::to_vec(&value).expect("control-char session");
+    let (code, output, error) = run(&["workbench", "session", "serialize"], &input);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("failed validation"));
+    assert!(!error.contains("workbench:test"));
 }
 
 #[test]

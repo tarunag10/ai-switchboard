@@ -95,15 +95,10 @@ fn serialize_workbench_session<R: Read, W: Write, E: Write>(
 
     let session = match serde_json::from_slice::<WorkbenchSession>(&bytes) {
         Ok(session) => session,
-        Err(parse_error) => {
-            return invalid_input(
-                error,
-                &format!("invalid Workbench session JSON: {parse_error}"),
-            )
-        }
+        Err(parse_error) => return invalid_workbench_session_input(error, parse_error),
     };
-    if let Err(validation_error) = validate_session_for_serialization(&session) {
-        return invalid_input(error, &validation_error);
+    if validate_session_for_serialization(&session).is_err() {
+        return invalid_workbench_session_validation(error);
     }
 
     let encoded = match serde_json::to_vec(&session) {
@@ -113,19 +108,72 @@ fn serialize_workbench_session<R: Read, W: Write, E: Write>(
     write_json(output, error, &encoded)
 }
 
-fn validate_session_for_serialization(session: &WorkbenchSession) -> Result<(), String> {
-    session.validate().map_err(|error| error.to_string())?;
-    for (value, label) in [
-        (&session.created_at, "createdAt"),
-        (&session.updated_at, "updatedAt"),
-    ] {
+fn validate_session_for_serialization(session: &WorkbenchSession) -> Result<(), ()> {
+    session.validate().map_err(|_| ())?;
+    for value in [&session.created_at, &session.updated_at] {
         if value.len() > 64 || DateTime::parse_from_rfc3339(value).is_err() {
-            return Err(format!(
-                "Workbench session {label} must be a bounded RFC3339 timestamp"
-            ));
+            return Err(());
         }
     }
     Ok(())
+}
+
+enum WorkbenchSessionInputFailure {
+    MalformedJson,
+    UnsupportedField,
+    UnsupportedEnumValue,
+    ValidationFailed,
+}
+
+fn workbench_session_input_failure_message(failure: WorkbenchSessionInputFailure) -> &'static str {
+    match failure {
+        WorkbenchSessionInputFailure::MalformedJson => "Workbench session JSON is malformed",
+        WorkbenchSessionInputFailure::UnsupportedField => {
+            "Workbench session JSON contains an unsupported field"
+        }
+        WorkbenchSessionInputFailure::UnsupportedEnumValue => {
+            "Workbench session JSON contains an unsupported enum value"
+        }
+        WorkbenchSessionInputFailure::ValidationFailed => {
+            "Workbench session JSON failed validation"
+        }
+    }
+}
+
+fn classify_workbench_session_parse_error(
+    error: &serde_json::Error,
+) -> WorkbenchSessionInputFailure {
+    let message = error.to_string();
+    if message.contains("unknown field") {
+        WorkbenchSessionInputFailure::UnsupportedField
+    } else if message.contains("unknown variant") || message.contains("invalid value") {
+        WorkbenchSessionInputFailure::UnsupportedEnumValue
+    } else if message.contains("missing field") {
+        WorkbenchSessionInputFailure::ValidationFailed
+    } else {
+        match error.classify() {
+            serde_json::error::Category::Syntax | serde_json::error::Category::Eof => {
+                WorkbenchSessionInputFailure::MalformedJson
+            }
+            serde_json::error::Category::Data | serde_json::error::Category::Io => {
+                WorkbenchSessionInputFailure::ValidationFailed
+            }
+        }
+    }
+}
+
+fn invalid_workbench_session_input<E: Write>(error: &mut E, parse_error: serde_json::Error) -> u8 {
+    let message = workbench_session_input_failure_message(classify_workbench_session_parse_error(
+        &parse_error,
+    ));
+    invalid_input(error, message)
+}
+
+fn invalid_workbench_session_validation<E: Write>(error: &mut E) -> u8 {
+    invalid_input(
+        error,
+        workbench_session_input_failure_message(WorkbenchSessionInputFailure::ValidationFailed),
+    )
 }
 
 enum ReadFailure {

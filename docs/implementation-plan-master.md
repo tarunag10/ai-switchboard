@@ -528,6 +528,12 @@ Core extraction progress:
   current GitHub OAuth credential lacking the `workflow` scope. This does not
   yet replace the Node preview command or enable live routing/process
   execution.
+- The native CLI boundary now classifies malformed JSON, unsupported fields,
+  unsupported enum values, and validation failures into stable content-free
+  errors; adversarial tests cover unknown keys, enum values, malformed input,
+  and control characters without echoing user data. The three standalone
+  crates are pinned to the verified Rust 1.96 toolchain through
+  `rust-toolchain.toml` and `rust-version` metadata.
 
 ### Remaining build work
 

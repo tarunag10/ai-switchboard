@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Platform-neutral runtime adapter contracts for AI Switchboard."
 license = "MIT"
 edition = "2021"
+rust-version = "1.96"
 
 [dependencies]
 switchboard-core = { path = "../switchboard-core" }

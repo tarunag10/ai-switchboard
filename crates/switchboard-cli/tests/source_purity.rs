@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Read-only cross-platform CLI for AI Switchboard core contracts."
 license = "MIT"
 edition = "2021"
+rust-version = "1.96"
 publish = false
 
 [[bin]]
