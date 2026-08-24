@@ -587,6 +587,11 @@ Core extraction progress:
   the shared core has 29 passing tests including compatibility golden values,
   identity sensitivity, and tamper/containment checks. The later Tauri adapter
   delegation is still to be completed.
+- Tauri `ProcessRunSpec` now delegates neutral validation, deterministic run
+  identity, and snapshot digest generation through an explicit conversion to
+  the shared core contract, while retaining adapter allowlisting, contract
+  version policy, plan assembly, persistence, and lifecycle behavior. Focused
+  process-run, run-contract, and Codex-preflight suites pass (29 tests total).
 
 ### Remaining build work
 

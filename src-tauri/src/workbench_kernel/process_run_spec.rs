@@ -5,9 +5,8 @@
 //! prompt, credential, PID, and process-group ID. A later executor must honor
 //! this contract before it can create and register an app-owned process group.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::client_adapter_contract::CODING_CLIENT_ADAPTER_CONTRACT_VERSION;
 
@@ -52,27 +51,9 @@ pub struct ProcessRunSpec {
 
 impl ProcessRunSpec {
     pub(crate) fn validate(&self) -> Result<()> {
-        if self.schema_version != PROCESS_RUN_SPEC_SCHEMA_VERSION {
-            bail!("Workbench process run spec schema is unsupported");
-        }
-        validate_identifier(&self.run_id, "process run ID")?;
-        validate_identifier(&self.session_id, "session ID")?;
-        validate_identifier(&self.adapter_plan_id, "adapter plan ID")?;
+        core_process_run_spec(self).validate()?;
         validate_adapter_command_readiness_adapter_id(&self.adapter_id)?;
-        validate_digest(&self.workspace_digest, "workspace digest")?;
-        if self.adapter_contract_version != CODING_CLIENT_ADAPTER_CONTRACT_VERSION
-            || self.owner != WORKBENCH_NATIVE_OWNER
-            || self.state != NOT_STARTED
-            || self.start_authorization != START_NOT_GRANTED
-            || self.launch_mode != NATIVE_ADAPTER_ONLY
-            || self.process_group != PROCESS_GROUP_REQUIRED_ON_UNIX
-            || self.stdin != NULL_STDIN
-            || self.output != BOUNDED_REDACTED_OUTPUT
-            || self.timeout_policy != FIXED_TIMEOUT_POLICY
-            || self.cancellation != GROUP_TERMINATE_THEN_KILL
-            || self.provider_traffic != "none"
-            || self.writes_enabled
-        {
+        if self.adapter_contract_version != CODING_CLIENT_ADAPTER_CONTRACT_VERSION {
             bail!("Workbench process run spec violates the non-executing containment boundary");
         }
         Ok(())
@@ -81,8 +62,7 @@ impl ProcessRunSpec {
 
 pub(crate) fn process_run_spec_digest(spec: &ProcessRunSpec) -> Result<String> {
     spec.validate()?;
-    let bytes = serde_json::to_vec(spec).context("canonicalizing Workbench process run spec")?;
-    Ok(format!("sha256:{:x}", Sha256::digest(bytes)))
+    switchboard_core::process_run_spec::process_run_spec_digest(&core_process_run_spec(spec))
 }
 
 pub(crate) fn process_run_spec_for(
@@ -95,26 +75,16 @@ pub(crate) fn process_run_spec_for(
     validate_identifier(adapter_plan_id, "adapter plan ID")?;
     validate_adapter_command_readiness_adapter_id(adapter_id)?;
     validate_digest(workspace_digest, "workspace digest")?;
-    let canonical = serde_json::json!({
-        "sessionId": session_id,
-        "adapterPlanId": adapter_plan_id,
-        "adapterId": adapter_id,
-        "adapterContractVersion": CODING_CLIENT_ADAPTER_CONTRACT_VERSION,
-        "workspaceDigest": workspace_digest,
-        "owner": WORKBENCH_NATIVE_OWNER,
-        "launchMode": NATIVE_ADAPTER_ONLY,
-        "processGroup": PROCESS_GROUP_REQUIRED_ON_UNIX,
-        "stdin": NULL_STDIN,
-        "output": BOUNDED_REDACTED_OUTPUT,
-        "timeoutPolicy": FIXED_TIMEOUT_POLICY,
-        "cancellation": GROUP_TERMINATE_THEN_KILL,
-    });
-    let digest = Sha256::digest(
-        serde_json::to_vec(&canonical).context("canonicalizing Workbench process run spec")?,
-    );
+    let run_id = switchboard_core::process_run_spec::process_run_id_for(
+        session_id,
+        adapter_plan_id,
+        adapter_id,
+        CODING_CLIENT_ADAPTER_CONTRACT_VERSION,
+        workspace_digest,
+    )?;
     let spec = ProcessRunSpec {
         schema_version: PROCESS_RUN_SPEC_SCHEMA_VERSION,
-        run_id: format!("process-run:{:x}", digest)[..41].to_string(),
+        run_id,
         session_id: session_id.to_string(),
         adapter_plan_id: adapter_plan_id.to_string(),
         adapter_id: adapter_id.to_string(),
@@ -136,9 +106,34 @@ pub(crate) fn process_run_spec_for(
     Ok(spec)
 }
 
+fn core_process_run_spec(
+    spec: &ProcessRunSpec,
+) -> switchboard_core::process_run_spec::ProcessRunSpec {
+    switchboard_core::process_run_spec::ProcessRunSpec {
+        schema_version: spec.schema_version,
+        run_id: spec.run_id.clone(),
+        session_id: spec.session_id.clone(),
+        adapter_plan_id: spec.adapter_plan_id.clone(),
+        adapter_id: spec.adapter_id.clone(),
+        adapter_contract_version: spec.adapter_contract_version,
+        workspace_digest: spec.workspace_digest.clone(),
+        owner: spec.owner.clone(),
+        state: spec.state.clone(),
+        start_authorization: spec.start_authorization.clone(),
+        launch_mode: spec.launch_mode.clone(),
+        process_group: spec.process_group.clone(),
+        stdin: spec.stdin.clone(),
+        output: spec.output.clone(),
+        timeout_policy: spec.timeout_policy.clone(),
+        cancellation: spec.cancellation.clone(),
+        provider_traffic: spec.provider_traffic.clone(),
+        writes_enabled: spec.writes_enabled,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{process_run_spec_digest, process_run_spec_for};
+    use super::{core_process_run_spec, process_run_spec_digest, process_run_spec_for};
 
     fn digest(character: char) -> String {
         format!("sha256:{}", character.to_string().repeat(64))
@@ -161,6 +156,24 @@ mod tests {
         )
         .expect("create process run spec");
         assert_eq!(first, second);
+        let core = core_process_run_spec(&first);
+        core.validate().expect("validate shared core spec");
+        assert_eq!(
+            first.run_id,
+            switchboard_core::process_run_spec::process_run_id_for(
+                &first.session_id,
+                &first.adapter_plan_id,
+                &first.adapter_id,
+                first.adapter_contract_version,
+                &first.workspace_digest,
+            )
+            .expect("derive shared core process run ID")
+        );
+        assert_eq!(
+            process_run_spec_digest(&first).expect("digest Tauri spec"),
+            switchboard_core::process_run_spec::process_run_spec_digest(&core)
+                .expect("digest shared core spec")
+        );
         assert_eq!(
             process_run_spec_digest(&first).expect("digest first spec"),
             process_run_spec_digest(&second).expect("digest second spec")
