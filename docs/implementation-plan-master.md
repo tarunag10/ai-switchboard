@@ -558,6 +558,11 @@ Core extraction progress:
   compatibility validation, effective-state behavior, authority locking, and
   durable ledger unchanged. The grant-focused suite (5 tests) and full
   Workbench suite (211 tests) pass with the updated lockfile.
+- `switchboard-core::process_admission` now owns the provider-neutral
+  admission receipt schema, deterministic identity, receipt digest, strict
+  timestamp validation, and non-executing boundary. Cross-object binding to
+  sessions, plans, process specs, and grants remains Tauri-owned until the
+  compatibility adapter phase.
 
 ### Remaining build work
 
