@@ -539,6 +539,11 @@ Core extraction progress:
   and control characters without echoing user data. The three standalone
   crates are pinned to the verified Rust 1.96 toolchain through
   `rust-toolchain.toml` and `rust-version` metadata.
+- `switchboard-core::plan_head` now owns the first provider-neutral plan-head
+  receipt contract: strict serde shape, deterministic ledger-scoped identity,
+  tamper-evident receipt digest, and unknown-field rejection. The Tauri plan
+  store still owns snapshot decoding, filesystem persistence, locking, and
+  ledger publication; full receipt/ledger adapter integration remains next.
 
 ### Remaining build work
 
