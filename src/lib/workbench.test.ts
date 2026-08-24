@@ -10,8 +10,10 @@ import {
   admitWorkbenchProcess,
   createWorkbenchSession,
   deriveWorkbenchProcessAdmissionEligibility,
+  getAdapterCommandReadinessDisclosure,
   getWorkbenchCapabilityProjection,
   issueWorkbenchProcessStartGrant,
+  isAdapterCommandReadinessAvailable,
   isWorkbenchDigest,
   listWorkbenchProcessAdmissions,
   listWorkbenchProcessStartGrants,
@@ -94,6 +96,22 @@ describe("workbench bridge", () => {
 
     await expect(getWorkbenchCapabilityProjection()).resolves.toEqual(projection);
     expect(invoke).toHaveBeenLastCalledWith("get_workbench_capability_projection");
+  });
+});
+
+describe("adapter command readiness policy", () => {
+  it("keeps canonical Codex and Claude Code adapters available", () => {
+    expect(isAdapterCommandReadinessAvailable("codex")).toBe(true);
+    expect(isAdapterCommandReadinessAvailable("claude_code")).toBe(true);
+    expect(getAdapterCommandReadinessDisclosure("codex")).toBeNull();
+    expect(getAdapterCommandReadinessDisclosure("claude_code")).toBeNull();
+  });
+
+  it("gates Gemini CLI with shared disclosure copy", () => {
+    expect(isAdapterCommandReadinessAvailable("gemini_cli")).toBe(false);
+    expect(getAdapterCommandReadinessDisclosure("gemini_cli")).toBe(
+      "Adapter command readiness is currently prepared only for canonical Codex and Claude Code; Gemini remains adapter-plan-only.",
+    );
   });
 });
 

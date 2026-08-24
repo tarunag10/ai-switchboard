@@ -558,6 +558,11 @@ Core extraction progress:
   compatibility validation, effective-state behavior, authority locking, and
   durable ledger unchanged. The grant-focused suite (5 tests) and full
   Workbench suite (211 tests) pass with the updated lockfile.
+- `switchboard-core::presets` now owns the provider-neutral Workbench preset
+  schema, strict plan-only validation, capability allowlist, and replay
+  evidence binding. Tauri retains the native catalog and resolution behavior
+  through a compatibility facade; the focused preset tests (2 core and 2
+  Tauri) pass without enabling execution.
 - `switchboard-core::process_admission` now owns the provider-neutral
   admission receipt schema, deterministic identity, receipt digest, strict
   timestamp validation, and non-executing boundary. Cross-object binding to
@@ -566,6 +571,11 @@ Core extraction progress:
   explicit conversion adapter while retaining cross-object validation,
   lifecycle, persistence, and locking. The focused process-supervisor suite
   (5 tests) and full Workbench suite (211 tests) pass after this integration.
+- The Workbench frontend now consumes a shared adapter-command-readiness policy
+  helper for availability, disclosure copy, and checkbox gating instead of
+  duplicating the Gemini exception in the component. Focused bridge/component
+  tests (21 tests total) and TypeScript typechecking pass; live process start
+  and provider traffic remain disabled.
 
 ### Remaining build work
 

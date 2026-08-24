@@ -267,8 +267,38 @@ export const WORKBENCH_CAPABILITIES = [
   },
 ] as const;
 
+const ADAPTER_COMMAND_READINESS_UNAVAILABLE_COPY =
+  "Adapter command readiness is currently prepared only for canonical Codex and Claude Code; Gemini remains adapter-plan-only.";
+
 export function isWorkbenchDigest(value: string): boolean {
   return /^sha256:[a-fA-F0-9]{64}$/.test(value.trim());
+}
+
+export function isAdapterCommandReadinessAvailable(
+  adapterId: WorkbenchRunSpecInput["adapterId"],
+): boolean {
+  return adapterId !== "gemini_cli";
+}
+
+export function getAdapterCommandReadinessDisclosure(
+  adapterId: WorkbenchRunSpecInput["adapterId"],
+): string | null {
+  return isAdapterCommandReadinessAvailable(adapterId)
+    ? null
+    : ADAPTER_COMMAND_READINESS_UNAVAILABLE_COPY;
+}
+
+export function getAdapterCommandReadinessPolicy(
+  adapterId: WorkbenchRunSpecInput["adapterId"],
+): {
+  available: boolean;
+  disclosure: string | null;
+} {
+  const available = isAdapterCommandReadinessAvailable(adapterId);
+  return {
+    available,
+    disclosure: available ? null : ADAPTER_COMMAND_READINESS_UNAVAILABLE_COPY,
+  };
 }
 
 export function createWorkbenchSession(input: {

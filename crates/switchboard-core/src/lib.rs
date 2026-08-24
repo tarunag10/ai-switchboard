@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod plan_head;
+pub mod presets;
 pub mod process_admission;
 pub mod process_grant;
 pub mod workbench;

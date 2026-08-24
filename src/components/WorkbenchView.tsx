@@ -22,6 +22,8 @@ import {
 import { hasTauriRuntime } from "../lib/tauriRuntime";
 import {
   WORKBENCH_CAPABILITIES,
+  getAdapterCommandReadinessDisclosure,
+  isAdapterCommandReadinessAvailable,
   admitWorkbenchProcess,
   createWorkbenchSession,
   deriveWorkbenchProcessAdmissionEligibility,
@@ -576,11 +578,14 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     ? selectedSession.events[selectedSession.events.length - 1] ?? null
     : null;
   const requestsRedactedReplay = capabilityIds.includes("redacted_replay");
-  const adapterCommandReadinessAvailable = adapterId !== "gemini_cli";
+  const adapterCommandReadinessAvailable =
+    isAdapterCommandReadinessAvailable(adapterId);
   const selectedPreset = projection?.presets.find((preset) => preset.presetId === presetId) ?? null;
   const selectedAdapterReadiness = projection?.adapterReadiness.find(
     (readiness) => readiness.adapterId === adapterId,
   ) ?? null;
+  const adapterCommandReadinessDisclosure =
+    getAdapterCommandReadinessDisclosure(adapterId);
   const processGrantPolicy = projection?.processStartGrantPolicy ?? null;
   const processGrantPhrase = runPlan && processGrantPolicy
     ? processGrantPolicy.confirmationTemplate.replace("{planId}", runPlan.planId)
@@ -746,11 +751,12 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                 <p className="optimize-minimal__meta">Native presets only compose existing plan-only capabilities and evidence sources. Router and replay references are re-resolved before a plan is created; replay paths, events, and manually entered metadata are not accepted here.</p>
                 {selectedPreset ? <p className="optimize-minimal__meta">Preset evidence source: {selectedPreset.evidenceSource.replace(/_/g, " ")}. {selectedPreset.description}</p> : null}
                 {selectedAdapterReadiness ? <p className="optimize-minimal__meta">{selectedAdapterReadiness.adapterId.replace(/_/g, " ")} readiness checks fixed known locations only: {selectedAdapterReadiness.knownCandidatePresent ? "candidate metadata present" : "no candidate metadata present"}. CLI version: not probed; process start remains disabled.</p> : null}
-                {!adapterCommandReadinessAvailable ? <p className="optimize-minimal__meta">Adapter command readiness is currently prepared only for canonical Codex and Claude Code; Gemini remains adapter-plan-only.</p> : null}
+                {adapterCommandReadinessDisclosure ? <p className="optimize-minimal__meta">{adapterCommandReadinessDisclosure}</p> : null}
                 <fieldset className="workbench-capabilities">
                   <legend>Required capabilities</legend>
                   {WORKBENCH_CAPABILITIES.map((capability) => {
-                    const unavailable = capability.id === "adapter_command_readiness" && !adapterCommandReadinessAvailable;
+                    const unavailable = capability.id === "adapter_command_readiness"
+                      && !adapterCommandReadinessAvailable;
                     return <label key={capability.id}><input checked={capabilityIds.includes(capability.id)} disabled={unavailable} onChange={() => toggleCapability(capability.id)} type="checkbox" /><span><strong>{capability.label}</strong><small>{capability.detail}</small></span></label>;
                   })}
                 </fieldset>
