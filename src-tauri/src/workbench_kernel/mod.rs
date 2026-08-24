@@ -21,6 +21,7 @@ mod codex_npm_manifest;
 mod codex_probe_preflight;
 mod codex_probe_preflight_digest;
 mod codex_probe_semver;
+mod codex_restricted_helper_preparation;
 mod events;
 mod presets;
 pub(crate) mod process_controller;
@@ -375,6 +376,9 @@ mod codex_npm_manifest_tests;
 mod codex_probe_preflight_test_support;
 #[cfg(test)]
 mod codex_probe_preflight_tests;
+
+#[cfg(test)]
+mod codex_restricted_helper_preparation_tests;
 
 #[cfg(test)]
 mod tests {

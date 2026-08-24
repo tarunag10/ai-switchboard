@@ -231,6 +231,43 @@ impl WorkbenchProcessAdmissionStore {
         Ok(admissions)
     }
 
+    pub(crate) fn require_exact_for(
+        &self,
+        admission_id: &str,
+        session_id: &str,
+        plan_id: &str,
+        process_run_id: &str,
+        grant_id: &str,
+    ) -> Result<WorkbenchProcessAdmission> {
+        let _guard = WORKBENCH_PROCESS_ADMISSION_LOCK
+            .lock()
+            .map_err(|_| anyhow!("Workbench process admission ledger lock is unavailable"))?;
+        for (value, label) in [
+            (admission_id, "process admission ID"),
+            (session_id, "session ID"),
+            (plan_id, "plan ID"),
+            (process_run_id, "process run ID"),
+            (grant_id, "process grant ID"),
+        ] {
+            validate_identifier(value, label)?;
+        }
+        let admission = self
+            .load()?
+            .admissions
+            .get(admission_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("Workbench process admission was not found"))?;
+        if admission.session_id != session_id
+            || admission.plan_id != plan_id
+            || admission.process_run_id != process_run_id
+            || admission.grant_id != grant_id
+        {
+            bail!("Workbench process admission is not authoritative for this native plan");
+        }
+        admission.validate()?;
+        Ok(admission)
+    }
+
     fn load(&self) -> Result<WorkbenchProcessAdmissionLedger> {
         if !self.path.exists() {
             return Ok(WorkbenchProcessAdmissionLedger::default());

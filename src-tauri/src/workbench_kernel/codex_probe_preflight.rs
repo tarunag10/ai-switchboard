@@ -76,6 +76,12 @@ pub(super) enum CodexProbeTargetEvidence<'a> {
     CollectedNpm(&'a CodexNpmLauncherChainObservation),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CodexPreflightTargetOrigin {
+    DirectMachO,
+    CollectedNpmSchemaV2,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CodexProbeContainmentObservation {
     pub schema_version: u32,
@@ -121,6 +127,7 @@ pub(super) struct CodexProbeContainmentObservation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CodexManualProbePreflight {
+    target_origin: CodexPreflightTargetOrigin,
     pub schema_version: u32,
     pub adapter_id: String,
     pub attempt_id: String,
@@ -154,17 +161,20 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
     }
     validate_probe_plan(probe_plan)?;
     let normalized_target;
-    let (target, collected_npm_receipt) = match target {
+    let (target, target_origin) = match target {
         CodexProbeTargetEvidence::Direct(target) => {
             if target.chain_kind != CodexLauncherChainKind::DirectMachO {
                 return Err("Raw npm target evidence is not accepted by Codex preflight".into());
             }
-            (target, false)
+            (target, CodexPreflightTargetOrigin::DirectMachO)
         }
         CodexProbeTargetEvidence::CollectedNpm(receipt) => {
             validate_codex_npm_launcher_chain_observation(host_architecture, receipt)?;
             normalized_target = normalize_collected_npm_target(receipt);
-            (&normalized_target, true)
+            (
+                &normalized_target,
+                CodexPreflightTargetOrigin::CollectedNpmSchemaV2,
+            )
         }
     };
     validate_target(probe_plan, host_architecture, target)?;
@@ -185,6 +195,7 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
         ],
     );
     Ok(CodexManualProbePreflight {
+        target_origin,
         schema_version: PREFLIGHT_SCHEMA_VERSION,
         adapter_id: CODEX_ADAPTER_ID.into(),
         attempt_id: containment.attempt_id.clone(),
@@ -195,13 +206,13 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
         launcher_chain_identity_digest: chain_digest,
         containment_identity_digest: containment_digest,
         preflight_identity_digest: preflight_digest,
-        state: if collected_npm_receipt {
+        state: if target_origin == CodexPreflightTargetOrigin::CollectedNpmSchemaV2 {
             "collected_target_shape_complete_non_executing"
         } else {
             "supplied_evidence_shape_complete_non_executing"
         }
         .into(),
-        reason_code: if collected_npm_receipt {
+        reason_code: if target_origin == CodexPreflightTargetOrigin::CollectedNpmSchemaV2 {
             "restricted_helper_and_manual_harness_still_required"
         } else {
             "native_collection_and_manual_harness_still_required"
@@ -214,6 +225,82 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
         provider_traffic: "none".into(),
         user_workspace_writes_enabled: false,
     })
+}
+
+impl CodexManualProbePreflight {
+    pub(super) fn has_collected_npm_origin(&self) -> bool {
+        self.target_origin == CodexPreflightTargetOrigin::CollectedNpmSchemaV2
+    }
+
+    pub(super) fn validate_for_collected_helper(
+        &self,
+        process_spec: &ProcessRunSpec,
+        probe_plan: &CodexProbePlan,
+        containment: &CodexProbeContainmentObservation,
+    ) -> Result<(), String> {
+        if !self.has_collected_npm_origin() {
+            return Err("Codex helper requires collected npm preflight provenance".into());
+        }
+        process_spec.validate().map_err(|error| error.to_string())?;
+        validate_probe_plan(probe_plan)?;
+        validate_containment(probe_plan, containment)?;
+        validate_identifier(&self.attempt_id, "Codex probe attempt ID")
+            .map_err(|error| error.to_string())?;
+        validate_identifier(&self.process_run_id, "process run ID")
+            .map_err(|error| error.to_string())?;
+        validate_identifier(&self.candidate_id, "Codex candidate ID")
+            .map_err(|error| error.to_string())?;
+        for (digest, label) in [
+            (&self.process_run_spec_digest, "process run spec"),
+            (&self.probe_plan_digest, "Codex probe plan"),
+            (
+                &self.launcher_chain_identity_digest,
+                "Codex launcher chain identity",
+            ),
+            (
+                &self.containment_identity_digest,
+                "Codex containment identity",
+            ),
+            (&self.preflight_identity_digest, "Codex preflight identity"),
+        ] {
+            validate_digest(digest, label).map_err(|error| error.to_string())?;
+        }
+        let process_digest =
+            process_run_spec_digest(process_spec).map_err(|error| error.to_string())?;
+        let probe_digest = probe_plan_digest(probe_plan);
+        let containment_digest = containment_digest(containment);
+        let expected_preflight_digest = bounded_digest(
+            b"ai-switchboard-codex-probe-preflight-v2\0",
+            &[
+                process_spec.run_id.as_str(),
+                process_digest.as_str(),
+                probe_digest.as_str(),
+                self.launcher_chain_identity_digest.as_str(),
+                containment_digest.as_str(),
+            ],
+        );
+        if self.schema_version != PREFLIGHT_SCHEMA_VERSION
+            || self.adapter_id != CODEX_ADAPTER_ID
+            || self.attempt_id != containment.attempt_id
+            || self.process_run_id != process_spec.run_id
+            || self.process_run_spec_digest != process_digest
+            || self.probe_plan_digest != probe_digest
+            || self.candidate_id != probe_plan.candidate_id
+            || self.containment_identity_digest != containment_digest
+            || self.preflight_identity_digest != expected_preflight_digest
+            || self.state != "collected_target_shape_complete_non_executing"
+            || self.reason_code != "restricted_helper_and_manual_harness_still_required"
+            || !self.manual_opt_in_required
+            || self.runnable
+            || self.supported
+            || self.process_start_enabled
+            || self.provider_traffic != "none"
+            || self.user_workspace_writes_enabled
+        {
+            return Err("Codex collected preflight is invalid or has been modified".into());
+        }
+        Ok(())
+    }
 }
 
 fn normalize_collected_npm_target(
@@ -409,7 +496,7 @@ fn validate_npm_chain(
     Ok(())
 }
 
-fn validate_containment(
+pub(super) fn validate_containment(
     probe_plan: &CodexProbePlan,
     value: &CodexProbeContainmentObservation,
 ) -> Result<(), String> {

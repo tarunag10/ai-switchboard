@@ -19,8 +19,8 @@ use super::process_run_spec::process_run_spec_for;
 use super::session::{validate_digest, WorkbenchSession};
 use super::{
     adapter_readiness::{
-        command_readiness_for, validate_adapter_command_readiness_adapter_id,
-        ADAPTER_COMMAND_READINESS_CAPABILITY_ID,
+        command_readiness_for, validate_adapter_command_readiness,
+        validate_adapter_command_readiness_adapter_id, ADAPTER_COMMAND_READINESS_CAPABILITY_ID,
     },
     WorkbenchAdapterCommandReadiness,
 };
@@ -89,6 +89,161 @@ pub struct WorkbenchRunPlan {
     pub execution_mode: String,
     pub provider_traffic: String,
     pub writes_enabled: bool,
+}
+
+pub(crate) fn workbench_run_plan_identity(plan: &WorkbenchRunPlan) -> Result<String> {
+    validate_workbench_run_plan_body(plan)?;
+    let capability_ids = plan
+        .capability_requests
+        .iter()
+        .map(|request| request.capability_id.as_str())
+        .collect::<Vec<_>>();
+    let canonical = serde_json::json!({
+        "sessionId": &plan.session_id,
+        "adapterId": &plan.adapter_id,
+        "workspaceDigest": &plan.workspace_digest,
+        "contextPackDigest": &plan.context_pack_digest,
+        "routerDecision": &plan.router_decision,
+        "replayReference": &plan.replay_reference,
+        "preset": &plan.preset,
+        "capabilityIds": capability_ids,
+        "requestedMode": &plan.requested_mode,
+        "adapterPlanId": &plan.adapter_plan_id,
+        "commandReadiness": &plan.command_readiness,
+        "processContainment": &plan.process_containment,
+    });
+    let digest = Sha256::digest(
+        serde_json::to_vec(&canonical).context("canonicalizing Workbench run plan identity")?,
+    );
+    Ok(format!("run-plan:{digest:x}")[..41].to_string())
+}
+
+pub(crate) fn validate_workbench_run_plan(plan: &WorkbenchRunPlan) -> Result<()> {
+    validate_identifier(&plan.plan_id, "plan ID")?;
+    if plan.plan_id != workbench_run_plan_identity(plan)? {
+        bail!("Workbench run plan identity does not match its complete native plan");
+    }
+    Ok(())
+}
+
+pub(crate) fn workbench_run_plan_snapshot_digest(plan: &WorkbenchRunPlan) -> Result<String> {
+    validate_workbench_run_plan(plan)?;
+    let bytes = serde_json::to_vec(plan).context("canonicalizing Workbench run plan snapshot")?;
+    let mut hasher = Sha256::new();
+    hasher.update(b"ai-switchboard-workbench-run-plan-snapshot-v1\0");
+    hasher.update((bytes.len() as u64).to_be_bytes());
+    hasher.update(bytes);
+    Ok(format!("sha256:{:x}", hasher.finalize()))
+}
+
+fn validate_workbench_run_plan_body(plan: &WorkbenchRunPlan) -> Result<()> {
+    if plan.schema_version != RUN_SPEC_SCHEMA_VERSION
+        || plan.execution_mode != PLAN_ONLY
+        || plan.provider_traffic != "none"
+        || plan.writes_enabled
+    {
+        bail!("Workbench run plan violates the plan-only boundary");
+    }
+    for (value, label) in [
+        (&plan.session_id, "session ID"),
+        (&plan.adapter_id, "adapter ID"),
+        (&plan.adapter_plan_id, "adapter plan ID"),
+    ] {
+        validate_identifier(value, label)?;
+    }
+    validate_digest(&plan.workspace_digest, "workspace digest")?;
+    if let Some(context_pack_digest) = &plan.context_pack_digest {
+        validate_digest(context_pack_digest, "context pack digest")?;
+    }
+    validate_router_reference(&plan.router_decision)?;
+
+    if plan.capability_requests.iter().any(|request| {
+        request.scope != "session"
+            || request.approval_state != "pending"
+            || request.execution_enabled
+    }) {
+        bail!("Workbench run plan capability requests are not plan-only");
+    }
+    let capability_ids = plan
+        .capability_requests
+        .iter()
+        .map(|request| request.capability_id.clone())
+        .collect::<Vec<_>>();
+    validate_capability_ids(&capability_ids)?;
+    for required in ["router_observe", "client_adapter_plan"] {
+        if !capability_ids.iter().any(|value| value == required) {
+            bail!("Workbench run plan is missing required capability {required}");
+        }
+    }
+    let has_capability = |value: &str| capability_ids.iter().any(|candidate| candidate == value);
+    match (
+        has_capability("repo_context"),
+        plan.context_pack_digest.as_ref(),
+    ) {
+        (true, Some(_)) | (false, None) => {}
+        _ => bail!("Workbench run plan context binding is invalid"),
+    }
+    match (
+        has_capability("redacted_replay"),
+        plan.replay_reference.as_ref(),
+    ) {
+        (true, Some(reference)) => validate_replay_reference(reference)?,
+        (false, None) => {}
+        _ => bail!("Workbench run plan replay binding is invalid"),
+    }
+    if let Some(preset) = &plan.preset {
+        validate_workbench_plan_preset(preset)?;
+        if preset.required_capability_ids != capability_ids {
+            bail!("Workbench run plan preset capabilities have drifted");
+        }
+    }
+
+    let has_command_readiness = has_capability(ADAPTER_COMMAND_READINESS_CAPABILITY_ID);
+    match (has_command_readiness, plan.command_readiness.as_ref()) {
+        (true, Some(readiness)) => {
+            validate_adapter_command_readiness(readiness)?;
+            if readiness.adapter_id != plan.adapter_id
+                || readiness.adapter_plan_id != plan.adapter_plan_id
+            {
+                bail!("Workbench run plan command readiness is misbound");
+            }
+        }
+        (false, None) => {}
+        _ => bail!("Workbench run plan command readiness binding is invalid"),
+    }
+    match (has_command_readiness, plan.process_containment.as_ref()) {
+        (true, Some(process)) => {
+            process.validate()?;
+            let expected = process_run_spec_for(
+                &plan.session_id,
+                &plan.adapter_plan_id,
+                &plan.adapter_id,
+                &plan.workspace_digest,
+            )?;
+            if process != &expected {
+                bail!("Workbench run plan process containment has drifted");
+            }
+        }
+        (false, None) => {}
+        _ => bail!("Workbench run plan process containment binding is invalid"),
+    }
+
+    let adapter = coding_client_adapter_for_version(
+        &plan.adapter_id,
+        CODING_CLIENT_ADAPTER_CONTRACT_VERSION,
+    )?;
+    let adapter_plan = adapter.plan(plan.requested_mode.clone())?;
+    let expected_action = match adapter_plan.action {
+        ConfigPlanAction::ApplyManagedRouting => "apply_managed_routing",
+        ConfigPlanAction::CleanupManagedRouting => "cleanup_managed_routing",
+    };
+    if adapter_plan.plan_id != plan.adapter_plan_id
+        || expected_action != plan.adapter_action
+        || adapter_plan.reversible != plan.adapter_reversible
+    {
+        bail!("Workbench run plan adapter output has drifted");
+    }
+    Ok(())
 }
 
 fn validate_router_reference(reference: &RouterDecisionReference) -> Result<()> {
@@ -327,8 +482,8 @@ pub(crate) fn prepare_run_plan(
 #[cfg(test)]
 mod tests {
     use super::{
-        prepare_run_plan, prepare_run_plan_with_reference, RouterDecisionReference,
-        WorkbenchRunSpecInput,
+        prepare_run_plan, prepare_run_plan_with_reference, validate_workbench_run_plan,
+        workbench_run_plan_snapshot_digest, RouterDecisionReference, WorkbenchRunSpecInput,
     };
     use crate::models::SwitchboardMode;
     use crate::workbench_kernel::session::{CreateWorkbenchSessionInput, WorkbenchSession};
@@ -397,6 +552,13 @@ mod tests {
             .capability_requests
             .iter()
             .all(|request| !request.execution_enabled));
+        validate_workbench_run_plan(&plan).expect("validate complete native plan");
+        assert!(workbench_run_plan_snapshot_digest(&plan)
+            .expect("digest complete native plan")
+            .starts_with("sha256:"));
+        let mut changed = plan;
+        changed.capability_requests[0].execution_enabled = true;
+        assert!(validate_workbench_run_plan(&changed).is_err());
     }
 
     #[test]

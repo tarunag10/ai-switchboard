@@ -67,6 +67,26 @@ pub(crate) fn validate_adapter_command_readiness_adapter_id(adapter_id: &str) ->
     logical_binary(adapter_id).map(|_| ())
 }
 
+pub(crate) fn validate_adapter_command_readiness(
+    readiness: &WorkbenchAdapterCommandReadiness,
+) -> Result<()> {
+    validate_adapter_command_readiness_adapter_id(&readiness.adapter_id)?;
+    validate_identifier(&readiness.adapter_plan_id, "adapter plan ID")?;
+    if readiness.schema_version != READINESS_SCHEMA_VERSION
+        || readiness.adapter_contract_version != CODING_CLIENT_ADAPTER_CONTRACT_VERSION
+        || readiness.logical_binary != logical_binary(&readiness.adapter_id)?
+        || readiness.discovery_mode != METADATA_DISCOVERY_MODE
+        || readiness.cli_version_probe_state != CLI_VERSION_NOT_PROBED
+        || readiness.version_probe_reason != VERSION_PROBE_DEFERRED_REASON
+        || readiness.process_start_enabled
+        || readiness.provider_traffic != "none"
+        || readiness.writes_enabled
+    {
+        bail!("Workbench adapter command readiness violates the metadata-only boundary");
+    }
+    Ok(())
+}
+
 fn readiness_for_adapter(adapter_id: &str) -> Result<WorkbenchAdapterReadiness> {
     validate_adapter_command_readiness_adapter_id(adapter_id)?;
     let logical_binary = logical_binary(adapter_id)?;
