@@ -3,6 +3,8 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
+use switchboard_runtime::{PortableRuntime, RuntimeClock};
+use uuid::Uuid;
 
 use super::capability_grant::{WorkbenchAuthorityTransaction, WorkbenchProcessGrantStore};
 use super::events::WorkbenchSessionStatus;
@@ -82,8 +84,26 @@ impl WorkbenchStore {
     }
 
     pub(crate) fn create(&self, input: CreateWorkbenchSessionInput) -> Result<WorkbenchSession> {
+        self.create_with_clock(&PortableRuntime, input)
+    }
+
+    pub(crate) fn create_with_clock<C>(
+        &self,
+        clock: &C,
+        input: CreateWorkbenchSessionInput,
+    ) -> Result<WorkbenchSession>
+    where
+        C: RuntimeClock + ?Sized,
+    {
         let transaction = self.begin_authority_transaction()?;
         transaction.require_authority_directory(self.authority_directory()?)?;
+        let unix_millis = clock.try_unix_millis()?;
+        let session_id = format!("workbench:{}", Uuid::new_v4());
+        let session = WorkbenchSession::create_with_session_id_at_unix_millis(
+            input,
+            &session_id,
+            unix_millis,
+        )?;
         let mut ledger = self.load()?;
         trim_terminal_sessions(&mut ledger.sessions);
         if ledger.sessions.len() >= MAX_SESSIONS {
@@ -91,7 +111,6 @@ impl WorkbenchStore {
                 "Workbench session ledger is full; finish or remove a terminal session first"
             ));
         }
-        let session = WorkbenchSession::create(input)?;
         ledger
             .sessions
             .insert(session.session_id.clone(), session.clone());
@@ -104,30 +123,77 @@ impl WorkbenchStore {
         session_id: &str,
         action: super::events::WorkbenchSessionAction,
     ) -> Result<WorkbenchSession> {
-        let transaction = self.begin_authority_transaction()?;
-        self.transition_for_authority_transaction(&transaction, session_id, action)
+        self.transition_with_clock(&PortableRuntime, session_id, action)
     }
 
-    fn transition_for_authority_transaction(
+    pub(crate) fn transition_with_clock<C>(
         &self,
-        transaction: &WorkbenchAuthorityTransaction,
+        clock: &C,
         session_id: &str,
         action: super::events::WorkbenchSessionAction,
-    ) -> Result<WorkbenchSession> {
+    ) -> Result<WorkbenchSession>
+    where
+        C: RuntimeClock + ?Sized,
+    {
+        let transaction = self.begin_authority_transaction()?;
+        self.transition_for_authority_transaction_with_clock(
+            &transaction,
+            clock,
+            session_id,
+            action,
+        )
+    }
+
+    fn transition_for_authority_transaction_with_clock<C>(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+        clock: &C,
+        session_id: &str,
+        action: super::events::WorkbenchSessionAction,
+    ) -> Result<WorkbenchSession>
+    where
+        C: RuntimeClock + ?Sized,
+    {
         transaction.require_authority_directory(self.authority_directory()?)?;
         let mut ledger = self.load()?;
         let session = ledger
             .sessions
             .get_mut(session_id)
             .ok_or_else(|| anyhow!("Workbench session was not found"))?;
-        session.transition(action)?;
+        let unix_millis = clock.try_unix_millis()?;
+        session.transition_at_unix_millis(action, unix_millis)?;
         let updated = session.clone();
         self.save(&ledger)?;
         Ok(updated)
     }
 
     pub(crate) fn fork(&self, session_id: &str, event_id: &str) -> Result<WorkbenchSession> {
+        self.fork_with_clock(&PortableRuntime, session_id, event_id)
+    }
+
+    pub(crate) fn fork_with_clock<C>(
+        &self,
+        clock: &C,
+        session_id: &str,
+        event_id: &str,
+    ) -> Result<WorkbenchSession>
+    where
+        C: RuntimeClock + ?Sized,
+    {
         let transaction = self.begin_authority_transaction()?;
+        self.fork_for_authority_transaction_with_clock(&transaction, clock, session_id, event_id)
+    }
+
+    fn fork_for_authority_transaction_with_clock<C>(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+        clock: &C,
+        session_id: &str,
+        event_id: &str,
+    ) -> Result<WorkbenchSession>
+    where
+        C: RuntimeClock + ?Sized,
+    {
         transaction.require_authority_directory(self.authority_directory()?)?;
         let mut ledger = self.load()?;
         let parent = ledger
@@ -150,11 +216,12 @@ impl WorkbenchStore {
                 "Workbench fork ID collides with an unrelated session"
             ));
         }
+        let unix_millis = clock.try_unix_millis()?;
         let parent = ledger
             .sessions
             .get_mut(session_id)
             .expect("Workbench parent was checked before mutable access");
-        let child = parent.fork_at_event(event_id)?;
+        let child = parent.fork_at_event_at_unix_millis(event_id, unix_millis)?;
         ledger
             .sessions
             .insert(child.session_id.clone(), child.clone());
@@ -250,12 +317,36 @@ mod tests {
     use super::{WorkbenchLedger, WorkbenchStore};
     use crate::workbench_kernel::events::WorkbenchSessionAction;
     use crate::workbench_kernel::session::CreateWorkbenchSessionInput;
+    use switchboard_runtime::{FixedClock, RuntimeClock, RuntimeClockError};
+
+    #[derive(Clone, Copy, Debug)]
+    struct FailingClock {
+        unix_millis: i64,
+    }
+
+    impl RuntimeClock for FailingClock {
+        fn unix_millis(&self) -> i64 {
+            self.unix_millis
+        }
+
+        fn try_unix_millis(&self) -> Result<i64, RuntimeClockError> {
+            Err(RuntimeClockError::Failed(
+                "injected Workbench clock failure",
+            ))
+        }
+    }
 
     fn input() -> CreateWorkbenchSessionInput {
         CreateWorkbenchSessionInput {
             workspace_digest: format!("sha256:{}", "b".repeat(64)),
             task_class: "planning".into(),
         }
+    }
+
+    fn timestamp_at(unix_millis: i64) -> String {
+        chrono::DateTime::<chrono::Utc>::from_timestamp_millis(unix_millis)
+            .expect("valid fixed timestamp")
+            .to_rfc3339()
     }
 
     #[test]
@@ -310,6 +401,111 @@ mod tests {
                 .events
                 .len(),
             event_count
+        );
+    }
+
+    #[test]
+    fn fixed_clock_supplies_one_timestamp_per_lifecycle_mutation() {
+        let directory = tempfile::tempdir().expect("create temporary directory");
+        let store = WorkbenchStore::at(directory.path().join("workbench-sessions.json"));
+
+        let create_millis = 1_700_000_000_123;
+        let create_clock = FixedClock::new(create_millis);
+        let created = store
+            .create_with_clock(&create_clock, input())
+            .expect("create session with fixed clock");
+        let created_at = timestamp_at(create_millis);
+        assert_eq!(created.created_at, created_at);
+        assert_eq!(created.updated_at, created_at);
+        assert_eq!(created.events[0].occurred_at, created_at);
+
+        let transition_millis = create_millis + 1_000;
+        let transition_clock = FixedClock::new(transition_millis);
+        let transitioned = store
+            .transition_with_clock(
+                &transition_clock,
+                &created.session_id,
+                WorkbenchSessionAction::Pause,
+            )
+            .expect("transition session with fixed clock");
+        let transitioned_at = timestamp_at(transition_millis);
+        assert_eq!(transitioned.updated_at, transitioned_at);
+        assert_eq!(
+            transitioned
+                .events
+                .last()
+                .expect("transition event")
+                .occurred_at,
+            transitioned_at
+        );
+
+        let fork_millis = transition_millis + 1_000;
+        let fork_clock = FixedClock::new(fork_millis);
+        let child = store
+            .fork_with_clock(
+                &fork_clock,
+                &created.session_id,
+                &created.events[0].event_id,
+            )
+            .expect("fork session with fixed clock");
+        let forked_at = timestamp_at(fork_millis);
+        let parent = store
+            .get(&created.session_id)
+            .expect("load persisted parent");
+        assert_eq!(parent.updated_at, forked_at);
+        assert_eq!(
+            parent.events.last().expect("fork event").occurred_at,
+            forked_at
+        );
+        assert_eq!(child.created_at, forked_at);
+        assert_eq!(child.updated_at, forked_at);
+        assert_eq!(child.events[0].occurred_at, forked_at);
+    }
+
+    #[test]
+    fn clock_failure_happens_before_ledger_save() {
+        let directory = tempfile::tempdir().expect("create temporary directory");
+        let path = directory.path().join("workbench-sessions.json");
+        let store = WorkbenchStore::at(path.clone());
+
+        let create_failure = FailingClock { unix_millis: 0 };
+        let error = store
+            .create_with_clock(&create_failure, input())
+            .expect_err("clock failure must reject creation");
+        assert!(error
+            .to_string()
+            .contains("injected Workbench clock failure"));
+        assert!(!path.exists());
+
+        let created = store
+            .create_with_clock(&FixedClock::new(1_700_000_000_123), input())
+            .expect("seed persisted session");
+        let persisted_before = std::fs::read(&path).expect("read seeded ledger");
+
+        let transition_failure = FailingClock { unix_millis: 0 };
+        store
+            .transition_with_clock(
+                &transition_failure,
+                &created.session_id,
+                WorkbenchSessionAction::Pause,
+            )
+            .expect_err("clock failure must reject transition");
+        assert_eq!(
+            std::fs::read(&path).expect("read ledger after failed transition"),
+            persisted_before
+        );
+
+        let fork_failure = FailingClock { unix_millis: 0 };
+        store
+            .fork_with_clock(
+                &fork_failure,
+                &created.session_id,
+                &created.events[0].event_id,
+            )
+            .expect_err("clock failure must reject fork");
+        assert_eq!(
+            std::fs::read(&path).expect("read ledger after failed fork"),
+            persisted_before
         );
     }
 }

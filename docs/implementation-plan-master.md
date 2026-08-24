@@ -603,6 +603,13 @@ Core extraction progress:
   before mutation. Existing constructors remain compatibility wrappers; all
   34 core tests and all-target Clippy pass. Tauri storage has not yet been
   switched to injected runtime clocks; that remains the next adapter phase.
+- Tauri `WorkbenchStore` now depends on `switchboard-runtime` and supplies
+  `PortableRuntime` through compatibility wrappers, while testable
+  `create_with_clock`, `transition_with_clock`, and `fork_with_clock` paths use
+  `RuntimeClock::try_unix_millis()` and the core lifecycle seam. Fixed-clock
+  and failing-clock tests cover one-sample mutations and no-write-on-failure;
+  the storage/run-plan-head suite passes 15/15 and the full Workbench suite
+  passes 213/213. Grant/admission clocks remain a separate follow-up.
 
 ### Remaining build work
 

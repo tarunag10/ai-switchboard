@@ -52,6 +52,7 @@ tree-sitter-typescript = "0.23"
 url = "2.5"
 uuid = { version = "=1.22.0", features = ["v4", "serde"] }
 switchboard-core = { path = "../crates/switchboard-core" }
+switchboard-runtime = { path = "../crates/switchboard-runtime" }
 
 [dev-dependencies]
 tempfile = "3"
