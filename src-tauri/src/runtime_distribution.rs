@@ -148,7 +148,11 @@ pub(crate) fn available_disk_bytes(path: &Path) -> Option<u64> {
 }
 
 pub(crate) fn python_distribution_artifact() -> Result<DownloadArtifact> {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
+    python_distribution_artifact_for_target(std::env::consts::OS, std::env::consts::ARCH)
+}
+
+fn python_distribution_artifact_for_target(os: &str, arch: &str) -> Result<DownloadArtifact> {
+    match (os, arch) {
         ("macos", "aarch64") => Ok(DownloadArtifact {
             url: format!(
                 "https://github.com/astral-sh/python-build-standalone/releases/download/{}/cpython-3.12.12+20251014-aarch64-apple-darwin-install_only_stripped.tar.gz",
@@ -177,16 +181,26 @@ pub(crate) fn python_distribution_artifact() -> Result<DownloadArtifact> {
             ),
             sha256: Some(PYTHON_SHA256_LINUX_AARCH64),
         }),
+        ("windows", arch) => bail!(
+            "Windows Headroom managed Python runtime is not supported: windows/{arch}"
+        ),
         (os, arch) => bail!("unsupported Headroom managed Python target: {os}/{arch}"),
     }
 }
 
 pub(crate) fn rtk_distribution_artifact() -> Result<DownloadArtifact> {
-    let (target, sha256) = match (std::env::consts::OS, std::env::consts::ARCH) {
+    rtk_distribution_artifact_for_target(std::env::consts::OS, std::env::consts::ARCH)
+}
+
+fn rtk_distribution_artifact_for_target(os: &str, arch: &str) -> Result<DownloadArtifact> {
+    let (target, sha256) = match (os, arch) {
         ("macos", "aarch64") => ("aarch64-apple-darwin", RTK_SHA256_MACOS_AARCH64),
         ("macos", "x86_64") => ("x86_64-apple-darwin", RTK_SHA256_MACOS_X86_64),
         ("linux", "aarch64") => ("aarch64-unknown-linux-gnu", RTK_SHA256_LINUX_AARCH64),
         ("linux", "x86_64") => ("x86_64-unknown-linux-musl", RTK_SHA256_LINUX_X86_64),
+        ("windows", arch) => {
+            bail!("Windows RTK installation is not supported: windows/{arch}")
+        }
         (os, arch) => bail!("unsupported RTK target: {os}/{arch}"),
     };
 
@@ -408,4 +422,152 @@ pub(crate) fn pip_line_to_progress(
         eta_seconds: remaining,
         percent,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        python_distribution_artifact_for_target, rtk_distribution_artifact_for_target,
+        PYTHON_SHA256_LINUX_AARCH64, PYTHON_SHA256_LINUX_X86_64, PYTHON_SHA256_MACOS_AARCH64,
+        PYTHON_SHA256_MACOS_X86_64, PYTHON_STANDALONE_RELEASE, RTK_SHA256_LINUX_AARCH64,
+        RTK_SHA256_LINUX_X86_64, RTK_SHA256_MACOS_AARCH64, RTK_SHA256_MACOS_X86_64, RTK_VERSION,
+    };
+
+    #[test]
+    fn python_artifact_matrix_preserves_supported_tar_gz_targets() {
+        let cases = [
+            (
+                "macos",
+                "aarch64",
+                "cpython-3.12.12+20251014-aarch64-apple-darwin-install_only_stripped.tar.gz",
+                PYTHON_SHA256_MACOS_AARCH64,
+            ),
+            (
+                "macos",
+                "x86_64",
+                "cpython-3.12.12+20251014-x86_64-apple-darwin-install_only_stripped.tar.gz",
+                PYTHON_SHA256_MACOS_X86_64,
+            ),
+            (
+                "linux",
+                "aarch64",
+                "cpython-3.12.12+20251014-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+                PYTHON_SHA256_LINUX_AARCH64,
+            ),
+            (
+                "linux",
+                "x86_64",
+                "cpython-3.12.12+20251014-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+                PYTHON_SHA256_LINUX_X86_64,
+            ),
+        ];
+
+        for (os, arch, file_name, sha256) in cases {
+            let artifact = python_distribution_artifact_for_target(os, arch)
+                .unwrap_or_else(|error| panic!("{os}/{arch} should be supported: {error}"));
+            assert_eq!(
+                artifact.url,
+                format!(
+                    "https://github.com/astral-sh/python-build-standalone/releases/download/{PYTHON_STANDALONE_RELEASE}/{file_name}"
+                ),
+                "{os}/{arch}"
+            );
+            assert_eq!(artifact.sha256, Some(sha256), "{os}/{arch}");
+        }
+    }
+
+    #[test]
+    fn python_artifact_matrix_fails_closed_for_every_windows_architecture() {
+        for arch in ["aarch64", "x86_64", "x86"] {
+            let error = python_distribution_artifact_for_target("windows", arch)
+                .err()
+                .unwrap_or_else(|| panic!("windows/{arch} should be rejected"));
+            assert_eq!(
+                error.to_string(),
+                format!("Windows Headroom managed Python runtime is not supported: windows/{arch}")
+            );
+        }
+    }
+
+    #[test]
+    fn python_artifact_matrix_rejects_unsupported_targets() {
+        for (os, arch) in [("macos", "powerpc"), ("freebsd", "x86_64")] {
+            let error = python_distribution_artifact_for_target(os, arch)
+                .err()
+                .unwrap_or_else(|| panic!("{os}/{arch} should be rejected"));
+            assert_eq!(
+                error.to_string(),
+                format!("unsupported Headroom managed Python target: {os}/{arch}")
+            );
+        }
+    }
+
+    #[test]
+    fn rtk_artifact_matrix_preserves_supported_tar_gz_targets() {
+        let cases = [
+            (
+                "macos",
+                "aarch64",
+                "rtk-aarch64-apple-darwin.tar.gz",
+                RTK_SHA256_MACOS_AARCH64,
+            ),
+            (
+                "macos",
+                "x86_64",
+                "rtk-x86_64-apple-darwin.tar.gz",
+                RTK_SHA256_MACOS_X86_64,
+            ),
+            (
+                "linux",
+                "aarch64",
+                "rtk-aarch64-unknown-linux-gnu.tar.gz",
+                RTK_SHA256_LINUX_AARCH64,
+            ),
+            (
+                "linux",
+                "x86_64",
+                "rtk-x86_64-unknown-linux-musl.tar.gz",
+                RTK_SHA256_LINUX_X86_64,
+            ),
+        ];
+
+        for (os, arch, file_name, sha256) in cases {
+            let artifact = rtk_distribution_artifact_for_target(os, arch)
+                .unwrap_or_else(|error| panic!("{os}/{arch} should be supported: {error}"));
+            assert_eq!(
+                artifact.url,
+                format!(
+                    "https://github.com/rtk-ai/rtk/releases/download/v{RTK_VERSION}/{file_name}"
+                ),
+                "{os}/{arch}"
+            );
+            assert_eq!(artifact.sha256, Some(sha256), "{os}/{arch}");
+        }
+    }
+
+    #[test]
+    fn rtk_artifact_matrix_fails_closed_for_every_windows_architecture() {
+        for arch in ["aarch64", "x86_64", "x86"] {
+            let error = rtk_distribution_artifact_for_target("windows", arch)
+                .err()
+                .unwrap_or_else(|| panic!("windows/{arch} should be rejected"));
+            assert_eq!(
+                error.to_string(),
+                format!("Windows RTK installation is not supported: windows/{arch}")
+            );
+        }
+    }
+
+    #[test]
+    fn rtk_artifact_matrix_rejects_unsupported_targets() {
+        for (os, arch) in [("macos", "powerpc"), ("freebsd", "x86_64")] {
+            let error = rtk_distribution_artifact_for_target(os, arch)
+                .err()
+                .unwrap_or_else(|| panic!("{os}/{arch} should be rejected"));
+            assert_eq!(
+                error.to_string(),
+                format!("unsupported RTK target: {os}/{arch}")
+            );
+        }
+    }
 }

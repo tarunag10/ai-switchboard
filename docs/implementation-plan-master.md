@@ -655,6 +655,14 @@ Core extraction progress:
   a local fail-safe preview when the native receipt is unavailable. The UI
   slice is strictly observe-only; focused Workbench, Session Ready, and shared
   Workbench tests pass 24/24 with TypeScript clean.
+- The cross-platform runtime audit confirmed that Windows artifact URLs alone
+  are insufficient: the existing Python, RTK, Headroom, extraction, and path
+  layers are Unix-oriented. Runtime distribution now uses explicit target
+  selectors with matrix tests and fails closed for every Windows architecture;
+  no unsupported Windows runtime is advertised. Six focused selector tests
+  pass. Full Windows runtime support remains a separate implementation phase
+  requiring archive-kind metadata, Windows executable/venv paths, Headroom
+  wheel selection, and platform-safe process code.
 
 ### Remaining build work
 
