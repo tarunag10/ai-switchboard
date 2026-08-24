@@ -456,8 +456,9 @@ the current checkout.
 
 ### Cross-platform harness and UI phase — started 2026-08-24
 
-Status: in progress. The first slice is implemented and locally verifiable; the
-shared Rust core extraction and native Linux/Windows runtime adapters remain.
+Status: in progress. The first UI/CLI slice and the first Workbench core
+extraction slices are implemented and locally verifiable; the remaining core
+contracts, native Linux/Windows adapters, and live execution gates remain.
 
 Done in this slice:
 
@@ -505,7 +506,14 @@ Core extraction progress:
   still depend on the Tauri application crate and are next.
 - The Workbench event vocabulary (`WorkbenchEventKind`, session status, and
   session actions) now lives in `switchboard-core`; Tauri retains only event
-  persistence, timestamping, validation, and platform/application wiring.
+  persistence and platform/application wiring.
+- The provider-neutral Workbench event/session model and fail-closed lifecycle
+  validation now live in `crates/switchboard-core/src/workbench.rs`. The Tauri
+  `events.rs` and `session.rs` modules are compatibility facades, preserving
+  existing command and storage imports. This slice was verified with 10 core
+  tests, 211 Workbench-focused Tauri tests, and 2 route-plan tests; it does not
+  yet extract grants, receipts, capability projection, persistence, or runtime
+  clock injection.
 - `crates/switchboard-runtime` now defines the platform-neutral runtime adapter
   boundary with clock and capability contracts plus a fail-closed portable
   implementation. It does not start processes, touch files, access secrets, or

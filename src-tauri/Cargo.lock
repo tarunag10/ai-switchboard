@@ -4682,7 +4682,11 @@ dependencies = [
 name = "switchboard-core"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "chrono",
  "serde",
+ "sha2",
+ "uuid",
 ]
 
 [[package]]
