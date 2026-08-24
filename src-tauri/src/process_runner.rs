@@ -1,3 +1,4 @@
+use std::ffi::{OsStr, OsString};
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -12,21 +13,40 @@ const STREAM_DRAIN_GRACE: Duration = Duration::from_millis(500);
 /// Prepend a binary's own directory to PATH so an `#!/usr/bin/env node`
 /// shebang (or similar) resolves the interpreter that nvm installs alongside
 /// it. Falls back to the existing PATH when the binary has no parent.
-pub(crate) fn path_with_binary_dir(binary: &Path) -> String {
-    let existing = std::env::var("PATH").unwrap_or_default();
+pub(crate) fn path_with_binary_dir(binary: &Path) -> Result<OsString> {
+    let existing = std::env::var_os("PATH");
+    path_with_binary_dir_from(binary, existing.as_deref())
+}
+
+fn path_with_binary_dir_from(binary: &Path, existing: Option<&OsStr>) -> Result<OsString> {
     match binary.parent() {
         Some(dir) if !dir.as_os_str().is_empty() => {
-            if existing.is_empty() {
-                dir.display().to_string()
-            } else {
-                format!("{}:{}", dir.display(), existing)
+            let mut paths = vec![dir.to_path_buf()];
+            if let Some(existing) = existing.filter(|path| !path.is_empty()) {
+                paths.extend(std::env::split_paths(existing));
             }
+            std::env::join_paths(paths)
+                .with_context(|| format!("constructing PATH for {}", binary.display()))
         }
-        _ => existing,
+        _ => Ok(existing.unwrap_or_default().to_os_string()),
     }
 }
 
-pub(crate) fn build_command(binary: &Path, args: &[&str], cwd: &Path) -> Command {
+#[cfg(unix)]
+fn ensure_managed_process_execution_supported() -> Result<()> {
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn ensure_managed_process_execution_supported() -> Result<()> {
+    Err(anyhow::anyhow!(
+        "managed process execution is unsupported on non-Unix platforms until process-tree containment is available"
+    ))
+}
+
+pub(crate) fn build_command(binary: &Path, args: &[&str], cwd: &Path) -> Result<Command> {
+    ensure_managed_process_execution_supported()?;
+
     let mut command = Command::new(binary);
     command
         .args(args)
@@ -36,7 +56,7 @@ pub(crate) fn build_command(binary: &Path, args: &[&str], cwd: &Path) -> Command
         // CLI with a `#!/usr/bin/env node` shebang (e.g. codex) fails with exit
         // 127 / "env: node: No such file or directory". node lives alongside the
         // CLI in nvm's bin, so prepend the binary's own dir to PATH.
-        .env("PATH", path_with_binary_dir(binary))
+        .env("PATH", path_with_binary_dir(binary)?)
         .env_remove("PYTHONPATH")
         .env_remove("PYTHONSTARTUP")
         .env("PYTHONNOUSERSITE", "1")
@@ -45,8 +65,9 @@ pub(crate) fn build_command(binary: &Path, args: &[&str], cwd: &Path) -> Command
         .env("LANG", "C.UTF-8")
         .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
         .env("PIP_NO_INPUT", "1");
+    #[cfg(unix)]
     configure_process_group(&mut command);
-    command
+    Ok(command)
 }
 
 #[cfg(unix)]
@@ -65,9 +86,6 @@ fn configure_process_group(command: &mut Command) {
         });
     }
 }
-
-#[cfg(not(unix))]
-fn configure_process_group(_command: &mut Command) {}
 
 fn terminate_process_tree(child: &mut Child) {
     #[cfg(unix)]
@@ -110,9 +128,12 @@ where
     F: FnMut(&str),
 {
     use std::io::{BufRead, BufReader};
-    use std::sync::mpsc;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    };
 
-    let mut cmd = build_command(binary, args, cwd);
+    let mut cmd = build_command(binary, args, cwd)?;
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     let mut child = cmd
@@ -127,14 +148,24 @@ where
     let tx_stderr = tx.clone();
     drop(tx);
 
+    let stdout_capture_limit_exceeded = Arc::new(AtomicBool::new(false));
+    let stderr_capture_limit_exceeded = Arc::new(AtomicBool::new(false));
+    let stdout_reader_limit = Arc::clone(&stdout_capture_limit_exceeded);
+    let stderr_reader_limit = Arc::clone(&stderr_capture_limit_exceeded);
+
     let stdout_handle = std::thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
         let mut raw = Vec::new();
+        let mut observed_bytes = 0usize;
         loop {
             raw.clear();
             match reader.read_until(b'\n', &mut raw) {
                 Ok(0) => break,
                 Ok(_) => {
+                    observed_bytes = observed_bytes.saturating_add(raw.len());
+                    if observed_bytes > MAX_CAPTURE_BYTES {
+                        stdout_reader_limit.store(true, Ordering::Relaxed);
+                    }
                     let line = String::from_utf8_lossy(&raw)
                         .trim_end_matches(['\r', '\n'])
                         .to_string();
@@ -150,11 +181,16 @@ where
     let stderr_handle = std::thread::spawn(move || {
         let mut reader = BufReader::new(stderr);
         let mut raw = Vec::new();
+        let mut observed_bytes = 0usize;
         loop {
             raw.clear();
             match reader.read_until(b'\n', &mut raw) {
                 Ok(0) => break,
                 Ok(_) => {
+                    observed_bytes = observed_bytes.saturating_add(raw.len());
+                    if observed_bytes > MAX_CAPTURE_BYTES {
+                        stderr_reader_limit.store(true, Ordering::Relaxed);
+                    }
                     let line = String::from_utf8_lossy(&raw)
                         .trim_end_matches(['\r', '\n'])
                         .to_string();
@@ -179,6 +215,17 @@ where
     let mut forced_pipe_cleanup = false;
 
     loop {
+        if stdout_capture_limit_exceeded.load(Ordering::Relaxed)
+            || stderr_capture_limit_exceeded.load(Ordering::Relaxed)
+        {
+            terminate_process_tree(&mut child);
+            child_status =
+                Some(child.wait().with_context(|| {
+                    format!("waiting for {} {}", binary.display(), args.join(" "))
+                })?);
+            break;
+        }
+
         if child_status.is_none() {
             match child.try_wait() {
                 Ok(Some(status)) => {
@@ -186,6 +233,15 @@ where
                     drain_deadline = Some(Instant::now() + STREAM_DRAIN_GRACE);
                 }
                 Ok(None) if started.elapsed() >= timeout => {
+                    if stdout_capture_limit_exceeded.load(Ordering::Relaxed)
+                        || stderr_capture_limit_exceeded.load(Ordering::Relaxed)
+                    {
+                        terminate_process_tree(&mut child);
+                        child_status = Some(child.wait().with_context(|| {
+                            format!("waiting for {} {}", binary.display(), args.join(" "))
+                        })?);
+                        break;
+                    }
                     timed_out = true;
                     terminate_process_tree(&mut child);
                     child_status = Some(child.wait().with_context(|| {
@@ -249,6 +305,8 @@ where
         let _ = stdout_handle.join();
         let _ = stderr_handle.join();
     }
+    stdout_truncated |= stdout_capture_limit_exceeded.load(Ordering::Relaxed);
+    stderr_truncated |= stderr_capture_limit_exceeded.load(Ordering::Relaxed);
 
     let status = child_status.unwrap_or(
         child
@@ -271,8 +329,11 @@ where
         }));
     }
 
-    if forced_pipe_cleanup {
-        stderr_buf.push_str("\nstream output pipes did not close after the process exited");
+    if stdout_truncated || stderr_truncated {
+        stderr_buf.push_str(&format!(
+            "\ncommand output exceeded the {} byte capture limit",
+            MAX_CAPTURE_BYTES
+        ));
         return Err(anyhow::Error::new(CommandFailure {
             program: binary.display().to_string(),
             args: args.iter().map(|s| s.to_string()).collect(),
@@ -283,11 +344,8 @@ where
         }));
     }
 
-    if stdout_truncated || stderr_truncated {
-        stderr_buf.push_str(&format!(
-            "\ncommand output exceeded the {} byte capture limit",
-            MAX_CAPTURE_BYTES
-        ));
+    if forced_pipe_cleanup {
+        stderr_buf.push_str("\nstream output pipes did not close after the process exited");
         return Err(anyhow::Error::new(CommandFailure {
             program: binary.display().to_string(),
             args: args.iter().map(|s| s.to_string()).collect(),
@@ -334,7 +392,7 @@ pub(crate) fn run_command_capture_with_timeout(
 ) -> Result<(String, String)> {
     use std::sync::mpsc;
 
-    let mut cmd = build_command(binary, args, cwd);
+    let mut cmd = build_command(binary, args, cwd)?;
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     let mut child = cmd
@@ -464,7 +522,7 @@ fn read_bounded(reader: &mut impl Read) -> CapturedStream {
 }
 
 pub(crate) fn run_command(binary: &Path, args: &[&str], cwd: &Path) -> Result<()> {
-    let output = build_command(binary, args, cwd)
+    let output = build_command(binary, args, cwd)?
         .output()
         .with_context(|| format!("starting {} {}", binary.display(), args.join(" ")))?;
 
@@ -538,6 +596,50 @@ pub(crate) fn exit_status_signal(status: &std::process::ExitStatus) -> Option<i3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_with_binary_dir_prepends_parent_and_preserves_components() {
+        let existing_paths = ["existing-one", "existing-two"];
+        let existing = std::env::join_paths(existing_paths).expect("synthetic PATH");
+        let binary = Path::new("tool-root").join("bin").join("switchboard");
+
+        let augmented =
+            path_with_binary_dir_from(&binary, Some(existing.as_os_str())).expect("augment PATH");
+        let components = std::env::split_paths(&augmented).collect::<Vec<_>>();
+
+        assert_eq!(
+            components,
+            vec![
+                Path::new("tool-root").join("bin"),
+                Path::new("existing-one").to_path_buf(),
+                Path::new("existing-two").to_path_buf(),
+            ]
+        );
+    }
+
+    #[test]
+    fn path_with_binary_dir_preserves_existing_path_for_bare_binary() {
+        let existing =
+            std::env::join_paths(["existing-one", "existing-two"]).expect("synthetic PATH");
+
+        let unchanged =
+            path_with_binary_dir_from(Path::new("switchboard"), Some(existing.as_os_str()))
+                .expect("preserve PATH");
+
+        assert_eq!(unchanged, existing);
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    fn build_command_fails_closed_without_process_tree_containment() {
+        let error = build_command(Path::new("must-not-spawn"), &[], Path::new("."))
+            .expect_err("non-Unix command construction must fail closed");
+
+        assert_eq!(
+            error.to_string(),
+            "managed process execution is unsupported on non-Unix platforms until process-tree containment is available"
+        );
+    }
 
     #[cfg(unix)]
     #[test]
@@ -622,16 +724,15 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn streaming_runner_rejects_retained_output_above_the_bound() {
-        let result = run_command_streaming_with_timeout(
+        let error = run_command_streaming_with_timeout(
             Path::new("/bin/sh"),
             &["-c", "yes x | head -c 3000000"],
             Path::new("/tmp"),
             Duration::from_secs(2),
             &mut |_| {},
-        );
-        assert!(result
-            .expect_err("streaming output must fail closed")
-            .to_string()
-            .contains("capture limit"));
+        )
+        .expect_err("streaming output must fail closed")
+        .to_string();
+        assert!(error.contains("capture limit"), "unexpected error: {error}");
     }
 }

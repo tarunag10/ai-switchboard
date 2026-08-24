@@ -669,6 +669,13 @@ Core extraction progress:
   candidate ordering remain unchanged. Nineteen focused discovery tests pass;
   the Windows-only PATHEXT integration test remains CI-gated because this
   checkout runs on macOS.
+- Managed process execution now has the same explicit boundary: Unix retains
+  process-group setup and descendant cleanup, PATH augmentation uses native
+  `OsString` path joining, and non-Unix execution fails closed instead of
+  silently running without containment. Streaming output overflow is handled
+  before timeout cleanup, preserving the capture-limit contract. Six focused
+  process-runner tests pass; Windows Job Object containment remains required
+  before enabling Windows process execution.
 
 ### Remaining build work
 

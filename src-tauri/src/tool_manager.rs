@@ -1,5 +1,6 @@
 use std::fs::OpenOptions;
 use std::net::TcpListener;
+#[cfg(unix)]
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -23,8 +24,6 @@ use crate::headroom_learn::{
     HeadroomLearnProjectSummary,
 };
 use crate::models::{ManagedTool, RepoMemoryMcpServiceStatus, ToolStatus};
-#[cfg(test)]
-use crate::process_runner::path_with_binary_dir;
 use crate::process_runner::{
     build_command, exit_status_signal, run_command, run_command_streaming,
     run_command_with_timeout, CommandFailure,
@@ -2198,7 +2197,7 @@ impl ToolManager {
             if force {
                 args.push("--force");
             }
-            let mut cmd = build_command(&entrypoint, &args[..], &self.runtime.root_dir);
+            let mut cmd = build_command(&entrypoint, &args[..], &self.runtime.root_dir)?;
             if let Some(claude_path) = detected_claude.as_ref() {
                 if let Some(dir) = claude_path.parent() {
                     let existing = std::env::var("PATH").unwrap_or_default();
@@ -2858,7 +2857,7 @@ mod tests {
         classify_kompress_prefetch_failure, command_family, extract_required_pydantic_core_version,
         format_all_foreign_bail, format_already_running_bail, headroom_entrypoint_startup_args,
         headroom_python_startup_args, looks_like_corrupt_venv_error, parse_major_minor_patch,
-        parse_pid_from_lsof_detail, path_with_binary_dir, probe_backend_readyz_ok,
+        parse_pid_from_lsof_detail, probe_backend_readyz_ok,
         proxy_argv_contains_expected_flags_for, read_rtk_command_families_from_db,
         receipt_requires_atomic_rebuild, reclaim_orphan_proxy, redact_sensitive,
         repair_console_script_interpreter, requirements_lock_sha, rtk_distribution_artifact,
@@ -2981,16 +2980,6 @@ mod tests {
                 None => std::env::remove_var("XDG_DATA_HOME"),
             }
         }
-    }
-
-    #[test]
-    fn path_with_binary_dir_prepends_parent() {
-        let path =
-            path_with_binary_dir(&PathBuf::from("/Users/x/.nvm/versions/node/v22/bin/codex"));
-        assert!(path.starts_with("/Users/x/.nvm/versions/node/v22/bin:"));
-        // A bare binary name has no usable parent; PATH is left unchanged.
-        let existing = std::env::var("PATH").unwrap_or_default();
-        assert_eq!(path_with_binary_dir(&PathBuf::from("codex")), existing);
     }
 
     #[test]
