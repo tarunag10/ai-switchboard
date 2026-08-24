@@ -40,6 +40,37 @@ pub struct HarnessStatus {
     pub process_start_enabled: bool,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkbenchEventKind {
+    Started,
+    Attached,
+    Checkpoint,
+    Paused,
+    Resumed,
+    Cancelled,
+    Completed,
+    Forked,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkbenchSessionStatus {
+    Active,
+    Paused,
+    Cancelled,
+    Completed,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkbenchSessionAction {
+    Pause,
+    Resume,
+    Cancel,
+    Complete,
+}
+
 impl HarnessStatus {
     pub fn local_preview(surface: HarnessSurface) -> Self {
         Self {

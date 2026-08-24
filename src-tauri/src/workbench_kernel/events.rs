@@ -6,36 +6,7 @@ pub const WORKBENCH_EVENT_SCHEMA_VERSION: u32 = 1;
 pub const MAX_EVENT_COUNT: usize = 512;
 const MAX_IDENTIFIER_LENGTH: usize = 128;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkbenchEventKind {
-    Started,
-    Attached,
-    Checkpoint,
-    Paused,
-    Resumed,
-    Cancelled,
-    Completed,
-    Forked,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkbenchSessionStatus {
-    Active,
-    Paused,
-    Cancelled,
-    Completed,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkbenchSessionAction {
-    Pause,
-    Resume,
-    Cancel,
-    Complete,
-}
+pub use switchboard_core::{WorkbenchEventKind, WorkbenchSessionAction, WorkbenchSessionStatus};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
