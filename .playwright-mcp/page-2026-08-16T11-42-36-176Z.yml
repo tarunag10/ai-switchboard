@@ -1,0 +1,127 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - link "AI Switchboard" [ref=e4] [cursor=pointer]:
+      - /url: "#top"
+    - navigation "Primary" [ref=e6]:
+      - link "Routing" [ref=e7] [cursor=pointer]:
+        - /url: "#routing"
+      - link "Proof" [ref=e8] [cursor=pointer]:
+        - /url: "#proof"
+      - link "Privacy" [ref=e9] [cursor=pointer]:
+        - /url: "#privacy"
+      - link "GitHub" [ref=e10] [cursor=pointer]:
+        - /url: https://github.com/tarunag10/ai-switchboard
+      - link "Download signed and notarized AI Switchboard for Mac DMG" [ref=e11] [cursor=pointer]:
+        - /url: /downloads/Mac-AI-Switchboard_0.0.1-signed-notarized-aarch64.dmg
+        - generic [ref=e15]:
+          - strong [ref=e16]: Download DMG
+          - generic [ref=e17]: signed and notarized
+  - main [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - paragraph [ref=e21]: Local-first control for AI coding workflows
+        - heading "Route. Compress. Recover." [level=1] [ref=e22]
+        - paragraph [ref=e23]: One quiet control panel for leaner AI coding turns. Keep your tools fast, your savings visible, and every change reversible.
+        - generic [ref=e24]:
+          - link "Download signed and notarized AI Switchboard for Mac DMG" [ref=e25] [cursor=pointer]:
+            - /url: /downloads/Mac-AI-Switchboard_0.0.1-signed-notarized-aarch64.dmg
+            - generic [ref=e29]:
+              - strong [ref=e30]: Download DMG
+              - generic [ref=e31]: signed and notarized
+          - link "View source" [ref=e32] [cursor=pointer]:
+            - /url: https://github.com/tarunag10/ai-switchboard
+        - generic "Highlights" [ref=e36]:
+          - generic [ref=e37]: Scoped fail-open
+          - generic [ref=e41]: Model routing
+          - generic [ref=e46]: Reversible setup
+        - paragraph [ref=e50]:
+          - text: Current DMG is signed with Developer ID and notarized by Apple.
+          - link "Verify SHA-256" [ref=e51] [cursor=pointer]:
+            - /url: /downloads/Mac-AI-Switchboard_0.0.1-signed-notarized-aarch64.dmg.sha256
+          - text: .
+      - generic "AI Switchboard app preview" [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e58]: AI Switchboard · Home
+          - generic [ref=e59]: LOCAL
+        - img "AI Switchboard dashboard showing token savings, session savings, and runtime history" [ref=e61]
+        - generic [ref=e62]:
+          - generic [ref=e63]: Headroom is running
+          - strong [ref=e65]: Visibility when it matters.
+    - region "Release status" [ref=e66]:
+      - generic [ref=e67]:
+        - strong [ref=e68]: 0.0.1
+        - text: Signed and notarized DMG
+      - generic [ref=e69]:
+        - strong [ref=e70]: SQLite
+        - text: Telemetry ledger active
+      - generic [ref=e71]:
+        - strong [ref=e72]: Scoped
+        - text: Fail-open per client
+      - generic [ref=e73]:
+        - strong [ref=e74]: Nightly
+        - text: Proof scaffold wired
+    - region [ref=e75]:
+      - generic [ref=e76]:
+        - paragraph [ref=e77]: A calmer way to optimize
+        - heading "From install to insight in three moves." [level=2] [ref=e78]
+        - paragraph [ref=e79]: AI Switchboard keeps the hard parts local and the state visible, so you always know what is running and why.
+      - generic [ref=e80]:
+        - article [ref=e81]:
+          - text: "01"
+          - heading "Connect your tools" [level=3] [ref=e82]
+          - paragraph [ref=e83]: Detect Claude Code, Codex, RTK, and supported connectors from one menu bar setup.
+        - article [ref=e84]:
+          - text: "02"
+          - heading "Choose your mode" [level=3] [ref=e85]
+          - paragraph [ref=e86]: Use Full optimization, RTK only, or Off. Every mode is scoped and reversible.
+        - article [ref=e87]:
+          - text: "03"
+          - heading "See the difference" [level=3] [ref=e88]
+          - paragraph [ref=e89]: Track saved tokens, routing health, and the exact clients that need attention.
+    - generic [ref=e90]:
+      - generic [ref=e91]:
+        - heading "Managed means Switchboard owns the wiring." [level=2] [ref=e93]
+        - paragraph [ref=e94]: It writes only its managed blocks, verifies them, watches health, and rolls them back cleanly when you turn a route off.
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - strong [ref=e97]: Claude Code
+          - generic [ref=e98]: Managed
+          - paragraph [ref=e99]: Switchboard runtime, Doctor, rollback
+        - generic [ref=e100]:
+          - strong [ref=e101]: Codex
+          - generic [ref=e102]: Managed
+          - paragraph [ref=e103]: Oversized-turn repair, routing
+        - generic [ref=e104]:
+          - strong [ref=e105]: RTK
+          - generic [ref=e106]: Auto
+          - paragraph [ref=e107]: Shell output compression
+        - generic [ref=e108]:
+          - strong [ref=e109]: Repo Intelligence
+          - generic [ref=e110]: Ready
+          - paragraph [ref=e111]: Packs, handoffs, MCP docs
+        - generic [ref=e112]:
+          - strong [ref=e113]: Ponytail + Caveman
+          - generic [ref=e114]: Add-on
+          - paragraph [ref=e115]: Prompt style compression
+        - generic [ref=e116]:
+          - strong [ref=e117]: Gemini + Windsurf
+          - generic [ref=e118]: Connector
+          - paragraph [ref=e119]: Watched and reported
+    - generic [ref=e120]:
+      - article [ref=e121]:
+        - heading "Optimization is measured, not decorative." [level=2] [ref=e126]
+        - paragraph [ref=e127]: Prompt-cache reads, token buckets, redundant file reads, routing decisions, and compaction checks flow into telemetry before they show up in the UI.
+      - article [ref=e128]:
+        - heading "One switch, many tools." [level=2] [ref=e135]
+        - paragraph [ref=e136]: "Full optimization turns on the stack: Headroom, RTK, prompt-cache ordering, repo packs, preemptive compaction, and provider-specific guardrails."
+      - article [ref=e137]:
+        - heading "Fast by default, visible when paused." [level=2] [ref=e140]
+        - paragraph [ref=e141]: If a client needs native compaction or retry, AI Switchboard fails open per client and shows the paused savings state instead of pretending it is active.
+    - generic [ref=e142]:
+      - heading "Local-first, user-controlled." [level=2] [ref=e146]
+      - paragraph [ref=e147]: AI Switchboard runs on your Mac, keeps provider keys in local config, and treats repo memory as read-only context unless you explicitly ask it to change something.
+      - link "Audit the repo" [ref=e148] [cursor=pointer]:
+        - /url: https://github.com/tarunag10/ai-switchboard
+  - contentinfo [ref=e153]:
+    - generic [ref=e154]: AI Switchboard
+    - generic [ref=e155]: Local-first AI routing for macOS today, broader clients next.

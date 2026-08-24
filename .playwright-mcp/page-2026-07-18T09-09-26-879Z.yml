@@ -1,0 +1,297 @@
+- generic [active] [ref=f8e1]:
+  - generic:
+    - generic:
+      - link "Skip to main content" [ref=f8e2] [cursor=pointer]
+      - link "Accessibility help" [ref=f8e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=en-IN
+  - generic [ref=f8e8]:
+    - search [ref=f8e9]:
+      - generic [ref=f8e11]:
+        - link "Go to Google Home" [ref=f8e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=en&sa=X&ved=0ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQPAgI
+        - generic [ref=f8e21]:
+          - generic [ref=f8e22]:
+            - combobox "Search" [ref=f8e25]: "\"chonkify\" software \"chonkify\" software"
+            - generic [ref=f8e26]:
+              - button "Clear" [ref=f8e28] [cursor=pointer]
+              - generic [ref=f8e33]:
+                - button "Search by voice" [ref=f8e34] [cursor=pointer]
+                - button "Search by image" [ref=f8e37] [cursor=pointer]
+          - button "Search" [ref=f8e40] [cursor=pointer]
+    - generic [ref=f8e45]:
+      - button "Settings" [ref=f8e47] [cursor=pointer]
+      - button "Share" [ref=f8e53] [cursor=pointer]
+      - generic [ref=f8e59]:
+        - button "Google apps" [ref=f8e61] [cursor=pointer]
+        - link "Sign in" [ref=f8e66] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=en&passive=true&continue=https://www.google.com/search%3Fq%3D%2522chonkify%2522%2Bsoftware&ec=futura_srp_og_si_72236_p
+  - generic [ref=f8e68]:
+    - navigation [ref=f8e74]:
+      - generic [ref=f8e80]:
+        - list [ref=f8e81]:
+          - listitem [ref=f8e82]:
+            - link "AI Mode" [ref=f8e85] [cursor=pointer]:
+              - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&udm=50&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832VTJOOCxW_fyN-Q_ezyf8gKjm3rhh_G8jdZ2Q6tji4z8GVSvqyGdykqk6W5STIO7EautjxGP3aXIqvdcBrYW6AGnS8CZ0eh8YPHlu8eRpDO82STh66uwcJDWjErWy6q_fNLiSR2K6Y8-K7yUxL6laoXtL4RnYorJVi6umdr6RiKQxOW81A&aep=1&ntc=1&cs=0&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ2J8OegQIEBAD
+          - listitem [ref=f8e89]:
+            - link "All" [disabled] [ref=f8e90]
+          - listitem [ref=f8e93]:
+            - link "Images" [ref=f8e94] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=2&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832VTJOOCxW_fyN-Q_ezyf8gKjm3rhh_G8jdZ2Q6tji4z8GVSvqyGdykqk6W5STIO7EautjxGP3aXIqvdcBrYW6AGnS8CZ0eh8YPHlu8eRpDO82STh66uwcJDWjErWy6q_fNLiSR2K6Y8-K7yUxL6laoXtL4RnYorJVi6umdr6RiKQxOW81A&q=%22thinkify%22+software&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQtKgLegQIFxAB
+          - listitem [ref=f8e97]:
+            - link "Videos" [ref=f8e98] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=7&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832VTJOOCxW_fyN-Q_ezyf8gKjm3rhh_G8jdZ2Q6tji4z8GVSvqyGdykqk6W5STIO7EautjxGP3aXIqvdcBrYW6AGnS8CZ0eh8YPHlu8eRpDO82STh66uwcJDWjErWy6q_fNLiSR2K6Y8-K7yUxL6laoXtL4RnYorJVi6umdr6RiKQxOW81A&q=%22thinkify%22+software&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQtKgLegQIFhAB
+          - listitem [ref=f8e101]:
+            - link "News" [ref=f8e102] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&q=%22thinkify%22+software&tbm=nws&source=lnms&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832VTJOOCxW_fyN-Q_ezyf8gKjm3rhh_G8jdZ2Q6tji4z8GVSvqyGdykqk6W5STIO7EautjxGP3aXIqvdcBrYW6AGnS8CZ0eh8YPHlu8eRpDO82STh66uwcJDWjErWy6q_fNLiSR2K6Y8-K7yUxL6laoXtL4RnYorJVi6umdr6RiKQxOW81A&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ0pQJegQIFBAB
+          - listitem [ref=f8e105]:
+            - link "Forums" [ref=f8e106] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=18&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832VTJOOCxW_fyN-Q_ezyf8gKjm3rhh_G8jdZ2Q6tji4z8GVSvqyGdykqk6W5STIO7EautjxGP3aXIqvdcBrYW6AGnS8CZ0eh8YPHlu8eRpDO82STh66uwcJDWjErWy6q_fNLiSR2K6Y8-K7yUxL6laoXtL4RnYorJVi6umdr6RiKQxOW81A&q=%22thinkify%22+software&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQs6gLegQIFRAB
+          - listitem [ref=f8e109]:
+            - link "Shopping" [ref=f8e110] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=28&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832VTJOOCxW_fyN-Q_ezyf8gKjm3rhh_G8jdZ2Q6tji4z8GVSvqyGdykqk6W5STIO7EautjxGP3aXIqvdcBrYW6AGnS8CZ0eh8YPHlu8eRpDO82STh66uwcJDWjErWy6q_fNLiSR2K6Y8-K7yUxL6laoXtL4RnYorJVi6umdr6RiKQxOW81A&q=%22thinkify%22+software&ved=1t:220175&ictx=111
+          - listitem [ref=f8e113]:
+            - button [ref=f8e114] [cursor=pointer]:
+              - generic "More filters" [ref=f8e115]: More
+        - button "Tools" [ref=f8e122] [cursor=pointer]
+    - heading "Search Results" [level=1] [ref=f8e129]
+    - main [ref=f8e135]:
+      - heading [level=2] [ref=f8e139]:
+        - text: These are results for
+        - button "\"thinkify\" software" [ref=f8e140] [cursor=pointer]:
+          - text: "\""
+          - generic [ref=f8e141]: thinkify
+          - text: "\" software"
+        - generic [ref=f8e142]:
+          - text: Search instead for
+          - button "\"chonkify\" software" [ref=f8e143] [cursor=pointer]
+      - generic [ref=f8e147]:
+        - generic [ref=f8e150]:
+          - heading "Web result with site links" [level=2] [ref=f8e151]
+          - generic [ref=f8e152]:
+            - generic [ref=f8e156]:
+              - generic [ref=f8e158]:
+                - link "Thinkify Software Services Thinkify Software Services https://thinkifysoftwares.com" [ref=f8e160] [cursor=pointer]:
+                  - /url: https://thinkifysoftwares.com/
+                  - heading "Thinkify Software Services" [level=3] [ref=f8e161]
+                  - generic [ref=f8e167]:
+                    - generic [ref=f8e168]: Thinkify Software Services
+                    - generic [ref=f8e170]: https://thinkifysoftwares.com
+                - button "About this result" [ref=f8e174] [cursor=pointer]
+              - generic [ref=f8e181]:
+                - text: Complete Managing About Software Business ...
+                - emphasis [ref=f8e182]: Thinkify Software
+                - text: Services provide services that help improve a company's processes, enhance performance and ...
+            - group "Personalised recommendations based on your history" [ref=f8e183]:
+              - rowgroup [ref=f8e184]:
+                - row [ref=f8e185]:
+                  - cell [ref=f8e186]:
+                    - generic [ref=f8e192]:
+                      - heading [level=3] [ref=f8e193]:
+                        - link [ref=f8e194] [cursor=pointer]:
+                          - /url: https://www.thinkifysoftwares.com/about.php
+                      - generic [ref=f8e197]: Thinkify Software Services provide services that help improve a ...
+                - row [ref=f8e198]:
+                  - cell [ref=f8e199]:
+                    - generic [ref=f8e205]:
+                      - heading [level=3] [ref=f8e206]:
+                        - link [ref=f8e207] [cursor=pointer]:
+                          - /url: https://www.thinkifysoftwares.com/blog-grid.php
+                      - generic [ref=f8e210]: About Us. Start Your Career With one of the Leading Thinkify ...
+                - row [ref=f8e212]:
+                  - cell [ref=f8e213]:
+                    - link "More results from thinkifysoftwares.com »" [ref=f8e215] [cursor=pointer]:
+                      - /url: /search?q=%22thinkify%22+software+site:thinkifysoftwares.com&sca_esv=5b6a8604bb713d0d&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQrAN6BAgdEAE
+        - generic [ref=f8e226]:
+          - heading "Searching Thinking a little longer" [level=2] [ref=f8e230]:
+            - generic [ref=f8e231]:
+              - generic [ref=f8e232]: Searching
+              - generic [ref=f8e242]: Thinking a little longer
+          - progressbar "Generating" [ref=f8e245]
+        - generic [ref=f8e298]:
+          - heading "Web results" [level=2] [ref=f8e299]
+          - generic [ref=f8e300]:
+            - generic [ref=f8e303]:
+              - 'link "Life at Thinkify Software Services: Culture, Salary, Reviews ... AmbitionBox https://www.ambitionbox.com › List of Companies" [ref=f8e305] [cursor=pointer]':
+                - /url: https://www.ambitionbox.com/overview/thinkify-software-services-overview
+                - 'heading "Life at Thinkify Software Services: Culture, Salary, Reviews ..." [level=3] [ref=f8e306]'
+                - generic [ref=f8e312]:
+                  - generic [ref=f8e313]: AmbitionBox
+                  - generic [ref=f8e315]: https://www.ambitionbox.com › List of Companies
+              - button "About this result" [ref=f8e319] [cursor=pointer]
+            - generic [ref=f8e326]:
+              - text: Get an inside look of
+              - emphasis [ref=f8e327]: Thinkify Software
+              - text: Services — culture, pay, reviews, interview questions, job openings, corporate offices, peer comparison and more on ...
+        - generic [ref=f8e332]:
+          - heading "People also ask" [level=2] [ref=f8e334]
+          - generic [ref=f8e335]:
+            - button "Where is Thinkify located?" [ref=f8e341] [cursor=pointer]
+            - button "What software services does Thinkify offer?" [ref=f8e355] [cursor=pointer]
+            - button "What is Thinkify Labs?" [ref=f8e369] [cursor=pointer]
+            - button "What industries does Thinkify serve?" [ref=f8e383] [cursor=pointer]
+        - generic [ref=f8e393]:
+          - heading "Web results" [level=2] [ref=f8e394]
+          - generic [ref=f8e395]:
+            - generic [ref=f8e398]:
+              - link "Thinkify Labs LinkedIn · Thinkify Labs 9K+ followers" [ref=f8e400] [cursor=pointer]:
+                - /url: https://in.linkedin.com/company/thinkify-labs
+                - heading "Thinkify Labs" [level=3] [ref=f8e401]
+                - generic [ref=f8e407]:
+                  - generic [ref=f8e408]: LinkedIn · Thinkify Labs
+                  - generic [ref=f8e410]: 9K+ followers
+              - button "About this result" [ref=f8e414] [cursor=pointer]
+            - generic [ref=f8e420]:
+              - generic [ref=f8e421]:
+                - emphasis [ref=f8e422]: Thinkify
+                - text: Labs. IT Services and IT Consulting. Bengaluru, Karnataka 8,978 followers.
+                - emphasis [ref=f8e423]: Thinkify
+                - text: provides on demand Engineering Resources and Managed Services.
+              - link "Read more" [ref=f8e424] [cursor=pointer]:
+                - /url: https://in.linkedin.com/company/thinkify-labs#:~:text=Thinkify%20Labs,Engineering%20Resources%20and%20Managed%20Services
+        - generic [ref=f8e428]:
+          - generic [ref=f8e431]:
+            - link "Thinkify Software Services Llp - 2026 Company Profile Tracxn https://tracxn.com › Discover › Legal Entities › India" [ref=f8e433] [cursor=pointer]:
+              - /url: https://tracxn.com/d/legal-entities/india/thinkify-software-services-llp/__KjGdygEmw5jvrU-ItdNtQGq-oQQbkdZITQfCjR-P56A
+              - heading "Thinkify Software Services Llp - 2026 Company Profile" [level=3] [ref=f8e434]
+              - generic [ref=f8e440]:
+                - generic [ref=f8e441]: Tracxn
+                - generic [ref=f8e443]: https://tracxn.com › Discover › Legal Entities › India
+            - button "About this result" [ref=f8e447] [cursor=pointer]
+          - generic [ref=f8e453]:
+            - generic [ref=f8e454]: 20 Mar 2026 —
+            - generic [ref=f8e455]:
+              - emphasis [ref=f8e456]: Thinkify Software
+              - text: Services Llp is a Limited Liability Partnership company and was incorporated on Jan 20, 2025 in India.
+            - link "Read more" [ref=f8e457] [cursor=pointer]:
+              - /url: https://tracxn.com/d/legal-entities/india/thinkify-software-services-llp/__KjGdygEmw5jvrU-ItdNtQGq-oQQbkdZITQfCjR-P56A#:~:text=Thinkify%20Software%20Services%20Llp%20is,Jan%2020%2C%202025%20in%20India.
+        - generic [ref=f8e461]:
+          - generic [ref=f8e464]:
+            - link "Thinkify Softwares (@thinkifysoftwares) · Pune Instagram · thinkifysoftwares 80+ followers" [ref=f8e466] [cursor=pointer]:
+              - /url: https://www.instagram.com/thinkifysoftwares/
+              - heading "Thinkify Softwares (@thinkifysoftwares) · Pune" [level=3] [ref=f8e467]
+              - generic [ref=f8e473]:
+                - generic [ref=f8e474]: Instagram · thinkifysoftwares
+                - generic [ref=f8e476]: 80+ followers
+            - button "About this result" [ref=f8e480] [cursor=pointer]
+          - generic [ref=f8e487]:
+            - text: We were delighted to welcome students from New Art College to
+            - emphasis [ref=f8e488]: Thinkify Software
+            - text: Services for an Industrial Visit. It was a great interaction where students ...
+        - generic [ref=f8e492]:
+          - generic [ref=f8e495]:
+            - link "thinkify software services llp - ACL-3945 IndiaFilings https://www.indiafilings.com › search › thinkify-software..." [ref=f8e497] [cursor=pointer]:
+              - /url: https://www.indiafilings.com/search/thinkify-software-services-llp-ACL-3945
+              - heading "thinkify software services llp - ACL-3945" [level=3] [ref=f8e498]
+              - generic [ref=f8e504]:
+                - generic [ref=f8e505]: IndiaFilings
+                - generic [ref=f8e507]: https://www.indiafilings.com › search › thinkify-software...
+            - button "About this result" [ref=f8e511] [cursor=pointer]
+          - generic [ref=f8e517]:
+            - generic [ref=f8e518]:
+              - emphasis [ref=f8e519]: THINKIFY SOFTWARE
+              - text: SERVICES LLP ; Date of Incorporation, 20-01-2025 ; Registered Address, S NO 381 NR KHEDEKAR INDUSTRIES ESTATE DHYARI NARHE Dhayari Pune Haveli ...
+            - link "Read more" [ref=f8e520] [cursor=pointer]:
+              - /url: https://www.indiafilings.com/search/thinkify-software-services-llp-ACL-3945#:~:text=THINKIFY%20SOFTWARE%20SERVICES%20LLP&text=Date%20of%20Incorporation,20%2D01%2D2025&text=Registered%20Address,Pune%20Haveli%20Maharashtra%20India%20411041
+        - generic [ref=f8e524]:
+          - generic [ref=f8e527]:
+            - link "thinkify software services llp / acl-3945 Falcon Ebiz Pvt Ltd https://www.falconebiz.com › ... › PUNE › 411041" [ref=f8e529] [cursor=pointer]:
+              - /url: https://www.falconebiz.com/LLP/THINKIFY-SOFTWARE-SERVICES-LLP-ACL-3945
+              - heading "thinkify software services llp / acl-3945" [level=3] [ref=f8e530]
+              - generic [ref=f8e536]:
+                - generic [ref=f8e537]: Falcon Ebiz Pvt Ltd
+                - generic [ref=f8e539]: https://www.falconebiz.com › ... › PUNE › 411041
+            - button "About this result" [ref=f8e543] [cursor=pointer]
+          - generic [ref=f8e550]:
+            - emphasis [ref=f8e551]: Thinkify Software
+            - text: Services LLP having LLPIN ACL-3945 is 1 years, 5 months & 3 days old. Incorporated on 20 January, 2025 and located at Pune, Maharashtra.
+        - generic [ref=f8e555]:
+          - generic [ref=f8e558]:
+            - link "Thinkify Software Engineer Reviews Glassdoor https://www.glassdoor.co.in › Reviews › Thinkify-Soft..." [ref=f8e560] [cursor=pointer]:
+              - /url: https://www.glassdoor.co.in/Reviews/Thinkify-Software-Engineer-Reviews-EI_IE2412953.0,8_KO9,26.htm
+              - heading "Thinkify Software Engineer Reviews" [level=3] [ref=f8e561]
+              - generic [ref=f8e567]:
+                - generic [ref=f8e568]: Glassdoor
+                - generic [ref=f8e570]: https://www.glassdoor.co.in › Reviews › Thinkify-Soft...
+            - button "About this result" [ref=f8e574] [cursor=pointer]
+          - generic [ref=f8e581]:
+            - text: "13"
+            - emphasis [ref=f8e582]: Thinkify
+            - text: reviews. A free inside look at company reviews and salaries posted anonymously by employees.
+      - generic [ref=f8e584]:
+        - generic [ref=f8e589]:
+          - heading "People also search for" [level=2] [ref=f8e591]
+          - generic [ref=f8e593]:
+            - generic [ref=f8e594]:
+              - link "Thinkify software salary" [ref=f8e598] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+software+salary&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAgkEAE
+              - link "Thinkify software careers" [ref=f8e612] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+software+careers&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAg7EAE
+              - link "Thinkify software glassdoor" [ref=f8e626] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+software+glassdoor&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAg6EAE
+              - link "Thinkify software bangalore" [ref=f8e640] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+software+bangalore&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAg2EAE
+            - generic [ref=f8e651]:
+              - link "Thinkify software services photos" [ref=f8e655] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+software+services+photos&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAguEAE
+              - link "Thinkify Labs" [ref=f8e669] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+Labs&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAgsEAE
+              - link "Thinkify io" [ref=f8e683] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+io&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAgrEAE
+              - link "Thinkify reviews" [ref=f8e697] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Thinkify+reviews&sa=X&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ1QJ6BAgoEAE
+        - navigation [ref=f8e708]:
+          - heading "Page navigation" [level=1] [ref=f8e709]
+          - text: "1"
+          - link "Page 2" [ref=f8e712] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=10&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAE
+            - text: "2"
+          - link "Page 3" [ref=f8e714] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=20&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAG
+            - text: "3"
+          - link "Page 4" [ref=f8e716] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=30&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAI
+            - text: "4"
+          - link "Page 5" [ref=f8e718] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=40&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAK
+            - text: "5"
+          - link "Page 6" [ref=f8e720] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=50&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAM
+            - text: "6"
+          - link "Page 7" [ref=f8e722] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=60&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAO
+            - text: "7"
+          - link "Page 8" [ref=f8e724] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=70&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAQ
+            - text: "8"
+          - link "Page 9" [ref=f8e726] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=80&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAS
+            - text: "9"
+          - link "Page 10" [ref=f8e728] [cursor=pointer]:
+            - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=90&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8tMDegQIIxAU
+            - text: "10"
+          - heading [level=2] [ref=f8e730]:
+            - link "Next" [ref=f8e731] [cursor=pointer]:
+              - /url: /search?q=%22thinkify%22+software&sca_esv=5b6a8604bb713d0d&ei=xEJbat3JIeHUkPIPjPSY0QY&start=10&sa=N&sstk=AU9db-CEwC2obRaKmv2JlDxBrB0ObzjSa-l1bTk2ZQt-I-ini4Niv2MbU2BsFgYVMWdIWh1Rn0Cpmx0yQoK6J7OPExX5lq1obqVfLg&ved=2ahUKEwjdu6688NuVAxVhKkQIHQw6JmoQ8NMDegQIIxAW
+      - navigation
+    - contentinfo [ref=f8e734]:
+      - heading "Footer links" [level=1] [ref=f8e735]
+      - generic [ref=f8e739]:
+        - generic [ref=f8e741]:
+          - text: India
+          - generic [ref=f8e743]:
+            - button "Dadar, Mumbai, Maharashtra - From your IP address" [ref=f8e745] [cursor=pointer]:
+              - generic [ref=f8e746]: Dadar, Mumbai, Maharashtra
+              - generic [ref=f8e748]:
+                - text: "-"
+                - generic [ref=f8e749]: From your IP address
+            - text: "-"
+            - button "Update location" [ref=f8e751] [cursor=pointer]
+        - generic [ref=f8e754]:
+          - link "Help" [ref=f8e755] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=en-IN&fg=1
+          - link "Send feedback" [ref=f8e756] [cursor=pointer]:
+            - /url: "#"
+          - link "Privacy" [ref=f8e757] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=en-IN&fg=1
+          - link "Terms" [ref=f8e758] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=en-IN&fg=1

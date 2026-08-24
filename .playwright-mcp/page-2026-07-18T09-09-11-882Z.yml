@@ -1,0 +1,377 @@
+- generic [active] [ref=f2e1]:
+  - generic:
+    - generic:
+      - link "Skip to main content" [ref=f2e2] [cursor=pointer]
+      - link "Accessibility help" [ref=f2e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=en-IN
+  - generic [ref=f2e8]:
+    - search [ref=f2e9]:
+      - generic [ref=f2e11]:
+        - link "Go to Google Home" [ref=f2e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=en&sa=X&ved=0ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4QPAgI
+        - generic [ref=f2e21]:
+          - generic [ref=f2e22]:
+            - combobox "Search" [ref=f2e25]: chonkify GitHub chonkify GitHub
+            - generic [ref=f2e26]:
+              - button "Clear" [ref=f2e28] [cursor=pointer]
+              - generic [ref=f2e33]:
+                - button "Search by voice" [ref=f2e34] [cursor=pointer]
+                - button "Search by image" [ref=f2e37] [cursor=pointer]
+          - button "Search" [ref=f2e40] [cursor=pointer]
+    - generic [ref=f2e45]:
+      - button "Settings" [ref=f2e47] [cursor=pointer]
+      - button "Share" [ref=f2e53] [cursor=pointer]
+      - generic [ref=f2e59]:
+        - button "Google apps" [ref=f2e61] [cursor=pointer]
+        - link "Sign in" [ref=f2e66] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=en&passive=true&continue=https://www.google.com/search%3Fq%3Dchonkify%2BGitHub%26sei%3DsEJbasalELzMkPIP5fu3AQ&ec=futura_srp_og_si_72236_p
+  - generic [ref=f2e68]:
+    - navigation [ref=f2e74]:
+      - generic [ref=f2e80]:
+        - list [ref=f2e81]:
+          - listitem [ref=f2e82]:
+            - link "AI Mode" [ref=f2e85] [cursor=pointer]:
+              - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&udm=50&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYSIu8Q64jU5EwQ-803VaKbdipNP9IdSJPNW0dZW-vtpfcVpgKvtTi4Am3eOPHObqPfnspKzHIX2x8Vx_XU9yiiONmNwp-mnvzeVLD0yMvcC-SYydLfYKH0yn0HyXd5g9GE9kUmM_PJbi8qT773wfECW6MKqow&aep=1&ntc=1&cs=0&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q2J8OegQIEhAD
+          - listitem [ref=f2e89]:
+            - link "All" [disabled] [ref=f2e90]
+          - listitem [ref=f2e93]:
+            - link "Images" [ref=f2e94] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=2&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYSIu8Q64jU5EwQ-803VaKbdipNP9IdSJPNW0dZW-vtpfcVpgKvtTi4Am3eOPHObqPfnspKzHIX2x8Vx_XU9yiiONmNwp-mnvzeVLD0yMvcC-SYydLfYKH0yn0HyXd5g9GE9kUmM_PJbi8qT773wfECW6MKqow&q=chonkie+GitHub&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4QtKgLegQIFRAB
+          - listitem [ref=f2e97]:
+            - link "Shopping" [ref=f2e98] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=28&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYSIu8Q64jU5EwQ-803VaKbdipNP9IdSJPNW0dZW-vtpfcVpgKvtTi4Am3eOPHObqPfnspKzHIX2x8Vx_XU9yiiONmNwp-mnvzeVLD0yMvcC-SYydLfYKH0yn0HyXd5g9GE9kUmM_PJbi8qT773wfECW6MKqow&q=chonkie+GitHub&ved=1t:220175&ictx=111
+          - listitem [ref=f2e101]:
+            - link "Videos" [ref=f2e102] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=7&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYSIu8Q64jU5EwQ-803VaKbdipNP9IdSJPNW0dZW-vtpfcVpgKvtTi4Am3eOPHObqPfnspKzHIX2x8Vx_XU9yiiONmNwp-mnvzeVLD0yMvcC-SYydLfYKH0yn0HyXd5g9GE9kUmM_PJbi8qT773wfECW6MKqow&q=chonkie+GitHub&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4QtKgLegQIFhAB
+          - listitem [ref=f2e105]:
+            - link "Forums" [ref=f2e106] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&udm=18&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYSIu8Q64jU5EwQ-803VaKbdipNP9IdSJPNW0dZW-vtpfcVpgKvtTi4Am3eOPHObqPfnspKzHIX2x8Vx_XU9yiiONmNwp-mnvzeVLD0yMvcC-SYydLfYKH0yn0HyXd5g9GE9kUmM_PJbi8qT773wfECW6MKqow&q=chonkie+GitHub&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Qs6gLegQIFxAB
+          - listitem [ref=f2e109]:
+            - link "News" [ref=f2e110] [cursor=pointer]:
+              - /url: /search?sca_esv=5b6a8604bb713d0d&q=chonkie+GitHub&tbm=nws&source=lnms&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYSIu8Q64jU5EwQ-803VaKbdipNP9IdSJPNW0dZW-vtpfcVpgKvtTi4Am3eOPHObqPfnspKzHIX2x8Vx_XU9yiiONmNwp-mnvzeVLD0yMvcC-SYydLfYKH0yn0HyXd5g9GE9kUmM_PJbi8qT773wfECW6MKqow&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q0pQJegQIFBAB
+          - listitem [ref=f2e113]:
+            - button [ref=f2e114] [cursor=pointer]:
+              - generic "More filters" [ref=f2e115]: More
+        - button "Tools" [ref=f2e122] [cursor=pointer]
+    - heading "Search Results" [level=1] [ref=f2e129]
+    - main [ref=f2e135]:
+      - heading [level=2] [ref=f2e139]:
+        - text: These are results for
+        - button "chonkie GitHub" [ref=f2e140] [cursor=pointer]:
+          - generic [ref=f2e141]: chonkie
+          - text: GitHub
+        - generic [ref=f2e142]:
+          - text: Search instead for
+          - button "chonkify GitHub" [ref=f2e143] [cursor=pointer]
+      - generic [ref=f2e147]:
+        - generic [ref=f2e150]:
+          - heading "Web result with site links" [level=2] [ref=f2e151]
+          - generic [ref=f2e152]:
+            - generic [ref=f2e156]:
+              - generic [ref=f2e158]:
+                - 'link "feyninc/chonkie: 🦛 CHONK docs with ... GitHub https://github.com › feyninc › chonkie" [ref=f2e160] [cursor=pointer]':
+                  - /url: https://github.com/feyninc/chonkie
+                  - 'heading "feyninc/chonkie: 🦛 CHONK docs with ..." [level=3] [ref=f2e161]'
+                  - generic [ref=f2e167]:
+                    - generic [ref=f2e168]: GitHub
+                    - generic [ref=f2e170]: https://github.com › feyninc › chonkie
+                - button "About this result" [ref=f2e174] [cursor=pointer]
+              - generic [ref=f2e181]:
+                - emphasis [ref=f2e182]: Chonkie
+                - text: provides an official skill and plugin for AI coding agents, giving them deep knowledge of
+                - emphasis [ref=f2e183]: Chonkie's
+                - text: API, chunking strategies, and pipeline patterns — so ...
+            - group "Personalised recommendations based on your history" [ref=f2e184]:
+              - rowgroup [ref=f2e185]:
+                - row [ref=f2e186]:
+                  - cell [ref=f2e187]:
+                    - generic [ref=f2e193]:
+                      - heading [level=3] [ref=f2e194]:
+                        - link [ref=f2e195] [cursor=pointer]:
+                          - /url: https://github.com/feyninc/chonkie/pulls
+                      - generic [ref=f2e198]: CHONK docs with Chonkie ✨ — The lightweight ingestion ...
+                - row [ref=f2e200]:
+                  - cell [ref=f2e201]:
+                    - link "More results from github.com »" [ref=f2e203] [cursor=pointer]:
+                      - /url: /search?q=chonkie+GitHub+site:github.com&sca_esv=5b6a8604bb713d0d&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4QrAN6BAgfEAE
+        - generic [ref=f2e206]:
+          - heading "Web results" [level=2] [ref=f2e207]
+          - generic [ref=f2e208]:
+            - generic [ref=f2e211]:
+              - 'link "feyninc/chonkiejs: 🦛 CHONK your texts with Chonkie ✨ ... GitHub https://github.com › chonkie-inc › chonkiejs" [ref=f2e213] [cursor=pointer]':
+                - /url: https://github.com/chonkie-inc/chonkiejs
+                - 'heading "feyninc/chonkiejs: 🦛 CHONK your texts with Chonkie ✨ ..." [level=3] [ref=f2e214]'
+                - generic [ref=f2e220]:
+                  - generic [ref=f2e221]: GitHub
+                  - generic [ref=f2e223]: https://github.com › chonkie-inc › chonkiejs
+              - button "About this result" [ref=f2e227] [cursor=pointer]
+            - generic [ref=f2e234]:
+              - emphasis [ref=f2e235]: chonkiejs is a port of the original chonkie library
+              - text: ", more useful for TypeScript developers! Easy to use: Install, Import, CHONK"
+        - generic [ref=f2e239]:
+          - generic [ref=f2e242]:
+            - 'link "chonkie-inc/chunk: 🚀 The Fastest Chunker in ... GitHub https://github.com › chonkie-inc › chunk" [ref=f2e244] [cursor=pointer]':
+              - /url: https://github.com/chonkie-inc/chunk
+              - 'heading "chonkie-inc/chunk: 🚀 The Fastest Chunker in ..." [level=3] [ref=f2e245]'
+              - generic [ref=f2e251]:
+                - generic [ref=f2e252]: GitHub
+                - generic [ref=f2e254]: https://github.com › chonkie-inc › chunk
+            - button "About this result" [ref=f2e258] [cursor=pointer]
+          - generic [ref=f2e265]:
+            - emphasis [ref=f2e266]: the fastest text chunking library
+            - text: — up to 1 TB/s throughput crates.io ・ chunk splits text at semantic boundaries ・ includes other basic operations that power ...
+        - generic [ref=f2e275]:
+          - generic [ref=f2e278]:
+            - generic [ref=f2e280]:
+              - heading "AI Overview" [level=2] [ref=f2e284]
+              - generic [ref=f2e286]:
+                - button "Change language to Hindi" [ref=f2e287] [cursor=pointer]:
+                  - generic [ref=f2e288]: मराठी
+                - button "Listen" [ref=f2e291]
+              - generic [ref=f2e298]:
+                - button "View 6 corroboration links" [ref=f2e300] [cursor=pointer]:
+                  - generic [ref=f2e301]: "+3"
+                - button "About this result" [ref=f2e308]
+            - generic [ref=f2e333]:
+              - generic [ref=f2e334]:
+                - button [ref=f2e337]:
+                  - 'img "Introducing Chonkie: A Fast, Lightweight Chunking Library for ..." [ref=f2e338]'
+                - strong [ref=f2e339]: Chonkie
+                - text: is
+                - mark [ref=f2e340]: a fast, lightweight, and type-friendly text chunking library designed specifically for Retrieval-Augmented Generation (RAG) pipelines
+                - text: . It includes various chunkers like
+                - code [ref=f2e341]: SemanticChunker
+                - text: ","
+                - code [ref=f2e342]: SDPMChunker
+                - text: ", and"
+                - code [ref=f2e343]: LateChunker
+                - text: ", with built-in support for OpenAI, Hugging Face, and byte-level tokenizers."
+                - generic [ref=f2e345]:
+                  - link "GitHub (+3) - View related links" [ref=f2e347] [cursor=pointer]:
+                    - /url: https://github.com/bhavnicksm/chonkie-main
+                  - button "GitHub (+3) - View related links" [disabled] [ref=f2e348]:
+                    - generic [ref=f2e350]:
+                      - generic [ref=f2e351]: GitHub
+                      - generic [ref=f2e352]: "+3"
+              - generic [ref=f2e357]: "You can find the core repositories and related tools for Chonkie on GitHub:"
+              - list [ref=f2e358]:
+                - listitem [ref=f2e360]:
+                  - generic [ref=f2e361]:
+                    - strong [ref=f2e362]: "Main Python Repository:"
+                    - text: Explore the source code or contribute on the
+                    - link "Chonkie GitHub Repository" [ref=f2e364] [cursor=pointer]:
+                      - /url: https://github.com/chonkie-inc/chonkiejs
+                    - text: .
+                - listitem [ref=f2e366]:
+                  - generic [ref=f2e367]:
+                    - strong [ref=f2e368]: "JavaScript/TypeScript Port:"
+                    - text: For Node.js environments, check out the
+                    - link [ref=f2e370] [cursor=pointer]:
+                      - /url: https://github.com/feyninc/chonkie
+                      - text: ChonkieJS GitHub Repository
+                    - text: .
+                - listitem [ref=f2e373]:
+                  - generic [ref=f2e374]:
+                    - strong [ref=f2e375]: "Ultra-Fast Backend Core:"
+                    - text: For raw performance (capable of up to 1 TB/s throughput), view the underlying
+                    - link [ref=f2e377] [cursor=pointer]:
+                      - /url: https://github.com/chonkie-inc/chunk
+                      - text: Chonkie Core GitHub Repository
+                    - text: .
+                  - button [disabled] [ref=f2e381]
+              - generic [ref=f2e386]:
+                - heading [level=3] [ref=f2e388]: Key Features & Usage
+                - list [ref=f2e389]:
+                  - listitem [ref=f2e391]:
+                    - generic [ref=f2e392]:
+                      - strong [ref=f2e393]: "Semantic & Late Chunking:"
+                      - text: Splits text at semantic boundaries or embeds text prior to chunking for higher contextual retrieval accuracy.
+                  - listitem [ref=f2e395]:
+                    - generic [ref=f2e396]:
+                      - strong [ref=f2e397]: "Easy Installation:"
+                      - text: "You can get started quickly in Python using pip:"
+                    - generic [ref=f2e399]:
+                      - generic [ref=f2e400]:
+                        - generic [ref=f2e401]: bash
+                        - code [ref=f2e405]: "pip install chonkie # or for all features pip install chonkie[all]"
+                      - generic [ref=f2e406]:
+                        - generic [ref=f2e407]: Use code with caution.
+                        - button [ref=f2e410] [cursor=pointer]
+                    - generic [ref=f2e416]:
+                      - link [ref=f2e418] [cursor=pointer]:
+                        - /url: https://github.com/bhavnicksm/chonkie-main
+                      - button [disabled] [ref=f2e419]:
+                        - generic [ref=f2e421]:
+                          - generic [ref=f2e422]: GitHub
+                          - generic [ref=f2e423]: "+2"
+                - generic [ref=f2e429]:
+                  - text: For full implementation tutorials, guides, and documentation, visit the
+                  - link [ref=f2e431] [cursor=pointer]:
+                    - /url: https://docs.chonkie.ai/common/welcome
+                    - text: Chonkie Documentation
+                  - text: .
+                  - button [disabled] [ref=f2e435]
+          - button "Show more AI Overview" [ref=f2e444]:
+            - generic [ref=f2e445] [cursor=pointer]: Show more
+        - generic [ref=f2e454]:
+          - heading "Web results" [level=2] [ref=f2e455]
+          - generic [ref=f2e456]:
+            - generic [ref=f2e459]:
+              - link "Chonkie Documentation Chonkie Documentation https://docs.chonkie.ai › common" [ref=f2e461] [cursor=pointer]:
+                - /url: https://docs.chonkie.ai/common/welcome
+                - heading "Chonkie Documentation" [level=3] [ref=f2e462]
+                - generic [ref=f2e468]:
+                  - generic [ref=f2e469]: Chonkie Documentation
+                  - generic [ref=f2e471]: https://docs.chonkie.ai › common
+              - button "About this result" [ref=f2e475] [cursor=pointer]
+            - generic [ref=f2e482]:
+              - emphasis [ref=f2e483]: The lightweight ingestion library for fast, efficient and robust RAG pipelines
+              - text: . Feature-rich Clean, CHONK, Embed, Refine and Store your data - all from one ...
+        - generic [ref=f2e487]:
+          - generic [ref=f2e490]:
+            - 'link "bhavnicksm/chonkie-main: 🦛 CHONK your texts with ... GitHub https://github.com › bhavnicksm › chonkie-main" [ref=f2e492] [cursor=pointer]':
+              - /url: https://github.com/bhavnicksm/chonkie-main
+              - 'heading "bhavnicksm/chonkie-main: 🦛 CHONK your texts with ..." [level=3] [ref=f2e493]'
+              - generic [ref=f2e499]:
+                - generic [ref=f2e500]: GitHub
+                - generic [ref=f2e502]: https://github.com › bhavnicksm › chonkie-main
+            - button "About this result" [ref=f2e506] [cursor=pointer]
+          - generic [ref=f2e512]:
+            - generic [ref=f2e513]:
+              - emphasis [ref=f2e514]: Chonkie provides several chunkers
+              - text: to help you split your text efficiently for RAG applications. Here's a quick overview of the available chunkers.
+            - link "Read more" [ref=f2e515] [cursor=pointer]:
+              - /url: https://github.com/bhavnicksm/chonkie-main#:~:text=Chonkie%20provides%20several%20chunkers%20to,overview%20of%20the%20available%20chunkers%3A
+        - generic [ref=f2e519]:
+          - generic [ref=f2e522]:
+            - link "chonkie PyPI https://pypi.org › project › chonkie" [ref=f2e524] [cursor=pointer]:
+              - /url: https://pypi.org/project/chonkie/0.5.1/
+              - heading "chonkie" [level=3] [ref=f2e525]
+              - generic [ref=f2e531]:
+                - generic [ref=f2e532]: PyPI
+                - generic [ref=f2e534]: https://pypi.org › project › chonkie
+            - button "About this result" [ref=f2e538] [cursor=pointer]
+          - generic [ref=f2e544]:
+            - generic [ref=f2e545]: 1 Mar 2025 —
+            - generic [ref=f2e546]:
+              - text: GitHub stars The no-nonsense
+              - emphasis [ref=f2e547]: RAG
+              - text: chunking library that's lightweight, lightning-fast, and ready to CHONK your texts ・ a chunking library ・ ...
+        - generic [ref=f2e551]:
+          - generic [ref=f2e554]:
+            - link "Chonkie, the \"no-nonsense RAG chunking library\" just ... Reddit · r/LocalLLaMA 20+ comments · 1 year ago" [ref=f2e556] [cursor=pointer]:
+              - /url: https://www.reddit.com/r/LocalLLaMA/comments/1jk857w/chonkie_the_nononsense_rag_chunking_library_just/
+              - heading "Chonkie, the \"no-nonsense RAG chunking library\" just ..." [level=3] [ref=f2e557]
+              - generic [ref=f2e563]:
+                - generic [ref=f2e564]: Reddit · r/LocalLLaMA
+                - generic [ref=f2e566]: 20+ comments · 1 year ago
+            - button "About this result" [ref=f2e570] [cursor=pointer]
+          - generic [ref=f2e577]:
+            - emphasis [ref=f2e578]: Chonkie
+            - text: ", the \"no-nonsense RAG chunking library\" just vanished from"
+            - emphasis [ref=f2e579]: GitHub
+            - text: Question.
+            - emphasis [ref=f2e580]: GitHub
+            - text: repository was either deleted or marked as private, ...
+          - generic [ref=f2e583]:
+            - generic [ref=f2e584]:
+              - link [ref=f2e587] [cursor=pointer]:
+                - /url: https://www.reddit.com/r/Rag/comments/1gnxx7i/introducing_chonkie_the_tinybutmighty_rag/
+                - generic [ref=f2e588]:
+                  - text: Introducing
+                  - emphasis [ref=f2e589]: Chonkie
+                  - text: ": The Tiny-but-Mighty RAG ..."
+              - generic [ref=f2e590]: 25 posts
+              - generic [ref=f2e592]: 10 Nov 2024
+            - generic [ref=f2e594]:
+              - link [ref=f2e597] [cursor=pointer]:
+                - /url: https://www.reddit.com/r/LocalLLaMA/comments/1gtfb3o/github_bhavnicksmchonkie_chonk_your_texts_with/
+                - generic [ref=f2e598]:
+                  - emphasis [ref=f2e599]: GitHub
+                  - text: "- The no-nonsense RAG chunking library : r ..."
+              - generic [ref=f2e600]: 24 posts
+              - generic [ref=f2e602]: 17 Nov 2024
+            - link "More results from www.reddit.com" [ref=f2e607] [cursor=pointer]:
+              - /url: /search?q=chonkie+GitHub+site:www.reddit.com&sca_esv=5b6a8604bb713d0d&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4QrQIoAnoECEAQAw
+        - generic [ref=f2e611]:
+          - generic [ref=f2e614]:
+            - link "Welcome to Chonkie! 🦛✨ CHONK your way ... GitHub https://github.com › chonkie-inc › .github" [ref=f2e616] [cursor=pointer]:
+              - /url: https://github.com/chonkie-inc/.github
+              - heading "Welcome to Chonkie! 🦛✨ CHONK your way ..." [level=3] [ref=f2e617]
+              - generic [ref=f2e623]:
+                - generic [ref=f2e624]: GitHub
+                - generic [ref=f2e626]: https://github.com › chonkie-inc › .github
+            - button "About this result" [ref=f2e630] [cursor=pointer]
+          - generic [ref=f2e637]:
+            - text: "known for building strong technical products, like:"
+            - emphasis [ref=f2e638]: Chonkie
+            - text: "(py, js, rs): The no-nonsense, ultra-light, and lightning-fast chunking library. One embedding ..."
+      - generic [ref=f2e640]:
+        - generic [ref=f2e645]:
+          - heading "People also search for" [level=2] [ref=f2e647]
+          - generic [ref=f2e649]:
+            - generic [ref=f2e650]:
+              - link "Chonkie AI" [ref=f2e654] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chonkie+AI&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAgwEAE
+              - link "Chonkie documentation" [ref=f2e668] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chonkie+documentation&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAg2EAE
+              - link "Chonkie pipeline" [ref=f2e682] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chonkie+pipeline&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAg1EAE
+              - link "Chonkie Python" [ref=f2e696] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chonkie+Python&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAg0EAE
+            - generic [ref=f2e707]:
+              - link "Chonkie(semantic chunking)" [ref=f2e711] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chonkie(semantic+chunking)&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAgzEAE
+              - link "Chunking github" [ref=f2e725] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chunking+github&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAgyEAE
+              - link "Chonky GitHub" [ref=f2e739] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chonky+GitHub&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAgxEAE
+              - link "Chunkie python" [ref=f2e753] [cursor=pointer]:
+                - /url: /search?sca_esv=5b6a8604bb713d0d&q=Chunkie+python&sa=X&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q1QJ6BAgvEAE
+        - navigation [ref=f2e764]:
+          - heading "Page navigation" [level=1] [ref=f2e765]
+          - text: "1"
+          - link "Page 2" [ref=f2e768] [cursor=pointer]:
+            - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&ei=skJbauviM6fskPIPxsKF8Ao&start=10&sa=N&sstk=AU9db-Do1wU_57Ph9K-2hwHSrFO8GQbY7wblHa1xcU-POwPo_43JWzKU2F4EacIopcFKXYira-yjKnxapDGZ35MoiQW4na7YxYEBrA&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q8tMDegQIJxAE
+            - text: "2"
+          - link "Page 3" [ref=f2e770] [cursor=pointer]:
+            - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&ei=skJbauviM6fskPIPxsKF8Ao&start=20&sa=N&sstk=AU9db-Do1wU_57Ph9K-2hwHSrFO8GQbY7wblHa1xcU-POwPo_43JWzKU2F4EacIopcFKXYira-yjKnxapDGZ35MoiQW4na7YxYEBrA&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q8tMDegQIJxAG
+            - text: "3"
+          - link "Page 4" [ref=f2e772] [cursor=pointer]:
+            - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&ei=skJbauviM6fskPIPxsKF8Ao&start=30&sa=N&sstk=AU9db-Do1wU_57Ph9K-2hwHSrFO8GQbY7wblHa1xcU-POwPo_43JWzKU2F4EacIopcFKXYira-yjKnxapDGZ35MoiQW4na7YxYEBrA&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q8tMDegQIJxAI
+            - text: "4"
+          - link "Page 5" [ref=f2e774] [cursor=pointer]:
+            - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&ei=skJbauviM6fskPIPxsKF8Ao&start=40&sa=N&sstk=AU9db-Do1wU_57Ph9K-2hwHSrFO8GQbY7wblHa1xcU-POwPo_43JWzKU2F4EacIopcFKXYira-yjKnxapDGZ35MoiQW4na7YxYEBrA&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q8tMDegQIJxAK
+            - text: "5"
+          - link "Page 6" [ref=f2e776] [cursor=pointer]:
+            - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&ei=skJbauviM6fskPIPxsKF8Ao&start=50&sa=N&sstk=AU9db-Do1wU_57Ph9K-2hwHSrFO8GQbY7wblHa1xcU-POwPo_43JWzKU2F4EacIopcFKXYira-yjKnxapDGZ35MoiQW4na7YxYEBrA&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q8tMDegQIJxAM
+            - text: "6"
+          - link "Page 7" [ref=f2e778] [cursor=pointer]:
+            - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&ei=skJbauviM6fskPIPxsKF8Ao&start=60&sa=N&sstk=AU9db-Do1wU_57Ph9K-2hwHSrFO8GQbY7wblHa1xcU-POwPo_43JWzKU2F4EacIopcFKXYira-yjKnxapDGZ35MoiQW4na7YxYEBrA&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q8tMDegQIJxAO
+            - text: "7"
+          - heading [level=2] [ref=f2e780]:
+            - link "Next" [ref=f2e781] [cursor=pointer]:
+              - /url: /search?q=chonkie+GitHub&sca_esv=5b6a8604bb713d0d&ei=skJbauviM6fskPIPxsKF8Ao&start=10&sa=N&sstk=AU9db-Do1wU_57Ph9K-2hwHSrFO8GQbY7wblHa1xcU-POwPo_43JWzKU2F4EacIopcFKXYira-yjKnxapDGZ35MoiQW4na7YxYEBrA&ved=2ahUKEwjrg_az8NuVAxUnNkQIHUZhAa4Q8NMDegQIJxAQ
+      - navigation
+    - contentinfo [ref=f2e784]:
+      - heading "Footer links" [level=1] [ref=f2e785]
+      - generic [ref=f2e789]:
+        - generic [ref=f2e791]:
+          - text: India
+          - generic [ref=f2e793]:
+            - button "Dadar, Mumbai, Maharashtra - From your IP address" [ref=f2e795] [cursor=pointer]:
+              - generic [ref=f2e796]: Dadar, Mumbai, Maharashtra
+              - generic [ref=f2e798]:
+                - text: "-"
+                - generic [ref=f2e799]: From your IP address
+            - text: "-"
+            - button "Update location" [ref=f2e801] [cursor=pointer]
+        - generic [ref=f2e804]:
+          - link "Help" [ref=f2e805] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=en-IN&fg=1
+          - link "Send feedback" [ref=f2e806] [cursor=pointer]:
+            - /url: "#"
+          - link "Privacy" [ref=f2e807] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=en-IN&fg=1
+          - link "Terms" [ref=f2e808] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=en-IN&fg=1

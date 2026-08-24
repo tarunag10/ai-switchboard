@@ -1,0 +1,526 @@
+- generic [ref=f15e2]:
+  - generic [ref=f15e3]:
+    - link "Skip to content" [ref=f15e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=f15e6]:
+      - heading "Navigation Menu" [level=2] [ref=f15e7]
+      - generic [ref=f15e8]:
+        - link "Homepage" [ref=f15e10] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f15e13]:
+          - navigation "Global" [ref=f15e16]:
+            - list [ref=f15e17]:
+              - listitem [ref=f15e18]:
+                - button "Platform" [ref=f15e20] [cursor=pointer]
+              - listitem [ref=f15e23]:
+                - button "Solutions" [ref=f15e25] [cursor=pointer]
+              - listitem [ref=f15e28]:
+                - button "Resources" [ref=f15e30] [cursor=pointer]
+              - listitem [ref=f15e33]:
+                - button "Open Source" [ref=f15e35] [cursor=pointer]
+              - listitem [ref=f15e38]:
+                - button "Enterprise" [ref=f15e40] [cursor=pointer]
+              - listitem [ref=f15e43]:
+                - link "Pricing" [ref=f15e44] [cursor=pointer]:
+                  - /url: https://github.com/pricing
+          - generic [ref=f15e46]:
+            - button "Search or jump to…" [ref=f15e49] [cursor=pointer]
+            - link "Sign in" [ref=f15e54] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Ffeyninc%2Fchunk
+            - link "Sign up" [ref=f15e55] [cursor=pointer]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E&source=header-repo&source_repo=feyninc%2Fchunk
+            - button "Appearance settings" [ref=f15e58] [cursor=pointer]
+  - main [ref=f15e62]:
+    - generic [ref=f15e63]:
+      - generic [ref=f15e64]:
+        - generic [ref=f15e66]:
+          - link "feyninc" [ref=f15e70] [cursor=pointer]:
+            - /url: /feyninc
+          - generic [ref=f15e71]: /
+          - strong [ref=f15e72]:
+            - link "chunk" [ref=f15e73] [cursor=pointer]:
+              - /url: /feyninc/chunk
+          - generic [ref=f15e74]: Public
+        - generic [ref=f15e75]:
+          - list:
+            - listitem [ref=f15e76]:
+              - link "You must be signed in to change notification settings" [ref=f15e77] [cursor=pointer]:
+                - /url: /login?return_to=%2Ffeyninc%2Fchunk
+                - text: Notifications
+            - listitem [ref=f15e80]:
+              - link "Fork 22" [ref=f15e81] [cursor=pointer]:
+                - /url: /login?return_to=%2Ffeyninc%2Fchunk
+                - text: Fork
+                - generic "22" [ref=f15e84]
+            - listitem [ref=f15e85]:
+              - link "You must be signed in to star a repository" [ref=f15e87] [cursor=pointer]:
+                - /url: /login?return_to=%2Ffeyninc%2Fchunk
+                - text: Star
+                - generic "353 users starred this repository" [ref=f15e90]: "353"
+      - navigation "Repository" [ref=f15e91]:
+        - list [ref=f15e92]:
+          - listitem [ref=f15e93]:
+            - link "Code" [ref=f15e94] [cursor=pointer]:
+              - /url: /feyninc/chunk
+          - listitem [ref=f15e98]:
+            - link "Issues" [ref=f15e99] [cursor=pointer]:
+              - /url: /feyninc/chunk/issues
+          - listitem [ref=f15e104]:
+            - link "Pull requests" [ref=f15e105] [cursor=pointer]:
+              - /url: /feyninc/chunk/pulls
+          - listitem [ref=f15e109]:
+            - link "Actions" [ref=f15e110] [cursor=pointer]:
+              - /url: /feyninc/chunk/actions
+          - listitem [ref=f15e114]:
+            - link "Projects" [ref=f15e115] [cursor=pointer]:
+              - /url: /feyninc/chunk/projects
+          - listitem [ref=f15e119]:
+            - link "Security and quality" [ref=f15e120] [cursor=pointer]:
+              - /url: /feyninc/chunk/security
+          - listitem [ref=f15e124]:
+            - link "Insights" [ref=f15e125] [cursor=pointer]:
+              - /url: /feyninc/chunk/pulse
+    - generic [ref=f15e141]:
+      - heading "feyninc/chunk" [level=1] [ref=f15e143]
+      - generic [ref=f15e144]:
+        - generic [ref=f15e147]:
+          - generic [ref=f15e148]:
+            - generic [ref=f15e149]:
+              - button "main branch" [ref=f15e151] [cursor=pointer]:
+                - generic [ref=f15e152]: main
+              - generic [ref=f15e160]:
+                - link [ref=f15e161] [cursor=pointer]:
+                  - /url: /feyninc/chunk/branches
+                  - generic [ref=f15e164]:
+                    - strong [ref=f15e165]: "2"
+                    - text: Branches
+                - link [ref=f15e166] [cursor=pointer]:
+                  - /url: /feyninc/chunk/tags
+                  - generic [ref=f15e169]:
+                    - strong [ref=f15e170]: "21"
+                    - text: Tags
+            - generic [ref=f15e171]:
+              - combobox "Go to file" [ref=f15e179]
+              - button "Code" [ref=f15e180] [cursor=pointer]
+          - generic [ref=f15e183]:
+            - generic [ref=f15e184]:
+              - heading "Folders and files" [level=2] [ref=f15e185]
+              - table "Folders and files" [ref=f15e186]:
+                - rowgroup:
+                  - row "Name Last commit message Last commit date":
+                    - columnheader "Name"
+                    - columnheader "Last commit message"
+                    - columnheader "Last commit date"
+                - rowgroup [ref=f15e187]:
+                  - row [ref=f15e188]:
+                    - 'cell "Latest commit chonk-lain commits by chonk-lain Merge pull request #6 from chonkie-inc/dev Open commit details success Commit de1e128 · May 29, 20262 months ago History 71 Commits" [ref=f15e189]':
+                      - generic [ref=f15e190]:
+                        - heading "Latest commit" [level=2] [ref=f15e191]
+                        - generic [ref=f15e192]:
+                          - generic [ref=f15e194]:
+                            - link [ref=f15e195] [cursor=pointer]:
+                              - /url: /chonk-lain
+                              - img "chonk-lain" [ref=f15e196]
+                            - link "commits by chonk-lain" [ref=f15e197] [cursor=pointer]:
+                              - /url: /feyninc/chunk/commits?author=chonk-lain
+                              - text: chonk-lain
+                          - generic [ref=f15e198]:
+                            - generic [ref=f15e200]:
+                              - link "Merge pull request" [ref=f15e201] [cursor=pointer]:
+                                - /url: /feyninc/chunk/commit/de1e12803739c72f5e0f03d3778b887056e936f9
+                              - link "#6" [ref=f15e202] [cursor=pointer]:
+                                - /url: https://github.com/feyninc/chunk/pull/6
+                              - link "from chonkie-inc/dev" [ref=f15e203] [cursor=pointer]:
+                                - /url: /feyninc/chunk/commit/de1e12803739c72f5e0f03d3778b887056e936f9
+                            - button "Open commit details" [ref=f15e204] [cursor=pointer]
+                            - button "success" [ref=f15e207] [cursor=pointer]
+                        - generic [ref=f15e210]:
+                          - generic [ref=f15e212]:
+                            - link "Commit de1e128" [ref=f15e213] [cursor=pointer]:
+                              - /url: /feyninc/chunk/commit/de1e12803739c72f5e0f03d3778b887056e936f9
+                              - text: de1e128
+                            - text: ·
+                            - generic "May 29, 2026, 12:39 AM GMT+5:30" [ref=f15e214]: May 29, 20262 months ago
+                          - generic [ref=f15e215]:
+                            - heading "History" [level=2] [ref=f15e216]
+                            - link "71 Commits" [ref=f15e217] [cursor=pointer]:
+                              - /url: /feyninc/chunk/commits/main/
+                  - row [ref=f15e220]:
+                    - cell [ref=f15e221]:
+                      - link ".github/workflows, (Directory)" [ref=f15e228] [cursor=pointer]:
+                        - /url: /feyninc/chunk/tree/main/.github/workflows
+                        - text: .github/workflows
+                    - cell [ref=f15e229]:
+                      - link "fixes" [ref=f15e232] [cursor=pointer]:
+                        - /url: /feyninc/chunk/commit/12ae51315c0c98daa9103db216f2a95926de9c02
+                    - cell "May 29, 20262 months ago" [ref=f15e233]
+                  - row [ref=f15e235]:
+                    - cell [ref=f15e236]:
+                      - link "assets, (Directory)" [ref=f15e243] [cursor=pointer]:
+                        - /url: /feyninc/chunk/tree/main/assets
+                        - text: assets
+                    - cell [ref=f15e244]:
+                      - 'link "Feat: Add benches + consolidate" [ref=f15e247] [cursor=pointer]':
+                        - /url: /feyninc/chunk/commit/0f97457dd9c750ad5471206727da3508eb362b2d
+                    - cell "Dec 22, 20257 months ago" [ref=f15e248]
+                  - row [ref=f15e250]:
+                    - cell [ref=f15e251]:
+                      - link "benches, (Directory)" [ref=f15e258] [cursor=pointer]:
+                        - /url: /feyninc/chunk/tree/main/benches
+                        - text: benches
+                    - cell [ref=f15e259]:
+                      - 'link "feat: add .patterns() API for multi-byte delimiter support" [ref=f15e262] [cursor=pointer]':
+                        - /url: /feyninc/chunk/commit/bdb954058923d512df27e549de4670abbe23f1b3
+                    - cell "Mar 29, 20264 months ago" [ref=f15e263]
+                  - row [ref=f15e265]:
+                    - cell [ref=f15e266]:
+                      - link "examples, (Directory)" [ref=f15e273] [cursor=pointer]:
+                        - /url: /feyninc/chunk/tree/main/examples
+                        - text: examples
+                    - cell [ref=f15e274]:
+                      - 'link "chore: fix formatting and clippy warnings" [ref=f15e277] [cursor=pointer]':
+                        - /url: /feyninc/chunk/commit/bda5895f969729e05c94c4c22c853bfc92c7fcc8
+                    - cell "Mar 29, 20264 months ago" [ref=f15e278]
+                  - row [ref=f15e280]:
+                    - cell [ref=f15e281]:
+                      - link "packages, (Directory)" [ref=f15e288] [cursor=pointer]:
+                        - /url: /feyninc/chunk/tree/main/packages
+                        - text: packages
+                    - cell [ref=f15e289]:
+                      - link "fixes" [ref=f15e292] [cursor=pointer]:
+                        - /url: /feyninc/chunk/commit/12ae51315c0c98daa9103db216f2a95926de9c02
+                    - cell "May 29, 20262 months ago" [ref=f15e293]
+                  - row [ref=f15e295]:
+                    - cell [ref=f15e296]:
+                      - link "scripts, (Directory)" [ref=f15e303] [cursor=pointer]:
+                        - /url: /feyninc/chunk/tree/main/scripts
+                        - text: scripts
+                    - cell [ref=f15e304]:
+                      - 'link "chore: bump package versions to 0.7.0" [ref=f15e307] [cursor=pointer]':
+                        - /url: /feyninc/chunk/commit/23ed00bc939eb5e0e1a14b9a66afd0710060cbdc
+                    - cell "Jan 21, 20266 months ago" [ref=f15e308]
+                  - row [ref=f15e310]:
+                    - cell [ref=f15e311]:
+                      - link "src, (Directory)" [ref=f15e318] [cursor=pointer]:
+                        - /url: /feyninc/chunk/tree/main/src
+                        - text: src
+                    - cell [ref=f15e319]:
+                      - 'link "chore: fix formatting and clippy warnings" [ref=f15e322] [cursor=pointer]':
+                        - /url: /feyninc/chunk/commit/bda5895f969729e05c94c4c22c853bfc92c7fcc8
+                    - cell "Mar 29, 20264 months ago" [ref=f15e323]
+                  - row [ref=f15e325]:
+                    - cell [ref=f15e326]:
+                      - link ".gitignore, (File)" [ref=f15e333] [cursor=pointer]:
+                        - /url: /feyninc/chunk/blob/main/.gitignore
+                        - text: .gitignore
+                    - cell [ref=f15e334]:
+                      - link "Update package versions to 0.1.4 across all components and modify Pyt…" [ref=f15e337] [cursor=pointer]:
+                        - /url: /feyninc/chunk/commit/1894529690c85b49ede161f35792fb5f90110d25
+                    - cell "Dec 23, 20257 months ago" [ref=f15e338]
+                  - row [ref=f15e340]:
+                    - cell [ref=f15e341]:
+                      - link "Cargo.lock, (File)" [ref=f15e348] [cursor=pointer]:
+                        - /url: /feyninc/chunk/blob/main/Cargo.lock
+                        - text: Cargo.lock
+                    - cell [ref=f15e349]:
+                      - link "bump version" [ref=f15e352] [cursor=pointer]:
+                        - /url: /feyninc/chunk/commit/a3eef8e07639e6f1a9dded7d589265d7af7f97a3
+                    - cell "May 28, 20262 months ago" [ref=f15e353]
+                  - row [ref=f15e355]:
+                    - cell [ref=f15e356]:
+                      - link "Cargo.toml, (File)" [ref=f15e363] [cursor=pointer]:
+                        - /url: /feyninc/chunk/blob/main/Cargo.toml
+                        - text: Cargo.toml
+                    - cell [ref=f15e364]:
+                      - link "bump version" [ref=f15e367] [cursor=pointer]:
+                        - /url: /feyninc/chunk/commit/a3eef8e07639e6f1a9dded7d589265d7af7f97a3
+                    - cell "May 28, 20262 months ago" [ref=f15e368]
+                  - row [ref=f15e370]:
+                    - cell [ref=f15e371]:
+                      - link "LICENSE-APACHE, (File)" [ref=f15e378] [cursor=pointer]:
+                        - /url: /feyninc/chunk/blob/main/LICENSE-APACHE
+                        - text: LICENSE-APACHE
+                    - cell [ref=f15e379]:
+                      - link "Add Cargo dependencies and initialize project" [ref=f15e382] [cursor=pointer]:
+                        - /url: /feyninc/chunk/commit/5b3fdd381d8e31b04279cb7337bb1a64ca5dbce1
+                    - cell "Dec 22, 20257 months ago" [ref=f15e383]
+                  - row [ref=f15e385]:
+                    - cell [ref=f15e386]:
+                      - link "LICENSE-MIT, (File)" [ref=f15e393] [cursor=pointer]:
+                        - /url: /feyninc/chunk/blob/main/LICENSE-MIT
+                        - text: LICENSE-MIT
+                    - cell [ref=f15e394]:
+                      - link "Add Cargo dependencies and initialize project" [ref=f15e397] [cursor=pointer]:
+                        - /url: /feyninc/chunk/commit/5b3fdd381d8e31b04279cb7337bb1a64ca5dbce1
+                    - cell "Dec 22, 20257 months ago" [ref=f15e398]
+                  - row [ref=f15e400]:
+                    - cell [ref=f15e401]:
+                      - link "README.md, (File)" [ref=f15e408] [cursor=pointer]:
+                        - /url: /feyninc/chunk/blob/main/README.md
+                        - text: README.md
+                    - cell [ref=f15e409]:
+                      - 'link "docs: add note about memchunk rename and chonkie core" [ref=f15e412] [cursor=pointer]':
+                        - /url: /feyninc/chunk/commit/45ebb22c28199c362b1270e06765c8ce0fc8954c
+                    - cell "Jan 28, 20266 months ago" [ref=f15e413]
+            - generic [ref=f15e416]:
+              - generic [ref=f15e417]:
+                - heading "Repository files navigation" [level=2] [ref=f15e418]
+                - navigation "Repository files" [ref=f15e419]:
+                  - list [ref=f15e420]:
+                    - listitem [ref=f15e421]:
+                      - link "README" [ref=f15e422] [cursor=pointer]:
+                        - /url: "#"
+                    - listitem [ref=f15e424]:
+                      - link "Apache-2.0 license" [ref=f15e425] [cursor=pointer]:
+                        - /url: "#"
+                    - listitem [ref=f15e427]:
+                      - link "MIT license" [ref=f15e428] [cursor=pointer]:
+                        - /url: "#"
+                - button "Outline" [ref=f15e430] [cursor=pointer]
+              - article [ref=f15e434]:
+                - paragraph [ref=f15e435]:
+                  - link [ref=f15e436] [cursor=pointer]:
+                    - /url: /feyninc/chunk/blob/main/assets/memchunk_wide.png
+                    - img "chunk" [ref=f15e437]
+                - generic [ref=f15e438]:
+                  - heading "chunk" [level=1] [ref=f15e439]
+                  - 'link "Permalink: chunk" [ref=f15e440] [cursor=pointer]':
+                    - /url: "#chunk"
+                - paragraph [ref=f15e443]:
+                  - emphasis [ref=f15e444]: the fastest text chunking library — up to 1 TB/s throughput
+                - paragraph [ref=f15e445]:
+                  - link [ref=f15e446] [cursor=pointer]:
+                    - /url: https://crates.io/crates/chunk
+                    - img "crates.io" [ref=f15e447]
+                  - link [ref=f15e448] [cursor=pointer]:
+                    - /url: https://pypi.org/project/chonkie-core
+                    - img "PyPI" [ref=f15e449]
+                  - link [ref=f15e450] [cursor=pointer]:
+                    - /url: https://www.npmjs.com/package/@chonkiejs/chunk
+                    - img "npm" [ref=f15e451]
+                  - link [ref=f15e452] [cursor=pointer]:
+                    - /url: https://docs.rs/chunk
+                    - img "docs.rs" [ref=f15e453]
+                  - link [ref=f15e454] [cursor=pointer]:
+                    - /url: /feyninc/chunk/blob/main/LICENSE-MIT
+                    - img "License" [ref=f15e455]
+                - separator [ref=f15e456]
+                - paragraph [ref=f15e457]: you know how every chunking library claims to be fast? yeah, we actually meant it.
+                - paragraph [ref=f15e458]:
+                  - strong [ref=f15e459]: chunk
+                  - text: splits text at semantic boundaries (periods, newlines, the usual suspects) and does it stupid fast. we're talking "chunk the entire english wikipedia in 120ms" fast.
+                - paragraph [ref=f15e460]:
+                  - text: want to know how?
+                  - link "read the blog post" [ref=f15e461] [cursor=pointer]:
+                    - /url: https://minha.sh/posts/so,-you-want-to-chunk-really-fast
+                  - text: where we nerd out about SIMD instructions and lookup tables.
+                - generic [ref=f15e462]:
+                  - paragraph [ref=f15e463]: Note
+                  - paragraph [ref=f15e466]:
+                    - strong [ref=f15e467]: chunk
+                    - text: was previously known as
+                    - strong [ref=f15e468]: memchunk
+                    - text: . It still contains the
+                    - code [ref=f15e469]: chunk
+                    - text: method but now also includes other basic operations that power
+                    - link "chonkie" [ref=f15e470] [cursor=pointer]:
+                      - /url: https://github.com/chonkie-inc/chonkie
+                    - text: core.
+                - paragraph [ref=f15e471]:
+                  - link [ref=f15e472] [cursor=pointer]:
+                    - /url: /feyninc/chunk/blob/main/assets/benchmark.png
+                    - img "Benchmark comparison" [ref=f15e473]
+                - paragraph [ref=f15e474]:
+                  - emphasis [ref=f15e475]:
+                    - text: See
+                    - link "benches/" [ref=f15e476] [cursor=pointer]:
+                      - /url: /feyninc/chunk/blob/main/benches
+                    - text: for detailed benchmarks.
+                - generic [ref=f15e477]:
+                  - heading "📦 Installation" [level=2] [ref=f15e478]
+                  - 'link "Permalink: 📦 Installation" [ref=f15e479] [cursor=pointer]':
+                    - /url: "#-installation"
+                - generic [ref=f15e482]:
+                  - generic [ref=f15e483]: cargo add chunk
+                  - button "Copy code to clipboard" [ref=f15e485] [cursor=pointer]
+                - paragraph [ref=f15e489]:
+                  - text: looking for
+                  - link "python" [ref=f15e490] [cursor=pointer]:
+                    - /url: https://github.com/chonkie-inc/chunk/tree/main/packages/python
+                  - text: or
+                  - link "javascript" [ref=f15e491] [cursor=pointer]:
+                    - /url: https://github.com/chonkie-inc/chunk/tree/main/packages/wasm
+                  - text: "?"
+                - generic [ref=f15e492]:
+                  - heading "🚀 Usage" [level=2] [ref=f15e493]
+                  - 'link "Permalink: 🚀 Usage" [ref=f15e494] [cursor=pointer]':
+                    - /url: "#-usage"
+                - generic [ref=f15e497]:
+                  - generic [ref=f15e498]:
+                    - text: use chunk::chunk; let text =
+                    - generic [ref=f15e499]: b"Hello world. How are you? I'm fine.\nThanks for asking."
+                    - text: "; // With defaults (4KB chunks, split at \\n . ?) let chunks: Vec<&[u8]> = chunk(text).collect(); // With custom size let chunks: Vec<&[u8]> = chunk(text).size(1024).collect(); // With custom delimiters let chunks: Vec<&[u8]> = chunk(text).delimiters("
+                    - generic [ref=f15e500]: b"\n.?!"
+                    - text: ").collect(); // With multi-byte pattern (e.g., metaspace ▁ for SentencePiece tokenizers) let metaspace = \"▁\".as_bytes(); let chunks: Vec<&[u8]> = chunk(text).pattern(metaspace).prefix().collect(); // With consecutive pattern handling (split at START of runs, not middle) let chunks: Vec<&[u8]> = chunk(b\"word next\") .pattern(b\" \") .consecutive() .collect(); // With forward fallback (search forward if no pattern in backward window) let chunks: Vec<&[u8]> = chunk(text) .pattern(b\" \") .forward_fallback() .collect();"
+                  - button "Copy code to clipboard" [ref=f15e502] [cursor=pointer]
+                - generic [ref=f15e506]:
+                  - heading "📝 Citation" [level=2] [ref=f15e507]
+                  - 'link "Permalink: 📝 Citation" [ref=f15e508] [cursor=pointer]':
+                    - /url: "#-citation"
+                - paragraph [ref=f15e511]: "If you use chunk in your research, please cite it as follows:"
+                - generic [ref=f15e512]:
+                  - generic [ref=f15e513]:
+                    - text: "@software{chunk2025, author ="
+                    - generic [ref=f15e514]: "{Minhas, Bhavnick}"
+                    - text: ", title ="
+                    - generic [ref=f15e515]: "{chunk: The fastest text chunking library}"
+                    - text: ", year ="
+                    - generic [ref=f15e516]: "{2025}"
+                    - text: ", publisher ="
+                    - generic [ref=f15e517]: "{GitHub}"
+                    - text: ", howpublished ="
+                    - generic [ref=f15e518]: "{\\url{https://github.com/chonkie-inc/chunk}}"
+                    - text: ", }"
+                  - button "Copy code to clipboard" [ref=f15e520] [cursor=pointer]
+                - generic [ref=f15e524]:
+                  - heading "📄 License" [level=2] [ref=f15e525]
+                  - 'link "Permalink: 📄 License" [ref=f15e526] [cursor=pointer]':
+                    - /url: "#-license"
+                - paragraph [ref=f15e529]:
+                  - text: Licensed under either of
+                  - link "Apache License, Version 2.0" [ref=f15e530] [cursor=pointer]:
+                    - /url: /feyninc/chunk/blob/main/LICENSE-APACHE
+                  - text: or
+                  - link "MIT license" [ref=f15e531] [cursor=pointer]:
+                    - /url: /feyninc/chunk/blob/main/LICENSE-MIT
+                  - text: at your option.
+        - generic [ref=f15e535]:
+          - generic [ref=f15e538]:
+            - heading "About" [level=2] [ref=f15e539]
+            - paragraph [ref=f15e540]: 🚀 The Fastest Chunker in the West 🇺🇸 Upto 1TB/s "semantic" chunking, quick and easy!
+            - heading "Resources" [level=3] [ref=f15e541]
+            - link "Readme" [ref=f15e543] [cursor=pointer]:
+              - /url: "#readme-ov-file"
+            - heading "License" [level=3] [ref=f15e546]
+            - group [ref=f15e547]:
+              - button "Apache-2.0, MIT licenses found" [ref=f15e548] [cursor=pointer]
+            - link "Activity" [ref=f15e552] [cursor=pointer]:
+              - /url: /feyninc/chunk/activity
+            - link "Custom properties" [ref=f15e556] [cursor=pointer]:
+              - /url: /feyninc/chunk/custom-properties
+            - heading "Stars" [level=3] [ref=f15e559]
+            - generic [ref=f15e561]:
+              - strong [ref=f15e564]: "353"
+              - text: stars
+            - heading "Watchers" [level=3] [ref=f15e565]
+            - generic [ref=f15e567]:
+              - strong [ref=f15e570]: "4"
+              - text: watching
+            - heading "Forks" [level=3] [ref=f15e571]
+            - link [ref=f15e573] [cursor=pointer]:
+              - /url: /feyninc/chunk/forks
+              - strong [ref=f15e576]: "22"
+              - text: forks
+            - link "Report repository" [ref=f15e578] [cursor=pointer]:
+              - /url: /contact/report-content?content_url=https%3A%2F%2Fgithub.com%2Ffeyninc%2Fchunk&report=feyninc+%28user%29
+          - generic [ref=f15e580]:
+            - heading [level=2] [ref=f15e581]:
+              - link "Releases 21" [ref=f15e582] [cursor=pointer]:
+                - /url: /feyninc/chunk/releases
+                - text: Releases
+                - generic "21" [ref=f15e583]
+            - link "v0.10.2 Latest May 28, 2026on May 29" [ref=f15e584] [cursor=pointer]:
+              - /url: /feyninc/chunk/releases/tag/v0.10.2
+              - generic [ref=f15e587]:
+                - generic [ref=f15e588]:
+                  - generic [ref=f15e589]: v0.10.2
+                  - 'generic "Label: Latest" [ref=f15e590]': Latest
+                - generic [ref=f15e591]: May 28, 2026on May 29
+            - link "+ 20 releases" [ref=f15e593] [cursor=pointer]:
+              - /url: /feyninc/chunk/releases
+          - generic [ref=f15e595]:
+            - heading [level=2] [ref=f15e596]:
+              - link "Packages" [ref=f15e597] [cursor=pointer]:
+                - /url: /orgs/feyninc/packages?repo_name=chunk
+            - generic [ref=f15e598]: No packages published
+          - generic [ref=f15e600]:
+            - heading [level=2] [ref=f15e601]:
+              - link "Contributors 2" [ref=f15e602] [cursor=pointer]:
+                - /url: /feyninc/chunk/graphs/contributors
+                - text: Contributors
+                - generic "2" [ref=f15e603]
+            - list [ref=f15e604]:
+              - listitem [ref=f15e605]:
+                - link [ref=f15e606] [cursor=pointer]:
+                  - /url: https://github.com/chonknick
+                  - img "@chonknick" [ref=f15e607]
+                - link [ref=f15e609] [cursor=pointer]:
+                  - /url: https://github.com/chonknick
+                  - strong [ref=f15e610]: chonknick
+                  - text: Bhavnick @ chonkie.ai
+              - listitem [ref=f15e611]:
+                - link [ref=f15e612] [cursor=pointer]:
+                  - /url: https://github.com/chonk-lain
+                  - img "@chonk-lain" [ref=f15e613]
+                - link [ref=f15e615] [cursor=pointer]:
+                  - /url: https://github.com/chonk-lain
+                  - strong [ref=f15e616]: chonk-lain
+                  - text: Hafedh Hichri
+          - generic [ref=f15e618]:
+            - heading "Languages" [level=2] [ref=f15e619]
+            - list [ref=f15e626]:
+              - listitem [ref=f15e627]:
+                - link "Rust 78.7%" [ref=f15e628] [cursor=pointer]:
+                  - /url: /feyninc/chunk/search?l=rust
+                  - generic [ref=f15e631]: Rust
+                  - generic [ref=f15e632]: 78.7%
+              - listitem [ref=f15e633]:
+                - link "JavaScript 13.2%" [ref=f15e634] [cursor=pointer]:
+                  - /url: /feyninc/chunk/search?l=javascript
+                  - generic [ref=f15e637]: JavaScript
+                  - generic [ref=f15e638]: 13.2%
+              - listitem [ref=f15e639]:
+                - link "Python 7.3%" [ref=f15e640] [cursor=pointer]:
+                  - /url: /feyninc/chunk/search?l=python
+                  - generic [ref=f15e643]: Python
+                  - generic [ref=f15e644]: 7.3%
+              - listitem [ref=f15e645]:
+                - link "Shell 0.8%" [ref=f15e646] [cursor=pointer]:
+                  - /url: /feyninc/chunk/search?l=shell
+                  - generic [ref=f15e649]: Shell
+                  - generic [ref=f15e650]: 0.8%
+  - contentinfo [ref=f15e652]:
+    - heading "Footer" [level=2] [ref=f15e653]
+    - generic [ref=f15e654]:
+      - generic [ref=f15e655]:
+        - link "GitHub Homepage" [ref=f15e656] [cursor=pointer]:
+          - /url: https://github.com
+        - generic [ref=f15e659]: © 2026 GitHub, Inc.
+      - navigation "Footer" [ref=f15e660]:
+        - heading "Footer navigation" [level=3] [ref=f15e661]
+        - list "Footer navigation" [ref=f15e662]:
+          - listitem [ref=f15e663]:
+            - link "Terms" [ref=f15e664] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/github-terms/github-terms-of-service
+          - listitem [ref=f15e665]:
+            - link "Privacy" [ref=f15e666] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/privacy-policies/github-privacy-statement
+          - listitem [ref=f15e667]:
+            - link "Security" [ref=f15e668] [cursor=pointer]:
+              - /url: https://github.com/security
+          - listitem [ref=f15e669]:
+            - link "Status" [ref=f15e670] [cursor=pointer]:
+              - /url: https://www.githubstatus.com/
+          - listitem [ref=f15e671]:
+            - link "Community" [ref=f15e672] [cursor=pointer]:
+              - /url: https://github.community/
+          - listitem [ref=f15e673]:
+            - link "Docs" [ref=f15e674] [cursor=pointer]:
+              - /url: https://docs.github.com/
+          - listitem [ref=f15e675]:
+            - link "Contact" [ref=f15e676] [cursor=pointer]:
+              - /url: https://support.github.com?tags=dotcom-footer
+          - listitem [ref=f15e677]:
+            - button "Manage cookies" [ref=f15e679] [cursor=pointer]
+          - listitem [ref=f15e680]:
+            - button "Do not share my personal information" [ref=f15e682] [cursor=pointer]

@@ -1,0 +1,926 @@
+- generic [ref=f22e2]:
+  - generic [ref=f22e3]:
+    - link "Skip to content" [ref=f22e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=f22e6]:
+      - heading "Navigation Menu" [level=2] [ref=f22e7]
+      - generic [ref=f22e8]:
+        - link "Homepage" [ref=f22e10] [cursor=pointer]:
+          - /url: /
+        - generic [ref=f22e13]:
+          - navigation "Global" [ref=f22e16]:
+            - list [ref=f22e17]:
+              - listitem [ref=f22e18]:
+                - button "Platform" [ref=f22e20] [cursor=pointer]
+              - listitem [ref=f22e23]:
+                - button "Solutions" [ref=f22e25] [cursor=pointer]
+              - listitem [ref=f22e28]:
+                - button "Resources" [ref=f22e30] [cursor=pointer]
+              - listitem [ref=f22e33]:
+                - button "Open Source" [ref=f22e35] [cursor=pointer]
+              - listitem [ref=f22e38]:
+                - button "Enterprise" [ref=f22e40] [cursor=pointer]
+              - listitem [ref=f22e43]:
+                - link "Pricing" [ref=f22e44] [cursor=pointer]:
+                  - /url: https://github.com/pricing
+          - generic [ref=f22e46]:
+            - button "Search or jump to…" [ref=f22e49] [cursor=pointer]
+            - link "Sign in" [ref=f22e54] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Ffeyninc%2Fchonkie
+            - link "Sign up" [ref=f22e55] [cursor=pointer]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E&source=header-repo&source_repo=feyninc%2Fchonkie
+            - button "Appearance settings" [ref=f22e58] [cursor=pointer]
+  - main [ref=f22e62]:
+    - generic [ref=f22e63]:
+      - generic [ref=f22e64]:
+        - generic [ref=f22e66]:
+          - link "feyninc" [ref=f22e70] [cursor=pointer]:
+            - /url: /feyninc
+          - generic [ref=f22e71]: /
+          - strong [ref=f22e72]:
+            - link "chonkie" [ref=f22e73] [cursor=pointer]:
+              - /url: /feyninc/chonkie
+          - generic [ref=f22e74]: Public
+        - generic [ref=f22e75]:
+          - list:
+            - listitem [ref=f22e76]:
+              - link "You must be signed in to change notification settings" [ref=f22e77] [cursor=pointer]:
+                - /url: /login?return_to=%2Ffeyninc%2Fchonkie
+                - text: Notifications
+            - listitem [ref=f22e80]:
+              - link "Fork 328" [ref=f22e81] [cursor=pointer]:
+                - /url: /login?return_to=%2Ffeyninc%2Fchonkie
+                - text: Fork
+                - generic "328" [ref=f22e84]
+            - listitem [ref=f22e85]:
+              - link "You must be signed in to star a repository" [ref=f22e87] [cursor=pointer]:
+                - /url: /login?return_to=%2Ffeyninc%2Fchonkie
+                - text: Star
+                - generic "4503 users starred this repository" [ref=f22e90]: 4.5k
+      - navigation "Repository" [ref=f22e91]:
+        - list [ref=f22e92]:
+          - listitem [ref=f22e93]:
+            - link "Code" [ref=f22e94] [cursor=pointer]:
+              - /url: /feyninc/chonkie
+          - listitem [ref=f22e98]:
+            - link "Issues 24" [ref=f22e99] [cursor=pointer]:
+              - /url: /feyninc/chonkie/issues
+              - generic [ref=f22e103]: Issues
+              - generic "24" [ref=f22e104]
+          - listitem [ref=f22e105]:
+            - link "Pull requests 23" [ref=f22e106] [cursor=pointer]:
+              - /url: /feyninc/chonkie/pulls
+              - generic [ref=f22e109]: Pull requests
+              - generic "23" [ref=f22e110]
+          - listitem [ref=f22e111]:
+            - link "Discussions" [ref=f22e112] [cursor=pointer]:
+              - /url: /feyninc/chonkie/discussions
+          - listitem [ref=f22e116]:
+            - link "Actions" [ref=f22e117] [cursor=pointer]:
+              - /url: /feyninc/chonkie/actions
+          - listitem [ref=f22e121]:
+            - link "Projects" [ref=f22e122] [cursor=pointer]:
+              - /url: /feyninc/chonkie/projects
+          - listitem [ref=f22e126]:
+            - link "Security and quality" [ref=f22e127] [cursor=pointer]:
+              - /url: /feyninc/chonkie/security
+          - listitem [ref=f22e131]:
+            - link "Insights" [ref=f22e132] [cursor=pointer]:
+              - /url: /feyninc/chonkie/pulse
+    - generic [ref=f22e148]:
+      - heading "feyninc/chonkie" [level=1] [ref=f22e150]
+      - generic [ref=f22e151]:
+        - generic [ref=f22e154]:
+          - generic [ref=f22e155]:
+            - generic [ref=f22e156]:
+              - button "main branch" [ref=f22e158] [cursor=pointer]:
+                - generic [ref=f22e159]: main
+              - generic [ref=f22e167]:
+                - link [ref=f22e976] [cursor=pointer]:
+                  - /url: /feyninc/chonkie/branches
+                  - generic [ref=f22e977]:
+                    - strong [ref=f22e978]: "14"
+                    - text: Branches
+                - link [ref=f22e979] [cursor=pointer]:
+                  - /url: /feyninc/chonkie/tags
+                  - generic [ref=f22e980]:
+                    - strong [ref=f22e981]: "45"
+                    - text: Tags
+            - generic [ref=f22e174]:
+              - combobox "Go to file" [ref=f22e989]
+              - button "Code" [ref=f22e175] [cursor=pointer]
+          - generic [ref=f22e178]:
+            - generic [ref=f22e179]:
+              - heading "Folders and files" [level=2] [ref=f22e180]
+              - table "Folders and files" [ref=f22e181]:
+                - rowgroup:
+                  - row "Name Last commit message Last commit date":
+                    - columnheader "Name"
+                    - columnheader "Last commit message"
+                    - columnheader "Last commit date"
+                - rowgroup [ref=f22e182]:
+                  - row [ref=f22e990]:
+                    - 'cell "Latest commit chonk-lain commits by chonk-lain Merge pull request #626 from feyninc/dev Open commit details failure Commit 0a6baea · Jul 7, 20262 weeks ago History 2,201 Commits" [ref=f22e991]':
+                      - generic [ref=f22e185]:
+                        - heading "Latest commit" [level=2] [ref=f22e186]
+                        - generic [ref=f22e992]:
+                          - generic [ref=f22e994]:
+                            - link [ref=f22e995] [cursor=pointer]:
+                              - /url: /chonk-lain
+                              - img "chonk-lain" [ref=f22e996]
+                            - link "commits by chonk-lain" [ref=f22e997] [cursor=pointer]:
+                              - /url: /feyninc/chonkie/commits?author=chonk-lain
+                              - text: chonk-lain
+                          - generic [ref=f22e998]:
+                            - generic [ref=f22e1000]:
+                              - link "Merge pull request" [ref=f22e1001] [cursor=pointer]:
+                                - /url: /feyninc/chonkie/commit/0a6baea1a42c9afe9b3bc31ecb37739e744bb1ec
+                              - link "#626" [ref=f22e1002] [cursor=pointer]:
+                                - /url: https://github.com/feyninc/chonkie/pull/626
+                              - link "from feyninc/dev" [ref=f22e1003] [cursor=pointer]:
+                                - /url: /feyninc/chonkie/commit/0a6baea1a42c9afe9b3bc31ecb37739e744bb1ec
+                            - button "Open commit details" [ref=f22e1004] [cursor=pointer]
+                            - generic [ref=f22e1007]: Open commit details
+                            - button "failure" [ref=f22e1008] [cursor=pointer]
+                        - generic [ref=f22e188]:
+                          - generic [ref=f22e1012]:
+                            - link "Commit 0a6baea" [ref=f22e1013] [cursor=pointer]:
+                              - /url: /feyninc/chonkie/commit/0a6baea1a42c9afe9b3bc31ecb37739e744bb1ec
+                              - text: 0a6baea
+                            - text: ·
+                            - generic "Jul 7, 2026, 10:07 AM GMT+5:30" [ref=f22e1014]: Jul 7, 20262 weeks ago
+                          - generic [ref=f22e189]:
+                            - heading "History" [level=2] [ref=f22e190]
+                            - link "2,201 Commits" [ref=f22e191] [cursor=pointer]:
+                              - /url: /feyninc/chonkie/commits/main/
+                  - row [ref=f22e1015]:
+                    - cell [ref=f22e195]:
+                      - link ".github, (Directory)" [ref=f22e202] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/tree/main/.github
+                        - text: .github
+                    - cell [ref=f22e1016]:
+                      - link "migrate to github pages" [ref=f22e1019] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/d7576d3bd821c89d1c7906681af334d702022054
+                    - cell "Jul 3, 20262 weeks ago" [ref=f22e1020]
+                  - row [ref=f22e1021]:
+                    - cell [ref=f22e209]:
+                      - link "assets, (Directory)" [ref=f22e216] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/tree/main/assets
+                        - text: assets
+                    - cell [ref=f22e1022]:
+                      - link [ref=f22e1025] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/0eb1beeec8b1b982524e17573fbd5cecb80933e5
+                        - text: "Feat: Add"
+                        - code [ref=f22e1026]: CHOMP
+                        - text: flow diagrams
+                    - cell "May 5, 2025last year" [ref=f22e1027]
+                  - row [ref=f22e1028]:
+                    - cell [ref=f22e223]:
+                      - link "docs, (Directory)" [ref=f22e230] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/tree/main/docs
+                        - text: docs
+                    - cell [ref=f22e1029]:
+                      - link "add asset" [ref=f22e1032] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/04276b1e39949cc912efdce24a128f6723566af0
+                    - cell "Jul 7, 20262 weeks ago" [ref=f22e1033]
+                  - row [ref=f22e1034]:
+                    - cell [ref=f22e237]:
+                      - link "src/chonkie, (Directory)" [ref=f22e244] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/tree/main/src/chonkie
+                        - text: src/chonkie
+                    - cell [ref=f22e1035]:
+                      - link "version bump" [ref=f22e1038] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/6a9a98329cb3cba23f4988f3224b6c82be230ab1
+                    - cell "Jul 7, 20262 weeks ago" [ref=f22e1039]
+                  - row [ref=f22e1040]:
+                    - cell [ref=f22e251]:
+                      - link "tests, (Directory)" [ref=f22e258] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/tree/main/tests
+                        - text: tests
+                    - cell [ref=f22e1041]:
+                      - link "Revert \"ty\"" [ref=f22e1044] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/1259a4dd429c5c735bac727c35cd66d67bf882ac
+                    - cell "Jun 26, 20263 weeks ago" [ref=f22e1045]
+                  - row [ref=f22e1046]:
+                    - cell [ref=f22e265]:
+                      - link ".gitignore, (File)" [ref=f22e272] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/.gitignore
+                        - text: .gitignore
+                    - cell [ref=f22e1047]:
+                      - link "logo" [ref=f22e1050] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/c739ae4de141dbd8bc5bd366a0f150fb1f1478b1
+                    - cell "Jul 1, 20262 weeks ago" [ref=f22e1051]
+                  - row [ref=f22e1052]:
+                    - cell [ref=f22e279]:
+                      - link "BENCHMARKS.md, (File)" [ref=f22e286] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/BENCHMARKS.md
+                        - text: BENCHMARKS.md
+                    - cell [ref=f22e1053]:
+                      - link "Add benchmark" [ref=f22e1056] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/f98896418aae07f24e01f8d7a984c6bb9f2eb1a4
+                    - cell "Apr 6, 2025last year" [ref=f22e1057]
+                  - row [ref=f22e1058]:
+                    - cell [ref=f22e293]:
+                      - link "CONTRIBUTING.md, (File)" [ref=f22e300] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/CONTRIBUTING.md
+                        - text: CONTRIBUTING.md
+                    - cell [ref=f22e1059]:
+                      - link "Update CONTRIBUTING.md" [ref=f22e1062] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/27a950c7eed116c9f4f3af41849f384c913fe4d1
+                    - cell "Jan 22, 20266 months ago" [ref=f22e1063]
+                  - row [ref=f22e1064]:
+                    - cell [ref=f22e307]:
+                      - link "Dockerfile, (File)" [ref=f22e314] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/Dockerfile
+                        - text: Dockerfile
+                    - cell [ref=f22e1065]:
+                      - link "fix huggingface downloads" [ref=f22e1068] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/e28930a9d65fb753a76701d2312a08be2eb892f6
+                    - cell "Mar 3, 20265 months ago" [ref=f22e1069]
+                  - row [ref=f22e1070]:
+                    - cell [ref=f22e321]:
+                      - link "LICENSE, (File)" [ref=f22e328] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/LICENSE
+                        - text: LICENSE
+                    - cell [ref=f22e1071]:
+                      - link "Initial commit" [ref=f22e1074] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/fb23264dbf3654c0e7351508442ed6cf39b5e65d
+                    - cell "Mar 29, 2025last year" [ref=f22e1075]
+                  - row [ref=f22e1076]:
+                    - cell [ref=f22e335]:
+                      - link "README.md, (File)" [ref=f22e342] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/README.md
+                        - text: README.md
+                    - cell [ref=f22e1077]:
+                      - link "update readme" [ref=f22e1080] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/e657ef75bdfbd2319954e593cfbe9cdffed074d2
+                    - cell "Jun 5, 2026last month" [ref=f22e1081]
+                  - row [ref=f22e1082]:
+                    - cell [ref=f22e349]:
+                      - link "docker-compose.yml, (File)" [ref=f22e356] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/docker-compose.yml
+                        - text: docker-compose.yml
+                    - cell [ref=f22e1083]:
+                      - link "support env file if it exists" [ref=f22e1086] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/48b480940ccc6ce4ec9525956685634f6699731a
+                    - cell "Mar 3, 20264 months ago" [ref=f22e1087]
+                  - row [ref=f22e1088]:
+                    - cell [ref=f22e363]:
+                      - link "llms.txt, (File)" [ref=f22e370] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/llms.txt
+                        - text: llms.txt
+                    - cell [ref=f22e1089]:
+                      - 'link "chore: fix some typos" [ref=f22e1092] [cursor=pointer]':
+                        - /url: /feyninc/chonkie/commit/64b53ac12f0343bc857927fe093f19f437d27455
+                    - cell "Dec 20, 20257 months ago" [ref=f22e1093]
+                  - row [ref=f22e1094]:
+                    - cell [ref=f22e377]:
+                      - link "pyproject.toml, (File)" [ref=f22e384] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/pyproject.toml
+                        - text: pyproject.toml
+                    - cell [ref=f22e1095]:
+                      - link "version bump" [ref=f22e1098] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/6a9a98329cb3cba23f4988f3224b6c82be230ab1
+                    - cell "Jul 7, 20262 weeks ago" [ref=f22e1099]
+                  - row [ref=f22e1100]:
+                    - cell [ref=f22e391]:
+                      - link "uv.lock, (File)" [ref=f22e398] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/blob/main/uv.lock
+                        - text: uv.lock
+                    - cell [ref=f22e1101]:
+                      - link "version bump" [ref=f22e1104] [cursor=pointer]:
+                        - /url: /feyninc/chonkie/commit/6a9a98329cb3cba23f4988f3224b6c82be230ab1
+                    - cell "Jul 7, 20262 weeks ago" [ref=f22e1105]
+            - generic [ref=f22e405]:
+              - generic [ref=f22e406]:
+                - heading "Repository files navigation" [level=2] [ref=f22e407]
+                - navigation "Repository files" [ref=f22e408]:
+                  - list [ref=f22e409]:
+                    - listitem [ref=f22e410]:
+                      - link "README" [ref=f22e411] [cursor=pointer]:
+                        - /url: "#"
+                    - listitem [ref=f22e413]:
+                      - link "Contributing" [ref=f22e414] [cursor=pointer]:
+                        - /url: "#"
+                    - listitem [ref=f22e416]:
+                      - link "MIT license" [ref=f22e417] [cursor=pointer]:
+                        - /url: "#"
+                - button "Outline" [ref=f22e419] [cursor=pointer]
+              - article [ref=f22e423]:
+                - generic [ref=f22e424]:
+                  - paragraph [ref=f22e425]:
+                    - link [ref=f22e426] [cursor=pointer]:
+                      - /url: https://github.com/chonkie-inc/chonkie/blob/main/assets/chonkie_logo_br_transparent_bg.png?raw=true
+                      - img "Chonkie Logo" [ref=f22e427]
+                  - generic [ref=f22e428]:
+                    - heading "🦛 Chonkie ✨" [level=1] [ref=f22e429]
+                    - 'link "Permalink: 🦛 Chonkie ✨" [ref=f22e430] [cursor=pointer]':
+                      - /url: "#-chonkie-"
+                  - paragraph [ref=f22e433]:
+                    - link [ref=f22e434] [cursor=pointer]:
+                      - /url: https://pypi.org/project/chonkie/
+                      - img "PyPI version" [ref=f22e435]
+                    - link [ref=f22e436] [cursor=pointer]:
+                      - /url: https://github.com/chonkie-inc/chonkie/blob/main/LICENSE
+                      - img "License" [ref=f22e437]
+                    - link [ref=f22e438] [cursor=pointer]:
+                      - /url: https://docs.chonkie.ai
+                      - img "Documentation" [ref=f22e439]
+                    - link [ref=f22e440] [cursor=pointer]:
+                      - /url: https://github.com/chonkie-inc/chonkie/blob/main/README.md#installation
+                      - img "Package size" [ref=f22e441]
+                    - link [ref=f22e442] [cursor=pointer]:
+                      - /url: https://codecov.io/gh/chonkie-inc/chonkie
+                      - img "codecov" [ref=f22e443]
+                    - link [ref=f22e444] [cursor=pointer]:
+                      - /url: https://pepy.tech/project/chonkie
+                      - img "Downloads" [ref=f22e445]
+                    - link [ref=f22e446] [cursor=pointer]:
+                      - /url: https://discord.gg/vH3SkRqmUz
+                      - img "Discord" [ref=f22e447]
+                    - link [ref=f22e448] [cursor=pointer]:
+                      - /url: https://github.com/chonkie-inc/chonkie/stargazers
+                      - img "GitHub stars" [ref=f22e449]
+                  - paragraph [ref=f22e450]:
+                    - emphasis [ref=f22e451]: The lightweight ingestion library for fast, efficient and robust RAG pipelines
+                  - paragraph [ref=f22e452]:
+                    - link "Installation" [ref=f22e453] [cursor=pointer]:
+                      - /url: "#%F0%9F%93%A6-installation"
+                    - text: •
+                    - link "Usage" [ref=f22e454] [cursor=pointer]:
+                      - /url: "#%F0%9F%9A%80-usage"
+                    - text: •
+                    - link "Chunkers" [ref=f22e455] [cursor=pointer]:
+                      - /url: "#%E2%9C%82%EF%B8%8F-chunkers"
+                    - text: •
+                    - link "Integrations" [ref=f22e456] [cursor=pointer]:
+                      - /url: "#%F0%9F%94%8C-integrations"
+                    - text: •
+                    - link "Benchmarks" [ref=f22e457] [cursor=pointer]:
+                      - /url: "#%F0%9F%93%8A-benchmarks"
+                - paragraph [ref=f22e458]: Tired of making your gazillionth chunker? Sick of the overhead of large libraries? Want to chunk your texts quickly and efficiently? Chonkie the mighty hippo is here to help!
+                - paragraph [ref=f22e459]:
+                  - strong [ref=f22e460]: 🚀 Feature-rich
+                  - text: ": All the CHONKs you'd ever need"
+                  - strong [ref=f22e461]: 🔄 End-to-end
+                  - text: ": Fetch, CHONK, refine, embed and ship straight to your vector DB!"
+                  - strong [ref=f22e462]: ✨ Easy to use
+                  - text: ": Install, Import, CHONK"
+                  - strong [ref=f22e463]: ⚡ Fast
+                  - text: ": CHONK at the speed of light! zooooom"
+                  - strong [ref=f22e464]: 🪶 Light-weight
+                  - text: ": No bloat, just CHONK"
+                  - strong [ref=f22e465]:
+                    - text: 🔌 32+
+                    - link "integrations" [ref=f22e466] [cursor=pointer]:
+                      - /url: "#integrations"
+                  - text: ": Works with your favorite tools and vector DBs out of the box!"
+                  - strong [ref=f22e467]: 💬 ️Multilingual
+                  - text: ": Out-of-the-box support for 56 languages"
+                  - strong [ref=f22e468]: ☁️ Cloud-Friendly
+                  - text: ": CHONK locally or in the"
+                  - link "Cloud" [ref=f22e469] [cursor=pointer]:
+                    - /url: https://labs.chonkie.ai
+                  - strong [ref=f22e470]: 🦛 Cute CHONK mascot
+                  - text: ": psst it's a pygmy hippo btw"
+                  - strong [ref=f22e471]:
+                    - text: ❤️
+                    - link "Moto Moto" [ref=f22e472] [cursor=pointer]:
+                      - /url: "#acknowledgements"
+                    - text: "'s favorite python library"
+                - paragraph [ref=f22e473]:
+                  - strong [ref=f22e474]: Chonkie
+                  - text: is a chunking library that "
+                  - strong [ref=f22e475]: just works
+                  - text: "\" ✨"
+                - generic [ref=f22e476]:
+                  - heading "📦 Installation" [level=2] [ref=f22e477]
+                  - 'link "Permalink: 📦 Installation" [ref=f22e478] [cursor=pointer]':
+                    - /url: "#-installation"
+                - generic [ref=f22e481]:
+                  - heading "Basic Installation" [level=3] [ref=f22e482]
+                  - 'link "Permalink: Basic Installation" [ref=f22e483] [cursor=pointer]':
+                    - /url: "#basic-installation"
+                - paragraph [ref=f22e486]: "Using pip:"
+                - generic [ref=f22e487]:
+                  - generic [ref=f22e488]: pip install chonkie
+                  - button "Copy code to clipboard" [ref=f22e490] [cursor=pointer]
+                - paragraph [ref=f22e494]:
+                  - text: Or using
+                  - link "uv" [ref=f22e495] [cursor=pointer]:
+                    - /url: https://docs.astral.sh/uv/
+                  - text: "(faster):"
+                - generic [ref=f22e496]:
+                  - generic [ref=f22e497]: uv pip install chonkie
+                  - button "Copy code to clipboard" [ref=f22e499] [cursor=pointer]
+                - generic [ref=f22e503]:
+                  - heading "Full Installation" [level=3] [ref=f22e504]
+                  - 'link "Permalink: Full Installation" [ref=f22e505] [cursor=pointer]':
+                    - /url: "#full-installation"
+                - paragraph [ref=f22e508]:
+                  - text: Chonkie follows the rule of minimum installs. Have a favorite chunker? Read our
+                  - link "docs" [ref=f22e509] [cursor=pointer]:
+                    - /url: https://docs.chonkie.ai
+                  - text: to install only what you need. Don't want to think about it? Simply install
+                  - code [ref=f22e510]: all
+                  - text: (Not recommended for production environments).
+                - paragraph [ref=f22e511]: "Using pip:"
+                - generic [ref=f22e512]:
+                  - generic [ref=f22e513]:
+                    - text: pip install
+                    - generic [ref=f22e514]: "\"chonkie[all]\""
+                  - button "Copy code to clipboard" [ref=f22e516] [cursor=pointer]
+                - paragraph [ref=f22e520]:
+                  - text: Or using
+                  - link "uv" [ref=f22e521] [cursor=pointer]:
+                    - /url: https://docs.astral.sh/uv/
+                  - text: ":"
+                - generic [ref=f22e522]:
+                  - generic [ref=f22e523]:
+                    - text: uv pip install
+                    - generic [ref=f22e524]: "\"chonkie[all]\""
+                  - button "Copy code to clipboard" [ref=f22e526] [cursor=pointer]
+                - generic [ref=f22e530]:
+                  - heading "🚀 Usage" [level=2] [ref=f22e531]
+                  - 'link "Permalink: 🚀 Usage" [ref=f22e532] [cursor=pointer]':
+                    - /url: "#-usage"
+                - generic [ref=f22e535]:
+                  - heading "Basic Usage" [level=3] [ref=f22e536]
+                  - 'link "Permalink: Basic Usage" [ref=f22e537] [cursor=pointer]':
+                    - /url: "#basic-usage"
+                - paragraph [ref=f22e540]: "Here's a basic example to get you started:"
+                - generic [ref=f22e541]:
+                  - generic [ref=f22e542]:
+                    - text: "# First import the chunker you want from Chonkie from chonkie import RecursiveChunker # Initialize the chunker chunker = RecursiveChunker() # Chunk some text chunks = chunker(\"Chonkie is the goodest boi! My favorite chunking hippo hehe.\") # Access chunks for chunk in chunks: print("
+                    - generic [ref=f22e543]:
+                      - text: "f\"Chunk:"
+                      - generic [ref=f22e544]: "{chunk.text}"
+                      - text: "\""
+                    - text: ) print(
+                    - generic [ref=f22e545]:
+                      - text: "f\"Tokens:"
+                      - generic [ref=f22e546]: "{chunk.token_count}"
+                      - text: "\""
+                    - text: )
+                  - button "Copy code to clipboard" [ref=f22e548] [cursor=pointer]
+                - generic [ref=f22e552]:
+                  - heading "Pipeline Usage" [level=3] [ref=f22e553]
+                  - 'link "Permalink: Pipeline Usage" [ref=f22e554] [cursor=pointer]':
+                    - /url: "#pipeline-usage"
+                - paragraph [ref=f22e557]:
+                  - text: You can also use the
+                  - code [ref=f22e558]: chonkie.Pipeline
+                  - text: to chain components together and handle complex workflows. Read more about pipelines in the
+                  - link "docs" [ref=f22e559] [cursor=pointer]:
+                    - /url: https://docs.chonkie.ai/oss/pipelines
+                  - text: "!"
+                - generic [ref=f22e560]:
+                  - generic [ref=f22e561]: "from chonkie import Pipeline # Create a pipeline with multiple chunking and refinement steps pipe = ( Pipeline() .chunk_with(\"recursive\", tokenizer=\"gpt2\", chunk_size=2048, recipe=\"markdown\") .chunk_with(\"semantic\", chunk_size=512) .refine_with(\"overlap\", context_size=128) .refine_with(\"embeddings\", embedding_model=\"sentence-transformers/all-MiniLM-L6-v2\") ) # CHONK some Texts! doc = pipe.run(texts=\"Chonkie is the goodest boi! My favorite chunking hippo hehe.\") # Access the processed chunks in the `doc` object for chunk in doc.chunks: print(chunk.text) # Run asynchronously for high-throughput applications import asyncio async def main(): doc = await pipe.arun(texts=\"Chonkie runs fast!\") print(len(doc.chunks)) asyncio.run(main())"
+                  - button "Copy code to clipboard" [ref=f22e563] [cursor=pointer]
+                - paragraph [ref=f22e567]:
+                  - text: Check out more usage examples in the
+                  - link "docs" [ref=f22e568] [cursor=pointer]:
+                    - /url: https://docs.chonkie.ai
+                  - text: "!"
+                - generic [ref=f22e569]:
+                  - heading "🌐 API Server" [level=2] [ref=f22e570]
+                  - 'link "Permalink: 🌐 API Server" [ref=f22e571] [cursor=pointer]':
+                    - /url: "#-api-server"
+                - paragraph [ref=f22e574]: "Run Chonkie as a self-hosted REST API for easy integration into any application:"
+                - generic [ref=f22e575]:
+                  - generic [ref=f22e576]:
+                    - generic [ref=f22e577]: "# Install with API dependencies (includes catsu for multi-provider embeddings)"
+                    - text: pip install
+                    - generic [ref=f22e578]: "\"chonkie[api,semantic,code,catsu]\""
+                    - generic [ref=f22e579]: "# Start the server using the CLI"
+                    - text: chonkie serve
+                    - generic [ref=f22e580]: "# Or with custom options"
+                    - text: chonkie serve --port 3000 --reload --log-level debug
+                    - generic [ref=f22e581]: "# Or directly with uvicorn"
+                    - text: uvicorn chonkie.api.main:app --host 0.0.0.0 --port 8000
+                  - button "Copy code to clipboard" [ref=f22e583] [cursor=pointer]
+                - paragraph [ref=f22e587]: "Or use Docker:"
+                - generic [ref=f22e588]:
+                  - generic [ref=f22e589]: docker compose up
+                  - button "Copy code to clipboard" [ref=f22e591] [cursor=pointer]
+                - paragraph [ref=f22e595]:
+                  - text: The API provides endpoints for all chunkers, refineries, and
+                  - strong [ref=f22e596]: pipelines
+                  - text: — reusable workflow configurations stored in a local SQLite database.
+                - generic [ref=f22e597]:
+                  - generic [ref=f22e598]:
+                    - generic [ref=f22e599]: "# Create a reusable pipeline"
+                    - text: curl -X POST http://localhost:8000/v1/pipelines \ -H
+                    - generic [ref=f22e600]: "\"Content-Type: application/json\""
+                    - text: \ -d
+                    - generic [ref=f22e601]: "'{"
+                    - text: "\"name\": \"rag-chunker\", \"steps\": [ {\"type\": \"chunk\", \"chunker\": \"semantic\", \"config\": {\"chunk_size\": 512}}, {\"type\": \"refine\", \"refinery\": \"embeddings\", \"config\": {\"embedding_model\": \"text-embedding-3-small\"}} ]"
+                    - generic [ref=f22e602]: "}'"
+                    - generic [ref=f22e603]: "# List your pipelines"
+                    - text: curl http://localhost:8000/v1/pipelines
+                  - button "Copy code to clipboard" [ref=f22e605] [cursor=pointer]
+                - paragraph [ref=f22e609]:
+                  - text: Interactive documentation is available at
+                  - code [ref=f22e610]: /docs
+                  - text: when the server is running.
+                - generic [ref=f22e611]:
+                  - heading "✂️ Chunkers" [level=2] [ref=f22e612]
+                  - 'link "Permalink: ✂️ Chunkers" [ref=f22e613] [cursor=pointer]':
+                    - /url: "#️-chunkers"
+                - paragraph [ref=f22e616]: "Chonkie provides several chunkers to help you split your text efficiently for RAG applications. Here's a quick overview of the available chunkers:"
+                - table [ref=f22e618]:
+                  - rowgroup [ref=f22e619]:
+                    - row [ref=f22e620]:
+                      - columnheader "Name" [ref=f22e621]
+                      - columnheader "Alias" [ref=f22e622]
+                      - columnheader "Description" [ref=f22e623]
+                  - rowgroup [ref=f22e624]:
+                    - row [ref=f22e625]:
+                      - cell [ref=f22e626]:
+                        - code [ref=f22e627]: TokenChunker
+                      - cell [ref=f22e628]:
+                        - code [ref=f22e629]: token
+                      - cell "Splits text into fixed-size token chunks." [ref=f22e630]
+                    - row [ref=f22e631]:
+                      - cell [ref=f22e632]:
+                        - code [ref=f22e633]: FastChunker
+                      - cell [ref=f22e634]:
+                        - code [ref=f22e635]: fast
+                      - cell "SIMD-accelerated byte-based chunking at 100+ GB/s. Included in the default install." [ref=f22e636]
+                    - row [ref=f22e637]:
+                      - cell [ref=f22e638]:
+                        - code [ref=f22e639]: SentenceChunker
+                      - cell [ref=f22e640]:
+                        - code [ref=f22e641]: sentence
+                      - cell "Splits text into chunks based on sentences." [ref=f22e642]
+                    - row [ref=f22e643]:
+                      - cell [ref=f22e644]:
+                        - code [ref=f22e645]: RecursiveChunker
+                      - cell [ref=f22e646]:
+                        - code [ref=f22e647]: recursive
+                      - cell "Splits text hierarchically using customizable rules to create semantically meaningful chunks." [ref=f22e648]
+                    - row [ref=f22e649]:
+                      - cell [ref=f22e650]:
+                        - code [ref=f22e651]: SemanticChunker
+                      - cell [ref=f22e652]:
+                        - code [ref=f22e653]: semantic
+                      - cell [ref=f22e654]:
+                        - text: Splits text into chunks based on semantic similarity. Inspired by the work of
+                        - link "Greg Kamradt" [ref=f22e655] [cursor=pointer]:
+                          - /url: https://github.com/gkamradt
+                        - text: .
+                    - row [ref=f22e656]:
+                      - cell [ref=f22e657]:
+                        - code [ref=f22e658]: LateChunker
+                      - cell [ref=f22e659]:
+                        - code [ref=f22e660]: late
+                      - cell "Embeds text and then splits it to have better chunk embeddings." [ref=f22e661]
+                    - row [ref=f22e662]:
+                      - cell [ref=f22e663]:
+                        - code [ref=f22e664]: CodeChunker
+                      - cell [ref=f22e665]:
+                        - code [ref=f22e666]: code
+                      - cell "Splits code into structurally meaningful chunks." [ref=f22e667]
+                    - row [ref=f22e668]:
+                      - cell [ref=f22e669]:
+                        - code [ref=f22e670]: NeuralChunker
+                      - cell [ref=f22e671]:
+                        - code [ref=f22e672]: neural
+                      - cell "Splits text using a neural model." [ref=f22e673]
+                    - row [ref=f22e674]:
+                      - cell [ref=f22e675]:
+                        - code [ref=f22e676]: SlumberChunker
+                      - cell [ref=f22e677]:
+                        - code [ref=f22e678]: slumber
+                      - cell [ref=f22e679]:
+                        - text: Splits text using an LLM to find semantically meaningful chunks. Also known as
+                        - emphasis [ref=f22e680]: "\"AgenticChunker\""
+                        - text: .
+                    - row [ref=f22e681]:
+                      - cell [ref=f22e682]:
+                        - code [ref=f22e683]: TableChunker
+                      - cell [ref=f22e684]:
+                        - code [ref=f22e685]: table
+                      - cell "Chunks markdown tables by rows or character count." [ref=f22e686]
+                    - row [ref=f22e687]:
+                      - cell [ref=f22e688]:
+                        - code [ref=f22e689]: TeraflopAIChunker
+                      - cell [ref=f22e690]:
+                        - code [ref=f22e691]: teraflopai
+                      - cell "Splits text using the TeraflopAI Segmentation API for domain-specific segmentation." [ref=f22e692]
+                - paragraph [ref=f22e693]:
+                  - text: More on these methods and the approaches taken inside the
+                  - link "docs" [ref=f22e694] [cursor=pointer]:
+                    - /url: https://docs.chonkie.ai
+                - generic [ref=f22e695]:
+                  - heading "🔌 Integrations" [level=2] [ref=f22e696]
+                  - 'link "Permalink: 🔌 Integrations" [ref=f22e697] [cursor=pointer]':
+                    - /url: "#-integrations"
+                - paragraph [ref=f22e700]: Chonkie boasts 45+ integrations across tokenizers, embedding providers, LLMs, refineries, porters, vector databases, and utilities, ensuring it fits seamlessly into your existing workflow.
+                - group [ref=f22e701]:
+                  - strong [ref=f22e703] [cursor=pointer]: 👨‍🍳 Chefs & 📁 Fetchers! Text preprocessing and data loading!
+                - group [ref=f22e704]:
+                  - strong [ref=f22e706] [cursor=pointer]: 🏭 Refine your CHONKs with Context and Embeddings! Chonkie supports 2+ refineries!
+                - group [ref=f22e707]:
+                  - strong [ref=f22e709] [cursor=pointer]: 🐴 Exporting CHONKs! Chonkie supports 2+ Porters!
+                - group [ref=f22e710]:
+                  - strong [ref=f22e712] [cursor=pointer]: 🤝 Shake hands with your DB! Chonkie connects with 10+ vector stores!
+                - group [ref=f22e713]:
+                  - strong [ref=f22e715] [cursor=pointer]: 🪓 Slice 'n' Dice! Chonkie supports 5+ ways to tokenize!
+                - group [ref=f22e716]:
+                  - strong [ref=f22e718] [cursor=pointer]: 🧠 Embed like a boss! Chonkie links up with 16+ embedding pals!
+                - group [ref=f22e719]:
+                  - strong [ref=f22e721] [cursor=pointer]: 🧞‍♂️ Power Up with Genies! Chonkie supports 5+ LLM providers!
+                - group [ref=f22e722]:
+                  - strong [ref=f22e724] [cursor=pointer]: 🛠️ Utilities & Helpers! Chonkie includes handy tools!
+                - paragraph [ref=f22e725]: With Chonkie's wide range of integrations, you can easily plug it into your existing infrastructure and start CHONKING!
+                - generic [ref=f22e726]:
+                  - heading "🤖 AI Agent Skills & Plugins" [level=2] [ref=f22e727]
+                  - 'link "Permalink: 🤖 AI Agent Skills & Plugins" [ref=f22e728] [cursor=pointer]':
+                    - /url: "#-ai-agent-skills--plugins"
+                - paragraph [ref=f22e731]: Chonkie provides an official skill and plugin for AI coding agents, giving them deep knowledge of Chonkie's API, chunking strategies, and pipeline patterns — so they can help you build RAG pipelines faster.
+                - paragraph [ref=f22e732]:
+                  - strong [ref=f22e733]: "Supported agents:"
+                  - text: Claude Code, Cursor, Gemini CLI, and more.
+                - generic [ref=f22e734]:
+                  - generic [ref=f22e735]:
+                    - generic [ref=f22e736]: "# Via skills.sh (works with Claude Code, Cursor, Copilot, and 20+ agents)"
+                    - text: npx skills add chonkie-inc/skills
+                    - generic [ref=f22e737]: "# Claude Code only"
+                    - text: /plugin marketplace add chonkie-inc/skills
+                  - button "Copy code to clipboard" [ref=f22e739] [cursor=pointer]
+                - paragraph [ref=f22e743]: Once installed, your agent gains knowledge of all chunkers, the Pipeline API, tokenizer selection, embeddings refineries, vector DB handshakes, the REST API server, recipes, and async/batch processing patterns.
+                - paragraph [ref=f22e744]:
+                  - text: Learn more at
+                  - link "github.com/chonkie-inc/skills" [ref=f22e745] [cursor=pointer]:
+                    - /url: https://github.com/chonkie-inc/skills
+                  - text: .
+                - generic [ref=f22e746]:
+                  - heading "📊 Benchmarks" [level=2] [ref=f22e747]
+                  - 'link "Permalink: 📊 Benchmarks" [ref=f22e748] [cursor=pointer]':
+                    - /url: "#-benchmarks"
+                - blockquote [ref=f22e751]:
+                  - paragraph [ref=f22e752]: "\"I may be smol hippo, but I pack a big punch!\" 🦛"
+                - paragraph [ref=f22e753]: "Chonkie is not just cute, it's also fast and efficient! Here's how it stacks up against the competition:"
+                - paragraph [ref=f22e754]:
+                  - strong [ref=f22e755]: Size
+                  - text: 📦
+                - list [ref=f22e756]:
+                  - listitem [ref=f22e757]:
+                    - strong [ref=f22e758]: "Wheel Size:"
+                    - text: 505KB (vs 1-12MB for alternatives)
+                  - listitem [ref=f22e759]:
+                    - strong [ref=f22e760]: "Installed Size:"
+                    - text: 49MB (vs 80-171MB for alternatives)
+                  - listitem [ref=f22e761]:
+                    - strong [ref=f22e762]: "With Semantic:"
+                    - text: Still 10x lighter than the closest competition!
+                - paragraph [ref=f22e763]:
+                  - strong [ref=f22e764]: Speed
+                  - text: ⚡
+                - list [ref=f22e765]:
+                  - listitem [ref=f22e766]:
+                    - strong [ref=f22e767]: "Token Chunking:"
+                    - text: 33x faster than the slowest alternative
+                  - listitem [ref=f22e768]:
+                    - strong [ref=f22e769]: "Sentence Chunking:"
+                    - text: Almost 2x faster than competitors
+                  - listitem [ref=f22e770]:
+                    - strong [ref=f22e771]: "Semantic Chunking:"
+                    - text: Up to 2.5x faster than others
+                - paragraph [ref=f22e772]:
+                  - text: Check out our detailed
+                  - link "benchmarks" [ref=f22e773] [cursor=pointer]:
+                    - /url: /feyninc/chonkie/blob/main/BENCHMARKS.md
+                  - text: to see how Chonkie races past the competition! 🏃‍♂️💨
+                - generic [ref=f22e774]:
+                  - heading "🤝 Contributing" [level=2] [ref=f22e775]
+                  - 'link "Permalink: 🤝 Contributing" [ref=f22e776] [cursor=pointer]':
+                    - /url: "#-contributing"
+                - paragraph [ref=f22e779]:
+                  - text: Want to help grow Chonkie? Check out
+                  - link "CONTRIBUTING.md" [ref=f22e780] [cursor=pointer]:
+                    - /url: /feyninc/chonkie/blob/main/CONTRIBUTING.md
+                  - text: to get started! Whether you're fixing bugs, adding features, or improving docs, every contribution helps make Chonkie a better CHONK for everyone.
+                - paragraph [ref=f22e781]: "Remember: No contribution is too small for this tiny hippo! 🦛"
+                - generic [ref=f22e782]:
+                  - heading "🙏 Acknowledgements" [level=2] [ref=f22e783]
+                  - 'link "Permalink: 🙏 Acknowledgements" [ref=f22e784] [cursor=pointer]':
+                    - /url: "#-acknowledgements"
+                - paragraph [ref=f22e787]: Chonkie would like to CHONK its way through a special thanks to all the users and contributors who have helped make this library what it is today! Your feedback, issue reports, and improvements have helped make Chonkie the CHONKIEST it can be.
+                - paragraph [ref=f22e788]:
+                  - text: And of course, special thanks to
+                  - link "Moto Moto" [ref=f22e789] [cursor=pointer]:
+                    - /url: https://www.youtube.com/watch?v=I0zZC4wtqDQ&t=5s
+                  - text: "for endorsing Chonkie with his famous quote:"
+                - blockquote [ref=f22e790]:
+                  - paragraph [ref=f22e791]: "\"I like them big, I like them chonkie.\" ~ Moto Moto"
+                - generic [ref=f22e792]:
+                  - heading "📝 Citation" [level=2] [ref=f22e793]
+                  - 'link "Permalink: 📝 Citation" [ref=f22e794] [cursor=pointer]':
+                    - /url: "#-citation"
+                - paragraph [ref=f22e797]: "If you use Chonkie in your research, please cite it as follows:"
+                - generic [ref=f22e798]:
+                  - generic [ref=f22e799]:
+                    - text: "@software{chonkie2025, author ="
+                    - generic [ref=f22e800]: "{Minhas, Bhavnick AND Nigam, Shreyash}"
+                    - text: ", title ="
+                    - generic [ref=f22e801]: "{Chonkie: The lightweight ingestion library for fast, efficient and robust RAG pipelines}"
+                    - text: ", year ="
+                    - generic [ref=f22e802]: "{2025}"
+                    - text: ", publisher ="
+                    - generic [ref=f22e803]: "{GitHub}"
+                    - text: ", howpublished ="
+                    - generic [ref=f22e804]: "{\\url{https://github.com/chonkie-inc/chonkie}}"
+                    - text: ", }"
+                  - button "Copy code to clipboard" [ref=f22e806] [cursor=pointer]
+        - generic [ref=f22e813]:
+          - generic [ref=f22e816]:
+            - heading "About" [level=2] [ref=f22e817]
+            - paragraph [ref=f22e818]: 🦛 CHONK docs with Chonkie ✨ — The lightweight ingestion library for fast, efficient and robust RAG pipelines
+            - link "docs.chonkie.ai" [ref=f22e823] [cursor=pointer]:
+              - /url: https://docs.chonkie.ai
+            - heading "Topics" [level=3] [ref=f22e824]
+            - generic [ref=f22e826]:
+              - link "ai" [ref=f22e827] [cursor=pointer]:
+                - /url: /topics/ai
+              - link "splitting-algorithms" [ref=f22e828] [cursor=pointer]:
+                - /url: /topics/splitting-algorithms
+              - link "similarity-search" [ref=f22e829] [cursor=pointer]:
+                - /url: /topics/similarity-search
+              - link "chunker" [ref=f22e830] [cursor=pointer]:
+                - /url: /topics/chunker
+              - link "rag" [ref=f22e831] [cursor=pointer]:
+                - /url: /topics/rag
+              - link "retrieval-systems" [ref=f22e832] [cursor=pointer]:
+                - /url: /topics/retrieval-systems
+              - link "chunking-algorithm" [ref=f22e833] [cursor=pointer]:
+                - /url: /topics/chunking-algorithm
+              - link "text-splitter" [ref=f22e834] [cursor=pointer]:
+                - /url: /topics/text-splitter
+              - link "llms" [ref=f22e835] [cursor=pointer]:
+                - /url: /topics/llms
+              - link "chonkie" [ref=f22e836] [cursor=pointer]:
+                - /url: /topics/chonkie
+              - link "semantic-chunker" [ref=f22e837] [cursor=pointer]:
+                - /url: /topics/semantic-chunker
+            - heading "Resources" [level=3] [ref=f22e838]
+            - link "Readme" [ref=f22e840] [cursor=pointer]:
+              - /url: "#readme-ov-file"
+            - heading "License" [level=3] [ref=f22e843]
+            - link "MIT license" [ref=f22e845] [cursor=pointer]:
+              - /url: "#MIT-1-ov-file"
+            - heading "Contributing" [level=3] [ref=f22e848]
+            - link "Contributing" [ref=f22e850] [cursor=pointer]:
+              - /url: "#contributing-ov-file"
+            - link "Activity" [ref=f22e854] [cursor=pointer]:
+              - /url: /feyninc/chonkie/activity
+            - link "Custom properties" [ref=f22e858] [cursor=pointer]:
+              - /url: /feyninc/chonkie/custom-properties
+            - heading "Stars" [level=3] [ref=f22e861]
+            - generic [ref=f22e863]:
+              - strong [ref=f22e866]: 4.5k
+              - text: stars
+            - heading "Watchers" [level=3] [ref=f22e867]
+            - generic [ref=f22e869]:
+              - strong [ref=f22e872]: "13"
+              - text: watching
+            - heading "Forks" [level=3] [ref=f22e873]
+            - link [ref=f22e875] [cursor=pointer]:
+              - /url: /feyninc/chonkie/forks
+              - strong [ref=f22e878]: "328"
+              - text: forks
+            - link "Report repository" [ref=f22e880] [cursor=pointer]:
+              - /url: /contact/report-content?content_url=https%3A%2F%2Fgithub.com%2Ffeyninc%2Fchonkie&report=feyninc+%28user%29
+          - generic [ref=f22e882]:
+            - heading [level=2] [ref=f22e883]:
+              - link "Releases 45" [ref=f22e884] [cursor=pointer]:
+                - /url: /feyninc/chonkie/releases
+                - text: Releases
+                - generic "45" [ref=f22e885]
+            - link "v1.7.0 Latest Jul 7, 20262 weeks ago" [ref=f22e886] [cursor=pointer]:
+              - /url: /feyninc/chonkie/releases/tag/v1.7.0
+              - generic [ref=f22e889]:
+                - generic [ref=f22e890]:
+                  - generic [ref=f22e891]: v1.7.0
+                  - 'generic "Label: Latest" [ref=f22e892]': Latest
+                - generic [ref=f22e893]: Jul 7, 20262 weeks ago
+            - link "+ 44 releases" [ref=f22e895] [cursor=pointer]:
+              - /url: /feyninc/chonkie/releases
+          - generic [ref=f22e897]:
+            - heading [level=2] [ref=f22e1106]:
+              - link "Packages" [ref=f22e1107] [cursor=pointer]:
+                - /url: /orgs/feyninc/packages?repo_name=chonkie
+            - generic [ref=f22e1108]: No packages published
+          - generic [ref=f22e911]:
+            - heading [level=2] [ref=f22e1109]:
+              - link "Contributors 44" [ref=f22e1110] [cursor=pointer]:
+                - /url: /feyninc/chonkie/graphs/contributors
+                - text: Contributors
+                - generic "44" [ref=f22e1111]
+            - list [ref=f22e1112]:
+              - listitem [ref=f22e1113]:
+                - link [ref=f22e1114] [cursor=pointer]:
+                  - /url: https://github.com/chonknick
+                  - img "@chonknick" [ref=f22e1115]
+              - listitem [ref=f22e1116]:
+                - link [ref=f22e1117] [cursor=pointer]:
+                  - /url: https://github.com/chonk-lain
+                  - img "@chonk-lain" [ref=f22e1118]
+              - listitem [ref=f22e1119]:
+                - link [ref=f22e1120] [cursor=pointer]:
+                  - /url: https://github.com/shreyash-chonkie
+                  - img "@shreyash-chonkie" [ref=f22e1121]
+              - listitem [ref=f22e1122]:
+                - link [ref=f22e1123] [cursor=pointer]:
+                  - /url: https://github.com/akx
+                  - img "@akx" [ref=f22e1124]
+              - listitem [ref=f22e1125]:
+                - link [ref=f22e1126] [cursor=pointer]:
+                  - /url: https://github.com/apps/dependabot
+                  - img "@dependabot[bot]" [ref=f22e1127]
+              - listitem [ref=f22e1128]:
+                - link [ref=f22e1129] [cursor=pointer]:
+                  - /url: https://github.com/apps/gemini-code-assist
+                  - img "@gemini-code-assist[bot]" [ref=f22e1130]
+              - listitem [ref=f22e1131]:
+                - link [ref=f22e1132] [cursor=pointer]:
+                  - /url: https://github.com/chimchim89
+                  - img "@chimchim89" [ref=f22e1133]
+              - listitem [ref=f22e1134]:
+                - link [ref=f22e1135] [cursor=pointer]:
+                  - /url: https://github.com/AlanPonnachan
+                  - img "@AlanPonnachan" [ref=f22e1136]
+              - listitem [ref=f22e1137]:
+                - link [ref=f22e1138] [cursor=pointer]:
+                  - /url: https://github.com/not-lain
+                  - img "@not-lain" [ref=f22e1139]
+              - listitem [ref=f22e1140]:
+                - link [ref=f22e1141] [cursor=pointer]:
+                  - /url: https://github.com/bhavnicksm
+                  - img "@bhavnicksm" [ref=f22e1142]
+              - listitem [ref=f22e1143]:
+                - link [ref=f22e1144] [cursor=pointer]:
+                  - /url: https://github.com/apps/copilot-pull-request-reviewer
+                  - img "@Copilot" [ref=f22e1145]
+              - listitem [ref=f22e1146]:
+                - link [ref=f22e1147] [cursor=pointer]:
+                  - /url: https://github.com/Harsha-Karimikonda
+                  - img "@Harsha-Karimikonda" [ref=f22e1148]
+              - listitem [ref=f22e1149]:
+                - link [ref=f22e1150] [cursor=pointer]:
+                  - /url: https://github.com/anaslimem
+                  - img "@anaslimem" [ref=f22e1151]
+              - listitem [ref=f22e1152]:
+                - link [ref=f22e1153] [cursor=pointer]:
+                  - /url: https://github.com/aryxenv
+                  - img "@aryxenv" [ref=f22e1154]
+            - link "+ 30 contributors" [ref=f22e1156] [cursor=pointer]:
+              - /url: /feyninc/chonkie/graphs/contributors
+          - generic [ref=f22e923]:
+            - heading "Languages" [level=2] [ref=f22e924]
+            - list [ref=f22e929]:
+              - listitem [ref=f22e930]:
+                - link "Python 99.8%" [ref=f22e931] [cursor=pointer]:
+                  - /url: /feyninc/chonkie/search?l=python
+                  - generic [ref=f22e934]: Python
+                  - generic [ref=f22e935]: 99.8%
+              - listitem [ref=f22e936]:
+                - generic [ref=f22e937]:
+                  - generic [ref=f22e940]: Other
+                  - generic [ref=f22e941]: 0.2%
+  - contentinfo [ref=f22e943]:
+    - heading "Footer" [level=2] [ref=f22e944]
+    - generic [ref=f22e945]:
+      - generic [ref=f22e946]:
+        - link "GitHub Homepage" [ref=f22e947] [cursor=pointer]:
+          - /url: https://github.com
+        - generic [ref=f22e950]: © 2026 GitHub, Inc.
+      - navigation "Footer" [ref=f22e951]:
+        - heading "Footer navigation" [level=3] [ref=f22e952]
+        - list "Footer navigation" [ref=f22e953]:
+          - listitem [ref=f22e954]:
+            - link "Terms" [ref=f22e955] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/github-terms/github-terms-of-service
+          - listitem [ref=f22e956]:
+            - link "Privacy" [ref=f22e957] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/privacy-policies/github-privacy-statement
+          - listitem [ref=f22e958]:
+            - link "Security" [ref=f22e959] [cursor=pointer]:
+              - /url: https://github.com/security
+          - listitem [ref=f22e960]:
+            - link "Status" [ref=f22e961] [cursor=pointer]:
+              - /url: https://www.githubstatus.com/
+          - listitem [ref=f22e962]:
+            - link "Community" [ref=f22e963] [cursor=pointer]:
+              - /url: https://github.community/
+          - listitem [ref=f22e964]:
+            - link "Docs" [ref=f22e965] [cursor=pointer]:
+              - /url: https://docs.github.com/
+          - listitem [ref=f22e966]:
+            - link "Contact" [ref=f22e967] [cursor=pointer]:
+              - /url: https://support.github.com?tags=dotcom-footer
+          - listitem [ref=f22e968]:
+            - button "Manage cookies" [ref=f22e970] [cursor=pointer]
+          - listitem [ref=f22e971]:
+            - button "Do not share my personal information" [ref=f22e973] [cursor=pointer]

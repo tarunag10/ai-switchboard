@@ -1,0 +1,809 @@
+- generic [active] [ref=f14e1]:
+  - link "Skip to main content" [ref=f14e2] [cursor=pointer]:
+    - /url: "#content"
+  - banner [ref=f14e3]:
+    - generic [ref=f14e5]:
+      - generic [ref=f14e6]:
+        - link [ref=f14e8] [cursor=pointer]:
+          - /url: /
+          - img "PyPI" [ref=f14e9]
+        - search [ref=f14e10]:
+          - generic [ref=f14e11]: Search PyPI
+          - textbox "Search PyPI" [ref=f14e12]:
+            - /placeholder: Type '/' to search projects
+          - button "Search" [ref=f14e13]
+      - navigation "Main navigation" [ref=f14e18]:
+        - list [ref=f14e19]:
+          - listitem [ref=f14e20]:
+            - link "Help" [ref=f14e21] [cursor=pointer]:
+              - /url: /help/
+          - listitem [ref=f14e22]:
+            - link "Docs" [ref=f14e23] [cursor=pointer]:
+              - /url: https://docs.pypi.org/
+          - listitem [ref=f14e24]:
+            - link "Sponsors" [ref=f14e25] [cursor=pointer]:
+              - /url: /sponsors/
+          - listitem [ref=f14e26]:
+            - link "Log in" [ref=f14e27] [cursor=pointer]:
+              - /url: /account/login/?next=https%3A%2F%2Fpypi.org%2Fproject%2Fchonkie%2F
+          - listitem [ref=f14e28]:
+            - link "Register" [ref=f14e29] [cursor=pointer]:
+              - /url: /account/register/
+  - main [ref=f14e30]:
+    - generic [ref=f14e32]:
+      - generic [ref=f14e33]:
+        - heading "chonkie 1.7.0" [level=1] [ref=f14e34]
+        - paragraph [ref=f14e36]:
+          - generic [ref=f14e37]: pip install chonkie
+          - button "Copy PIP instructions" [ref=f14e38] [cursor=pointer]
+      - generic [ref=f14e41]:
+        - link " Latest release" [ref=f14e42] [cursor=pointer]:
+          - /url: /project/chonkie/
+          - text: 
+          - generic [ref=f14e43]: Latest release
+        - paragraph [ref=f14e44]:
+          - text: "Released:"
+          - time [ref=f14e45]: Jul 7, 2026
+    - paragraph [ref=f14e49]: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
+    - generic [ref=f14e52]:
+      - generic [ref=f14e53]:
+        - generic [ref=f14e54]:
+          - heading "Navigation" [level=3] [ref=f14e55]
+          - navigation "Navigation for chonkie" [ref=f14e56]:
+            - tablist [ref=f14e57]:
+              - tab [ref=f14e58]:
+                - link "Project description. Focus will be moved to the description." [ref=f14e59] [cursor=pointer]:
+                  - /url: "#description"
+                  - text: Project description
+              - tab [ref=f14e61]:
+                - link "Release history. Focus will be moved to the history panel." [ref=f14e62] [cursor=pointer]:
+                  - /url: "#history"
+                  - text: Release history
+              - tab [ref=f14e64]:
+                - link "Download files. Focus will be moved to the project files." [ref=f14e65] [cursor=pointer]:
+                  - /url: "#files"
+                  - text: Download files
+        - generic [ref=f14e67]:
+          - heading "Verified details Verified by PyPI on 2026-07-07" [level=3] [ref=f14e68]:
+            - text: Verified details
+            - generic "Verified by PyPI on 2026-07-07" [ref=f14e69]
+          - generic [ref=f14e71]:
+            - text: These details have been
+            - link "verified by PyPI" [ref=f14e72] [cursor=pointer]:
+              - /url: https://docs.pypi.org/project_metadata/#verified-details
+          - heading "Maintainers" [level=6] [ref=f14e73]
+          - link "Avatar for bhavnicksm from gravatar.com bhavnicksm" [ref=f14e75] [cursor=pointer]:
+            - /url: /user/bhavnicksm/
+            - img "Avatar for bhavnicksm from gravatar.com" [ref=f14e77]
+            - generic [ref=f14e78]: bhavnicksm
+          - link "Avatar for shreyash_nm from gravatar.com shreyash_nm" [ref=f14e80] [cursor=pointer]:
+            - /url: /user/shreyash_nm/
+            - img "Avatar for shreyash_nm from gravatar.com" [ref=f14e82]
+            - generic [ref=f14e83]: shreyash_nm
+        - generic [ref=f14e84]:
+          - heading "Unverified details" [level=3] [ref=f14e85]
+          - generic [ref=f14e86]: These details have not been verified by PyPI
+          - heading "Project links" [level=6] [ref=f14e88]
+          - list [ref=f14e89]:
+            - listitem [ref=f14e90]:
+              - link "Bug Tracker" [ref=f14e91] [cursor=pointer]:
+                - /url: https://github.com/chonkie-inc/chonkie/issues
+            - listitem [ref=f14e93]:
+              - link "Documentation" [ref=f14e94] [cursor=pointer]:
+                - /url: https://docs.chonkie.ai
+            - listitem [ref=f14e96]:
+              - link "Homepage" [ref=f14e97] [cursor=pointer]:
+                - /url: https://github.com/chonkie-inc/chonkie
+          - generic [ref=f14e99]:
+            - heading "Meta" [level=6] [ref=f14e100]
+            - list [ref=f14e101]:
+              - listitem [ref=f14e102]:
+                - generic [ref=f14e103]:
+                  - strong [ref=f14e104]: "License:"
+                  - text: MIT License
+              - listitem [ref=f14e105]:
+                - generic [ref=f14e106]:
+                  - strong [ref=f14e107]: "Author:"
+                  - link "Bhavnick Minhas" [ref=f14e108] [cursor=pointer]:
+                    - /url: mailto:bhavnick@chonkie.ai
+              - listitem [ref=f14e109]:
+                - generic [ref=f14e110]:
+                  - strong [ref=f14e111]: "Maintainer:"
+                  - link "Bhavnick Minhas" [ref=f14e112] [cursor=pointer]:
+                    - /url: mailto:bhavnick@chonkie.ai
+              - listitem [ref=f14e113]:
+                - generic [ref=f14e114]:
+                  - generic [ref=f14e116]: Tags
+                  - text: chunking , rag , retrieval-augmented-generation , nlp , natural-language-processing , text-processing , text-analysis , text-chunking , artificial-intelligence , machine-learning
+              - listitem [ref=f14e117]:
+                - generic [ref=f14e118]:
+                  - strong [ref=f14e119]: "Requires:"
+                  - text: Python >=3.10
+              - listitem [ref=f14e120]:
+                - generic [ref=f14e121]:
+                  - strong [ref=f14e122]: "Provides-Extra:"
+                  - code [ref=f14e123]: hub
+                  - text: ","
+                  - code [ref=f14e124]: viz
+                  - text: ","
+                  - code [ref=f14e125]: cli
+                  - text: ","
+                  - code [ref=f14e126]: api
+                  - text: ","
+                  - code [ref=f14e127]: table
+                  - text: ","
+                  - code [ref=f14e128]: tokenizers
+                  - text: ","
+                  - code [ref=f14e129]: tiktoken
+                  - text: ","
+                  - code [ref=f14e130]: code
+                  - text: ","
+                  - code [ref=f14e131]: neural
+                  - text: ","
+                  - code [ref=f14e132]: model2vec
+                  - text: ","
+                  - code [ref=f14e133]: st
+                  - text: ","
+                  - code [ref=f14e134]: openai
+                  - text: ","
+                  - code [ref=f14e135]: semantic
+                  - text: ","
+                  - code [ref=f14e136]: teraflopai
+                  - text: ","
+                  - code [ref=f14e137]: gemini
+                  - text: ","
+                  - code [ref=f14e138]: azure-openai
+                  - text: ","
+                  - code [ref=f14e139]: groq
+                  - text: ","
+                  - code [ref=f14e140]: cerebras
+                  - text: ","
+                  - code [ref=f14e141]: voyageai
+                  - text: ","
+                  - code [ref=f14e142]: cohere
+                  - text: ","
+                  - code [ref=f14e143]: jina
+                  - text: ","
+                  - code [ref=f14e144]: catsu
+                  - text: ","
+                  - code [ref=f14e145]: litellm
+                  - text: ","
+                  - code [ref=f14e146]: chroma
+                  - text: ","
+                  - code [ref=f14e147]: qdrant
+                  - text: ","
+                  - code [ref=f14e148]: tpuf
+                  - text: ","
+                  - code [ref=f14e149]: pgvector
+                  - text: ","
+                  - code [ref=f14e150]: weaviate
+                  - text: ","
+                  - code [ref=f14e151]: datasets
+                  - text: ","
+                  - code [ref=f14e152]: pinecone
+                  - text: ","
+                  - code [ref=f14e153]: mongodb
+                  - text: ","
+                  - code [ref=f14e154]: elastic
+                  - text: ","
+                  - code [ref=f14e155]: milvus
+                  - text: ","
+                  - code [ref=f14e156]: lancedb
+                  - text: ","
+                  - code [ref=f14e157]: mistral
+                  - text: ","
+                  - code [ref=f14e158]: liteparse
+                  - text: ","
+                  - code [ref=f14e159]: genie
+                  - text: ","
+                  - code [ref=f14e160]: chunkers
+                  - text: ","
+                  - code [ref=f14e161]: embeddings
+                  - text: ","
+                  - code [ref=f14e162]: handshakes
+                  - text: ","
+                  - code [ref=f14e163]: genies
+                  - text: ","
+                  - code [ref=f14e164]: chefs
+                  - text: ","
+                  - code [ref=f14e165]: all
+                  - text: ","
+                  - code [ref=f14e166]: dev
+          - generic [ref=f14e167]:
+            - heading "Classifiers" [level=6] [ref=f14e168]
+            - list [ref=f14e169]:
+              - listitem [ref=f14e170]:
+                - strong [ref=f14e171]: Intended Audience
+                - list [ref=f14e172]:
+                  - listitem [ref=f14e173]:
+                    - link "Developers" [ref=f14e174] [cursor=pointer]:
+                      - /url: /search/?c=Intended+Audience+%3A%3A+Developers
+                  - listitem [ref=f14e175]:
+                    - link "Information Technology" [ref=f14e176] [cursor=pointer]:
+                      - /url: /search/?c=Intended+Audience+%3A%3A+Information+Technology
+                  - listitem [ref=f14e177]:
+                    - link "Science/Research" [ref=f14e178] [cursor=pointer]:
+                      - /url: /search/?c=Intended+Audience+%3A%3A+Science%2FResearch
+              - listitem [ref=f14e179]:
+                - strong [ref=f14e180]: Programming Language
+                - list [ref=f14e181]:
+                  - listitem [ref=f14e182]:
+                    - link "Python" [ref=f14e183] [cursor=pointer]:
+                      - /url: /search/?c=Programming+Language+%3A%3A+Python
+                  - listitem [ref=f14e184]:
+                    - 'link "Python :: 3" [ref=f14e185] [cursor=pointer]':
+                      - /url: /search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3
+                  - listitem [ref=f14e186]:
+                    - 'link "Python :: 3.10" [ref=f14e187] [cursor=pointer]':
+                      - /url: /search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.10
+                  - listitem [ref=f14e188]:
+                    - 'link "Python :: 3.11" [ref=f14e189] [cursor=pointer]':
+                      - /url: /search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.11
+                  - listitem [ref=f14e190]:
+                    - 'link "Python :: 3.12" [ref=f14e191] [cursor=pointer]':
+                      - /url: /search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.12
+                  - listitem [ref=f14e192]:
+                    - 'link "Python :: 3.13" [ref=f14e193] [cursor=pointer]':
+                      - /url: /search/?c=Programming+Language+%3A%3A+Python+%3A%3A+3.13
+              - listitem [ref=f14e194]:
+                - strong [ref=f14e195]: Topic
+                - list [ref=f14e196]:
+                  - listitem [ref=f14e197]:
+                    - 'link "Scientific/Engineering :: Artificial Intelligence" [ref=f14e198] [cursor=pointer]':
+                      - /url: /search/?c=Topic+%3A%3A+Scientific%2FEngineering+%3A%3A+Artificial+Intelligence
+                  - listitem [ref=f14e199]:
+                    - 'link "Scientific/Engineering :: Information Analysis" [ref=f14e200] [cursor=pointer]':
+                      - /url: /search/?c=Topic+%3A%3A+Scientific%2FEngineering+%3A%3A+Information+Analysis
+                  - listitem [ref=f14e201]:
+                    - 'link "Text Processing :: Linguistic" [ref=f14e202] [cursor=pointer]':
+                      - /url: /search/?c=Topic+%3A%3A+Text+Processing+%3A%3A+Linguistic
+        - generic [ref=f14e204]:
+          - generic [ref=f14e205]:
+            - link [ref=f14e206] [cursor=pointer]:
+              - /url: https://server.ethicalads.io/proxy/click/9630/019f747d-2ab9-7420-8f0a-20d0b176e6c0/
+              - 'img "Sponsored: Python Software Foundation" [ref=f14e207]'
+              - text: 
+            - generic [ref=f14e208]: Red Hat is a Maintaining sponsor of the Python Software Foundation.
+          - emphasis [ref=f14e211]:
+            - link "PSF Sponsor" [ref=f14e212] [cursor=pointer]:
+              - /url: https://www.python.org/psf/sponsorship/?ref=ethicalads-placement
+            - text: ·
+            - link "Served ethically" [ref=f14e213] [cursor=pointer]:
+              - /url: https://www.ethicalads.io/sponsorship-platform/?ref=psf
+        - button "Report project as malware" [ref=f14e215] [cursor=pointer]
+      - generic [ref=f14e216]:
+        - navigation "Navigation for chonkie":
+          - tablist:
+            - tab
+            - tab
+            - tab
+            - tab
+        - tabpanel "Project description. Focus will be moved to the description. Project description. Focus will be moved to the description." [ref=f14e217]:
+          - heading "Project description" [level=2] [ref=f14e218]
+          - generic [ref=f14e219]:
+            - generic [ref=f14e220]:
+              - paragraph [ref=f14e221]:
+                - img "Chonkie Logo" [ref=f14e222]
+              - heading "🦛 Chonkie ✨" [level=1] [ref=f14e223]:
+                - link:
+                  - /url: "#user-content--chonkie-"
+                - text: 🦛 Chonkie ✨
+              - paragraph [ref=f14e224]:
+                - link [ref=f14e225] [cursor=pointer]:
+                  - /url: https://pypi.org/project/chonkie/
+                  - img "PyPI version" [ref=f14e226]
+                - link [ref=f14e227] [cursor=pointer]:
+                  - /url: https://github.com/chonkie-inc/chonkie/blob/main/LICENSE
+                  - img "License" [ref=f14e228]
+                - link [ref=f14e229] [cursor=pointer]:
+                  - /url: https://docs.chonkie.ai
+                  - img "Documentation" [ref=f14e230]
+                - link [ref=f14e231] [cursor=pointer]:
+                  - /url: https://github.com/chonkie-inc/chonkie/blob/main/README.md#installation
+                  - img "Package size" [ref=f14e232]
+                - link [ref=f14e233] [cursor=pointer]:
+                  - /url: https://codecov.io/gh/chonkie-inc/chonkie
+                  - img "codecov" [ref=f14e234]
+                - link [ref=f14e235] [cursor=pointer]:
+                  - /url: https://pepy.tech/project/chonkie
+                  - img "Downloads" [ref=f14e236]
+                - link [ref=f14e237] [cursor=pointer]:
+                  - /url: https://discord.gg/vH3SkRqmUz
+                  - img "Discord" [ref=f14e238]
+                - link [ref=f14e239] [cursor=pointer]:
+                  - /url: https://github.com/chonkie-inc/chonkie/stargazers
+                  - img "GitHub stars" [ref=f14e240]
+              - paragraph [ref=f14e241]:
+                - emphasis [ref=f14e242]: The lightweight ingestion library for fast, efficient and robust RAG pipelines
+              - paragraph [ref=f14e243]:
+                - link "Installation" [ref=f14e244] [cursor=pointer]:
+                  - /url: "#user-content-%F0%9F%93%A6-installation"
+                - text: •
+                - link "Usage" [ref=f14e245] [cursor=pointer]:
+                  - /url: "#user-content-%F0%9F%9A%80-usage"
+                - text: •
+                - link "Chunkers" [ref=f14e246] [cursor=pointer]:
+                  - /url: "#user-content-%E2%9C%82%EF%B8%8F-chunkers"
+                - text: •
+                - link "Integrations" [ref=f14e247] [cursor=pointer]:
+                  - /url: "#user-content-%F0%9F%94%8C-integrations"
+                - text: •
+                - link "Benchmarks" [ref=f14e248] [cursor=pointer]:
+                  - /url: "#user-content-%F0%9F%93%8A-benchmarks"
+            - paragraph [ref=f14e249]: Tired of making your gazillionth chunker? Sick of the overhead of large libraries? Want to chunk your texts quickly and efficiently? Chonkie the mighty hippo is here to help!
+            - paragraph [ref=f14e250]:
+              - strong [ref=f14e251]: 🚀 Feature-rich
+              - text: ": All the CHONKs you'd ever need"
+              - strong [ref=f14e252]: 🔄 End-to-end
+              - text: ": Fetch, CHONK, refine, embed and ship straight to your vector DB!"
+              - strong [ref=f14e253]: ✨ Easy to use
+              - text: ": Install, Import, CHONK"
+              - strong [ref=f14e254]: ⚡ Fast
+              - text: ": CHONK at the speed of light! zooooom"
+              - strong [ref=f14e255]: 🪶 Light-weight
+              - text: ": No bloat, just CHONK"
+              - strong [ref=f14e256]:
+                - text: 🔌 32+
+                - link "integrations" [ref=f14e257] [cursor=pointer]:
+                  - /url: "#user-content-integrations"
+              - text: ": Works with your favorite tools and vector DBs out of the box!"
+              - strong [ref=f14e258]: 💬 ️Multilingual
+              - text: ": Out-of-the-box support for 56 languages"
+              - strong [ref=f14e259]: ☁️ Cloud-Friendly
+              - text: ": CHONK locally or in the"
+              - link "Cloud" [ref=f14e260] [cursor=pointer]:
+                - /url: https://labs.chonkie.ai
+              - strong [ref=f14e261]: 🦛 Cute CHONK mascot
+              - text: ": psst it's a pygmy hippo btw"
+              - strong [ref=f14e262]:
+                - text: ❤️
+                - link "Moto Moto" [ref=f14e263] [cursor=pointer]:
+                  - /url: "#user-content-acknowledgements"
+                - text: "'s favorite python library"
+            - paragraph [ref=f14e264]:
+              - strong [ref=f14e265]: Chonkie
+              - text: is a chunking library that "
+              - strong [ref=f14e266]: just works
+              - text: "\" ✨"
+            - heading "📦 Installation" [level=2] [ref=f14e267]:
+              - link:
+                - /url: "#user-content--installation"
+              - text: 📦 Installation
+            - heading "Basic Installation" [level=3] [ref=f14e268]:
+              - link:
+                - /url: "#user-content-basic-installation"
+              - text: Basic Installation
+            - paragraph [ref=f14e269]: "Using pip:"
+            - generic [ref=f14e270]: pip install chonkie
+            - paragraph [ref=f14e271]:
+              - text: Or using
+              - link "uv" [ref=f14e272] [cursor=pointer]:
+                - /url: https://docs.astral.sh/uv/
+              - text: "(faster):"
+            - generic [ref=f14e273]: uv pip install chonkie
+            - heading "Full Installation" [level=3] [ref=f14e274]:
+              - link:
+                - /url: "#user-content-full-installation"
+              - text: Full Installation
+            - paragraph [ref=f14e275]:
+              - text: Chonkie follows the rule of minimum installs. Have a favorite chunker? Read our
+              - link "docs" [ref=f14e276] [cursor=pointer]:
+                - /url: https://docs.chonkie.ai
+              - text: to install only what you need. Don't want to think about it? Simply install
+              - code [ref=f14e277]: all
+              - text: (Not recommended for production environments).
+            - paragraph [ref=f14e278]: "Using pip:"
+            - generic [ref=f14e279]: pip install "chonkie[all]"
+            - paragraph [ref=f14e280]:
+              - text: Or using
+              - link "uv" [ref=f14e281] [cursor=pointer]:
+                - /url: https://docs.astral.sh/uv/
+              - text: ":"
+            - generic [ref=f14e282]: uv pip install "chonkie[all]"
+            - heading "🚀 Usage" [level=2] [ref=f14e283]:
+              - link:
+                - /url: "#user-content--usage"
+              - text: 🚀 Usage
+            - heading "Basic Usage" [level=3] [ref=f14e284]:
+              - link:
+                - /url: "#user-content-basic-usage"
+              - text: Basic Usage
+            - paragraph [ref=f14e285]: "Here's a basic example to get you started:"
+            - generic [ref=f14e286]: "# First import the chunker you want from Chonkie from chonkie import RecursiveChunker # Initialize the chunker chunker = RecursiveChunker() # Chunk some text chunks = chunker(\"Chonkie is the goodest boi! My favorite chunking hippo hehe.\") # Access chunks for chunk in chunks: print(f\"Chunk: {chunk.text}\") print(f\"Tokens: {chunk.token_count}\")"
+            - heading "Pipeline Usage" [level=3] [ref=f14e287]:
+              - link:
+                - /url: "#user-content-pipeline-usage"
+              - text: Pipeline Usage
+            - paragraph [ref=f14e288]:
+              - text: You can also use the
+              - code [ref=f14e289]: chonkie.Pipeline
+              - text: to chain components together and handle complex workflows. Read more about pipelines in the
+              - link "docs" [ref=f14e290] [cursor=pointer]:
+                - /url: https://docs.chonkie.ai/oss/pipelines
+              - text: "!"
+            - generic [ref=f14e291]: "from chonkie import Pipeline # Create a pipeline with multiple chunking and refinement steps pipe = ( Pipeline() .chunk_with(\"recursive\", tokenizer=\"gpt2\", chunk_size=2048, recipe=\"markdown\") .chunk_with(\"semantic\", chunk_size=512) .refine_with(\"overlap\", context_size=128) .refine_with(\"embeddings\", embedding_model=\"sentence-transformers/all-MiniLM-L6-v2\") ) # CHONK some Texts! doc = pipe.run(texts=\"Chonkie is the goodest boi! My favorite chunking hippo hehe.\") # Access the processed chunks in the `doc` object for chunk in doc.chunks: print(chunk.text) # Run asynchronously for high-throughput applications import asyncio async def main(): doc = await pipe.arun(texts=\"Chonkie runs fast!\") print(len(doc.chunks)) asyncio.run(main())"
+            - paragraph [ref=f14e292]:
+              - text: Check out more usage examples in the
+              - link "docs" [ref=f14e293] [cursor=pointer]:
+                - /url: https://docs.chonkie.ai
+              - text: "!"
+            - heading "🌐 API Server" [level=2] [ref=f14e294]:
+              - link:
+                - /url: "#user-content--api-server"
+              - text: 🌐 API Server
+            - paragraph [ref=f14e295]: "Run Chonkie as a self-hosted REST API for easy integration into any application:"
+            - generic [ref=f14e296]: "# Install with API dependencies (includes catsu for multi-provider embeddings) pip install \"chonkie[api,semantic,code,catsu]\" # Start the server using the CLI chonkie serve # Or with custom options chonkie serve --port 3000 --reload --log-level debug # Or directly with uvicorn uvicorn chonkie.api.main:app --host 0.0.0.0 --port 8000"
+            - paragraph [ref=f14e297]: "Or use Docker:"
+            - generic [ref=f14e298]: docker compose up
+            - paragraph [ref=f14e299]:
+              - text: The API provides endpoints for all chunkers, refineries, and
+              - strong [ref=f14e300]: pipelines
+              - text: — reusable workflow configurations stored in a local SQLite database.
+            - generic [ref=f14e301]: "# Create a reusable pipeline curl -X POST http://localhost:8000/v1/pipelines \\ -H \"Content-Type: application/json\" \\ -d '{ \"name\": \"rag-chunker\", \"steps\": [ {\"type\": \"chunk\", \"chunker\": \"semantic\", \"config\": {\"chunk_size\": 512}}, {\"type\": \"refine\", \"refinery\": \"embeddings\", \"config\": {\"embedding_model\": \"text-embedding-3-small\"}} ] }' # List your pipelines curl http://localhost:8000/v1/pipelines"
+            - paragraph [ref=f14e302]:
+              - text: Interactive documentation is available at
+              - code [ref=f14e303]: /docs
+              - text: when the server is running.
+            - heading "✂️ Chunkers" [level=2] [ref=f14e304]:
+              - link:
+                - /url: "#user-content-️-chunkers"
+              - text: ✂️ Chunkers
+            - paragraph [ref=f14e305]: "Chonkie provides several chunkers to help you split your text efficiently for RAG applications. Here's a quick overview of the available chunkers:"
+            - table [ref=f14e306]:
+              - rowgroup [ref=f14e307]:
+                - row [ref=f14e308]:
+                  - columnheader "Name" [ref=f14e309]
+                  - columnheader "Alias" [ref=f14e310]
+                  - columnheader "Description" [ref=f14e311]
+              - rowgroup [ref=f14e312]:
+                - row [ref=f14e313]:
+                  - cell [ref=f14e314]:
+                    - code [ref=f14e315]: TokenChunker
+                  - cell [ref=f14e316]:
+                    - code [ref=f14e317]: token
+                  - cell "Splits text into fixed-size token chunks." [ref=f14e318]
+                - row [ref=f14e319]:
+                  - cell [ref=f14e320]:
+                    - code [ref=f14e321]: FastChunker
+                  - cell [ref=f14e322]:
+                    - code [ref=f14e323]: fast
+                  - cell "SIMD-accelerated byte-based chunking at 100+ GB/s. Included in the default install." [ref=f14e324]
+                - row [ref=f14e325]:
+                  - cell [ref=f14e326]:
+                    - code [ref=f14e327]: SentenceChunker
+                  - cell [ref=f14e328]:
+                    - code [ref=f14e329]: sentence
+                  - cell "Splits text into chunks based on sentences." [ref=f14e330]
+                - row [ref=f14e331]:
+                  - cell [ref=f14e332]:
+                    - code [ref=f14e333]: RecursiveChunker
+                  - cell [ref=f14e334]:
+                    - code [ref=f14e335]: recursive
+                  - cell "Splits text hierarchically using customizable rules to create semantically meaningful chunks." [ref=f14e336]
+                - row [ref=f14e337]:
+                  - cell [ref=f14e338]:
+                    - code [ref=f14e339]: SemanticChunker
+                  - cell [ref=f14e340]:
+                    - code [ref=f14e341]: semantic
+                  - cell [ref=f14e342]:
+                    - text: Splits text into chunks based on semantic similarity. Inspired by the work of
+                    - link "Greg Kamradt" [ref=f14e343] [cursor=pointer]:
+                      - /url: https://github.com/gkamradt
+                    - text: .
+                - row [ref=f14e344]:
+                  - cell [ref=f14e345]:
+                    - code [ref=f14e346]: LateChunker
+                  - cell [ref=f14e347]:
+                    - code [ref=f14e348]: late
+                  - cell "Embeds text and then splits it to have better chunk embeddings." [ref=f14e349]
+                - row [ref=f14e350]:
+                  - cell [ref=f14e351]:
+                    - code [ref=f14e352]: CodeChunker
+                  - cell [ref=f14e353]:
+                    - code [ref=f14e354]: code
+                  - cell "Splits code into structurally meaningful chunks." [ref=f14e355]
+                - row [ref=f14e356]:
+                  - cell [ref=f14e357]:
+                    - code [ref=f14e358]: NeuralChunker
+                  - cell [ref=f14e359]:
+                    - code [ref=f14e360]: neural
+                  - cell "Splits text using a neural model." [ref=f14e361]
+                - row [ref=f14e362]:
+                  - cell [ref=f14e363]:
+                    - code [ref=f14e364]: SlumberChunker
+                  - cell [ref=f14e365]:
+                    - code [ref=f14e366]: slumber
+                  - cell [ref=f14e367]:
+                    - text: Splits text using an LLM to find semantically meaningful chunks. Also known as
+                    - emphasis [ref=f14e368]: "\"AgenticChunker\""
+                    - text: .
+                - row [ref=f14e369]:
+                  - cell [ref=f14e370]:
+                    - code [ref=f14e371]: TableChunker
+                  - cell [ref=f14e372]:
+                    - code [ref=f14e373]: table
+                  - cell "Chunks markdown tables by rows or character count." [ref=f14e374]
+                - row [ref=f14e375]:
+                  - cell [ref=f14e376]:
+                    - code [ref=f14e377]: TeraflopAIChunker
+                  - cell [ref=f14e378]:
+                    - code [ref=f14e379]: teraflopai
+                  - cell "Splits text using the TeraflopAI Segmentation API for domain-specific segmentation." [ref=f14e380]
+            - paragraph [ref=f14e381]:
+              - text: More on these methods and the approaches taken inside the
+              - link "docs" [ref=f14e382] [cursor=pointer]:
+                - /url: https://docs.chonkie.ai
+            - heading "🔌 Integrations" [level=2] [ref=f14e383]:
+              - link:
+                - /url: "#user-content--integrations"
+              - text: 🔌 Integrations
+            - paragraph [ref=f14e384]: Chonkie boasts 45+ integrations across tokenizers, embedding providers, LLMs, refineries, porters, vector databases, and utilities, ensuring it fits seamlessly into your existing workflow.
+            - group [ref=f14e385]:
+              - strong [ref=f14e387]: 👨‍🍳 Chefs & 📁 Fetchers! Text preprocessing and data loading!
+            - group [ref=f14e388]:
+              - strong [ref=f14e390]: 🏭 Refine your CHONKs with Context and Embeddings! Chonkie supports 2+ refineries!
+            - group [ref=f14e391]:
+              - strong [ref=f14e393]: 🐴 Exporting CHONKs! Chonkie supports 2+ Porters!
+            - group [ref=f14e394]:
+              - strong [ref=f14e396]: 🤝 Shake hands with your DB! Chonkie connects with 10+ vector stores!
+            - group [ref=f14e397]:
+              - strong [ref=f14e399]: 🪓 Slice 'n' Dice! Chonkie supports 5+ ways to tokenize!
+            - group [ref=f14e400]:
+              - strong [ref=f14e402]: 🧠 Embed like a boss! Chonkie links up with 16+ embedding pals!
+            - group [ref=f14e403]:
+              - strong [ref=f14e405]: 🧞‍♂️ Power Up with Genies! Chonkie supports 5+ LLM providers!
+            - group [ref=f14e406]:
+              - strong [ref=f14e408]: 🛠️ Utilities & Helpers! Chonkie includes handy tools!
+            - paragraph [ref=f14e409]: With Chonkie's wide range of integrations, you can easily plug it into your existing infrastructure and start CHONKING!
+            - heading "🤖 AI Agent Skills & Plugins" [level=2] [ref=f14e410]:
+              - link:
+                - /url: "#user-content--ai-agent-skills--plugins"
+              - text: 🤖 AI Agent Skills & Plugins
+            - paragraph [ref=f14e411]: Chonkie provides an official skill and plugin for AI coding agents, giving them deep knowledge of Chonkie's API, chunking strategies, and pipeline patterns — so they can help you build RAG pipelines faster.
+            - paragraph [ref=f14e412]:
+              - strong [ref=f14e413]: "Supported agents:"
+              - text: Claude Code, Cursor, Gemini CLI, and more.
+            - generic [ref=f14e414]: "# Via skills.sh (works with Claude Code, Cursor, Copilot, and 20+ agents) npx skills add chonkie-inc/skills # Claude Code only /plugin marketplace add chonkie-inc/skills"
+            - paragraph [ref=f14e415]: Once installed, your agent gains knowledge of all chunkers, the Pipeline API, tokenizer selection, embeddings refineries, vector DB handshakes, the REST API server, recipes, and async/batch processing patterns.
+            - paragraph [ref=f14e416]:
+              - text: Learn more at
+              - link "github.com/chonkie-inc/skills" [ref=f14e417] [cursor=pointer]:
+                - /url: https://github.com/chonkie-inc/skills
+              - text: .
+            - heading "📊 Benchmarks" [level=2] [ref=f14e418]:
+              - link:
+                - /url: "#user-content--benchmarks"
+              - text: 📊 Benchmarks
+            - blockquote [ref=f14e419]:
+              - paragraph [ref=f14e420]: "\"I may be smol hippo, but I pack a big punch!\" 🦛"
+            - paragraph [ref=f14e421]: "Chonkie is not just cute, it's also fast and efficient! Here's how it stacks up against the competition:"
+            - paragraph [ref=f14e422]:
+              - strong [ref=f14e423]: Size
+              - text: 📦
+            - list [ref=f14e424]:
+              - listitem [ref=f14e425]:
+                - strong [ref=f14e426]: "Wheel Size:"
+                - text: 505KB (vs 1-12MB for alternatives)
+              - listitem [ref=f14e427]:
+                - strong [ref=f14e428]: "Installed Size:"
+                - text: 49MB (vs 80-171MB for alternatives)
+              - listitem [ref=f14e429]:
+                - strong [ref=f14e430]: "With Semantic:"
+                - text: Still 10x lighter than the closest competition!
+            - paragraph [ref=f14e431]:
+              - strong [ref=f14e432]: Speed
+              - text: ⚡
+            - list [ref=f14e433]:
+              - listitem [ref=f14e434]:
+                - strong [ref=f14e435]: "Token Chunking:"
+                - text: 33x faster than the slowest alternative
+              - listitem [ref=f14e436]:
+                - strong [ref=f14e437]: "Sentence Chunking:"
+                - text: Almost 2x faster than competitors
+              - listitem [ref=f14e438]:
+                - strong [ref=f14e439]: "Semantic Chunking:"
+                - text: Up to 2.5x faster than others
+            - paragraph [ref=f14e440]:
+              - text: Check out our detailed
+              - link "benchmarks" [ref=f14e441] [cursor=pointer]:
+                - /url: BENCHMARKS.md
+              - text: to see how Chonkie races past the competition! 🏃‍♂️💨
+            - heading "🤝 Contributing" [level=2] [ref=f14e442]:
+              - link:
+                - /url: "#user-content--contributing"
+              - text: 🤝 Contributing
+            - paragraph [ref=f14e443]:
+              - text: Want to help grow Chonkie? Check out
+              - link "CONTRIBUTING.md" [ref=f14e444] [cursor=pointer]:
+                - /url: CONTRIBUTING.md
+              - text: to get started! Whether you're fixing bugs, adding features, or improving docs, every contribution helps make Chonkie a better CHONK for everyone.
+            - paragraph [ref=f14e445]: "Remember: No contribution is too small for this tiny hippo! 🦛"
+            - heading "🙏 Acknowledgements" [level=2] [ref=f14e446]:
+              - link:
+                - /url: "#user-content--acknowledgements"
+              - text: 🙏 Acknowledgements
+            - paragraph [ref=f14e447]: Chonkie would like to CHONK its way through a special thanks to all the users and contributors who have helped make this library what it is today! Your feedback, issue reports, and improvements have helped make Chonkie the CHONKIEST it can be.
+            - paragraph [ref=f14e448]:
+              - text: And of course, special thanks to
+              - link "Moto Moto" [ref=f14e449] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=I0zZC4wtqDQ&t=5s
+              - text: "for endorsing Chonkie with his famous quote:"
+            - blockquote [ref=f14e450]:
+              - paragraph [ref=f14e451]: "\"I like them big, I like them chonkie.\" ~ Moto Moto"
+            - heading "📝 Citation" [level=2] [ref=f14e452]:
+              - link:
+                - /url: "#user-content--citation"
+              - text: 📝 Citation
+            - paragraph [ref=f14e453]: "If you use Chonkie in your research, please cite it as follows:"
+            - generic [ref=f14e454]: "@software{chonkie2025, author = {Minhas, Bhavnick AND Nigam, Shreyash}, title = {Chonkie: The lightweight ingestion library for fast, efficient and robust RAG pipelines}, year = {2025}, publisher = {GitHub}, howpublished = {\\url{https://github.com/chonkie-inc/chonkie}}, }"
+        - text:      
+  - contentinfo [ref=f14e455]:
+    - generic [ref=f14e457]:
+      - generic [ref=f14e458]:
+        - heading "Help" [level=2] [ref=f14e459]
+        - navigation "Help navigation" [ref=f14e460]:
+          - list [ref=f14e461]:
+            - listitem [ref=f14e462]:
+              - link "Installing packages" [ref=f14e463] [cursor=pointer]:
+                - /url: https://packaging.python.org/tutorials/installing-packages/
+            - listitem [ref=f14e464]:
+              - link "Uploading packages" [ref=f14e465] [cursor=pointer]:
+                - /url: https://packaging.python.org/tutorials/packaging-projects/
+            - listitem [ref=f14e466]:
+              - link "User guide" [ref=f14e467] [cursor=pointer]:
+                - /url: https://packaging.python.org/
+            - listitem [ref=f14e468]:
+              - link "Project name retention" [ref=f14e469] [cursor=pointer]:
+                - /url: https://www.python.org/dev/peps/pep-0541/
+            - listitem [ref=f14e470]:
+              - link "FAQs" [ref=f14e471] [cursor=pointer]:
+                - /url: /help/
+      - generic [ref=f14e472]:
+        - heading "About PyPI" [level=2] [ref=f14e473]
+        - navigation "About PyPI navigation" [ref=f14e474]:
+          - list [ref=f14e475]:
+            - listitem [ref=f14e476]:
+              - link "PyPI Blog" [ref=f14e477] [cursor=pointer]:
+                - /url: https://blog.pypi.org
+            - listitem [ref=f14e478]:
+              - link "Infrastructure dashboard" [ref=f14e479] [cursor=pointer]:
+                - /url: https://dtdg.co/pypi
+            - listitem [ref=f14e480]:
+              - link "Statistics" [ref=f14e481] [cursor=pointer]:
+                - /url: /stats/
+            - listitem [ref=f14e482]:
+              - link "Logos & trademarks" [ref=f14e483] [cursor=pointer]:
+                - /url: /trademarks/
+            - listitem [ref=f14e484]:
+              - link "Our sponsors" [ref=f14e485] [cursor=pointer]:
+                - /url: /sponsors/
+      - generic [ref=f14e486]:
+        - heading "Contributing to PyPI" [level=2] [ref=f14e487]
+        - navigation "How to contribute navigation" [ref=f14e488]:
+          - list [ref=f14e489]:
+            - listitem [ref=f14e490]:
+              - link "Bugs and feedback" [ref=f14e491] [cursor=pointer]:
+                - /url: /help/#feedback
+            - listitem [ref=f14e492]:
+              - link "Contribute on GitHub" [ref=f14e493] [cursor=pointer]:
+                - /url: https://github.com/pypi/warehouse
+            - listitem [ref=f14e494]:
+              - link "Translate PyPI" [ref=f14e495] [cursor=pointer]:
+                - /url: https://hosted.weblate.org/projects/pypa/warehouse/
+            - listitem [ref=f14e496]:
+              - link "Sponsor PyPI" [ref=f14e497] [cursor=pointer]:
+                - /url: /sponsors/
+            - listitem [ref=f14e498]:
+              - link "Development credits" [ref=f14e499] [cursor=pointer]:
+                - /url: https://github.com/pypi/warehouse/graphs/contributors
+      - generic [ref=f14e500]:
+        - heading "Using PyPI" [level=2] [ref=f14e501]
+        - navigation "Using PyPI navigation" [ref=f14e502]:
+          - list [ref=f14e503]:
+            - listitem [ref=f14e504]:
+              - link "Terms of Service" [ref=f14e505] [cursor=pointer]:
+                - /url: https://policies.python.org/pypi.org/Terms-of-Service/
+            - listitem [ref=f14e506]:
+              - link "Report security issue" [ref=f14e507] [cursor=pointer]:
+                - /url: /security/
+            - listitem [ref=f14e508]:
+              - link "Code of conduct" [ref=f14e509] [cursor=pointer]:
+                - /url: https://policies.python.org/python.org/code-of-conduct/
+            - listitem [ref=f14e510]:
+              - link "Privacy Notice" [ref=f14e511] [cursor=pointer]:
+                - /url: https://policies.python.org/pypi.org/Privacy-Notice/
+            - listitem [ref=f14e512]:
+              - link "Acceptable Use Policy" [ref=f14e513] [cursor=pointer]:
+                - /url: https://policies.python.org/pypi.org/Acceptable-Use-Policy/
+    - separator [ref=f14e514]
+    - generic [ref=f14e515]:
+      - paragraph [ref=f14e516]:
+        - text: "Status:"
+        - link "All Systems Operational" [ref=f14e517] [cursor=pointer]:
+          - /url: https://status.python.org/
+      - paragraph [ref=f14e518]:
+        - text: Developed and maintained by the Python community, for the Python community.
+        - link "Donate today!" [ref=f14e519] [cursor=pointer]:
+          - /url: https://donate.pypi.org
+      - paragraph [ref=f14e520]:
+        - text: "\"PyPI\", \"Python Package Index\", and the blocks logos are registered"
+        - link "trademarks" [ref=f14e521] [cursor=pointer]:
+          - /url: /trademarks/
+        - text: of the
+        - link "Python Software Foundation" [ref=f14e522] [cursor=pointer]:
+          - /url: https://www.python.org/psf-landing
+        - text: .
+      - paragraph [ref=f14e523]:
+        - text: © 2026
+        - link "Python Software Foundation" [ref=f14e524] [cursor=pointer]:
+          - /url: https://www.python.org/psf-landing/
+        - link "Site map" [ref=f14e525] [cursor=pointer]:
+          - /url: /sitemap/
+      - paragraph [ref=f14e526]:
+        - text: Deployed from
+        - link [ref=f14e527] [cursor=pointer]:
+          - /url: https://github.com/pypi/warehouse/commit/f576313a510043e07f72dd4db75c4084025566da
+          - code [ref=f14e528]: f576313
+          - text: 
+  - list [ref=f14e531]:
+    - listitem [ref=f14e532]:
+      - button "English"
+    - listitem [ref=f14e533]:
+      - button "español" [ref=f14e534]
+    - listitem [ref=f14e535]:
+      - button "français" [ref=f14e536]
+    - listitem [ref=f14e537]:
+      - button "日本語" [ref=f14e538]
+    - listitem [ref=f14e539]:
+      - button "português (Brasil)" [ref=f14e540]
+    - listitem [ref=f14e541]:
+      - button "українська" [ref=f14e542]
+    - listitem [ref=f14e543]:
+      - button "Ελληνικά" [ref=f14e544]
+    - listitem [ref=f14e545]:
+      - button "Deutsch" [ref=f14e546]
+    - listitem [ref=f14e547]:
+      - button "中文 (简体)" [ref=f14e548]
+    - listitem [ref=f14e549]:
+      - button "中文 (繁體)" [ref=f14e550]
+    - listitem [ref=f14e551]:
+      - button "русский" [ref=f14e552]
+    - listitem [ref=f14e553]:
+      - button "עברית" [ref=f14e554]
+    - listitem [ref=f14e555]:
+      - button "Esperanto" [ref=f14e556]
+    - listitem [ref=f14e557]:
+      - button "한국어" [ref=f14e558]
+  - generic [ref=f14e559]:
+    - link "AWS Cloud computing and Security Sponsor" [ref=f14e560] [cursor=pointer]:
+      - /url: https://aws.amazon.com/
+      - generic [ref=f14e561]: AWS
+      - generic [ref=f14e562]: Cloud computing and Security Sponsor
+    - link "Datadog Monitoring" [ref=f14e563] [cursor=pointer]:
+      - /url: https://www.datadoghq.com/
+      - generic [ref=f14e564]: Datadog
+      - generic [ref=f14e565]: Monitoring
+    - link "Depot Continuous Integration" [ref=f14e566] [cursor=pointer]:
+      - /url: https://depot.dev
+      - generic [ref=f14e567]: Depot
+      - generic [ref=f14e568]: Continuous Integration
+    - link "Fastly CDN" [ref=f14e569] [cursor=pointer]:
+      - /url: https://www.fastly.com/
+      - generic [ref=f14e570]: Fastly
+      - generic [ref=f14e571]: CDN
+    - link "Google Download Analytics" [ref=f14e572] [cursor=pointer]:
+      - /url: https://careers.google.com/
+      - generic [ref=f14e573]: Google
+      - generic [ref=f14e574]: Download Analytics
+    - link "Pingdom Monitoring" [ref=f14e575] [cursor=pointer]:
+      - /url: https://www.pingdom.com/
+      - generic [ref=f14e576]: Pingdom
+      - generic [ref=f14e577]: Monitoring
+    - link "Sentry Error logging" [ref=f14e578] [cursor=pointer]:
+      - /url: https://sentry.io/for/python/?utm_source=pypi&utm_medium=paid-community&utm_campaign=python-na-evergreen&utm_content=static-ad-pypi-sponsor-learnmore
+      - generic [ref=f14e579]: Sentry
+      - generic [ref=f14e580]: Error logging
+    - link "StatusPage Status page" [ref=f14e581] [cursor=pointer]:
+      - /url: https://statuspage.io
+      - generic [ref=f14e582]: StatusPage
+      - generic [ref=f14e583]: Status page
