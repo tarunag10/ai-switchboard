@@ -18,6 +18,7 @@ mod codex_npm_launcher_chain;
 mod codex_npm_launcher_chain_digest;
 mod codex_npm_macho;
 mod codex_npm_manifest;
+mod codex_probe_attempt_authority;
 mod codex_probe_preflight;
 mod codex_probe_preflight_digest;
 mod codex_probe_semver;
@@ -376,6 +377,9 @@ mod codex_npm_manifest_tests;
 mod codex_probe_preflight_test_support;
 #[cfg(test)]
 mod codex_probe_preflight_tests;
+
+#[cfg(test)]
+mod codex_probe_attempt_authority_tests;
 
 #[cfg(test)]
 mod codex_restricted_helper_preparation_tests;

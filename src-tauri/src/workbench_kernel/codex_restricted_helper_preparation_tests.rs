@@ -28,22 +28,22 @@ use crate::client_adapter_contract::{
 };
 use crate::models::SwitchboardMode;
 
-struct Fixture {
-    session: WorkbenchSession,
-    plan: WorkbenchRunPlan,
-    process: ProcessRunSpec,
-    grant: WorkbenchProcessStartGrant,
-    admission: WorkbenchProcessAdmission,
-    probe_plan: CodexProbePlan,
-    containment: CodexProbeContainmentObservation,
-    preflight: CodexManualProbePreflight,
-    now: chrono::DateTime<Utc>,
-    grant_store: WorkbenchProcessGrantStore,
-    admission_store: WorkbenchProcessAdmissionStore,
-    _directory: tempfile::TempDir,
+pub(super) struct Fixture {
+    pub(super) session: WorkbenchSession,
+    pub(super) plan: WorkbenchRunPlan,
+    pub(super) process: ProcessRunSpec,
+    pub(super) grant: WorkbenchProcessStartGrant,
+    pub(super) admission: WorkbenchProcessAdmission,
+    pub(super) probe_plan: CodexProbePlan,
+    pub(super) containment: CodexProbeContainmentObservation,
+    pub(super) preflight: CodexManualProbePreflight,
+    pub(super) now: chrono::DateTime<Utc>,
+    pub(super) grant_store: WorkbenchProcessGrantStore,
+    pub(super) admission_store: WorkbenchProcessAdmissionStore,
+    pub(super) directory: tempfile::TempDir,
 }
 
-fn fixture() -> Fixture {
+pub(super) fn fixture() -> Fixture {
     let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
         workspace_digest: digest('w'),
         task_class: "coding".into(),
@@ -143,11 +143,11 @@ fn fixture() -> Fixture {
         now,
         grant_store,
         admission_store,
-        _directory: directory,
+        directory,
     }
 }
 
-fn prepare(
+pub(super) fn prepare(
     value: &Fixture,
 ) -> Result<
     (
@@ -159,7 +159,7 @@ fn prepare(
     prepare_with(value, &value.preflight, &value.containment)
 }
 
-fn prepare_with(
+pub(super) fn prepare_with(
     value: &Fixture,
     preflight: &CodexManualProbePreflight,
     containment: &CodexProbeContainmentObservation,

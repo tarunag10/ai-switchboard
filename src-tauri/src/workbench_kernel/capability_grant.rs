@@ -7,6 +7,9 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+#[cfg(unix)]
+use std::fs::OpenOptions;
+
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -22,6 +25,7 @@ pub(crate) const PROCESS_START_GRANT_CONFIRMATION_PREFIX: &str = "AUTHORIZE FUTU
 const GRANT_SCHEMA_VERSION: u32 = 1;
 const GRANT_LEDGER_SCHEMA_VERSION: u32 = 1;
 const GRANT_LEDGER_FILE: &str = "workbench-process-grants.json";
+const AUTHORITY_TRANSACTION_LOCK_FILE: &str = ".workbench-authority-transaction.lock";
 const MAX_GRANTS: usize = 128;
 const GRANTED: &str = "granted";
 const EXPIRED: &str = "expired";
@@ -92,6 +96,29 @@ impl Default for WorkbenchProcessGrantLedger {
 
 pub(crate) struct WorkbenchProcessGrantStore {
     path: PathBuf,
+}
+
+/// Cross-process serialization shared by grant mutation and one-shot attempt
+/// claims. The lock carries no authority and stores no content.
+pub(crate) struct WorkbenchAuthorityTransaction {
+    #[cfg(unix)]
+    file: std::fs::File,
+    #[cfg(not(unix))]
+    _guard: std::sync::MutexGuard<'static, ()>,
+}
+
+#[cfg(not(unix))]
+static WORKBENCH_AUTHORITY_TRANSACTION_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(unix)]
+impl Drop for WorkbenchAuthorityTransaction {
+    fn drop(&mut self) {
+        use std::os::fd::AsRawFd;
+
+        unsafe {
+            libc::flock(self.file.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
 }
 
 pub(crate) fn process_start_confirmation_phrase(plan: &WorkbenchRunPlan) -> String {
@@ -297,11 +324,80 @@ impl WorkbenchProcessGrantStore {
         Self { path }
     }
 
+    pub(crate) fn begin_authority_transaction(&self) -> Result<WorkbenchAuthorityTransaction> {
+        let parent = self
+            .path
+            .parent()
+            .ok_or_else(|| anyhow!("Workbench process grant ledger has no parent directory"))?;
+        std::fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "creating Workbench authority transaction directory {}",
+                parent.display()
+            )
+        })?;
+        let lock_path = parent.join(AUTHORITY_TRANSACTION_LOCK_FILE);
+
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            use std::os::unix::fs::OpenOptionsExt;
+
+            let file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .mode(0o600)
+                .custom_flags(libc::O_CLOEXEC | libc::O_NOFOLLOW)
+                .open(&lock_path)
+                .with_context(|| {
+                    format!(
+                        "opening Workbench authority transaction lock {}",
+                        lock_path.display()
+                    )
+                })?;
+            if !file
+                .metadata()
+                .with_context(|| {
+                    format!(
+                        "inspecting Workbench authority transaction lock {}",
+                        lock_path.display()
+                    )
+                })?
+                .file_type()
+                .is_file()
+            {
+                bail!(
+                    "Workbench authority transaction lock is not a regular file {}",
+                    lock_path.display()
+                );
+            }
+            let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+            if result != 0 {
+                return Err(std::io::Error::last_os_error()).with_context(|| {
+                    format!(
+                        "locking Workbench authority transaction {}",
+                        lock_path.display()
+                    )
+                });
+            }
+            Ok(WorkbenchAuthorityTransaction { file })
+        }
+
+        #[cfg(not(unix))]
+        {
+            let guard = WORKBENCH_AUTHORITY_TRANSACTION_LOCK
+                .lock()
+                .map_err(|_| anyhow!("Workbench authority transaction lock is unavailable"))?;
+            Ok(WorkbenchAuthorityTransaction { _guard: guard })
+        }
+    }
+
     pub(crate) fn list_for_session(
         &self,
         session_id: &str,
         now: DateTime<Utc>,
     ) -> Result<Vec<WorkbenchProcessStartGrantView>> {
+        let _transaction = self.begin_authority_transaction()?;
         validate_identifier(session_id, "session ID")?;
         let mut ledger = self.load()?;
         if expire_stale_grants(&mut ledger.grants, now)? {
@@ -336,6 +432,7 @@ impl WorkbenchProcessGrantStore {
         grant: WorkbenchProcessStartGrant,
         now: DateTime<Utc>,
     ) -> Result<WorkbenchProcessStartGrantView> {
+        let _transaction = self.begin_authority_transaction()?;
         grant.validate()?;
         let mut ledger = self.load()?;
         let changed = expire_stale_grants(&mut ledger.grants, now)?;
@@ -373,6 +470,7 @@ impl WorkbenchProcessGrantStore {
         grant_id: &str,
         now: DateTime<Utc>,
     ) -> Result<WorkbenchProcessStartGrantView> {
+        let _transaction = self.begin_authority_transaction()?;
         validate_identifier(grant_id, "process grant ID")?;
         let mut ledger = self.load()?;
         let changed = expire_stale_grants(&mut ledger.grants, now)?;
@@ -405,6 +503,26 @@ impl WorkbenchProcessGrantStore {
 
     pub(crate) fn require_active_for(
         &self,
+        grant_id: &str,
+        session_id: &str,
+        plan_id: &str,
+        process_run_id: &str,
+        now: DateTime<Utc>,
+    ) -> Result<WorkbenchProcessStartGrant> {
+        let transaction = self.begin_authority_transaction()?;
+        self.require_active_for_transaction(
+            &transaction,
+            grant_id,
+            session_id,
+            plan_id,
+            process_run_id,
+            now,
+        )
+    }
+
+    pub(crate) fn require_active_for_transaction(
+        &self,
+        _transaction: &WorkbenchAuthorityTransaction,
         grant_id: &str,
         session_id: &str,
         plan_id: &str,
@@ -478,6 +596,7 @@ impl WorkbenchProcessGrantStore {
         session_id: &str,
         now: DateTime<Utc>,
     ) -> Result<()> {
+        let _transaction = self.begin_authority_transaction()?;
         validate_identifier(session_id, "session ID")?;
         let mut ledger = self.load()?;
         let mut changed = expire_stale_grants(&mut ledger.grants, now)?;

@@ -38,8 +38,8 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `32f5da4` plus the
-standalone Codex helper protocol foundation recorded with this update, and
+This status was reconciled against committed `main` through `653d118` plus the
+one-shot Codex attempt-authority foundation recorded with this update, and
 against the visible frontend/native command wiring on 2026-08-24. Unrelated
 concurrent unstaged work is not counted as shipped. A check mark therefore means the capability is
 in the committed product boundary, not merely described in another plan or
@@ -60,12 +60,13 @@ Current verification snapshot:
 
 - `19` focused Workbench bridge/view tests pass, including historical receipt
   visibility and late-plan invalidation.
-- `173` focused native `workbench_kernel` tests pass, including `14` fake
+- `190` focused native `workbench_kernel` tests pass, including `14` fake
   process-controller lifecycle/restart/CAS tests and `5` deterministic
   verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
   catalog/probe-contract tests, `17` fixed-location collector tests, `11`
   launcher-chain/containment preflight tests, `9` attempt-bound restricted-helper
-  preparation tests, `14` pure Mach-O parser tests, and `43` npm
+  preparation tests, `17` one-shot no-process attempt-authority/CAS tests,
+  `14` pure Mach-O parser tests, and `43` npm
   manifest/model/descriptor/collector tests.
 - `17` locked tests pass in the standalone `codex-probe-helper` crate: `14`
   adversarial framing/schema/digest/no-process contract tests and `3`
@@ -92,7 +93,7 @@ Current verification snapshot:
 | Area | Already done | Prepared or partial | Still left |
 |---|---|---|---|
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
-| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a fixed-location metadata collector, a pure launcher-chain/containment preflight, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | A private fixed home-npm collector binds descriptor-relative launcher/package/payload plus bounded Mach-O/signature-blob shape from one streamed descriptor; private provenance prevents direct evidence from impersonating a collected receipt, and a ledger-backed request/preparation contract now re-resolves the exact durable grant/admission, validates and digests the complete current plan/session snapshot, and binds attempt/host/boot/helper identities, containment, and preflight while keeping every launch flag false. A separate library-only crate now defines a closed 4 KiB, length-prefixed, digest-bound preparation/no-process protocol and proves it has no executable, transport, filesystem, process, network, Tauri, app-dependency, or bundle surface. No production orchestrator or UI invokes the chain, no signer/trust claim is made, and execution remains disabled | Add a separately signed and sandboxed nested helper app, authenticated native transport, a non-serializable descriptor lease, one-shot attempt grant/CAS claim, authoritative support/version/layout/signing policy, opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
+| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a fixed-location metadata collector, a pure launcher-chain/containment preflight, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | A private fixed home-npm collector binds descriptor-relative launcher/package/payload plus bounded Mach-O/signature-blob shape from one streamed descriptor; private provenance prevents direct evidence from impersonating a collected receipt, and a ledger-backed request/preparation contract now re-resolves the exact durable grant/admission, validates and digests the complete current plan/session snapshot, and binds attempt/host/boot/helper identities, containment, and preflight while keeping every launch flag false. A separate library-only crate defines a closed 4 KiB, length-prefixed, digest-bound preparation/no-process protocol. A private native one-shot ledger now revalidates that complete preparation and the current durable session/plan/process/grant/admission, requires exact manual consent, caps validity at 60 seconds and the parent grant, and atomically records only `available_no_process` to terminal `claimed_no_process` or restart abandonment. Neither foundation has an executable, helper invocation, transport, renderer command, app dependency, Tauri resource, support claim, or launch authority | Add a separately signed and sandboxed nested helper app, authenticated native transport, a non-serializable descriptor lease, launch-time revalidation across ledgers, authoritative support/version/layout/signing policy, opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, drift-safe rollback, native selection hydration, and a sanitized restart recovery view cover the managed actions | A run can end `partial`; restart restores rollback access but never retries automatically | Expose bounded receipt history and add a checkpointed safe retry/resume design that cannot reapply successful tools or overwrite ownership |
 | Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
@@ -464,6 +465,16 @@ Deliverables:
   has no binary, transport owner, process/filesystem/network API, app dependency,
   Tauri command, resource, sidecar, or bundle registration. This is protocol
   preparation, not a runnable helper or sandbox-enforcement claim.
+- [x] Add a private native one-shot Codex attempt-authority ledger. It
+  revalidates the active session and complete current plan/process, exact
+  durable grant/admission, and complete helper request/preparation receipt;
+  requires an exact attempt-specific manual phrase; caps the authority at 60
+  seconds and the parent grant; uses complete-byte CAS; and permits only
+  `available_no_process` to terminal `claimed_no_process` or
+  `abandoned_restart`. A separate immutable initialization anchor prevents
+  ledger-only deletion from resetting terminal history, and grant mutation and
+  claim commitment share one cross-process transaction lock. Claims remain content-free bookkeeping and are
+  insufficient for helper invocation or process start.
 - [ ] Add the opt-in manual version-probe harness. Runnable/supported validation
   remains gated on a separately restricted helper with enforced OS
   containment, a new evidence-bound grant/admission contract, explicit manual
@@ -762,6 +773,19 @@ started by weakening an earlier gate.
    Keep it outside the app Cargo
    graph and Tauri bundle. It provides no executable, IPC authentication,
    descriptor transfer, freshness, signing, containment, or execution result.
+7. **One-shot Codex attempt authority — Done foundation with this update** —
+   persist at most 128 content-free attempt records with exact full-ledger CAS;
+   derive deterministic authority and claim identities from the complete
+   preparation binding; revalidate the current native session, full plan
+   snapshot, process spec, active grant, exact admission, request, receipt, and
+   clocks at issue and claim; require exact manual opt-in; serialize grant
+   mutation with claim commitment through one symlink-safe cross-process lock;
+   reject exact expiry, revocation, rollback, drift, stale writers, byte-only
+   replacement, ledger-only deletion while its durable anchor remains, symlinks,
+   duplicate attempts, and unknown execution fields; abandon unclaimed
+   records once on owner-epoch change; and keep claimed/abandoned records
+   terminal. This records no launch reservation and must be revalidated again by
+   any future helper-invocation boundary.
 7. **Opt-in manual version harness** — next add a separately restricted helper with
    enforced containment, a one-shot attempt grant/CAS claim, and authoritative
    support policy. Package it as a separately signed nested helper app rather
@@ -826,11 +850,12 @@ Current gate truth on 2026-08-24:
   of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `173 passed`, including `14` deterministic fake-controller
+- Native Workbench: `190 passed`, including `14` deterministic fake-controller
   tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
   fixed Codex catalog/probe-contract, `17` fixed-location collector, plus `11`
   launcher-chain/containment preflight, `9` attempt-bound restricted-helper
-  preparation, `14` pure Mach-O parser, and `43` npm
+  preparation, `17` one-shot no-process attempt-authority/CAS, `14` pure Mach-O
+  parser, and `43` npm
   manifest/model/descriptor/collector tests; the focused Workbench bridge/view
   gate has `19 passed`.
 - Standalone Codex helper protocol: `17 passed` across its library, contract,
