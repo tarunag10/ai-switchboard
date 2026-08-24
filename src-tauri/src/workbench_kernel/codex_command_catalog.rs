@@ -368,7 +368,7 @@ pub(crate) fn evaluate_codex_version_probe(
         writes_enabled: false,
     })
 }
-fn validate_probe_plan(plan: &CodexProbePlan) -> Result<(), String> {
+pub(super) fn validate_probe_plan(plan: &CodexProbePlan) -> Result<(), String> {
     if plan.schema_version != PROBE_SCHEMA_VERSION
         || plan.adapter_id != CODEX_ADAPTER_ID
         || !codex_command_catalog()

@@ -79,6 +79,12 @@ impl ProcessRunSpec {
     }
 }
 
+pub(crate) fn process_run_spec_digest(spec: &ProcessRunSpec) -> Result<String> {
+    spec.validate()?;
+    let bytes = serde_json::to_vec(spec).context("canonicalizing Workbench process run spec")?;
+    Ok(format!("sha256:{:x}", Sha256::digest(bytes)))
+}
+
 pub(crate) fn process_run_spec_for(
     session_id: &str,
     adapter_plan_id: &str,
@@ -132,7 +138,7 @@ pub(crate) fn process_run_spec_for(
 
 #[cfg(test)]
 mod tests {
-    use super::process_run_spec_for;
+    use super::{process_run_spec_digest, process_run_spec_for};
 
     fn digest(character: char) -> String {
         format!("sha256:{}", character.to_string().repeat(64))
@@ -155,6 +161,10 @@ mod tests {
         )
         .expect("create process run spec");
         assert_eq!(first, second);
+        assert_eq!(
+            process_run_spec_digest(&first).expect("digest first spec"),
+            process_run_spec_digest(&second).expect("digest second spec")
+        );
         assert_eq!(first.state, "not_started");
         assert_eq!(first.start_authorization, "not_granted");
         assert_eq!(first.cancellation, "group_sigterm_then_sigkill");
@@ -168,6 +178,10 @@ mod tests {
         )
         .expect("create distinct process run spec");
         assert_ne!(first.run_id, different_workspace.run_id);
+        assert_ne!(
+            process_run_spec_digest(&first).expect("digest first spec"),
+            process_run_spec_digest(&different_workspace).expect("digest distinct spec")
+        );
     }
 
     #[test]
