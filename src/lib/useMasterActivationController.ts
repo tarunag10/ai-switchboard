@@ -414,8 +414,17 @@ export function useMasterActivationController({
         completed: Math.min(9, completed.size + 3),
         total: 9,
       });
+      const optionalEvidenceRefreshes = new Set<MasterActivationLocalFeatureId>([
+        "agent-memory",
+        "repo-intelligence",
+        "token-xray",
+        "daily-briefing",
+      ]);
+      const hasRequiredActivationFailure = result.failed.some(
+        (item) => !optionalEvidenceRefreshes.has(item.id),
+      );
       setMasterActivationState(
-        result.failed.length > 0 || managedAddonStatus === "partial"
+        hasRequiredActivationFailure || managedAddonStatus === "partial"
           ? "partial"
           : "complete",
       );

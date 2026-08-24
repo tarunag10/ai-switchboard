@@ -210,6 +210,13 @@ impl ToolManager {
                     &mut command,
                     &crate::headroom_advanced_settings::load_headroom_advanced_settings(),
                 );
+                // Keep the upstream profile mapping authoritative. Advanced
+                // settings are user-editable and older settings can contain
+                // the pre-0.27 upstream value `aggressive`, which Headroom
+                // rejects at import time. Re-apply the compatibility mapping
+                // last so an old persisted override cannot prevent the
+                // runtime from booting.
+                apply_savings_mode_env(&mut command, &savings_mode);
                 let mut child = command
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(

@@ -335,6 +335,37 @@ describe("useMasterActivationController", () => {
     });
   });
 
+  it("keeps core activation complete when an optional evidence refresh fails", async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === "get_runtime_status") return healthyRuntime;
+      if (command === "activate_selected_tools") {
+        return {
+          receipt: {
+            runId: "native-activation-evidence-warning",
+            overallStatus: "succeeded",
+            results: [],
+          },
+        };
+      }
+      return null;
+    });
+    mocks.executeActivation.mockResolvedValue({
+      completed: [],
+      failed: [{ id: "repo-intelligence", detail: "Index a repository first" }],
+      receipt: { ownedActions: [] },
+    });
+    const setupResult = setup();
+    await act(() => setupResult.result.current.activateEverything());
+    expect(setupResult.result.current.masterActivationState).toBe("complete");
+    expect(
+      setupResult.result.current.masterFeatureStates["repo-intelligence"],
+    ).toMatchObject({
+      status: "error",
+      actionLabel: "Retry",
+      detail: "Index a repository first",
+    });
+  });
+
   it("fails closed when Full mode does not produce a reachable runtime", async () => {
     mocks.invoke.mockResolvedValueOnce({ running: true, proxyReachable: false });
     const { result } = setup();
