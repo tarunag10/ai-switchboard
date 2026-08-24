@@ -627,8 +627,10 @@ Core extraction progress:
   `harness status` and `workbench session serialize`, using the configured
   `SWITCHBOARD_NATIVE_CLI` path with inherited streams and no guessed-path or
   fallback behavior. Native opt-in is rejected for `router` and `optimize`;
-  four bridge tests and the existing Switchboard CLI checker pass. This is
-  discovery/delegation only, not native router parity or installer packaging.
+  four bridge tests, the dedicated `check:native-cli-bridge` script, and the
+  existing Switchboard CLI checker pass. Startup failures are content-free.
+  This is discovery/delegation only, not native router parity or installer
+  packaging.
 
 ### Remaining build work
 
