@@ -33,6 +33,26 @@ pub trait RuntimeClock: Send + Sync {
     fn unix_millis(&self) -> i64;
 }
 
+/// Deterministic runtime clock for tests and contract checks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FixedClock {
+    unix_millis: i64,
+}
+
+impl FixedClock {
+    pub const fn new(unix_millis: i64) -> Self {
+        Self {
+            unix_millis: if unix_millis < 0 { 0 } else { unix_millis },
+        }
+    }
+}
+
+impl RuntimeClock for FixedClock {
+    fn unix_millis(&self) -> i64 {
+        self.unix_millis
+    }
+}
+
 pub trait RuntimeAdapter: RuntimeClock + Send + Sync {
     fn contract_version(&self) -> u32 {
         RUNTIME_CONTRACT_VERSION
@@ -85,5 +105,25 @@ mod tests {
         assert_eq!(status.execution_mode, ExecutionMode::ObserveOnly);
         assert!(!status.provider_traffic_enabled);
         assert!(!status.process_start_enabled);
+    }
+
+    #[test]
+    fn fixed_clock_returns_exact_value() {
+        let clock = FixedClock::new(1_725_000_123_456);
+        assert_eq!(clock.unix_millis(), 1_725_000_123_456);
+        assert_eq!(
+            <FixedClock as RuntimeClock>::unix_millis(&clock),
+            1_725_000_123_456
+        );
+    }
+
+    #[test]
+    fn fixed_clock_is_rollback_safe_and_non_negative() {
+        let clock = FixedClock::new(-42);
+        assert_eq!(clock.unix_millis(), 0);
+        assert_eq!(clock.unix_millis(), 0);
+        let stable = FixedClock::new(987_654_321);
+        assert_eq!(stable.unix_millis(), 987_654_321);
+        assert_eq!(stable.unix_millis(), 987_654_321);
     }
 }

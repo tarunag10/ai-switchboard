@@ -517,7 +517,10 @@ Core extraction progress:
 - `crates/switchboard-runtime` now defines the platform-neutral runtime adapter
   boundary with clock and capability contracts plus a fail-closed portable
   implementation. It does not start processes, touch files, access secrets, or
-  send provider traffic.
+  send provider traffic. It also exposes a deterministic, non-negative
+  `FixedClock` for contract tests and future injected Workbench timestamps;
+  production Workbench creation still uses its existing compatibility path
+  until full clock/identity injection is extracted.
 - `crates/switchboard-cli` now provides a native, read-only `switchboard`
   binary for `harness status` and bounded Workbench session serialization,
   backed by the shared core/runtime contracts. Its source-purity and binary
