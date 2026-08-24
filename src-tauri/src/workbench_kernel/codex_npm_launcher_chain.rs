@@ -11,16 +11,16 @@ use super::codex_command_identity::{
     account_home_directory, evidence_identity_digest, identity_digest, MetadataIdentity,
 };
 use super::codex_macho::CodexMachOArchitecture;
+use super::codex_macho::CodexMachOInspectionError;
 use super::codex_npm_chain_model::{
     bind_codex_npm_launcher_chain, codex_npm_host_policy, CodexNpmCollectedEvidence,
     CodexNpmLauncherChainObservation,
 };
-use super::codex_npm_fs::{
-    CodexNpmDirectory, CodexNpmFsError, CodexNpmRegularFile, CodexNpmRegularFileHash,
-};
+use super::codex_npm_fs::{CodexNpmDirectory, CodexNpmFsError, CodexNpmRegularFile};
 use super::codex_npm_launcher_chain_digest::{
     derivation_digest, file_identity, hashed_file_identity,
 };
+use super::codex_npm_macho::{inspect_and_hash_codex_npm_macho, CodexNpmMachOCollectionError};
 use super::codex_npm_manifest::{
     parse_codex_npm_payload_manifest, parse_codex_npm_platform_manifest,
     parse_codex_npm_root_manifest, CodexNpmManifestError, MAX_CODEX_NPM_MANIFEST_BYTES,
@@ -59,6 +59,7 @@ pub(super) enum CodexNpmChainCollectionError {
     PayloadLayoutRejected,
     Filesystem(CodexNpmObject, CodexNpmFsError),
     Manifest(CodexNpmObject, CodexNpmManifestError),
+    MachO(CodexMachOInspectionError),
     PackagePolicyRejected,
 }
 
@@ -234,9 +235,30 @@ pub(super) fn collect_codex_npm_launcher_chain_with_context(
         &extended(&payload_components, &["bin"]),
         CodexNpmObject::PayloadFile,
     )?;
-    let payload_file = payload_bin
-        .hash_regular_file(OsStr::new("codex"), MAX_NATIVE_PAYLOAD_BYTES)
-        .map_err(|error| fs_error(CodexNpmObject::PayloadFile, error))?;
+    let payload_macho = inspect_and_hash_codex_npm_macho(
+        &payload_bin,
+        OsStr::new("codex"),
+        MAX_NATIVE_PAYLOAD_BYTES,
+    )
+    .map_err(|error| match error {
+        CodexNpmMachOCollectionError::Filesystem(error) => {
+            fs_error(CodexNpmObject::PayloadFile, error)
+        }
+        CodexNpmMachOCollectionError::Inspection(error) => {
+            CodexNpmChainCollectionError::MachO(error)
+        }
+    })?;
+    let payload_file = payload_macho.file;
+    let payload_inspection = payload_macho.inspection;
+    let payload_signature_identity = payload_inspection
+        .code_signature_blob_identity_digest
+        .clone();
+    let payload_signature_state = if payload_signature_identity.is_some() {
+        "signature-blob-present"
+    } else {
+        "signature-blob-absent"
+    };
+    let payload_signature_value = payload_signature_identity.as_deref().unwrap_or("none");
     let payload_file_identity =
         hashed_file_identity(b"ai-switchboard-codex-npm-payload-file-v1\0", &payload_file);
     hook(CodexNpmCollectorHookPoint::AfterPayloadHash);
@@ -308,11 +330,14 @@ pub(super) fn collect_codex_npm_launcher_chain_with_context(
             &payload_bin,
         ],
         &[
-            &launcher_file_identity,
-            &root_identity,
-            &platform_identity,
-            &payload_manifest_identity,
-            &payload_file_identity,
+            launcher_file_identity.as_str(),
+            root_identity.as_str(),
+            platform_identity.as_str(),
+            payload_manifest_identity.as_str(),
+            payload_file_identity.as_str(),
+            payload_inspection.load_commands_identity_digest.as_str(),
+            payload_signature_state,
+            payload_signature_value,
         ],
     );
     bind_codex_npm_launcher_chain(
@@ -342,6 +367,11 @@ pub(super) fn collect_codex_npm_launcher_chain_with_context(
             payload_resources_directory: payload_manifest.resources_dir,
             payload_path_directory: payload_manifest.path_dir,
             payload_file_identity_digest: payload_file_identity,
+            payload_macho_architecture: payload_inspection.architecture,
+            payload_macho_file_type: payload_inspection.file_type,
+            payload_macho_load_commands_identity_digest: payload_inspection
+                .load_commands_identity_digest,
+            payload_code_signature_blob_identity_digest: payload_signature_identity,
             derivation_identity_digest,
             payload_file_is_regular: true,
             payload_file_is_executable: payload_file.executable,

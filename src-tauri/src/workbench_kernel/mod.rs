@@ -13,8 +13,10 @@ mod codex_command_identity;
 mod codex_macho;
 mod codex_npm_chain_model;
 mod codex_npm_fs;
+mod codex_npm_fs_stable;
 mod codex_npm_launcher_chain;
 mod codex_npm_launcher_chain_digest;
+mod codex_npm_macho;
 mod codex_npm_manifest;
 mod codex_probe_preflight;
 mod codex_probe_preflight_digest;
@@ -362,6 +364,9 @@ mod codex_npm_fs_tests;
 
 #[cfg(test)]
 mod codex_npm_launcher_chain_tests;
+
+#[cfg(test)]
+mod codex_npm_macho_tests;
 
 #[cfg(test)]
 mod codex_npm_manifest_tests;

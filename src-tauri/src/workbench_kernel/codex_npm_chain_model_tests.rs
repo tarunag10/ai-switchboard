@@ -1,6 +1,7 @@
-use super::codex_macho::CodexMachOArchitecture;
+use super::codex_macho::{CodexMachOArchitecture, CodexMachOFileType};
 use super::codex_npm_chain_model::{
-    bind_codex_npm_launcher_chain, codex_npm_host_policy, CodexNpmCollectedEvidence,
+    bind_codex_npm_launcher_chain, codex_npm_host_policy,
+    validate_codex_npm_launcher_chain_observation, CodexNpmCollectedEvidence,
 };
 
 #[test]
@@ -8,10 +9,15 @@ fn arm64_evidence_is_bound_without_becoming_executable_authority() {
     let observation =
         bind_codex_npm_launcher_chain(CodexMachOArchitecture::Arm64, arm64_evidence())
             .expect("valid arm64 evidence");
-    assert_eq!(observation.schema_version, 1);
+    assert_eq!(observation.schema_version, 2);
     assert_eq!(observation.payload_target, "aarch64-apple-darwin");
     assert_eq!(observation.payload_entrypoint, "bin/codex");
-    assert_eq!(observation.state, "collected_unbound_non_executing");
+    assert_eq!(
+        observation.state,
+        "collected_macho_shape_bound_non_executing"
+    );
+    validate_codex_npm_launcher_chain_observation(CodexMachOArchitecture::Arm64, &observation)
+        .expect("valid receipt");
     assert!(observation
         .collection_identity_digest
         .starts_with("sha256:"));
@@ -29,10 +35,16 @@ fn x86_64_policy_uses_the_exact_platform_alias_and_target() {
     evidence.platform_version = "0.142.3-darwin-x64".into();
     evidence.platform_cpu = "x64".into();
     evidence.payload_target = "x86_64-apple-darwin".into();
+    evidence.payload_macho_architecture = CodexMachOArchitecture::X86_64;
+    evidence.payload_code_signature_blob_identity_digest = None;
     let observation = bind_codex_npm_launcher_chain(CodexMachOArchitecture::X86_64, evidence)
         .expect("valid x86 evidence");
     assert_eq!(observation.dependency_alias, "@openai/codex-darwin-x64");
     assert_eq!(observation.payload_target, "x86_64-apple-darwin");
+    assert_eq!(
+        observation.payload_code_signature_blob_identity_digest,
+        None
+    );
 }
 
 #[test]
@@ -55,6 +67,8 @@ fn every_fixed_shape_field_fails_closed_when_tampered() {
         "entrypoint",
         "resources",
         "path_directory",
+        "macho_architecture",
+        "macho_file_type",
         "regular",
         "executable",
     ] {
@@ -77,6 +91,12 @@ fn every_fixed_shape_field_fails_closed_when_tampered() {
             "entrypoint" => evidence.payload_entrypoint = "other".into(),
             "resources" => evidence.payload_resources_directory = "other".into(),
             "path_directory" => evidence.payload_path_directory = "other".into(),
+            "macho_architecture" => {
+                evidence.payload_macho_architecture = CodexMachOArchitecture::X86_64
+            }
+            "macho_file_type" => {
+                evidence.payload_macho_file_type = CodexMachOFileType::DynamicLibrary
+            }
             "regular" => evidence.payload_file_is_regular = false,
             "executable" => evidence.payload_file_is_executable = false,
             _ => unreachable!(),
@@ -97,6 +117,8 @@ fn every_opaque_identity_must_be_a_valid_digest() {
         "platform",
         "payload_manifest",
         "payload",
+        "macho_load_commands",
+        "signature_blob",
         "derivation",
     ] {
         let mut evidence = arm64_evidence();
@@ -107,10 +129,38 @@ fn every_opaque_identity_must_be_a_valid_digest() {
             "platform" => evidence.platform_manifest_identity_digest = "bad".into(),
             "payload_manifest" => evidence.payload_manifest_identity_digest = "bad".into(),
             "payload" => evidence.payload_file_identity_digest = "bad".into(),
+            "macho_load_commands" => {
+                evidence.payload_macho_load_commands_identity_digest = "bad".into()
+            }
+            "signature_blob" => {
+                evidence.payload_code_signature_blob_identity_digest = Some("bad".into())
+            }
             "derivation" => evidence.derivation_identity_digest = "bad".into(),
             _ => unreachable!(),
         }
         assert!(bind_codex_npm_launcher_chain(CodexMachOArchitecture::Arm64, evidence).is_err());
+    }
+}
+
+#[test]
+fn receipt_revalidation_rejects_valid_looking_post_collection_mutation() {
+    let original = bind_codex_npm_launcher_chain(CodexMachOArchitecture::Arm64, arm64_evidence())
+        .expect("receipt");
+    for case in ["symlink", "payload", "macho", "signature", "collection"] {
+        let mut changed = original.clone();
+        match case {
+            "symlink" => changed.launcher_symlink_identity_digest = digest('a'),
+            "payload" => changed.payload_file_identity_digest = digest('b'),
+            "macho" => changed.payload_macho_load_commands_identity_digest = digest('c'),
+            "signature" => changed.payload_code_signature_blob_identity_digest = Some(digest('d')),
+            "collection" => changed.collection_identity_digest = digest('e'),
+            _ => unreachable!(),
+        }
+        assert!(validate_codex_npm_launcher_chain_observation(
+            CodexMachOArchitecture::Arm64,
+            &changed,
+        )
+        .is_err());
     }
 }
 
@@ -180,6 +230,10 @@ fn arm64_evidence() -> CodexNpmCollectedEvidence {
         payload_resources_directory: "codex-resources".into(),
         payload_path_directory: "codex-path".into(),
         payload_file_identity_digest: digest('5'),
+        payload_macho_architecture: CodexMachOArchitecture::Arm64,
+        payload_macho_file_type: CodexMachOFileType::Execute,
+        payload_macho_load_commands_identity_digest: digest('8'),
+        payload_code_signature_blob_identity_digest: Some(digest('9')),
         derivation_identity_digest: digest('7'),
         payload_file_is_regular: true,
         payload_file_is_executable: true,

@@ -26,7 +26,10 @@ fn collects_the_exact_arm64_chain_without_execution_authority() {
     assert_eq!(observation.dependency_alias, "@openai/codex-darwin-arm64");
     assert_eq!(observation.payload_target, "aarch64-apple-darwin");
     assert_eq!(observation.payload_entrypoint, "bin/codex");
-    assert_eq!(observation.state, "collected_unbound_non_executing");
+    assert_eq!(
+        observation.state,
+        "collected_macho_shape_bound_non_executing"
+    );
     for digest in [
         observation.launcher_identity_digest,
         observation.launcher_symlink_identity_digest,
@@ -34,11 +37,16 @@ fn collects_the_exact_arm64_chain_without_execution_authority() {
         observation.platform_manifest_identity_digest,
         observation.payload_manifest_identity_digest,
         observation.payload_file_identity_digest,
+        observation.payload_macho_load_commands_identity_digest,
         observation.derivation_identity_digest,
         observation.collection_identity_digest,
     ] {
         assert!(digest.starts_with("sha256:"));
     }
+    assert!(observation
+        .payload_code_signature_blob_identity_digest
+        .expect("signature shape")
+        .starts_with("sha256:"));
 }
 
 #[test]
@@ -215,6 +223,8 @@ fn transitive_collector_sources_contain_no_execution_network_or_renderer_authori
         include_str!("codex_npm_chain_model.rs"),
         include_str!("codex_npm_manifest.rs"),
         include_str!("codex_npm_fs.rs"),
+        include_str!("codex_npm_fs_stable.rs"),
+        include_str!("codex_npm_macho.rs"),
         include_str!("codex_command_identity.rs"),
     ]
     .join("\n");
@@ -271,7 +281,7 @@ impl Fixture {
         fs::write(&launcher, b"static launcher bytes; never interpreted").expect("launcher");
         make_executable(&launcher);
         let native = payload.join("bin/codex");
-        fs::write(&native, b"synthetic native payload bytes").expect("native payload");
+        fs::write(&native, signed_macho()).expect("native payload");
         make_executable(&native);
         symlink(
             "../lib/node_modules/@openai/codex/bin/codex.js",
@@ -334,6 +344,24 @@ impl Fixture {
 
 fn make_executable(path: &Path) {
     fs::set_permissions(path, fs::Permissions::from_mode(0o755)).expect("make executable");
+}
+
+fn signed_macho() -> Vec<u8> {
+    let mut bytes = vec![0xcf, 0xfa, 0xed, 0xfe];
+    for value in [0x0100_000c, 0, 2, 2, 40, 0, 0] {
+        bytes.extend((value as u32).to_le_bytes());
+    }
+    bytes.extend(0x1bu32.to_le_bytes());
+    bytes.extend(24u32.to_le_bytes());
+    bytes.extend([7; 16]);
+    bytes.extend(0x1du32.to_le_bytes());
+    bytes.extend(16u32.to_le_bytes());
+    bytes.extend(72u32.to_le_bytes());
+    bytes.extend(28u32.to_le_bytes());
+    for value in [0xfade_0cc0u32, 28, 1, 0, 20, 0xfade_0c02, 8] {
+        bytes.extend(value.to_be_bytes());
+    }
+    bytes
 }
 
 fn root_manifest() -> String {

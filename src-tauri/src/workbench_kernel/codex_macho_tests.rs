@@ -1,5 +1,6 @@
 use super::codex_macho::{
-    inspect_codex_macho, CodexMachOArchitecture, CodexMachOFileType, CodexMachOInspectionError,
+    codex_macho_read_requirements, complete_codex_macho_read, inspect_codex_macho,
+    plan_codex_macho_read, CodexMachOArchitecture, CodexMachOFileType, CodexMachOInspectionError,
 };
 
 const CPU_X86_64: u32 = 0x0100_0007;
@@ -31,6 +32,35 @@ fn parses_an_unsigned_x86_64_dynamic_library_as_non_executable_shape() {
     assert_eq!(inspection.architecture, CodexMachOArchitecture::X86_64);
     assert_eq!(inspection.file_type, CodexMachOFileType::DynamicLibrary);
     assert_eq!(inspection.code_signature_blob_identity_digest, None);
+}
+
+#[test]
+fn staged_segments_match_the_whole_buffer_inspection() {
+    let bytes = macho_with_signature_shape(CPU_ARM64, 2, 7);
+    let expected = inspect_codex_macho(&bytes).expect("whole-buffer inspection");
+    let requirements =
+        codex_macho_read_requirements(&bytes[..32], bytes.len() as u64).expect("read requirements");
+    assert_eq!(requirements.header_and_load_commands_bytes, 72);
+    let plan = plan_codex_macho_read(
+        &bytes[..requirements.header_and_load_commands_bytes],
+        bytes.len() as u64,
+    )
+    .expect("staged plan");
+    let (offset, size) = plan.code_signature_range().expect("signature range");
+    let actual =
+        complete_codex_macho_read(plan, Some(&bytes[offset as usize..offset as usize + size]))
+            .expect("staged completion");
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn staged_completion_requires_the_exact_planned_signature_segment() {
+    let bytes = macho_with_signature_shape(CPU_ARM64, 2, 7);
+    let plan = plan_codex_macho_read(&bytes[..72], bytes.len() as u64).expect("staged plan");
+    assert_eq!(
+        complete_codex_macho_read(plan, None),
+        Err(CodexMachOInspectionError::InvalidCodeSignatureBlob)
+    );
 }
 
 #[test]

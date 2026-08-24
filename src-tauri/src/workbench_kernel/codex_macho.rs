@@ -40,6 +40,26 @@ pub(super) struct CodexMachOInspection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct CodexMachOReadRequirements {
+    pub header_and_load_commands_bytes: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct CodexMachOReadPlan {
+    architecture: CodexMachOArchitecture,
+    file_type: CodexMachOFileType,
+    load_commands_identity_digest: String,
+    code_signature_range: Option<(usize, usize)>,
+}
+
+impl CodexMachOReadPlan {
+    pub(super) fn code_signature_range(&self) -> Option<(u64, usize)> {
+        self.code_signature_range
+            .map(|(offset, size)| (offset as u64, size))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CodexMachOInspectionError {
     Truncated,
     UnsupportedContainer,
@@ -53,25 +73,39 @@ pub(super) enum CodexMachOInspectionError {
 pub(super) fn inspect_codex_macho(
     bytes: &[u8],
 ) -> Result<CodexMachOInspection, CodexMachOInspectionError> {
-    if bytes.len() < MACH_HEADER_64_BYTES {
+    let requirements = codex_macho_read_requirements(bytes, bytes.len() as u64)?;
+    let plan = plan_codex_macho_read(
+        &bytes[..requirements.header_and_load_commands_bytes],
+        bytes.len() as u64,
+    )?;
+    let signature_blob = plan
+        .code_signature_range
+        .map(|(offset, size)| {
+            bytes
+                .get(offset..offset + size)
+                .ok_or(CodexMachOInspectionError::InvalidCodeSignatureCommand)
+        })
+        .transpose()?;
+    complete_codex_macho_read(plan, signature_blob)
+}
+
+pub(super) fn codex_macho_read_requirements(
+    header: &[u8],
+    file_size: u64,
+) -> Result<CodexMachOReadRequirements, CodexMachOInspectionError> {
+    if header.len() < MACH_HEADER_64_BYTES {
         return Err(CodexMachOInspectionError::Truncated);
     }
-    if bytes[..4] != MH_MAGIC_64_LE {
+    if header[..4] != MH_MAGIC_64_LE {
         return Err(CodexMachOInspectionError::UnsupportedContainer);
     }
-
-    let architecture = match read_u32_le(bytes, 4)? {
+    match read_u32_le(header, 4)? {
         CPU_TYPE_ARM64 => CodexMachOArchitecture::Arm64,
         CPU_TYPE_X86_64 => CodexMachOArchitecture::X86_64,
         _ => return Err(CodexMachOInspectionError::UnsupportedArchitecture),
     };
-    let file_type = match read_u32_le(bytes, 12)? {
-        MH_EXECUTE => CodexMachOFileType::Execute,
-        MH_DYLIB => CodexMachOFileType::DynamicLibrary,
-        _ => CodexMachOFileType::Other,
-    };
-    let command_count = read_u32_le(bytes, 16)?;
-    let command_bytes = read_u32_le(bytes, 20)? as usize;
+    let command_count = read_u32_le(header, 16)?;
+    let command_bytes = read_u32_le(header, 20)? as usize;
     if command_count == 0
         || command_count > MAX_LOAD_COMMANDS
         || command_bytes == 0
@@ -81,8 +115,33 @@ pub(super) fn inspect_codex_macho(
     }
     let command_end = MACH_HEADER_64_BYTES
         .checked_add(command_bytes)
-        .filter(|end| *end <= bytes.len())
+        .filter(|end| (*end as u64) <= file_size)
         .ok_or(CodexMachOInspectionError::InvalidLoadCommandEnvelope)?;
+    Ok(CodexMachOReadRequirements {
+        header_and_load_commands_bytes: command_end,
+    })
+}
+
+pub(super) fn plan_codex_macho_read(
+    header_and_load_commands: &[u8],
+    file_size: u64,
+) -> Result<CodexMachOReadPlan, CodexMachOInspectionError> {
+    let requirements = codex_macho_read_requirements(header_and_load_commands, file_size)?;
+    let command_end = requirements.header_and_load_commands_bytes;
+    if header_and_load_commands.len() != command_end {
+        return Err(CodexMachOInspectionError::InvalidLoadCommandEnvelope);
+    }
+    let architecture = match read_u32_le(header_and_load_commands, 4)? {
+        CPU_TYPE_ARM64 => CodexMachOArchitecture::Arm64,
+        CPU_TYPE_X86_64 => CodexMachOArchitecture::X86_64,
+        _ => return Err(CodexMachOInspectionError::UnsupportedArchitecture),
+    };
+    let file_type = match read_u32_le(header_and_load_commands, 12)? {
+        MH_EXECUTE => CodexMachOFileType::Execute,
+        MH_DYLIB => CodexMachOFileType::DynamicLibrary,
+        _ => CodexMachOFileType::Other,
+    };
+    let command_count = read_u32_le(header_and_load_commands, 16)?;
 
     let mut offset = MACH_HEADER_64_BYTES;
     let mut signature_range = None;
@@ -91,8 +150,8 @@ pub(super) fn inspect_codex_macho(
             .checked_add(8)
             .filter(|end| *end <= command_end)
             .ok_or(CodexMachOInspectionError::InvalidLoadCommand)?;
-        let command = read_u32_le(bytes, offset)?;
-        let size = read_u32_le(bytes, offset + 4)? as usize;
+        let command = read_u32_le(header_and_load_commands, offset)?;
+        let size = read_u32_le(header_and_load_commands, offset + 4)? as usize;
         if size < 8 || size % 8 != 0 {
             return Err(CodexMachOInspectionError::InvalidLoadCommand);
         }
@@ -104,16 +163,15 @@ pub(super) fn inspect_codex_macho(
             if size != 16 || signature_range.is_some() {
                 return Err(CodexMachOInspectionError::InvalidCodeSignatureCommand);
             }
-            let data_offset = read_u32_le(bytes, offset + 8)? as usize;
-            let data_size = read_u32_le(bytes, offset + 12)? as usize;
+            let data_offset = read_u32_le(header_and_load_commands, offset + 8)? as usize;
+            let data_size = read_u32_le(header_and_load_commands, offset + 12)? as usize;
             if data_size > MAX_CODE_SIGNATURE_BLOB_BYTES {
                 return Err(CodexMachOInspectionError::InvalidCodeSignatureCommand);
             }
             let data_end = data_offset
                 .checked_add(data_size)
-                .filter(|end| data_offset >= command_end && *end <= bytes.len())
+                .filter(|end| data_offset >= command_end && (*end as u64) <= file_size)
                 .ok_or(CodexMachOInspectionError::InvalidCodeSignatureCommand)?;
-            validate_code_signature_blob(&bytes[data_offset..data_end], data_size)?;
             signature_range = Some((data_offset, data_end));
         }
         offset = next;
@@ -122,22 +180,41 @@ pub(super) fn inspect_codex_macho(
         return Err(CodexMachOInspectionError::InvalidLoadCommandEnvelope);
     }
 
-    Ok(CodexMachOInspection {
+    Ok(CodexMachOReadPlan {
         architecture,
         file_type,
         load_commands_identity_digest: digest_identity(
             b"ai-switchboard-codex-macho-load-commands-v1\0",
             &[
                 &command_count.to_be_bytes(),
-                &bytes[MACH_HEADER_64_BYTES..command_end],
+                &header_and_load_commands[MACH_HEADER_64_BYTES..command_end],
             ],
         ),
-        code_signature_blob_identity_digest: signature_range.map(|(start, end)| {
-            digest_identity(
+        code_signature_range: signature_range.map(|(start, end)| (start, end - start)),
+    })
+}
+
+pub(super) fn complete_codex_macho_read(
+    plan: CodexMachOReadPlan,
+    code_signature_blob: Option<&[u8]>,
+) -> Result<CodexMachOInspection, CodexMachOInspectionError> {
+    let code_signature_blob_identity_digest = match (plan.code_signature_range, code_signature_blob)
+    {
+        (None, None) => None,
+        (Some((_, expected_size)), Some(blob)) if blob.len() == expected_size => {
+            validate_code_signature_blob(blob, expected_size)?;
+            Some(digest_identity(
                 b"ai-switchboard-codex-code-signature-blob-v1\0",
-                &[&bytes[start..end]],
-            )
-        }),
+                &[blob],
+            ))
+        }
+        _ => return Err(CodexMachOInspectionError::InvalidCodeSignatureBlob),
+    };
+    Ok(CodexMachOInspection {
+        architecture: plan.architecture,
+        file_type: plan.file_type,
+        load_commands_identity_digest: plan.load_commands_identity_digest,
+        code_signature_blob_identity_digest,
     })
 }
 

@@ -4,11 +4,12 @@
 
 use sha2::{Digest, Sha256};
 
-use super::codex_macho::CodexMachOArchitecture;
+use super::codex_macho::{CodexMachOArchitecture, CodexMachOFileType};
 use super::codex_probe_semver::is_strict_semver;
 use super::session::validate_digest;
 
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
+const COLLECTION_STATE: &str = "collected_macho_shape_bound_non_executing";
 const CANDIDATE_ID: &str = "home-npm-global-bin";
 const PACKAGE_NAME: &str = "@openai/codex";
 const ROOT_BIN_NAME: &str = "codex";
@@ -45,6 +46,10 @@ pub(super) struct CodexNpmCollectedEvidence {
     pub payload_resources_directory: String,
     pub payload_path_directory: String,
     pub payload_file_identity_digest: String,
+    pub payload_macho_architecture: CodexMachOArchitecture,
+    pub payload_macho_file_type: CodexMachOFileType,
+    pub payload_macho_load_commands_identity_digest: String,
+    pub payload_code_signature_blob_identity_digest: Option<String>,
     pub derivation_identity_digest: String,
     pub payload_file_is_regular: bool,
     pub payload_file_is_executable: bool,
@@ -67,6 +72,10 @@ pub(super) struct CodexNpmLauncherChainObservation {
     pub payload_target: String,
     pub payload_entrypoint: String,
     pub payload_file_identity_digest: String,
+    pub payload_macho_architecture: CodexMachOArchitecture,
+    pub payload_macho_file_type: CodexMachOFileType,
+    pub payload_macho_load_commands_identity_digest: String,
+    pub payload_code_signature_blob_identity_digest: Option<String>,
     pub derivation_identity_digest: String,
     pub collection_identity_digest: String,
     pub state: String,
@@ -99,11 +108,22 @@ pub(super) fn bind_codex_npm_launcher_chain(
             "Codex npm payload file",
         ),
         (
+            &evidence.payload_macho_load_commands_identity_digest,
+            "Codex npm payload Mach-O load commands",
+        ),
+        (
             &evidence.derivation_identity_digest,
             "Codex npm descriptor derivation",
         ),
     ] {
         validate_digest(digest, label).map_err(|error| error.to_string())?;
+    }
+    if let Some(digest) = evidence
+        .payload_code_signature_blob_identity_digest
+        .as_deref()
+    {
+        validate_digest(digest, "Codex npm payload code-signature blob")
+            .map_err(|error| error.to_string())?;
     }
     let policy = codex_npm_host_policy(architecture);
     let platform_version = format!("{}-{}", evidence.root_version, policy.platform_suffix);
@@ -127,41 +147,14 @@ pub(super) fn bind_codex_npm_launcher_chain(
         || evidence.payload_entrypoint != PAYLOAD_ENTRYPOINT
         || evidence.payload_resources_directory != PAYLOAD_RESOURCES_DIRECTORY
         || evidence.payload_path_directory != PAYLOAD_PATH_DIRECTORY
+        || evidence.payload_macho_architecture != architecture
+        || evidence.payload_macho_file_type != CodexMachOFileType::Execute
         || !evidence.payload_file_is_regular
         || !evidence.payload_file_is_executable
     {
         return Err("Codex npm launcher evidence violates the fixed package policy".into());
     }
-    let collection_identity_digest = digest_fields(&[
-        evidence.candidate_id.as_str(),
-        evidence.launcher_identity_digest.as_str(),
-        evidence.launcher_symlink_identity_digest.as_str(),
-        evidence.root_manifest_identity_digest.as_str(),
-        evidence.root_package_name.as_str(),
-        evidence.root_version.as_str(),
-        evidence.root_bin_name.as_str(),
-        evidence.root_bin_entrypoint.as_str(),
-        evidence.dependency_alias.as_str(),
-        evidence.dependency_version_spec.as_str(),
-        evidence.platform_manifest_identity_digest.as_str(),
-        evidence.platform_package_name.as_str(),
-        evidence.platform_version.as_str(),
-        evidence.platform_os.as_str(),
-        evidence.platform_cpu.as_str(),
-        evidence.payload_manifest_identity_digest.as_str(),
-        &evidence.payload_layout_version.to_string(),
-        evidence.payload_version.as_str(),
-        evidence.payload_target.as_str(),
-        evidence.payload_variant.as_str(),
-        evidence.payload_entrypoint.as_str(),
-        evidence.payload_resources_directory.as_str(),
-        evidence.payload_path_directory.as_str(),
-        evidence.payload_file_identity_digest.as_str(),
-        evidence.derivation_identity_digest.as_str(),
-        "regular-file",
-        "executable",
-    ]);
-    Ok(CodexNpmLauncherChainObservation {
+    let mut observation = CodexNpmLauncherChainObservation {
         schema_version: SCHEMA_VERSION,
         candidate_id: evidence.candidate_id,
         launcher_identity_digest: evidence.launcher_identity_digest,
@@ -177,10 +170,154 @@ pub(super) fn bind_codex_npm_launcher_chain(
         payload_target: evidence.payload_target,
         payload_entrypoint: evidence.payload_entrypoint,
         payload_file_identity_digest: evidence.payload_file_identity_digest,
+        payload_macho_architecture: evidence.payload_macho_architecture,
+        payload_macho_file_type: evidence.payload_macho_file_type,
+        payload_macho_load_commands_identity_digest: evidence
+            .payload_macho_load_commands_identity_digest,
+        payload_code_signature_blob_identity_digest: evidence
+            .payload_code_signature_blob_identity_digest,
         derivation_identity_digest: evidence.derivation_identity_digest,
-        collection_identity_digest,
-        state: "collected_unbound_non_executing".into(),
-    })
+        collection_identity_digest: String::new(),
+        state: COLLECTION_STATE.into(),
+    };
+    observation.collection_identity_digest = collection_digest(&observation, &policy);
+    Ok(observation)
+}
+
+pub(super) fn validate_codex_npm_launcher_chain_observation(
+    architecture: CodexMachOArchitecture,
+    observation: &CodexNpmLauncherChainObservation,
+) -> Result<(), String> {
+    for (digest, label) in [
+        (&observation.launcher_identity_digest, "Codex npm launcher"),
+        (
+            &observation.launcher_symlink_identity_digest,
+            "Codex npm launcher symlink",
+        ),
+        (
+            &observation.root_manifest_identity_digest,
+            "Codex npm root manifest",
+        ),
+        (
+            &observation.platform_manifest_identity_digest,
+            "Codex npm platform manifest",
+        ),
+        (
+            &observation.payload_manifest_identity_digest,
+            "Codex npm payload manifest",
+        ),
+        (
+            &observation.payload_file_identity_digest,
+            "Codex npm payload file",
+        ),
+        (
+            &observation.payload_macho_load_commands_identity_digest,
+            "Codex npm payload Mach-O load commands",
+        ),
+        (
+            &observation.derivation_identity_digest,
+            "Codex npm descriptor derivation",
+        ),
+        (
+            &observation.collection_identity_digest,
+            "Codex npm collection identity",
+        ),
+    ] {
+        validate_digest(digest, label).map_err(|error| error.to_string())?;
+    }
+    if let Some(digest) = observation
+        .payload_code_signature_blob_identity_digest
+        .as_deref()
+    {
+        validate_digest(digest, "Codex npm payload code-signature blob")
+            .map_err(|error| error.to_string())?;
+    }
+    let policy = codex_npm_host_policy(architecture);
+    let platform_version = format!("{}-{}", observation.root_version, policy.platform_suffix);
+    let dependency_spec = format!("npm:{PACKAGE_NAME}@{platform_version}");
+    if observation.schema_version != SCHEMA_VERSION
+        || observation.state != COLLECTION_STATE
+        || observation.candidate_id != CANDIDATE_ID
+        || !is_strict_semver(&observation.root_version)
+        || observation.root_version.contains('+')
+        || observation.dependency_alias != policy.dependency_alias
+        || observation.dependency_version_spec != dependency_spec
+        || observation.platform_version != platform_version
+        || observation.payload_layout_version != PAYLOAD_LAYOUT_VERSION
+        || observation.payload_target != policy.target_triple
+        || observation.payload_entrypoint != PAYLOAD_ENTRYPOINT
+        || observation.payload_macho_architecture != architecture
+        || observation.payload_macho_file_type != CodexMachOFileType::Execute
+        || collection_digest(observation, &policy) != observation.collection_identity_digest
+    {
+        return Err("Codex npm launcher observation failed receipt validation".into());
+    }
+    Ok(())
+}
+
+fn collection_digest(
+    observation: &CodexNpmLauncherChainObservation,
+    policy: &CodexNpmHostPolicy,
+) -> String {
+    let payload_layout_version = observation.payload_layout_version.to_string();
+    let (signature_state, signature_digest) = match observation
+        .payload_code_signature_blob_identity_digest
+        .as_deref()
+    {
+        Some(digest) => ("signature-blob-present", digest),
+        None => ("signature-blob-absent", "none"),
+    };
+    digest_fields(&[
+        observation.candidate_id.as_str(),
+        observation.launcher_identity_digest.as_str(),
+        observation.launcher_symlink_identity_digest.as_str(),
+        observation.root_manifest_identity_digest.as_str(),
+        PACKAGE_NAME,
+        observation.root_version.as_str(),
+        ROOT_BIN_NAME,
+        ROOT_BIN_ENTRYPOINT,
+        observation.dependency_alias.as_str(),
+        observation.dependency_version_spec.as_str(),
+        observation.platform_manifest_identity_digest.as_str(),
+        PACKAGE_NAME,
+        observation.platform_version.as_str(),
+        "darwin",
+        policy.platform_cpu,
+        observation.payload_manifest_identity_digest.as_str(),
+        payload_layout_version.as_str(),
+        observation.root_version.as_str(),
+        observation.payload_target.as_str(),
+        PAYLOAD_VARIANT,
+        observation.payload_entrypoint.as_str(),
+        PAYLOAD_RESOURCES_DIRECTORY,
+        PAYLOAD_PATH_DIRECTORY,
+        observation.payload_file_identity_digest.as_str(),
+        macho_architecture_id(observation.payload_macho_architecture),
+        macho_file_type_id(observation.payload_macho_file_type),
+        observation
+            .payload_macho_load_commands_identity_digest
+            .as_str(),
+        signature_state,
+        signature_digest,
+        observation.derivation_identity_digest.as_str(),
+        "regular-file",
+        "executable",
+    ])
+}
+
+fn macho_architecture_id(value: CodexMachOArchitecture) -> &'static str {
+    match value {
+        CodexMachOArchitecture::Arm64 => "arm64",
+        CodexMachOArchitecture::X86_64 => "x86_64",
+    }
+}
+
+fn macho_file_type_id(value: CodexMachOFileType) -> &'static str {
+    match value {
+        CodexMachOFileType::Execute => "execute",
+        CodexMachOFileType::DynamicLibrary => "dynamic-library",
+        CodexMachOFileType::Other => "other",
+    }
 }
 
 pub(super) struct CodexNpmHostPolicy {
@@ -212,7 +349,7 @@ pub(super) fn codex_npm_host_policy(architecture: CodexMachOArchitecture) -> Cod
 
 fn digest_fields(fields: &[&str]) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(b"ai-switchboard-codex-npm-launcher-chain-v1\0");
+    hasher.update(b"ai-switchboard-codex-npm-launcher-chain-v2\0");
     for field in fields {
         hasher.update((field.len() as u64).to_be_bytes());
         hasher.update(field.as_bytes());

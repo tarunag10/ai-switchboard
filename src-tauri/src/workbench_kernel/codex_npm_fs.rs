@@ -12,9 +12,10 @@ use std::path::{Component, Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use super::codex_command_identity::{
-    evidence_identity_digest, hash_bounded_file, metadata_identity, metadata_identity_from_stat,
-    metadata_is_executable, HashError, MetadataIdentity,
+    evidence_identity_digest, metadata_identity, metadata_identity_from_stat,
+    metadata_is_executable, MetadataIdentity,
 };
+use super::codex_npm_fs_stable::CodexNpmStableRegularFile;
 
 const READ_BUFFER_BYTES: usize = 16 * 1024;
 
@@ -211,25 +212,30 @@ impl CodexNpmDirectory {
         leaf: &OsStr,
         max_bytes: u64,
     ) -> Result<CodexNpmRegularFileHash, CodexNpmFsError> {
+        self.open_stable_regular_file(leaf, max_bytes)?
+            .hash_and_revalidate()
+    }
+
+    pub(super) fn open_stable_regular_file(
+        &self,
+        leaf: &OsStr,
+        max_bytes: u64,
+    ) -> Result<CodexNpmStableRegularFile<'_>, CodexNpmFsError> {
         let leaf = validated_component(leaf)?;
         self.revalidate()?;
         let file = open_regular_candidate_at(self.directory.as_raw_fd(), &leaf)?;
         let before = self.regular_file_metadata(&file, max_bytes)?;
         let identity = metadata_identity(&before);
         let executable = metadata_is_executable(&before);
-        let (digest, after) = hash_bounded_file(file, max_bytes).map_err(|error| match error {
-            HashError::GrewPastLimit => CodexNpmFsError::FileTooLarge,
-            HashError::ReadFailed => CodexNpmFsError::FileReadFailed,
-        })?;
-        if metadata_identity(&after) != identity {
-            return Err(CodexNpmFsError::FileChanged);
-        }
-        self.revalidate_regular_leaf(&leaf, &identity, max_bytes)?;
-        Ok(CodexNpmRegularFileHash {
-            digest,
+        Ok(CodexNpmStableRegularFile::new(
+            self,
+            leaf,
+            file,
             identity,
             executable,
-        })
+            before.len(),
+            max_bytes,
+        ))
     }
 
     pub(super) fn revalidate_regular_file(
@@ -270,7 +276,7 @@ impl CodexNpmDirectory {
         Ok(directory)
     }
 
-    fn revalidate_regular_leaf(
+    pub(super) fn revalidate_regular_leaf(
         &self,
         leaf: &CString,
         expected: &MetadataIdentity,
