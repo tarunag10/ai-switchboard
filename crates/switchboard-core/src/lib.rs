@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod plan_head;
+pub mod process_grant;
 pub mod workbench;
 
 pub use workbench::{WorkbenchEventKind, WorkbenchSessionAction, WorkbenchSessionStatus};

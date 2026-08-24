@@ -548,6 +548,11 @@ Core extraction progress:
   the existing Tauri record/ledger digests and storage behavior remain the
   compatibility boundary. The focused plan-head storage suite (10 tests) and
   full Workbench suite (211 tests) pass after this integration.
+- `switchboard-core::process_grant` now owns the first provider-neutral process
+  grant contract: strict persisted schema, fixed TTL/status/revocation rules,
+  plan-only flags, deterministic receipt digest, and effective-state checks.
+  Grant ID/time generation, authority transactions, filesystem persistence,
+  and process admission remain Tauri-owned for the next adapter phase.
 
 ### Remaining build work
 
