@@ -22,9 +22,11 @@ use super::process_supervisor::{
 };
 use super::run_contract::{validate_workbench_run_plan, workbench_run_plan_snapshot_digest};
 use super::session::validate_digest;
+use super::storage::run_plan_head::WorkbenchPlanHeadStore;
+use super::storage::WorkbenchStore;
 use super::{WorkbenchRunPlan, WorkbenchSession};
 
-const CONTRACT_SCHEMA_VERSION: u32 = 1;
+const CONTRACT_SCHEMA_VERSION: u32 = 2;
 const CODEX_ADAPTER_ID: &str = "codex";
 const HELPER_PROFILE_ID: &str = "macos-restricted-helper-v1";
 const HELPER_ACTION_ID: &str = "codex-version-probe-v1";
@@ -85,6 +87,9 @@ pub(super) struct CodexHelperLaunchBinding {
     pub workspace_digest: String,
     pub plan_id: String,
     pub plan_snapshot_digest: String,
+    pub plan_head_id: String,
+    pub plan_head_generation: u64,
+    pub plan_head_record_digest: String,
     pub process_run_id: String,
     pub process_run_spec_digest: String,
     pub grant_id: String,
@@ -161,6 +166,8 @@ pub(super) struct CodexHelperLaunchPreparationReceipt {
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_codex_helper_launch_contract(
     session: &WorkbenchSession,
+    session_store: &WorkbenchStore,
+    plan_head_store: &WorkbenchPlanHeadStore,
     current_plan: &WorkbenchRunPlan,
     process: &ProcessRunSpec,
     grant_store: &WorkbenchProcessGrantStore,
@@ -178,16 +185,43 @@ pub(super) fn prepare_codex_helper_launch_contract(
     ),
     CodexHelperLaunchContractError,
 > {
+    let transaction = grant_store
+        .begin_authority_transaction()
+        .map_err(|_| invalid(CodexHelperEvidenceKind::Grant))?;
     session
         .validate()
         .map_err(|_| invalid(CodexHelperEvidenceKind::Session))?;
+    if session.status != WorkbenchSessionStatus::Active {
+        return Err(CodexHelperLaunchContractError::SessionNotActive);
+    }
+    session_store
+        .require_authority_transaction(&transaction)
+        .map_err(|_| invalid(CodexHelperEvidenceKind::Grant))?;
+    let durable_session = session_store
+        .get_for_authority_transaction(&transaction, &session.session_id)
+        .map_err(|_| invalid(CodexHelperEvidenceKind::Session))?;
+    if durable_session.status != WorkbenchSessionStatus::Active {
+        return Err(CodexHelperLaunchContractError::SessionNotActive);
+    }
+    if durable_session != *session {
+        return Err(invalid(CodexHelperEvidenceKind::Session));
+    }
+    let plan_head = plan_head_store
+        .require_current_for_authority_transaction(
+            &transaction,
+            session_store,
+            session,
+            current_plan,
+        )
+        .map_err(|_| invalid(CodexHelperEvidenceKind::CurrentPlan))?;
     validate_workbench_run_plan(current_plan)
         .map_err(|_| invalid(CodexHelperEvidenceKind::CurrentPlan))?;
     process
         .validate()
         .map_err(|_| invalid(CodexHelperEvidenceKind::ProcessRunSpec))?;
     let grant = grant_store
-        .require_current_for(
+        .require_current_for_transaction(
+            &transaction,
             grant_id,
             &session.session_id,
             &current_plan.plan_id,
@@ -231,6 +265,9 @@ pub(super) fn prepare_codex_helper_launch_contract(
         workspace_digest: session.workspace_digest.clone(),
         plan_id: current_plan.plan_id.clone(),
         plan_snapshot_digest,
+        plan_head_id: plan_head.head_id,
+        plan_head_generation: plan_head.generation,
+        plan_head_record_digest: plan_head.record_digest,
         process_run_id: process.run_id.clone(),
         process_run_spec_digest: process_digest,
         grant_id: grant.grant_id.clone(),
@@ -282,7 +319,7 @@ pub(super) fn prepare_codex_helper_launch_contract(
 
     let prepared_at = now.to_rfc3339();
     let receipt_identity = bounded_digest(
-        b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v1\0",
+        b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v2\0",
         &[
             request.request_id.as_str(),
             request.request_digest.as_str(),
@@ -430,6 +467,7 @@ impl CodexHelperLaunchBinding {
         for value in [
             &self.session_id,
             &self.plan_id,
+            &self.plan_head_id,
             &self.process_run_id,
             &self.grant_id,
             &self.admission_id,
@@ -443,6 +481,7 @@ impl CodexHelperLaunchBinding {
             &self.session_snapshot_digest,
             &self.workspace_digest,
             &self.plan_snapshot_digest,
+            &self.plan_head_record_digest,
             &self.process_run_spec_digest,
             &self.grant_receipt_digest,
             &self.admission_receipt_digest,
@@ -461,7 +500,8 @@ impl CodexHelperLaunchBinding {
             validate_digest(value, "Codex helper binding digest")
                 .map_err(|_| CodexHelperLaunchContractError::DigestFailure)?;
         }
-        if self.containment_profile_id != HELPER_PROFILE_ID
+        if self.plan_head_generation == 0
+            || self.containment_profile_id != HELPER_PROFILE_ID
             || self.helper_action_id != HELPER_ACTION_ID
             || self.helper_transport != HELPER_TRANSPORT
             || self.target_provenance != TARGET_PROVENANCE
@@ -517,7 +557,7 @@ impl CodexHelperLaunchPreparationReceipt {
         .map_err(|_| CodexHelperLaunchContractError::DigestFailure)?;
         parse_time(&self.prepared_at, CodexHelperEvidenceKind::Containment)?;
         let expected_receipt_identity = bounded_digest(
-            b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v1\0",
+            b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v2\0",
             &[
                 request.request_id.as_str(),
                 request.request_digest.as_str(),
@@ -550,14 +590,18 @@ impl CodexHelperLaunchPreparationReceipt {
 
 fn launch_binding_digest(value: &CodexHelperLaunchBinding) -> String {
     let collection_schema_version = value.collection_receipt_schema_version.to_string();
+    let plan_head_generation = value.plan_head_generation.to_string();
     bounded_digest(
-        b"ai-switchboard-codex-helper-launch-binding-v1\0",
+        b"ai-switchboard-codex-helper-launch-binding-v2\0",
         &[
             value.session_id.as_str(),
             value.session_snapshot_digest.as_str(),
             value.workspace_digest.as_str(),
             value.plan_id.as_str(),
             value.plan_snapshot_digest.as_str(),
+            value.plan_head_id.as_str(),
+            plan_head_generation.as_str(),
+            value.plan_head_record_digest.as_str(),
             value.process_run_id.as_str(),
             value.process_run_spec_digest.as_str(),
             value.grant_id.as_str(),
@@ -596,7 +640,7 @@ fn launch_request_digest(value: &CodexHelperLaunchRequest) -> String {
         value.user_workspace_writes_enabled as u8,
     );
     bounded_digest(
-        b"ai-switchboard-codex-helper-launch-request-v1\0",
+        b"ai-switchboard-codex-helper-launch-request-v2\0",
         &[
             schema_version.as_str(),
             value.request_id.as_str(),
@@ -620,7 +664,7 @@ fn launch_preparation_receipt_digest(value: &CodexHelperLaunchPreparationReceipt
         value.user_workspace_writes_enabled as u8,
     );
     bounded_digest(
-        b"ai-switchboard-codex-helper-launch-preparation-receipt-v1\0",
+        b"ai-switchboard-codex-helper-launch-preparation-receipt-v2\0",
         &[
             schema_version.as_str(),
             value.receipt_id.as_str(),

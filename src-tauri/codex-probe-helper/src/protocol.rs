@@ -3,12 +3,12 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use crate::digest::{bool_flags, bounded_digest, is_lowercase_sha256};
 use crate::ProtocolError;
 
-pub const PROTOCOL_VERSION: u16 = 1;
+pub const PROTOCOL_VERSION: u16 = 2;
 pub const FRAME_PREFIX_BYTES: usize = 4;
 pub const MAX_FRAME_BYTES: usize = 4_096;
 pub const MAX_PAYLOAD_BYTES: usize = MAX_FRAME_BYTES - FRAME_PREFIX_BYTES;
 pub const MAX_IDENTIFIER_BYTES: usize = 128;
-const HOST_CONTRACT_SCHEMA_VERSION: u32 = 1;
+const HOST_CONTRACT_SCHEMA_VERSION: u32 = 2;
 const COLLECTION_RECEIPT_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -174,6 +174,9 @@ pub struct PreparationRequestFrame {
     pub workspace_digest: String,
     pub plan_id: String,
     pub plan_snapshot_digest: String,
+    pub plan_head_id: String,
+    pub plan_head_generation: u64,
+    pub plan_head_record_digest: String,
     pub process_run_id: String,
     pub process_run_spec_digest: String,
     pub grant_id: String,
@@ -245,6 +248,9 @@ pub struct HostPreparationProjection<'a> {
     pub workspace_digest: &'a str,
     pub plan_id: &'a str,
     pub plan_snapshot_digest: &'a str,
+    pub plan_head_id: &'a str,
+    pub plan_head_generation: u64,
+    pub plan_head_record_digest: &'a str,
     pub process_run_id: &'a str,
     pub process_run_spec_digest: &'a str,
     pub grant_id: &'a str,
@@ -289,6 +295,9 @@ pub fn preparation_request_from_host(
         workspace_digest: value.workspace_digest.into(),
         plan_id: value.plan_id.into(),
         plan_snapshot_digest: value.plan_snapshot_digest.into(),
+        plan_head_id: value.plan_head_id.into(),
+        plan_head_generation: value.plan_head_generation,
+        plan_head_record_digest: value.plan_head_record_digest.into(),
         process_run_id: value.process_run_id.into(),
         process_run_spec_digest: value.process_run_spec_digest.into(),
         grant_id: value.grant_id.into(),
@@ -395,6 +404,7 @@ impl PreparationRequestFrame {
             &self.preparation_receipt_id,
             &self.session_id,
             &self.plan_id,
+            &self.plan_head_id,
             &self.process_run_id,
             &self.grant_id,
             &self.admission_id,
@@ -408,6 +418,7 @@ impl PreparationRequestFrame {
             &self.session_snapshot_digest,
             &self.workspace_digest,
             &self.plan_snapshot_digest,
+            &self.plan_head_record_digest,
             &self.process_run_spec_digest,
             &self.grant_receipt_digest,
             &self.admission_receipt_digest,
@@ -424,7 +435,8 @@ impl PreparationRequestFrame {
             &self.frame_digest,
         ])?;
         validate_prepared_at(&self.prepared_at)?;
-        if self.message_kind != PreparationMessageKind::PrepareNoProcess
+        if self.plan_head_generation == 0
+            || self.message_kind != PreparationMessageKind::PrepareNoProcess
             || self.action != HelperAction::CodexVersionProbeV1
             || self.authority != LaunchAuthority::PreparationOnly
             || self.helper_boundary != HelperBoundary::SeparatelySignedNestedHelperRequired
@@ -507,6 +519,7 @@ fn request_frame_digest(value: &PreparationRequestFrame) -> String {
     let protocol_version = value.protocol_version.to_string();
     let host_schema = value.host_contract_schema_version.to_string();
     let collection_schema = value.collection_receipt_schema_version.to_string();
+    let plan_head_generation = value.plan_head_generation.to_string();
     let flags = bool_flags(&[
         value.manual_opt_in_required,
         value.runnable,
@@ -516,7 +529,7 @@ fn request_frame_digest(value: &PreparationRequestFrame) -> String {
         value.user_workspace_writes_enabled,
     ]);
     bounded_digest(
-        b"ai-switchboard-codex-probe-helper-preparation-request-frame-v1\0",
+        b"ai-switchboard-codex-probe-helper-preparation-request-frame-v2\0",
         &[
             protocol_version.as_str(),
             value.message_kind.digest_value(),
@@ -538,6 +551,9 @@ fn request_frame_digest(value: &PreparationRequestFrame) -> String {
             value.workspace_digest.as_str(),
             value.plan_id.as_str(),
             value.plan_snapshot_digest.as_str(),
+            value.plan_head_id.as_str(),
+            plan_head_generation.as_str(),
+            value.plan_head_record_digest.as_str(),
             value.process_run_id.as_str(),
             value.process_run_spec_digest.as_str(),
             value.grant_id.as_str(),
@@ -576,7 +592,7 @@ fn response_frame_digest(value: &PreparationResponseFrame) -> String {
         value.user_workspace_writes_enabled,
     ]);
     bounded_digest(
-        b"ai-switchboard-codex-probe-helper-preparation-response-frame-v1\0",
+        b"ai-switchboard-codex-probe-helper-preparation-response-frame-v2\0",
         &[
             protocol_version.as_str(),
             value.message_kind.digest_value(),
@@ -597,14 +613,18 @@ fn response_frame_digest(value: &PreparationResponseFrame) -> String {
 
 fn host_binding_digest(value: &PreparationRequestFrame) -> String {
     let collection_schema = value.collection_receipt_schema_version.to_string();
+    let plan_head_generation = value.plan_head_generation.to_string();
     bounded_digest(
-        b"ai-switchboard-codex-helper-launch-binding-v1\0",
+        b"ai-switchboard-codex-helper-launch-binding-v2\0",
         &[
             value.session_id.as_str(),
             value.session_snapshot_digest.as_str(),
             value.workspace_digest.as_str(),
             value.plan_id.as_str(),
             value.plan_snapshot_digest.as_str(),
+            value.plan_head_id.as_str(),
+            plan_head_generation.as_str(),
+            value.plan_head_record_digest.as_str(),
             value.process_run_id.as_str(),
             value.process_run_spec_digest.as_str(),
             value.grant_id.as_str(),
@@ -649,7 +669,7 @@ fn host_request_digest(value: &PreparationRequestFrame) -> String {
         value.user_workspace_writes_enabled,
     ]);
     bounded_digest(
-        b"ai-switchboard-codex-helper-launch-request-v1\0",
+        b"ai-switchboard-codex-helper-launch-request-v2\0",
         &[
             schema.as_str(),
             value.request_id.as_str(),
@@ -667,7 +687,7 @@ fn expected_host_preparation_receipt_id(
     prepared_at: &str,
 ) -> String {
     let identity = bounded_digest(
-        b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v1\0",
+        b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v2\0",
         &[request_id, request_digest, prepared_at],
     );
     format!(
@@ -679,7 +699,7 @@ fn expected_host_preparation_receipt_id(
 fn host_preparation_receipt_digest(value: &PreparationRequestFrame) -> String {
     let schema = value.host_contract_schema_version.to_string();
     bounded_digest(
-        b"ai-switchboard-codex-helper-launch-preparation-receipt-v1\0",
+        b"ai-switchboard-codex-helper-launch-preparation-receipt-v2\0",
         &[
             schema.as_str(),
             value.preparation_receipt_id.as_str(),

@@ -31,6 +31,7 @@ use super::process_run_spec::{process_run_spec_digest, ProcessRunSpec};
 use super::process_supervisor::WorkbenchProcessAdmissionStore;
 use super::run_contract::{validate_workbench_run_plan, workbench_run_plan_snapshot_digest};
 use super::session::validate_digest;
+use super::storage::run_plan_head::WorkbenchPlanHeadStore;
 use super::storage::WorkbenchStore;
 use super::{WorkbenchRunPlan, WorkbenchSession};
 
@@ -190,6 +191,7 @@ struct CodexProbeAttemptAuthorityLedgerV1 {
 pub(super) struct CodexProbeAttemptContext<'a> {
     pub session: &'a WorkbenchSession,
     pub session_store: &'a WorkbenchStore,
+    pub plan_head_store: &'a WorkbenchPlanHeadStore,
     pub current_plan: &'a WorkbenchRunPlan,
     pub process: &'a ProcessRunSpec,
     pub grant_store: &'a WorkbenchProcessGrantStore,
@@ -1227,6 +1229,14 @@ fn validate_context(
     if durable_session != *context.session {
         bail!("Codex probe attempt session snapshot is not the durable current session");
     }
+    let current_plan_head = context
+        .plan_head_store
+        .require_current_for_authority_transaction(
+            transaction,
+            context.session_store,
+            context.session,
+            context.current_plan,
+        )?;
     validate_workbench_run_plan(context.current_plan)?;
     context.process.validate()?;
     if durable_session.status != WorkbenchSessionStatus::Active
@@ -1273,6 +1283,9 @@ fn validate_context(
         || request.binding.workspace_digest != context.session.workspace_digest
         || request.binding.plan_id != context.current_plan.plan_id
         || request.binding.plan_snapshot_digest != plan_snapshot_digest
+        || request.binding.plan_head_id != current_plan_head.head_id
+        || request.binding.plan_head_generation != current_plan_head.generation
+        || request.binding.plan_head_record_digest != current_plan_head.record_digest
         || request.binding.process_run_id != context.process.run_id
         || request.binding.process_run_spec_digest != process_digest
         || request.binding.grant_id != grant.grant_id

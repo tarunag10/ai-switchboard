@@ -346,6 +346,12 @@ impl WorkbenchProcessGrantStore {
         }
     }
 
+    fn authority_directory(&self) -> Result<&std::path::Path> {
+        self.path
+            .parent()
+            .ok_or_else(|| anyhow!("Workbench process grant ledger has no parent directory"))
+    }
+
     pub(crate) fn begin_authority_transaction(&self) -> Result<WorkbenchAuthorityTransaction> {
         let parent = self
             .path
@@ -556,13 +562,14 @@ impl WorkbenchProcessGrantStore {
 
     pub(crate) fn require_active_for_transaction(
         &self,
-        _transaction: &WorkbenchAuthorityTransaction,
+        transaction: &WorkbenchAuthorityTransaction,
         grant_id: &str,
         session_id: &str,
         plan_id: &str,
         process_run_id: &str,
         now: DateTime<Utc>,
     ) -> Result<WorkbenchProcessStartGrant> {
+        transaction.require_authority_directory(self.authority_directory()?)?;
         for (value, label) in [
             (grant_id, "process grant ID"),
             (session_id, "session ID"),
@@ -600,6 +607,26 @@ impl WorkbenchProcessGrantStore {
         plan_id: &str,
         process_run_id: &str,
     ) -> Result<WorkbenchProcessStartGrant> {
+        let transaction = self.begin_authority_transaction()?;
+        self.require_current_for_transaction(
+            &transaction,
+            grant_id,
+            session_id,
+            plan_id,
+            process_run_id,
+        )
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn require_current_for_transaction(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+        grant_id: &str,
+        session_id: &str,
+        plan_id: &str,
+        process_run_id: &str,
+    ) -> Result<WorkbenchProcessStartGrant> {
+        transaction.require_authority_directory(self.authority_directory()?)?;
         for (value, label) in [
             (grant_id, "process grant ID"),
             (session_id, "session ID"),

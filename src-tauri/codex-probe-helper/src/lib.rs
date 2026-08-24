@@ -1,6 +1,6 @@
 //! Bounded, preparation-only protocol for a future Codex probe helper.
 //!
-//! Version 1 has no execution message, binary, transport, or launch authority.
+//! Version 2 has no execution message, binary, transport, or launch authority.
 
 #![forbid(unsafe_code)]
 

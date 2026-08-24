@@ -5,19 +5,21 @@ protocol for a future separately signed Codex probe helper.
 
 It is intentionally not a runnable helper. The crate has no binary, transport,
 filesystem, process, network, provider, Tauri, app dependency, build script, or
-bundle registration. Version 1 can validate only a no-process preparation frame
+bundle registration. Version 2 can validate only a no-process preparation frame
 and produce a shape-consistent no-process response frame. It independently
-recomputes the complete opaque host binding, request, and preparation-receipt
-transcript and requires one canonical JSON wire encoding. That proves internal
+recomputes the complete opaque host binding, including the exact durable current
+plan-head identity and generation, plus the request and preparation-receipt
+transcript, and requires one canonical JSON wire encoding. That proves internal
 consistency only: even a fully self-consistent transcript remains
 unauthenticated. The response therefore keeps authentication, freshness, and
 launch authority explicitly false. It cannot reserve execution, start Codex,
 prove freshness or trust, or establish macOS sandbox enforcement.
 
-The application does not depend on this crate yet. A future phase must add a
-one-shot attempt claim, authenticated native transport, separately signed nested
-helper, launch-time identity revalidation, fixed descriptor-owned payload lease,
-real containment, and terminal execution receipts under a new protocol version.
+The parent Rust application does not depend on this crate. The separately built
+helper app depends on it locally and is packaged as an unreachable nested helper.
+A future phase must add authenticated native transport, launch-time identity
+revalidation, a fixed descriptor-owned payload lease, real containment, and
+terminal execution receipts under a new protocol version.
 
 Verification:
 

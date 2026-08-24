@@ -22,6 +22,7 @@ use super::process_supervisor::{
 };
 use super::run_contract::{workbench_run_plan_identity, workbench_run_plan_snapshot_digest};
 use super::session::CreateWorkbenchSessionInput;
+use super::storage::run_plan_head::{WorkbenchPlanHead, WorkbenchPlanHeadStore};
 use super::storage::WorkbenchStore;
 use super::{CapabilityRequest, RouterDecisionReference, WorkbenchRunPlan, WorkbenchSession};
 use crate::client_adapter_contract::{
@@ -32,6 +33,8 @@ use crate::models::SwitchboardMode;
 pub(super) struct Fixture {
     pub(super) session: WorkbenchSession,
     pub(super) session_store: WorkbenchStore,
+    pub(super) plan_head_store: WorkbenchPlanHeadStore,
+    pub(super) plan_head: WorkbenchPlanHead,
     pub(super) plan: WorkbenchRunPlan,
     pub(super) process: ProcessRunSpec,
     pub(super) grant: WorkbenchProcessStartGrant,
@@ -113,6 +116,15 @@ pub(super) fn fixture() -> Fixture {
     };
     plan.plan_id = workbench_run_plan_identity(&plan).expect("canonical run plan identity");
     let now = Utc.with_ymd_and_hms(2026, 8, 24, 0, 0, 0).unwrap();
+    let grant_store = WorkbenchProcessGrantStore::at(directory.path().join("grants.json"));
+    let plan_head_store = WorkbenchPlanHeadStore::for_authority_directory(directory.path());
+    let transaction = grant_store
+        .begin_authority_transaction()
+        .expect("plan-head transaction");
+    let plan_head = plan_head_store
+        .publish_for_authority_transaction(&transaction, &session_store, &session, &plan)
+        .expect("persist current plan head");
+    drop(transaction);
     let grant = issue_process_start_grant(
         &session,
         &plan,
@@ -122,7 +134,6 @@ pub(super) fn fixture() -> Fixture {
     .expect("issue process grant");
     let admission =
         admit_process(&session, &plan, &process, &grant, now).expect("admit prepared process");
-    let grant_store = WorkbenchProcessGrantStore::at(directory.path().join("grants.json"));
     let admission_store =
         WorkbenchProcessAdmissionStore::at(directory.path().join("admissions.json"));
     grant_store
@@ -138,6 +149,8 @@ pub(super) fn fixture() -> Fixture {
     Fixture {
         session,
         session_store,
+        plan_head_store,
+        plan_head,
         plan,
         process,
         grant,
@@ -177,6 +190,8 @@ pub(super) fn prepare_with(
 > {
     prepare_codex_helper_launch_contract(
         &value.session,
+        &value.session_store,
+        &value.plan_head_store,
         &value.plan,
         &value.process,
         &value.grant_store,
@@ -203,6 +218,15 @@ fn collected_preflight_creates_deterministic_no_process_contract() {
         request.binding.plan_snapshot_digest,
         workbench_run_plan_snapshot_digest(&value.plan).expect("plan snapshot digest")
     );
+    assert_eq!(request.binding.plan_head_id, value.plan_head.head_id);
+    assert_eq!(
+        request.binding.plan_head_generation,
+        value.plan_head.generation
+    );
+    assert_eq!(
+        request.binding.plan_head_record_digest,
+        value.plan_head.record_digest
+    );
     assert_eq!(request.binding.process_run_id, value.process.run_id);
     assert_eq!(request.binding.grant_id, value.grant.grant_id);
     assert_eq!(request.binding.admission_id, value.admission.admission_id);
@@ -221,6 +245,70 @@ fn collected_preflight_creates_deterministic_no_process_contract() {
     assert!(!receipt.execution_reserved);
     request.validate().expect("validate request");
     receipt.validate_for(&request).expect("validate receipt");
+}
+
+#[test]
+fn a_b_a_republication_rotates_the_helper_binding_identity() {
+    let value = fixture();
+    let (old_request, old_receipt) = prepare(&value).expect("prepare A1 helper contract");
+
+    let mut next_plan = value.plan.clone();
+    next_plan.router_decision.evidence_digest = digest('9');
+    next_plan.plan_id = workbench_run_plan_identity(&next_plan).expect("B plan identity");
+    let transaction = value
+        .grant_store
+        .begin_authority_transaction()
+        .expect("A-B-A plan-head transaction");
+    let b_head = value
+        .plan_head_store
+        .publish_for_authority_transaction(
+            &transaction,
+            &value.session_store,
+            &value.session,
+            &next_plan,
+        )
+        .expect("publish B plan head");
+    let restored_head = value
+        .plan_head_store
+        .publish_for_authority_transaction(
+            &transaction,
+            &value.session_store,
+            &value.session,
+            &value.plan,
+        )
+        .expect("republish A2 plan head");
+    drop(transaction);
+
+    assert_ne!(b_head.head_id, value.plan_head.head_id);
+    assert_ne!(restored_head.head_id, value.plan_head.head_id);
+    assert_ne!(restored_head.generation, value.plan_head.generation);
+    assert_ne!(restored_head.record_digest, value.plan_head.record_digest);
+    assert_eq!(restored_head.plan_id, value.plan_head.plan_id);
+    assert_eq!(
+        restored_head.plan_snapshot_digest,
+        value.plan_head.plan_snapshot_digest
+    );
+
+    old_request.validate().expect("A1 remains self-consistent");
+    old_receipt
+        .validate_for(&old_request)
+        .expect("A1 receipt remains self-consistent");
+    let (fresh_request, fresh_receipt) = prepare(&value).expect("prepare A2 helper contract");
+    assert_eq!(fresh_request.binding.plan_head_id, restored_head.head_id);
+    assert_eq!(
+        fresh_request.binding.plan_head_generation,
+        restored_head.generation
+    );
+    assert_eq!(
+        fresh_request.binding.plan_head_record_digest,
+        restored_head.record_digest
+    );
+    assert_ne!(
+        fresh_request.binding.binding_digest,
+        old_request.binding.binding_digest
+    );
+    assert_ne!(fresh_request.request_digest, old_request.request_digest);
+    assert_ne!(fresh_receipt.receipt_digest, old_receipt.receipt_digest);
 }
 
 #[test]
@@ -313,14 +401,16 @@ fn inactive_expired_revoked_and_clock_rollback_authority_is_rejected() {
 #[test]
 fn never_issued_authority_is_rejected_by_the_durable_ledgers() {
     let value = fixture();
-    let directory = tempfile::tempdir().expect("empty authority directory");
-    let empty_grants = WorkbenchProcessGrantStore::at(directory.path().join("empty-grants.json"));
+    let empty_grants =
+        WorkbenchProcessGrantStore::at(value.directory.path().join("empty-grants.json"));
     let empty_admissions =
-        WorkbenchProcessAdmissionStore::at(directory.path().join("empty-admissions.json"));
+        WorkbenchProcessAdmissionStore::at(value.directory.path().join("empty-admissions.json"));
 
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &value.session,
+            &value.session_store,
+            &value.plan_head_store,
             &value.plan,
             &value.process,
             &empty_grants,
@@ -340,6 +430,8 @@ fn never_issued_authority_is_rejected_by_the_durable_ledgers() {
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &value.session,
+            &value.session_store,
+            &value.plan_head_store,
             &value.plan,
             &value.process,
             &value.grant_store,
@@ -367,6 +459,8 @@ fn changed_plan_process_grant_and_admission_bindings_are_rejected() {
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &base.session,
+            &base.session_store,
+            &base.plan_head_store,
             &executable_capability,
             &base.process,
             &base.grant_store,
@@ -388,6 +482,8 @@ fn changed_plan_process_grant_and_admission_bindings_are_rejected() {
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &base.session,
+            &base.session_store,
+            &base.plan_head_store,
             &changed_router,
             &base.process,
             &base.grant_store,
@@ -409,6 +505,8 @@ fn changed_plan_process_grant_and_admission_bindings_are_rejected() {
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &base.session,
+            &base.session_store,
+            &base.plan_head_store,
             &changed_plan,
             &base.process,
             &base.grant_store,
@@ -434,6 +532,8 @@ fn changed_plan_process_grant_and_admission_bindings_are_rejected() {
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &base.session,
+            &base.session_store,
+            &base.plan_head_store,
             &changed_readiness,
             &base.process,
             &base.grant_store,
@@ -453,6 +553,8 @@ fn changed_plan_process_grant_and_admission_bindings_are_rejected() {
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &base.session,
+            &base.session_store,
+            &base.plan_head_store,
             &base.plan,
             &base.process,
             &other.grant_store,
@@ -471,6 +573,8 @@ fn changed_plan_process_grant_and_admission_bindings_are_rejected() {
     assert_eq!(
         prepare_codex_helper_launch_contract(
             &base.session,
+            &base.session_store,
+            &base.plan_head_store,
             &base.plan,
             &base.process,
             &base.grant_store,

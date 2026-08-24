@@ -51,13 +51,16 @@ struct HostFixture {
 impl HostFixture {
     fn new() -> Self {
         let binding_digest = bounded_digest(
-            b"ai-switchboard-codex-helper-launch-binding-v1\0",
+            b"ai-switchboard-codex-helper-launch-binding-v2\0",
             &[
                 "session-1",
                 D0,
                 D1,
                 "plan-1",
                 D2,
+                "plan-head-1",
+                "1",
+                D3,
                 "process-run-1",
                 D3,
                 "grant-1",
@@ -88,9 +91,9 @@ impl HostFixture {
             binding_digest.trim_start_matches("sha256:")
         );
         let request_digest = bounded_digest(
-            b"ai-switchboard-codex-helper-launch-request-v1\0",
+            b"ai-switchboard-codex-helper-launch-request-v2\0",
             &[
-                "1",
+                "2",
                 request_id.as_str(),
                 binding_digest.as_str(),
                 "prepared_no_process",
@@ -99,7 +102,7 @@ impl HostFixture {
             ],
         );
         let receipt_identity = bounded_digest(
-            b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v1\0",
+            b"ai-switchboard-codex-helper-launch-preparation-receipt-id-v2\0",
             &[request_id.as_str(), request_digest.as_str(), PREPARED_AT],
         );
         let receipt_id = format!(
@@ -107,9 +110,9 @@ impl HostFixture {
             receipt_identity.trim_start_matches("sha256:")
         );
         let receipt_digest = bounded_digest(
-            b"ai-switchboard-codex-helper-launch-preparation-receipt-v1\0",
+            b"ai-switchboard-codex-helper-launch-preparation-receipt-v2\0",
             &[
-                "1",
+                "2",
                 receipt_id.as_str(),
                 request_id.as_str(),
                 request_digest.as_str(),
@@ -141,6 +144,9 @@ impl HostFixture {
             workspace_digest: D1,
             plan_id: "plan-1",
             plan_snapshot_digest: D2,
+            plan_head_id: "plan-head-1",
+            plan_head_generation: 1,
+            plan_head_record_digest: D3,
             process_run_id: "process-run-1",
             process_run_spec_digest: D3,
             grant_id: "grant-1",

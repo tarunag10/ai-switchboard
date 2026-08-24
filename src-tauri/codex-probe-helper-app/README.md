@@ -1,6 +1,6 @@
 # AI Switchboard Codex Probe Helper App
 
-This MIT-licensed crate is intended for AI Switchboard's private, non-commercial research use. It is a deliberately non-executing protocol-v1 helper boundary.
+This MIT-licensed crate is intended for AI Switchboard's private, non-commercial research use. It is a deliberately non-executing protocol-v2 helper boundary.
 
 The binary reads one bounded preparation frame from standard input, waits for closed input, validates the frame with the local `codex-probe-helper` protocol crate, and writes one shape-consistent no-process response to standard output. It does not authenticate a host, establish freshness, grant launch authority, claim support, inspect a Codex installation, execute `codex --version`, or start any process.
 

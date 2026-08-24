@@ -250,7 +250,7 @@ fn readme_preserves_the_packaged_but_unlaunched_release_boundary() {
     for required in [
         "MIT-licensed",
         "private, non-commercial research use",
-        "non-executing protocol-v1",
+        "non-executing protocol-v2",
         "assemble it under `Contents/Helpers`",
         "sign the helper before the parent",
         "local packaging is explicitly ad-hoc",

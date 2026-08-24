@@ -185,11 +185,22 @@ fn manifest_is_a_single_library_with_three_pinned_dependencies() {
 }
 
 #[test]
-fn parent_application_does_not_depend_on_or_bundle_the_protocol_crate() {
+fn parent_application_bundles_only_the_separate_helper_app() {
     let parent = crate_root().parent().expect("src-tauri parent");
     let tauri_config = fs::read_to_string(parent.join("tauri.conf.json")).expect("Tauri config");
     let tauri_json: Value = serde_json::from_str(&tauri_config).expect("valid Tauri config");
-    assert!(!json_contains_string(&tauri_json, "codex-probe-helper"));
+    assert_eq!(
+        tauri_json["build"]["beforeBundleCommand"],
+        "./scripts/prepare-codex-probe-helper-app.sh"
+    );
+    assert_eq!(
+        tauri_json["bundle"]["macOS"]["files"]["Helpers/AI Switchboard Codex Probe.app"],
+        "target/codex-probe-helper-bundle/AI Switchboard Codex Probe.app"
+    );
+    assert!(json_contains_string(
+        &tauri_json,
+        "codex-probe-helper-bundle"
+    ));
 
     let app_metadata = cargo_metadata(&parent.join("Cargo.toml"));
     for package in app_metadata["packages"].as_array().expect("app packages") {

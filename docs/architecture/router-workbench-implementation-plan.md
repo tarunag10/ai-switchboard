@@ -38,9 +38,10 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `0a955c4` plus the
-atomic no-process launch-reservation foundation recorded with this update, and
-against the visible frontend/native command wiring on 2026-08-24. Unrelated
+This status was reconciled against committed `main` through `b4640e6f`, including
+the atomic no-process launch-reservation foundation, plus the durable current-plan
+head and exact-head binding work recorded with this update, and against the
+visible frontend/native command wiring on 2026-08-24. Unrelated
 concurrent unstaged work is not counted as shipped. A check mark therefore means the capability is
 in the committed product boundary, not merely described in another plan or
 present in an unrelated local diff.
@@ -67,12 +68,13 @@ Current verification snapshot:
   monotonic-priority wall-clock jumps, redirects, clock rollback, model mismatch,
   canonical generation integrity/orphan detection, durable capacity, and privacy
   boundaries.
-- `201` focused native `workbench_kernel` tests pass, including `14` fake
+- `213` focused native `workbench_kernel` tests pass, including `14` fake
   process-controller lifecycle/restart/CAS tests and `5` deterministic
   verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
   catalog/probe-contract tests, `17` fixed-location collector tests, `11`
-  launcher-chain/containment preflight tests, `9` attempt-bound restricted-helper
-  preparation tests, `28` one-shot no-process attempt-authority/reservation/CAS tests,
+  launcher-chain/containment preflight tests, `10` attempt-bound restricted-helper
+  preparation tests, `10` durable current-plan-head/CAS tests, `29` one-shot
+  no-process attempt-authority/reservation/CAS tests,
   `14` pure Mach-O parser tests, and `43` npm
   manifest/model/descriptor/collector tests.
 - `17` locked tests pass in the standalone `codex-probe-helper` crate: `14`
@@ -83,7 +85,10 @@ Current verification snapshot:
   canonical JSON wire encoding, and keep authentication, freshness, and launch
   authority explicitly false. The crate also passes formatting,
   Clippy with warnings denied, metadata-shape, advisory, ban, licence, and
-  source checks. It is a library only and is not an app dependency or bundle.
+  source checks. Protocol v2 also binds the exact durable plan-head ID,
+  generation, and record digest. The crate remains absent from the parent Rust
+  graph; it is linked only into the separately built, bundled-but-unreachable
+  nested helper app.
 - `14` locked tests pass in the standalone `codex-probe-helper-app` binary crate:
   one bounded closed frame yields the existing no-process response; malformed,
   trailing, concatenated, oversized, secret-like, argument-bearing, and inherited
@@ -116,7 +121,7 @@ Current verification snapshot:
 | Area | Already done | Prepared or partial | Still left |
 |---|---|---|---|
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
-| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a fixed-location metadata collector, a pure launcher-chain/containment preflight, a separately signed sandboxed nested no-process helper, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | Private collected-npm evidence, helper preparation, and protocol foundations bind the durable current session, complete supplied plan/process snapshot, exact durable grant/admission, and helper identities without exposing commands, paths, credentials, or provider traffic. The one-shot ledger now requires exact manual consent, caps authority at 60 seconds, and atomically transitions `available_no_process` to an identity-bound `reserved_no_process` launch reservation capped at 10 seconds and the parent grant. The reservation reconstructs and binds the exact pre-transition record digest; an anchored generation high-water rejects an older ledger snapshot while the current anchor remains; a caller-supplied owner-epoch change closes reserved records; valid v1 ledgers migrate in place while old claimed records remain non-reservable and corrupt legacy bytes are preserved. Whole-state rollback still needs external monotonic storage before launch authority. An interrupted anchor-first two-file commit is deliberately unavailable and fail-closed, with no automatic repair claim. It still has no authoritative durable plan-head registry, authenticated IPC, descriptor lease, helper invocation, process start, renderer command, support claim, or execution authority | Add a durable native current-plan head, fresh process-derived owner epochs, externally protected monotonic anti-rollback state, authenticated parent/helper transport, a non-serializable same-descriptor payload lease, authoritative revalidation at reservation consumption, crash-recovery/repair semantics, authoritative support/version/layout/signing policy, opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
+| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a private durable current-plan-head foundation, a fixed-location metadata collector, a pure launcher-chain/containment preflight, a separately signed sandboxed nested no-process helper, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | The private current-plan ledger stores canonical complete plan snapshots with unique generation-based A→B→A identities, predecessor/tombstone lineage, session-snapshot invalidation, strict byte/count caps, exact-byte CAS, canonical lock-domain checks, and corruption-preserving rejection. Helper preparation and one-shot attempt authority now fail closed on a missing or superseded head. It has no production plan-publication command yet; grants/admissions do not bind the unique head identity; admission mutation is not yet in the shared transaction; valid whole-ledger rollback remains undetectable without external monotonic state. The one-shot ledger still requires exact manual consent, caps authority at 60 seconds, and atomically creates a no-process reservation capped at 10 seconds and the parent grant. An interrupted anchor-first authority commit remains deliberately unavailable and fail-closed, with no automatic repair claim. There is no authenticated IPC, descriptor lease, helper invocation, process start, renderer command, support claim, or execution authority | Wire existing native plan preparation to publish the head; bind grants/admissions/preparation to head ID, generation, and digest under one transaction; add fresh process-derived owner epochs, externally protected monotonic anti-rollback state, authenticated parent/helper transport, a non-serializable same-descriptor payload lease, crash-recovery/repair semantics, authoritative support/version/layout/signing policy, opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, drift-safe rollback, native selection hydration, and a sanitized restart recovery view cover the managed actions | A run can end `partial`; restart restores rollback access but never retries automatically | Expose bounded receipt history and add a checkpointed safe retry/resume design that cannot reapply successful tools or overwrite ownership |
 | Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
@@ -501,6 +506,17 @@ Deliverables:
   has no binary, transport owner, process/filesystem/network API, app dependency,
   Tauri command, resource, sidecar, or bundle registration. This is protocol
   preparation, not a runnable helper or sandbox-enforcement claim.
+- [x] Add a private durable current-plan-head foundation. It persists one
+  complete canonical plan snapshot per session with a unique global generation
+  and head ID, preserves superseded heads as bounded tombstones, gives A→B→A a
+  new identity, binds the exact durable session snapshot, and uses a 4 MiB
+  single-descriptor `O_NOFOLLOW` bounded read plus exact-byte CAS under the
+  canonical authority lock. Tombstone/successor lineage is reciprocal.
+  Pause/resume or any other session mutation makes the old head inert until a
+  fresh publication. Missing, corrupt, cross-directory, and superseded heads
+  fail closed in helper preparation and attempt authority. This foundation has
+  no production publication command, does not bind grants/admissions to head
+  identity, and does not detect rollback of a self-consistent whole ledger.
 - [x] Add a private native one-shot Codex attempt-authority ledger. It
   reloads the durable active session and revalidates the complete supplied plan/process snapshot, exact
   durable grant/admission, and complete helper request/preparation receipt;
@@ -783,7 +799,7 @@ started by weakening an earlier gate.
    signature ranges overlapping load commands, and overlapping signature child
    blobs; and claim no signer, team, notarization, provenance, trust, path,
    collection, or execution result.
-7. **Fixed home-npm launcher-chain collector — Prepared / partial with this update** — bind
+7. **Fixed home-npm launcher-chain collector — Prepared / partial** — bind
    the exact relative launcher symlink, user/root-owned non-writable
    descriptor-relative tree, duplicate-safe bounded root/platform/complete-v1
    payload manifests, constant `bin/codex` entrypoint and resource/path
@@ -795,11 +811,24 @@ started by weakening an earlier gate.
    unbound to signer identity, trust, support, process, network, or execution.
    The pure preflight now consumes and revalidates the receipt, but no production
    orchestrator or renderer command invokes the chain, so it is not classified as Done.
+7. **Durable current-plan head — Prepared / partial with this update** — persist
+   canonical complete plan JSON and its recomputable snapshot digest in a
+   bounded private ledger; assign every publication a unique generation/head ID;
+   retain exact predecessor records as supersession tombstones; bind the durable
+   session snapshot so pause/resume invalidates the old head; reject malformed,
+   unknown-field, symlinked, cross-directory, stale-CAS, missing, and superseded
+   state without replacement. Reads cap allocation from one no-follow descriptor,
+   and reciprocal lineage rejects self-consistent one-way tampering. A→B→A
+   produces a third identity and stale A1 helper/authority evidence remains
+   rejected after A2 publication. This is not Done:
+   production plan preparation does not publish it, grants/admissions do not yet
+   bind head identity, admission mutation is outside the shared lock, and whole-ledger
+   rollback needs externally protected monotonic state before launch authority.
 7. **Attempt-bound restricted-helper preparation — Done foundation with this
    update** — record private direct-vs-collected provenance and permit only a
    revalidated collected-npm schema-v2 preflight into the helper boundary;
    reconstruct the admission at its original timestamp; bind the full validated
-   durable current session, supplied plan/process snapshot, exact grant/admission, probe, attempt,
+   durable current session, durable current-plan head/process snapshot, exact grant/admission, probe, attempt,
    host/boot, helper code/entitlements, enforcement policy, containment, and
    preflight into deterministic content-free request/preparation receipts; reject
    tampering, cross-binding, never-issued records, durable revocation, exact expiry,
@@ -816,8 +845,8 @@ started by weakening an earlier gate.
    traffic, process, support, and write flags; typed content-free errors; and
    adversarial framing/schema/digest/purity checks. A self-consistent transcript
    remains explicitly unauthenticated and grants no freshness or authority.
-   Keep it outside the app Cargo
-   graph and Tauri bundle. It provides no executable, IPC authentication,
+   Keep it outside the parent app Cargo graph; it is linked only into the
+   separately packaged, still-unreachable nested helper. It provides no IPC authentication,
    descriptor transfer, freshness, signing, containment, or execution result.
 7. **Sandboxed no-process helper executable — Prepared / partial** — add an
    independently locked binary crate over the local protocol
@@ -834,15 +863,16 @@ started by weakening an earlier gate.
    ad-hoc and no Developer ID/notarization claim is made. It authenticates no
    host, grants no freshness/authority,
    waits for host EOF, starts no process, and still performs no Codex probe.
-7. **One-shot Codex attempt authority — Done foundation with this update** —
+7. **One-shot Codex attempt authority — Done foundation (`b4640e6f`), extended
+   with exact plan-head validation in this update** —
    persist at most 128 content-free attempt records with exact full-ledger CAS;
    derive deterministic authority and claim identities from the complete
-   preparation binding; revalidate the current native session, full plan
-   snapshot, process spec, active grant, exact admission, request, receipt, and
+   preparation binding; revalidate the current native session, exact durable
+   current-plan head, process spec, active grant, exact admission, request, receipt, and
    clocks at issue and claim; require exact manual opt-in; serialize grant
    mutation with atomic claim/reservation commitment through one symlink-safe cross-process lock;
    reject exact expiry, revocation, rollback, drift, stale writers, byte-only
-   replacement, ledger-only deletion while its durable anchor remains, symlinks,
+   replacement, missing/superseded plan heads, ledger-only deletion while its durable anchor remains, symlinks,
    duplicate attempts, and unknown execution fields; atomically bind a terminal
    `reserved_no_process` record to a deterministic reservation identity and a
    validity window capped at 10 seconds and the parent grant; bind that identity
@@ -860,7 +890,7 @@ started by weakening an earlier gate.
    and fail-closed, with repair semantics still required before launch authority.
    This phase intentionally persists no nonce, path, descriptor, executable,
    process identity, environment, or output and creates no descriptor lease.
-7. **Nested helper packaging/signing — Done foundation with this update** —
+7. **Nested helper packaging/signing — Done foundation (`0a955c4d`)** —
    build the helper from its independent lockfile in Tauri's pre-bundle hook;
    support arm64, x86_64, and explicit universal assembly; place the separately
    signed app under `Contents/Helpers` through `macOS.files`, never
@@ -932,11 +962,12 @@ Current gate truth on 2026-08-24:
   of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `201 passed`, including `14` deterministic fake-controller
+- Native Workbench: `213 passed`, including `14` deterministic fake-controller
   tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
   fixed Codex catalog/probe-contract, `17` fixed-location collector, plus `11`
-  launcher-chain/containment preflight, `9` attempt-bound restricted-helper
-  preparation, `28` one-shot no-process attempt-authority/reservation/CAS, `14` pure Mach-O
+  launcher-chain/containment preflight, `10` attempt-bound restricted-helper
+  preparation, `10` durable current-plan-head/CAS, `29` one-shot no-process
+  attempt-authority/reservation/CAS, `14` pure Mach-O
   parser, and `43` npm
   manifest/model/descriptor/collector tests; the focused Workbench bridge/view
   gate has `19 passed`.

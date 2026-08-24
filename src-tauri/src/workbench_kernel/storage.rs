@@ -10,6 +10,8 @@ use super::session::{
     deterministic_fork_session_id, CreateWorkbenchSessionInput, WorkbenchSession,
 };
 
+pub(super) mod run_plan_head;
+
 const WORKBENCH_LEDGER_FILE: &str = "workbench-sessions.json";
 const WORKBENCH_LEDGER_SCHEMA_VERSION: u32 = 1;
 const MAX_SESSIONS: usize = 128;
@@ -69,6 +71,14 @@ impl WorkbenchStore {
     ) -> Result<WorkbenchSession> {
         transaction.require_authority_directory(self.authority_directory()?)?;
         self.get(session_id)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn require_authority_transaction(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+    ) -> Result<()> {
+        transaction.require_authority_directory(self.authority_directory()?)
     }
 
     pub(crate) fn create(&self, input: CreateWorkbenchSessionInput) -> Result<WorkbenchSession> {

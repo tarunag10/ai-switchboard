@@ -19,7 +19,9 @@ use super::codex_restricted_helper_preparation::{
 use super::codex_restricted_helper_preparation_tests::{fixture, prepare, prepare_with, Fixture};
 use super::events::WorkbenchSessionAction;
 use super::process_supervisor::WorkbenchProcessAdmissionStore;
+use super::run_contract::workbench_run_plan_identity;
 use super::session::CreateWorkbenchSessionInput;
+use super::storage::run_plan_head::WorkbenchPlanHeadStore;
 use super::storage::WorkbenchStore;
 
 fn context<'a>(
@@ -30,6 +32,7 @@ fn context<'a>(
     CodexProbeAttemptContext {
         session: &value.session,
         session_store: &value.session_store,
+        plan_head_store: &value.plan_head_store,
         current_plan: &value.plan,
         process: &value.process,
         grant_store: &value.grant_store,
@@ -539,6 +542,10 @@ fn concurrent_double_claim_creates_exactly_one_launch_reservation() {
     for _ in 0..2 {
         let authority_path = path.clone();
         let session_store_path = value.directory.path().join("workbench-sessions.json");
+        let plan_head_path = value
+            .directory
+            .path()
+            .join("workbench-current-plan-heads.json");
         let grant_path = value.directory.path().join("grants.json");
         let admission_path = value.directory.path().join("admissions.json");
         let session = value.session.clone();
@@ -552,6 +559,7 @@ fn concurrent_double_claim_creates_exactly_one_launch_reservation() {
         let barrier = Arc::clone(&barrier);
         claims.push(thread::spawn(move || {
             let session_store = WorkbenchStore::at(session_store_path);
+            let plan_head_store = WorkbenchPlanHeadStore::at(plan_head_path);
             let grant_store = WorkbenchProcessGrantStore::at(grant_path);
             let admission_store = WorkbenchProcessAdmissionStore::at(admission_path);
             let mut store =
@@ -565,6 +573,7 @@ fn concurrent_double_claim_creates_exactly_one_launch_reservation() {
                     CodexProbeAttemptContext {
                         session: &session,
                         session_store: &session_store,
+                        plan_head_store: &plan_head_store,
                         current_plan: &plan,
                         process: &process,
                         grant_store: &grant_store,
@@ -755,6 +764,10 @@ fn session_grant_mutation_and_claim_share_one_cross_process_transaction_lock() {
     let authority_path = authority_path(&claimable);
     let grant_path = claimable.directory.path().join("grants.json");
     let session_store_path = claimable.directory.path().join("workbench-sessions.json");
+    let plan_head_path = claimable
+        .directory
+        .path()
+        .join("workbench-current-plan-heads.json");
     let admission_path = claimable.directory.path().join("admissions.json");
     let mut authority_store =
         CodexProbeAttemptAuthorityStore::open(authority_path.clone(), "owner-1", claimable.now)
@@ -779,6 +792,7 @@ fn session_grant_mutation_and_claim_share_one_cross_process_transaction_lock() {
     let (finished_tx, finished_rx) = mpsc::channel();
     let claim = thread::spawn(move || {
         let session_store = WorkbenchStore::at(session_store_path);
+        let plan_head_store = WorkbenchPlanHeadStore::at(plan_head_path);
         let grant_store = WorkbenchProcessGrantStore::at(grant_path);
         let admission_store = WorkbenchProcessAdmissionStore::at(admission_path);
         let mut store = CodexProbeAttemptAuthorityStore::open(authority_path, "owner-1", claim_at)
@@ -786,6 +800,7 @@ fn session_grant_mutation_and_claim_share_one_cross_process_transaction_lock() {
         let claim_context = CodexProbeAttemptContext {
             session: &session,
             session_store: &session_store,
+            plan_head_store: &plan_head_store,
             current_plan: &plan,
             process: &process,
             grant_store: &grant_store,
@@ -1069,6 +1084,7 @@ fn plan_process_grant_admission_request_receipt_and_digest_drift_fail_closed() {
     let changed_plan_context = CodexProbeAttemptContext {
         session: &value.session,
         session_store: &value.session_store,
+        plan_head_store: &value.plan_head_store,
         current_plan: &changed_plan,
         process: &value.process,
         grant_store: &value.grant_store,
@@ -1090,6 +1106,7 @@ fn plan_process_grant_admission_request_receipt_and_digest_drift_fail_closed() {
     let changed_process_context = CodexProbeAttemptContext {
         session: &value.session,
         session_store: &value.session_store,
+        plan_head_store: &value.plan_head_store,
         current_plan: &value.plan,
         process: &changed_process,
         grant_store: &value.grant_store,
@@ -1114,6 +1131,7 @@ fn plan_process_grant_admission_request_receipt_and_digest_drift_fail_closed() {
         let changed_ledger_context = CodexProbeAttemptContext {
             session: &value.session,
             session_store: &value.session_store,
+            plan_head_store: &value.plan_head_store,
             current_plan: &value.plan,
             process: &value.process,
             grant_store,
@@ -1160,6 +1178,105 @@ fn plan_process_grant_admission_request_receipt_and_digest_drift_fail_closed() {
         )
         .is_err());
     assert_eq!(fs::read(path).expect("all drift preserved"), before);
+}
+
+#[test]
+fn missing_or_superseded_current_plan_head_preserves_unclaimed_authority() {
+    let value = fixture();
+    let (request, receipt) = prepare(&value).expect("prepare helper contract");
+    let path = authority_path(&value);
+    let mut store = CodexProbeAttemptAuthorityStore::open(path.clone(), "owner-1", value.now)
+        .expect("open authority store");
+    let issued = store
+        .issue(
+            context(&value, &request, &receipt),
+            &codex_probe_attempt_confirmation_phrase(&request.binding.attempt_id),
+            value.now,
+        )
+        .expect("issue authority");
+    let before = fs::read(&path).expect("unclaimed authority bytes");
+
+    let missing_head_store =
+        WorkbenchPlanHeadStore::at(value.directory.path().join("missing-plan-heads.json"));
+    let missing_context = CodexProbeAttemptContext {
+        session: &value.session,
+        session_store: &value.session_store,
+        plan_head_store: &missing_head_store,
+        current_plan: &value.plan,
+        process: &value.process,
+        grant_store: &value.grant_store,
+        admission_store: &value.admission_store,
+        request: &request,
+        preparation_receipt: &receipt,
+    };
+    assert!(store
+        .claim(
+            &issued.authority_id,
+            &issued.record_digest,
+            missing_context,
+            value.now + Duration::seconds(1),
+        )
+        .is_err());
+    assert_eq!(fs::read(&path).expect("missing head preserved"), before);
+
+    let mut next_plan = value.plan.clone();
+    next_plan.router_decision.evidence_digest = digest('9');
+    next_plan.plan_id = workbench_run_plan_identity(&next_plan).expect("next plan identity");
+    let transaction = value
+        .grant_store
+        .begin_authority_transaction()
+        .expect("plan-head supersession transaction");
+    let next_head = value
+        .plan_head_store
+        .publish_for_authority_transaction(
+            &transaction,
+            &value.session_store,
+            &value.session,
+            &next_plan,
+        )
+        .expect("supersede current plan head");
+    let restored_head = value
+        .plan_head_store
+        .publish_for_authority_transaction(
+            &transaction,
+            &value.session_store,
+            &value.session,
+            &value.plan,
+        )
+        .expect("republish original plan as a new head");
+    drop(transaction);
+    assert_ne!(next_head.head_id, value.plan_head.head_id);
+    assert_ne!(restored_head.head_id, value.plan_head.head_id);
+    assert_eq!(restored_head.plan_id, value.plan_head.plan_id);
+    assert_eq!(
+        restored_head.plan_snapshot_digest,
+        value.plan_head.plan_snapshot_digest
+    );
+    assert!(store
+        .claim(
+            &issued.authority_id,
+            &issued.record_digest,
+            context(&value, &request, &receipt),
+            value.now + Duration::seconds(1),
+        )
+        .is_err());
+    assert_eq!(fs::read(&path).expect("A-B-A replay preserved"), before);
+
+    let (fresh_request, fresh_receipt) = prepare(&value).expect("prepare A2 helper contract");
+    assert_eq!(fresh_request.binding.plan_head_id, restored_head.head_id);
+    assert_ne!(
+        fresh_request.binding.binding_digest,
+        request.binding.binding_digest
+    );
+    assert!(store
+        .claim(
+            &issued.authority_id,
+            &issued.record_digest,
+            context(&value, &fresh_request, &fresh_receipt),
+            value.now + Duration::seconds(1),
+        )
+        .is_err());
+    assert_eq!(fs::read(&path).expect("A1 authority preserved"), before);
 }
 
 #[test]
