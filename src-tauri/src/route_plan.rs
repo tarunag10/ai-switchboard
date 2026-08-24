@@ -6,6 +6,10 @@
 
 use serde::{Deserialize, Serialize};
 
+pub(crate) use switchboard_core::{
+    ExecutionMode as RoutePlanExecutionMode, PlanningStrategy as RoutePlanStrategy,
+};
+
 use crate::endpoint_routing::{
     decide_endpoint_route, EndpointRouteCandidate, EndpointRouteDecision, EndpointRouteRequest,
 };
@@ -13,19 +17,6 @@ use crate::optimization::model_routing::{
     decide_model_route_experiment, ModelRouteDecision, ModelRouteInput,
     ModelRoutingBenchmarkEvidence, ModelRoutingExperimentPolicy, ModelRoutingStage,
 };
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum RoutePlanExecutionMode {
-    ObserveOnly,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum RoutePlanStrategy {
-    DeterministicEndpoint,
-    ObserveOnlyShadow,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -492,6 +492,18 @@ Remaining in this phase:
    add Settings and capability-detail actions, and refresh Workbench references
    after validation without enabling unauthorised process execution.
 
+Core extraction progress:
+
+- `crates/switchboard-core` now exists as a standalone, dependency-light path
+  crate. It owns versioned provider-neutral execution, planning, and harness
+  status contracts with no Tauri, filesystem, process, network, or OS imports.
+- The existing Tauri route-plan boundary consumes the shared core's strategy and
+  execution-mode types. The existing `src-tauri/Cargo.lock` remains the release
+  lockfile while the new crate is incrementally extracted.
+- The full Rust workspace split is intentionally not claimed yet: Workbench
+  persistence, capability grants, OSS registry projection, and runtime traits
+  still depend on the Tauri application crate and are next.
+
 ### Remaining build work
 
 1. **Fresh quality evidence loop:** the machine-checked evidence contract and
