@@ -1570,12 +1570,10 @@ fn classify_file(path: &str, bytes: u64) -> RepoFileSignal {
 }
 
 fn is_ignored_path(path: &str) -> bool {
-    path.replace('\\', "/")
-        .split('/')
-        .any(|segment| {
-            let normalized = segment.to_ascii_lowercase();
-            IGNORED_DIRS.iter().any(|ignored| *ignored == normalized)
-        })
+    path.replace('\\', "/").split('/').any(|segment| {
+        let normalized = segment.to_ascii_lowercase();
+        IGNORED_DIRS.iter().any(|ignored| *ignored == normalized)
+    })
 }
 
 fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoGraphSummary {
@@ -2319,10 +2317,13 @@ fn build_call_reference_edges(
         })
         .take(120)
         .collect::<Vec<_>>();
-    let callable_name_counts = callable_symbols.iter().fold(BTreeMap::new(), |mut counts, symbol| {
-        *counts.entry(symbol.name.as_str()).or_insert(0usize) += 1;
-        counts
-    });
+    let callable_name_counts =
+        callable_symbols
+            .iter()
+            .fold(BTreeMap::new(), |mut counts, symbol| {
+                *counts.entry(symbol.name.as_str()).or_insert(0usize) += 1;
+                counts
+            });
     let mut edges = Vec::new();
     for file in files.iter().filter(|file| {
         matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
@@ -2346,18 +2347,14 @@ fn build_call_reference_edges(
             .filter_map(|binding| {
                 let imported = binding.imported?;
                 let target_file = resolve_import_specifier(&file.path, &binding.specifier, files)?;
-                let direct_target_exists = symbols.iter().any(|symbol| {
-                    symbol.file == target_file.path && symbol.name == imported
-                });
+                let direct_target_exists = symbols
+                    .iter()
+                    .any(|symbol| symbol.file == target_file.path && symbol.name == imported);
                 if direct_target_exists {
                     return None;
                 }
-                let resolved_reexport = resolve_local_reexport(
-                    repo_root,
-                    target_file,
-                    &imported,
-                    files,
-                );
+                let resolved_reexport =
+                    resolve_local_reexport(repo_root, target_file, &imported, files);
                 resolved_reexport.is_none().then_some(binding.local)
             })
             .collect::<BTreeSet<_>>();
@@ -2376,7 +2373,11 @@ fn build_call_reference_edges(
                     if symbol.file != file.path && unresolved_local_imports.contains(&symbol.name) {
                         continue;
                     }
-                    if callable_name_counts.get(symbol.name.as_str()).copied().unwrap_or(0) > 1
+                    if callable_name_counts
+                        .get(symbol.name.as_str())
+                        .copied()
+                        .unwrap_or(0)
+                        > 1
                         && symbol.file != file.path
                     {
                         continue;
@@ -2385,7 +2386,9 @@ fn build_call_reference_edges(
                     // file may legitimately contain both `run()` and
                     // `client.run()`; suppressing the whole file would erase
                     // the direct same-file edge.
-                    if symbol.file != file.path && contains_member_call_reference(&content, &symbol.name) {
+                    if symbol.file != file.path
+                        && contains_member_call_reference(&content, &symbol.name)
+                    {
                         continue;
                     }
                     let from = caller
@@ -2423,7 +2426,12 @@ fn build_call_reference_edges(
             if unresolved_local_imports.contains(&symbol.name) {
                 continue;
             }
-            if callable_name_counts.get(symbol.name.as_str()).copied().unwrap_or(0) > 1 {
+            if callable_name_counts
+                .get(symbol.name.as_str())
+                .copied()
+                .unwrap_or(0)
+                > 1
+            {
                 continue;
             }
             if contains_member_call_reference(&content, &symbol.name) {
@@ -2504,11 +2512,7 @@ fn build_semantic_call_reference_edges(
                 else {
                     continue;
                 };
-                let direct_target_names = binding
-                    .imported
-                    .clone()
-                    .into_iter()
-                    .collect::<Vec<_>>();
+                let direct_target_names = binding.imported.clone().into_iter().collect::<Vec<_>>();
                 let direct_target_exists = direct_target_names.iter().any(|name| {
                     symbols
                         .iter()
@@ -2521,13 +2525,12 @@ fn build_semantic_call_reference_edges(
                 } else {
                     None
                 };
-                let default_name = if binding.imported.as_deref() == Some("default")
-                    && reexport.is_none()
-                {
-                    resolve_default_export_name(repo_root, target_file)
-                } else {
-                    None
-                };
+                let default_name =
+                    if binding.imported.as_deref() == Some("default") && reexport.is_none() {
+                        resolve_default_export_name(repo_root, target_file)
+                    } else {
+                        None
+                    };
                 let target_path = reexport
                     .as_ref()
                     .map(|(path, _)| path.as_str())
@@ -2660,7 +2663,10 @@ fn resolve_local_reexport_at_depth(
             continue;
         }
         let clause = clause.trim();
-        let Some(inner) = clause.strip_prefix('{').and_then(|value| value.strip_suffix('}')) else {
+        let Some(inner) = clause
+            .strip_prefix('{')
+            .and_then(|value| value.strip_suffix('}'))
+        else {
             continue;
         };
         for item in inner.split(',') {
@@ -2762,7 +2768,10 @@ fn explicitly_exports_symbol(repo_root: &Path, target_path: &str, name: &str) ->
             }
         }
         if !rest.contains(" from ") {
-            if let Some(inner) = rest.strip_prefix('{').and_then(|value| value.split('}').next()) {
+            if let Some(inner) = rest
+                .strip_prefix('{')
+                .and_then(|value| value.split('}').next())
+            {
                 for item in inner.split(',') {
                     let parts = item.split_whitespace().collect::<Vec<_>>();
                     let exported = parts
@@ -3600,8 +3609,7 @@ fn contains_call_reference(content: &str, symbol_name: &str) -> bool {
 }
 
 fn contains_member_call_reference(content: &str, symbol_name: &str) -> bool {
-    content.contains(&format!(".{symbol_name}("))
-        || content.contains(&format!(".{symbol_name} ("))
+    content.contains(&format!(".{symbol_name}(")) || content.contains(&format!(".{symbol_name} ("))
 }
 
 fn namespace_member_call_names(content: &str, local: &str) -> BTreeSet<String> {
@@ -3611,7 +3619,9 @@ fn namespace_member_call_names(content: &str, local: &str) -> BTreeSet<String> {
         let suffix = &content[index + prefix.len()..];
         let member = suffix
             .chars()
-            .take_while(|character| character.is_ascii_alphanumeric() || *character == '_' || *character == '$')
+            .take_while(|character| {
+                character.is_ascii_alphanumeric() || *character == '_' || *character == '$'
+            })
             .collect::<String>();
         if member.is_empty() {
             continue;
@@ -4519,15 +4529,19 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/consumer.js"
                 && edge.to == "src/worker.js"
                 && edge.kind == RepoGraphEdgeKind::ImportReference
         }));
-        assert!(!graph.import_edges.iter().any(|edge| {
-            edge.from == "src/consumer.js" && edge.to == "src/loaded.js"
-        }));
+        assert!(!graph
+            .import_edges
+            .iter()
+            .any(|edge| { edge.from == "src/consumer.js" && edge.to == "src/loaded.js" }));
     }
 
     #[test]
@@ -4535,12 +4549,21 @@ export const mapValues = <T>(items: T[]) => items;
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
-        std::fs::write(src.join("first.ts"), "export function run() {}\nexport function start() { run(); }\n")
-            .expect("write first");
-        std::fs::write(src.join("second.ts"), "export function run() {}\nexport function other() { run(); }\n")
-            .expect("write second");
+        std::fs::write(
+            src.join("first.ts"),
+            "export function run() {}\nexport function start() { run(); }\n",
+        )
+        .expect("write first");
+        std::fs::write(
+            src.join("second.ts"),
+            "export function run() {}\nexport function other() { run(); }\n",
+        )
+        .expect("write second");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(!graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/first.ts#start"
                 && edge.to == "src/second.ts#run"
@@ -4558,11 +4581,17 @@ export const mapValues = <T>(items: T[]) => items;
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
-        std::fs::write(src.join("first.ts"), "export function run() {}\nexport function start() { run(); }\n")
-            .expect("write first");
+        std::fs::write(
+            src.join("first.ts"),
+            "export function run() {}\nexport function start() { run(); }\n",
+        )
+        .expect("write first");
         std::fs::write(src.join("second.ts"), "export function run() {}\n").expect("write second");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/first.ts#start"
                 && edge.to == "src/first.ts#run"
@@ -4575,11 +4604,17 @@ export const mapValues = <T>(items: T[]) => items;
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
-        std::fs::write(src.join("entry.ts"), "export function start() { client.run(); }\n")
-            .expect("write entry");
+        std::fs::write(
+            src.join("entry.ts"),
+            "export function start() { client.run(); }\n",
+        )
+        .expect("write entry");
         std::fs::write(src.join("helper.ts"), "export function run() {}\n").expect("write helper");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(!graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/entry.ts#start"
                 && edge.to == "src/helper.ts#run"
@@ -4598,7 +4633,10 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write entry");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/entry.ts#start"
                 && edge.to == "src/entry.ts#run"
@@ -4674,7 +4712,10 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write dynamic consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/consumer.js#start"
                 && edge.to == "src/helpers.js#runTask"
@@ -4693,8 +4734,11 @@ export const mapValues = <T>(items: T[]) => items;
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
-        std::fs::write(src.join("worker.ts"), "export default function runTask() {}\n")
-            .expect("write default worker");
+        std::fs::write(
+            src.join("worker.ts"),
+            "export default function runTask() {}\n",
+        )
+        .expect("write default worker");
         std::fs::write(src.join("other.ts"), "export function runTask() {}\n")
             .expect("write duplicate worker");
         std::fs::write(
@@ -4703,7 +4747,10 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write default consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/consumer.ts#start"
                 && edge.to == "src/worker.ts#runTask"
@@ -4723,8 +4770,11 @@ export const mapValues = <T>(items: T[]) => items;
         std::fs::create_dir_all(&src).expect("create src");
         std::fs::write(src.join("worker.ts"), "export function runTask() {}\n")
             .expect("write worker");
-        std::fs::write(src.join("barrel.ts"), "export { runTask as default } from './worker';\n")
-            .expect("write barrel");
+        std::fs::write(
+            src.join("barrel.ts"),
+            "export { runTask as default } from './worker';\n",
+        )
+        .expect("write barrel");
         std::fs::write(src.join("anonymous.ts"), "export default function () {}\n")
             .expect("write anonymous default");
         std::fs::write(
@@ -4733,7 +4783,10 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.to == "src/worker.ts#runTask" && edge.kind == RepoGraphEdgeKind::CallReference
         }));
@@ -4749,12 +4802,18 @@ export const mapValues = <T>(items: T[]) => items;
         std::fs::create_dir_all(&src).expect("create src");
         std::fs::write(src.join("worker.ts"), "export function runTask() {}\n")
             .expect("write worker");
-        std::fs::write(src.join("named.ts"), "export { runTask as execute } from './worker';\n")
-            .expect("write named barrel");
+        std::fs::write(
+            src.join("named.ts"),
+            "export { runTask as execute } from './worker';\n",
+        )
+        .expect("write named barrel");
         std::fs::write(src.join("star.ts"), "export * from './worker';\n")
             .expect("write wildcard barrel");
-        std::fs::write(src.join("inner.ts"), "export { runTask } from './worker';\n")
-            .expect("write inner barrel");
+        std::fs::write(
+            src.join("inner.ts"),
+            "export { runTask } from './worker';\n",
+        )
+        .expect("write inner barrel");
         std::fs::write(src.join("outer.ts"), "export { runTask } from './inner';\n")
             .expect("write outer barrel");
         std::fs::write(src.join("final.ts"), "export * from './outer';\n")
@@ -4767,16 +4826,23 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
-        for edge in [
-            ("src/consumer.ts#start", "src/worker.ts#runTask"),
-        ] {
-            assert!(graph.symbol_edges.iter().any(|candidate| {
-                candidate.from == edge.0
-                    && candidate.to == edge.1
-                    && candidate.kind == RepoGraphEdgeKind::CallReference
-                    && candidate.reason == "AST call expression resolved through local import binding"
-            }), "missing re-export edge {} -> {}", edge.0, edge.1);
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
+        for edge in [("src/consumer.ts#start", "src/worker.ts#runTask")] {
+            assert!(
+                graph.symbol_edges.iter().any(|candidate| {
+                    candidate.from == edge.0
+                        && candidate.to == edge.1
+                        && candidate.kind == RepoGraphEdgeKind::CallReference
+                        && candidate.reason
+                            == "AST call expression resolved through local import binding"
+                }),
+                "missing re-export edge {} -> {}",
+                edge.0,
+                edge.1
+            );
         }
         assert!(!graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/consumer.ts#start"
@@ -4792,15 +4858,21 @@ export const mapValues = <T>(items: T[]) => items;
         std::fs::create_dir_all(&src).expect("create src");
         std::fs::write(src.join("worker.ts"), "export function runTask() {}\n")
             .expect("write worker");
-        std::fs::write(src.join("barrel.ts"), "const target = './worker'; export { target };\n")
-            .expect("write dynamic barrel");
+        std::fs::write(
+            src.join("barrel.ts"),
+            "const target = './worker'; export { target };\n",
+        )
+        .expect("write dynamic barrel");
         std::fs::write(
             src.join("consumer.ts"),
             "import { runTask } from './barrel';\nexport function start() { runTask(); }\n",
         )
         .expect("write consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(!graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/consumer.ts#start"
                 && edge.to == "src/worker.ts#runTask"
@@ -4824,10 +4896,12 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write cycle consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(!graph.symbol_edges.iter().any(|edge| {
-            edge.from == "src/consumer.ts#start"
-                && edge.kind == RepoGraphEdgeKind::CallReference
+            edge.from == "src/consumer.ts#start" && edge.kind == RepoGraphEdgeKind::CallReference
         }));
     }
 
@@ -4849,7 +4923,10 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/consumer.ts#start"
                 && edge.to == "src/worker.ts#runTask"
@@ -4862,10 +4939,12 @@ export const mapValues = <T>(items: T[]) => items;
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
-        std::fs::write(src.join("a.ts"), "export function runTask() {}\nfunction hidden() {}\n")
-            .expect("write a");
-        std::fs::write(src.join("b.ts"), "export function runTask() {}\n")
-            .expect("write b");
+        std::fs::write(
+            src.join("a.ts"),
+            "export function runTask() {}\nfunction hidden() {}\n",
+        )
+        .expect("write a");
+        std::fs::write(src.join("b.ts"), "export function runTask() {}\n").expect("write b");
         std::fs::write(
             src.join("barrel.ts"),
             "export * from './a';\nexport * from './b';\nexport { hidden } from './a';\n",
@@ -4877,7 +4956,10 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(!graph.symbol_edges.iter().any(|edge| {
             edge.kind == RepoGraphEdgeKind::CallReference
                 && (edge.to == "src/a.ts#runTask"
@@ -4932,7 +5014,10 @@ export const mapValues = <T>(items: T[]) => items;
         )
         .expect("write namespace consumer");
 
-        let graph = summarize_repo(root.path()).expect("summarize repo").graph.expect("graph");
+        let graph = summarize_repo(root.path())
+            .expect("summarize repo")
+            .graph
+            .expect("graph");
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/entry.ts#start"
                 && edge.to == "src/utils.ts#normalize"
@@ -5987,17 +6072,23 @@ export const mapValues = <T>(items: T[]) => items;
             let target = root.path().join(relative);
             std::fs::create_dir_all(target.parent().expect("golden parent"))
                 .expect("create golden parent");
-            std::fs::write(
-                target,
-                file["content"].as_str().expect("golden content"),
-            )
-            .expect("write golden file");
+            std::fs::write(target, file["content"].as_str().expect("golden content"))
+                .expect("write golden file");
         }
 
         let summary = summarize_repo(root.path()).expect("summarize golden repo");
-        assert_eq!(summary.total_files, fixture["expected"]["counts"]["totalFiles"]);
-        assert_eq!(summary.indexed_files, fixture["expected"]["counts"]["indexedFiles"]);
-        assert_eq!(summary.skipped_files, fixture["expected"]["counts"]["skippedFiles"]);
+        assert_eq!(
+            summary.total_files,
+            fixture["expected"]["counts"]["totalFiles"]
+        );
+        assert_eq!(
+            summary.indexed_files,
+            fixture["expected"]["counts"]["indexedFiles"]
+        );
+        assert_eq!(
+            summary.skipped_files,
+            fixture["expected"]["counts"]["skippedFiles"]
+        );
         let graph = summary.graph.expect("golden graph");
         let call_edge_projections = graph
             .symbol_edges
@@ -6008,45 +6099,74 @@ export const mapValues = <T>(items: T[]) => items;
                 format!("{}->{}", caller, edge.to)
             })
             .collect::<Vec<_>>();
-        let call_edges = call_edge_projections.iter().cloned().collect::<std::collections::BTreeSet<_>>();
-        assert_eq!(call_edge_projections.len(), call_edges.len(), "golden call-edge projections must be unique");
+        let call_edges = call_edge_projections
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(
+            call_edge_projections.len(),
+            call_edges.len(),
+            "golden call-edge projections must be unique"
+        );
         let expected_call_edges = fixture["expected"]["exactCallEdges"]
             .as_array()
             .expect("exact golden edges")
             .iter()
             .map(|edge| edge.as_str().expect("exact edge string").to_string())
             .collect::<std::collections::BTreeSet<_>>();
-        assert_eq!(call_edges, expected_call_edges, "unexpected golden call-edge projection");
+        assert_eq!(
+            call_edges, expected_call_edges,
+            "unexpected golden call-edge projection"
+        );
         for expected in fixture["expected"]["positiveCallEdges"]
             .as_array()
             .expect("positive golden edges")
         {
             let expected = expected.as_str().expect("positive edge string");
-            assert!(call_edges.contains(expected), "missing golden edge {expected}");
+            assert!(
+                call_edges.contains(expected),
+                "missing golden edge {expected}"
+            );
         }
         for forbidden in fixture["expected"]["negativeCallEdgesFrom"]
             .as_array()
             .expect("negative golden edges")
         {
             let forbidden = forbidden.as_str().expect("negative edge string");
-            assert!(!call_edges.contains(forbidden), "unexpected golden edge {forbidden}");
+            assert!(
+                !call_edges.contains(forbidden),
+                "unexpected golden edge {forbidden}"
+            );
         }
         let symbols = graph
             .symbols
             .iter()
             .map(|symbol| format!("{}#{}", symbol.file, symbol.name))
             .collect::<std::collections::BTreeSet<_>>();
-        assert_eq!(symbols.len(), graph.symbols.len(), "golden symbols must be unique");
+        assert_eq!(
+            symbols.len(),
+            graph.symbols.len(),
+            "golden symbols must be unique"
+        );
         let expected_symbols = fixture["expected"]["exactSymbols"]
             .as_array()
             .expect("exact golden symbols")
             .iter()
             .map(|symbol| symbol.as_str().expect("exact symbol string").to_string())
             .collect::<std::collections::BTreeSet<_>>();
-        assert_eq!(symbols, expected_symbols, "unexpected golden symbol projection");
-        for expected in fixture["expected"]["symbols"].as_array().expect("golden symbols") {
+        assert_eq!(
+            symbols, expected_symbols,
+            "unexpected golden symbol projection"
+        );
+        for expected in fixture["expected"]["symbols"]
+            .as_array()
+            .expect("golden symbols")
+        {
             let expected = expected.as_str().expect("golden symbol string");
-            assert!(symbols.contains(expected), "missing golden symbol {expected}");
+            assert!(
+                symbols.contains(expected),
+                "missing golden symbol {expected}"
+            );
         }
     }
 }

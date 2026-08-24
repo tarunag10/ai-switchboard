@@ -15,13 +15,25 @@ const MAX_OBSERVATIONS: usize = 256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub(crate) enum TransportRoute { Ingress, Headroom, DirectAnthropic, DirectOpenai, Cache }
+pub(crate) enum TransportRoute {
+    Ingress,
+    Headroom,
+    DirectAnthropic,
+    DirectOpenai,
+    Cache,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum TransportOutcome {
-    Success, UpstreamHttpError, ConnectFailure, WriteFailure, ReadFailure,
-    Timeout, ClientDisconnect, LocalRejection,
+    Success,
+    UpstreamHttpError,
+    ConnectFailure,
+    WriteFailure,
+    ReadFailure,
+    Timeout,
+    ClientDisconnect,
+    LocalRejection,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,24 +55,54 @@ pub(crate) struct TransportObservationRecorder {
 }
 
 impl TransportObservationRecorder {
-    pub(crate) fn begin(&self, route: TransportRoute, request_class: impl Into<String>, streaming: bool) -> String {
+    pub(crate) fn begin(
+        &self,
+        route: TransportRoute,
+        request_class: impl Into<String>,
+        streaming: bool,
+    ) -> String {
         let event_id = Uuid::new_v4().to_string();
         let observation = TransportObservation {
-            event_id: event_id.clone(), started_at_ms: now_ms(), completed_at_ms: None,
-            route, request_class: bounded_request_class(request_class.into()), streaming,
-            status_code: None, terminal_outcome: None,
+            event_id: event_id.clone(),
+            started_at_ms: now_ms(),
+            completed_at_ms: None,
+            route,
+            request_class: bounded_request_class(request_class.into()),
+            streaming,
+            status_code: None,
+            terminal_outcome: None,
         };
-        let mut observations = self.observations.lock().expect("transport recorder poisoned");
-        if observations.len() == MAX_OBSERVATIONS { observations.pop_front(); }
+        let mut observations = self
+            .observations
+            .lock()
+            .expect("transport recorder poisoned");
+        if observations.len() == MAX_OBSERVATIONS {
+            observations.pop_front();
+        }
         observations.push_back(observation);
         event_id
     }
 
     /// Completes an event at most once; duplicate or unknown IDs are ignored.
-    pub(crate) fn finish(&self, event_id: &str, status_code: Option<u16>, outcome: TransportOutcome) -> bool {
-        let mut observations = self.observations.lock().expect("transport recorder poisoned");
-        let Some(observation) = observations.iter_mut().find(|item| item.event_id == event_id) else { return false; };
-        if observation.completed_at_ms.is_some() { return false; }
+    pub(crate) fn finish(
+        &self,
+        event_id: &str,
+        status_code: Option<u16>,
+        outcome: TransportOutcome,
+    ) -> bool {
+        let mut observations = self
+            .observations
+            .lock()
+            .expect("transport recorder poisoned");
+        let Some(observation) = observations
+            .iter_mut()
+            .find(|item| item.event_id == event_id)
+        else {
+            return false;
+        };
+        if observation.completed_at_ms.is_some() {
+            return false;
+        }
         observation.completed_at_ms = Some(now_ms());
         observation.status_code = status_code;
         observation.terminal_outcome = Some(outcome);
@@ -68,7 +110,12 @@ impl TransportObservationRecorder {
     }
 
     pub(crate) fn snapshot(&self) -> Vec<TransportObservation> {
-        self.observations.lock().expect("transport recorder poisoned").iter().cloned().collect()
+        self.observations
+            .lock()
+            .expect("transport recorder poisoned")
+            .iter()
+            .cloned()
+            .collect()
     }
 }
 
@@ -78,7 +125,10 @@ pub(crate) fn global() -> &'static TransportObservationRecorder {
 }
 
 fn now_ms() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
 }
 
 fn bounded_request_class(value: String) -> String {
@@ -88,7 +138,9 @@ fn bounded_request_class(value: String) -> String {
         .next()
         .unwrap_or_default()
         .to_ascii_lowercase();
-    if normalized.is_empty() { return "unknown".to_string(); }
+    if normalized.is_empty() {
+        return "unknown".to_string();
+    }
     normalized.chars().take(64).collect()
 }
 
@@ -99,13 +151,20 @@ mod tests {
     #[test]
     fn finalization_is_exactly_once_and_content_free() {
         let recorder = TransportObservationRecorder::default();
-        let id = recorder.begin(TransportRoute::DirectOpenai, " /v1/responses?secret=1 ", true);
+        let id = recorder.begin(
+            TransportRoute::DirectOpenai,
+            " /v1/responses?secret=1 ",
+            true,
+        );
         assert!(recorder.finish(&id, Some(200), TransportOutcome::Success));
         assert!(!recorder.finish(&id, Some(500), TransportOutcome::ReadFailure));
         let observation = recorder.snapshot().pop().expect("observation");
         assert_eq!(observation.request_class, "/v1/responses");
         assert_eq!(observation.status_code, Some(200));
-        assert_eq!(observation.terminal_outcome, Some(TransportOutcome::Success));
+        assert_eq!(
+            observation.terminal_outcome,
+            Some(TransportOutcome::Success)
+        );
         assert!(observation.completed_at_ms.is_some());
     }
 
@@ -119,7 +178,9 @@ mod tests {
     #[test]
     fn recorder_is_bounded() {
         let recorder = TransportObservationRecorder::default();
-        for _ in 0..(MAX_OBSERVATIONS + 5) { recorder.begin(TransportRoute::Headroom, "anthropic", false); }
+        for _ in 0..(MAX_OBSERVATIONS + 5) {
+            recorder.begin(TransportRoute::Headroom, "anthropic", false);
+        }
         assert_eq!(recorder.snapshot().len(), MAX_OBSERVATIONS);
     }
 
@@ -133,9 +194,18 @@ mod tests {
         let upstream = recorder.begin(TransportRoute::DirectOpenai, "responses", false);
         assert!(recorder.finish(&upstream, Some(503), TransportOutcome::UpstreamHttpError));
         let observations = recorder.snapshot();
-        assert_eq!(observations[0].terminal_outcome, Some(TransportOutcome::ReadFailure));
-        assert_eq!(observations[1].terminal_outcome, Some(TransportOutcome::ClientDisconnect));
-        assert_eq!(observations[2].terminal_outcome, Some(TransportOutcome::UpstreamHttpError));
+        assert_eq!(
+            observations[0].terminal_outcome,
+            Some(TransportOutcome::ReadFailure)
+        );
+        assert_eq!(
+            observations[1].terminal_outcome,
+            Some(TransportOutcome::ClientDisconnect)
+        );
+        assert_eq!(
+            observations[2].terminal_outcome,
+            Some(TransportOutcome::UpstreamHttpError)
+        );
     }
 
     #[test]
@@ -146,7 +216,10 @@ mod tests {
         let observation = recorder.snapshot().pop().expect("observation");
         assert_eq!(observation.route, TransportRoute::Ingress);
         assert_eq!(observation.request_class, "unknown");
-        assert_eq!(observation.terminal_outcome, Some(TransportOutcome::Timeout));
+        assert_eq!(
+            observation.terminal_outcome,
+            Some(TransportOutcome::Timeout)
+        );
     }
 
     #[test]
@@ -158,7 +231,9 @@ mod tests {
                 .map(|_| {
                     let recorder = recorder.clone();
                     let event_id = event_id.clone();
-                    scope.spawn(move || recorder.finish(&event_id, Some(200), TransportOutcome::Success))
+                    scope.spawn(move || {
+                        recorder.finish(&event_id, Some(200), TransportOutcome::Success)
+                    })
                 })
                 .collect::<Vec<_>>();
             handles

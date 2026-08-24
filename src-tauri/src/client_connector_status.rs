@@ -212,8 +212,8 @@ mod tests {
             assert!(connector_has_complete_lifecycle_fixture(spec.id));
         }
         for spec in PLANNED_CLIENT_SPECS {
-            let manifest = crate::client_connectors::connector_manifest(spec.id)
-                .expect("connector manifest");
+            let manifest =
+                crate::client_connectors::connector_manifest(spec.id).expect("connector manifest");
             assert_eq!(
                 manifest.support_status == "managed",
                 connector_has_complete_lifecycle_fixture(spec.id),

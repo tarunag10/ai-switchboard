@@ -210,7 +210,6 @@ pub fn codex_provider_block_matches() -> Result<bool> {
     Ok(root_ok && table_ok)
 }
 
-
 fn remove_codex_provider_block() -> Result<()> {
     let path = codex_config_toml_path();
     if !path.exists() {
@@ -272,4 +271,3 @@ fn run_launchctl(args: &[&str]) -> Result<std::process::Output> {
         .with_context(|| format!("running launchctl {}", args.join(" ")))?;
     Ok(output)
 }
-

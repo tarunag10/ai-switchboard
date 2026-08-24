@@ -249,7 +249,10 @@ pub(crate) fn build_rtk_codex_nudge(managed_rtk_path: &Path) -> String {
     )
 }
 
-pub(crate) fn build_headroom_rtk_hook(managed_rtk_path: &Path, managed_python_path: &Path) -> String {
+pub(crate) fn build_headroom_rtk_hook(
+    managed_rtk_path: &Path,
+    managed_python_path: &Path,
+) -> String {
     let rtk = shell_double_quote(&managed_rtk_path.to_string_lossy());
     let python = shell_double_quote(&managed_python_path.to_string_lossy());
 

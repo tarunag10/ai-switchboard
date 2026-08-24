@@ -140,6 +140,7 @@ mod rtk;
 use headroom_receipt::parse_major_minor_patch;
 use headroom_receipt::{receipt_requires_atomic_rebuild, ATOMIC_REBUILD_FLOOR_VERSION};
 pub use leanctx::LeanctxSidecarStatus;
+pub(crate) use markitdown::MarkitdownInstallationSnapshot;
 #[allow(unused_imports)]
 pub use proxy_runtime::running_proxy_argv;
 pub use proxy_runtime::running_proxy_matches_expected_args;
@@ -161,7 +162,6 @@ use repo_memory::{
     write_mcp_server_to_claude_json,
 };
 pub use rtk::RtkGainSummary;
-pub(crate) use markitdown::MarkitdownInstallationSnapshot;
 pub(crate) use rtk::RtkInstallationSnapshot;
 #[cfg(test)]
 pub(crate) use rtk::{

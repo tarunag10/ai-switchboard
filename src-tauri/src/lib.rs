@@ -32,12 +32,13 @@ pub(crate) mod test_support {
     }
 }
 
+mod activation_commands;
 mod activity_commands;
 mod activity_facts;
 mod addon_commands;
-mod activation_commands;
 mod agent_memory;
 mod agent_memory_commands;
+mod aider_provider_configs;
 #[cfg(headroom_remote_services)]
 mod analytics;
 #[cfg(not(headroom_remote_services))]
@@ -58,44 +59,43 @@ mod cli_discovery;
 mod cli_entry;
 mod client_adapter_contract;
 mod client_adapters;
-mod client_integrations;
-mod client_managed_config;
 mod client_claude_settings;
-mod client_codex_setup;
-mod client_setup_sidecar;
-mod client_shell_setup;
-mod client_setup_apply;
-mod client_setup_disable;
-mod client_setup_verify;
-mod client_setup_state;
-mod compression_commands;
-mod content_free_observability;
-mod context_provider;
 mod client_cleanup;
+mod client_codex_setup;
 mod client_connector_list;
 mod client_connector_status;
 mod client_connectors;
 mod client_detection;
 mod client_footprint;
+mod client_integrations;
+mod client_managed_config;
 mod client_paths;
 mod client_provider_configs;
 mod client_rtk_integration;
-mod aider_provider_configs;
-mod continue_provider_configs;
+mod client_setup_apply;
 mod client_setup_commands;
+mod client_setup_disable;
+mod client_setup_sidecar;
+mod client_setup_state;
+mod client_setup_verify;
+mod client_shell_setup;
 mod client_sidecar_rollbacks;
 mod codex_threads;
+mod compression_commands;
 mod connector_smoke;
+mod content_free_observability;
+mod context_provider;
+mod continue_provider_configs;
 mod cursor_native;
 mod cursor_native_commands;
 mod daily_briefing;
 mod dashboard_commands;
-mod dsh_context_prototype;
-mod dsh_plugin_maturity;
 mod dedicated_cleanup_rollback;
 mod deepseek_harness;
 mod device;
 mod doctor;
+mod dsh_context_prototype;
+mod dsh_plugin_maturity;
 mod endpoint_routing;
 mod enterprise_evidence_chain;
 mod external_open;
@@ -103,9 +103,9 @@ mod gateway_readiness;
 mod goose_provider_configs;
 mod headroom_advanced_settings;
 mod headroom_learn;
-mod insights;
 mod inference_endpoint;
 mod inference_endpoint_commands;
+mod insights;
 mod keychain;
 mod learning_commands;
 mod live_benchmark;
@@ -118,21 +118,21 @@ mod message_logging;
 mod message_settings_commands;
 mod models;
 mod optimization;
-mod optimization_engine;
 mod optimization_addons_readiness;
 mod optimization_commands;
+mod optimization_engine;
 mod oss_capabilities;
 mod oss_harness_replay;
 mod plugin_promotion_gate;
 mod ponytail_bundled;
 mod port_conflict;
 mod pricing;
-mod provider_upstream_profiles;
 mod pricing_commands;
 mod process_runner;
+mod provider_billed_counterfactual;
+mod provider_upstream_profiles;
 mod proxy_intercept;
 mod proxy_session_auth;
-mod provider_billed_counterfactual;
 mod release_evidence;
 mod repo_intelligence;
 mod repo_intelligence_commands;
@@ -152,17 +152,17 @@ mod semantic_cache_experiment;
 mod startup_error;
 mod state;
 mod storage;
-mod switchboard_identity;
 mod switchboard_commands;
+mod switchboard_identity;
 mod tenant_policy;
-mod transport_observations;
 mod token_xray;
 mod tool_manager;
+mod transport_observations;
 mod tray_runtime;
-mod vllm_benchmark_adapter;
-mod workbench_kernel;
 #[cfg(test)]
 mod tray_window;
+mod vllm_benchmark_adapter;
+mod workbench_kernel;
 
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -2262,7 +2262,9 @@ mod tests {
         assert!(!crate::connector_smoke::connector_smoke_response_matches(
             "prefix\nswitchboard verification ok\n"
         ));
-        assert!(!crate::connector_smoke::connector_smoke_response_matches("") );
+        assert!(!crate::connector_smoke::connector_smoke_response_matches(
+            ""
+        ));
     }
 
     #[test]
@@ -2922,7 +2924,9 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_decodes_proxy_response() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
         let app_storage_temp = tempfile::tempdir().expect("app storage tempdir");
         let _app_storage = AppStorageEnvGuard::isolated(app_storage_temp.path());
@@ -2984,7 +2988,9 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_returns_error_on_non_2xx_status() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         use std::io::{Read, Write};
         use std::net::TcpListener;
 
@@ -3158,7 +3164,9 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_returns_error_when_proxy_unreachable() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         // Bind and immediately drop a listener so we know the port is free.
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();

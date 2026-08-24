@@ -208,10 +208,8 @@ mod tests {
     use super::*;
 
     fn sample_request(header_line: &str) -> Vec<u8> {
-        format!(
-            "POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1:6767\r\n{header_line}\r\n\r\n"
-        )
-        .into_bytes()
+        format!("POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1:6767\r\n{header_line}\r\n\r\n")
+            .into_bytes()
     }
 
     #[test]

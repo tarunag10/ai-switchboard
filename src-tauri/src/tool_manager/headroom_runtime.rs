@@ -117,8 +117,9 @@ impl ToolManager {
             // -m double-import RuntimeWarning. Fall back to -m if missing.
             let compression_profile =
                 crate::tool_manager::compression_profiles::load_compression_profile();
-            let savings_mode =
-                crate::tool_manager::compression_profiles::effective_savings_mode(&compression_profile);
+            let savings_mode = crate::tool_manager::compression_profiles::effective_savings_mode(
+                &compression_profile,
+            );
             let upstream_profiles =
                 crate::provider_upstream_profiles::load_provider_upstream_profiles();
             repair_console_script_interpreter(&entrypoint, &python)?;

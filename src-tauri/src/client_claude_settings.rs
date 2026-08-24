@@ -3,10 +3,14 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 
-use crate::client_paths::{claude_settings_candidates, claude_settings_path, headroom_rtk_hook_path, home_dir};
+use crate::client_paths::{
+    claude_settings_candidates, claude_settings_path, headroom_rtk_hook_path, home_dir,
+};
 use crate::client_provider_configs::HEADROOM_ANTHROPIC_BASE_URL;
-use crate::managed_files::{backup_if_exists, parse_json_object, remove_managed_block, write_file_if_changed};
 use crate::client_setup_state::default_headroom_rtk_path;
+use crate::managed_files::{
+    backup_if_exists, parse_json_object, remove_managed_block, write_file_if_changed,
+};
 
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
 

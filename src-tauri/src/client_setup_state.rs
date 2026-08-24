@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::client_paths::{
     all_shell_paths, dedupe_paths, dedupe_strings, default_shell_targets_for_family,
-    detect_shell_family, discover_managed_shell_targets, is_profile_file,
-    shell_targets_from_state,
+    detect_shell_family, discover_managed_shell_targets, is_profile_file, shell_targets_from_state,
 };
 use crate::models::{SavingsMode, SwitchboardMode};
 use crate::storage::{app_data_dir, config_file};
@@ -177,7 +176,10 @@ pub(crate) fn default_headroom_managed_python_path() -> PathBuf {
         .join("python3")
 }
 
-pub(crate) fn resolve_client_shell_targets(state: &ClientSetupState, client_id: &str) -> Result<Vec<PathBuf>> {
+pub(crate) fn resolve_client_shell_targets(
+    state: &ClientSetupState,
+    client_id: &str,
+) -> Result<Vec<PathBuf>> {
     let state_id = normalized_setup_id(client_id);
     let mut targets = shell_targets_from_state(state.managed_shell_files.get(state_id));
     if targets.is_empty() {

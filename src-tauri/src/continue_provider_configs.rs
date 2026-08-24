@@ -229,7 +229,10 @@ pub(crate) fn remove_continue_provider_config() -> Result<Vec<String>> {
         return Ok(Vec::new());
     }
     let (mut root, raw) = read_config(&path)?;
-    let Some(models) = root.get_mut(string_key("models")).and_then(Value::as_sequence_mut) else {
+    let Some(models) = root
+        .get_mut(string_key("models"))
+        .and_then(Value::as_sequence_mut)
+    else {
         return Ok(Vec::new());
     };
     let before = models.len();
@@ -289,11 +292,11 @@ mod tests {
     #[serial_test::serial]
     fn adds_headroom_model_without_touching_existing_models() {
         with_continue_home("append", |continue_root| {
-        let config = continue_root.join("config.yaml");
-        fs::create_dir_all(config.parent().unwrap()).expect("continue dir");
-        fs::write(
-            &config,
-            r#"name: User Config
+            let config = continue_root.join("config.yaml");
+            fs::create_dir_all(config.parent().unwrap()).expect("continue dir");
+            fs::write(
+                &config,
+                r#"name: User Config
 version: 1.0.0
 schema: v1
 models:
@@ -302,27 +305,27 @@ models:
     model: gpt-4o
     apiKey: secret-should-stay
 "#,
-        )
-        .expect("seed config");
+            )
+            .expect("seed config");
 
-        let (next, changed) = continue_next_provider_config().expect("preview");
-        assert!(changed);
-        assert!(next.contains("GPT-4o"));
-        assert!(next.contains("secret-should-stay"));
-        assert!(next.contains(CONTINUE_HEADROOM_MODEL_NAME));
-        assert!(next.contains(HEADROOM_OPENAI_BASE_URL));
+            let (next, changed) = continue_next_provider_config().expect("preview");
+            assert!(changed);
+            assert!(next.contains("GPT-4o"));
+            assert!(next.contains("secret-should-stay"));
+            assert!(next.contains(CONTINUE_HEADROOM_MODEL_NAME));
+            assert!(next.contains(HEADROOM_OPENAI_BASE_URL));
 
-        configure_continue_provider_config().expect("apply");
-        assert!(continue_provider_config_matches().expect("matches"));
-        let applied = fs::read_to_string(&config).expect("read applied");
-        assert!(applied.contains("GPT-4o"));
-        assert!(applied.contains("secret-should-stay"));
+            configure_continue_provider_config().expect("apply");
+            assert!(continue_provider_config_matches().expect("matches"));
+            let applied = fs::read_to_string(&config).expect("read applied");
+            assert!(applied.contains("GPT-4o"));
+            assert!(applied.contains("secret-should-stay"));
 
-        remove_continue_provider_config().expect("remove");
-        assert!(!continue_provider_config_matches().expect("removed"));
-        let restored = fs::read_to_string(&config).expect("read removed");
-        assert!(restored.contains("GPT-4o"));
-        assert!(!restored.contains(CONTINUE_HEADROOM_MODEL_NAME));
+            remove_continue_provider_config().expect("remove");
+            assert!(!continue_provider_config_matches().expect("removed"));
+            let restored = fs::read_to_string(&config).expect("read removed");
+            assert!(restored.contains("GPT-4o"));
+            assert!(!restored.contains(CONTINUE_HEADROOM_MODEL_NAME));
         });
     }
 
@@ -330,11 +333,11 @@ models:
     #[serial_test::serial]
     fn refuses_conflicting_model_name() {
         with_continue_home("conflict", |continue_root| {
-        let config = continue_root.join("config.yaml");
-        fs::create_dir_all(config.parent().unwrap()).expect("continue dir");
-        fs::write(
-            &config,
-            r#"name: User Config
+            let config = continue_root.join("config.yaml");
+            fs::create_dir_all(config.parent().unwrap()).expect("continue dir");
+            fs::write(
+                &config,
+                r#"name: User Config
 version: 1.0.0
 schema: v1
 models:
@@ -343,11 +346,11 @@ models:
     model: gpt-4o
     apiBase: https://api.openai.com/v1
 "#,
-        )
-        .expect("seed config");
+            )
+            .expect("seed config");
 
-        let error = continue_next_provider_config().expect_err("conflict");
-        assert!(error.to_string().contains("conflicting model"));
+            let error = continue_next_provider_config().expect_err("conflict");
+            assert!(error.to_string().contains("conflicting model"));
         });
     }
 }

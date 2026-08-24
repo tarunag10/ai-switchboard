@@ -4,6 +4,11 @@ use anyhow::{anyhow, Context, Result};
 use serde_json;
 use serde_yaml::Value;
 
+use crate::aider_provider_configs::{
+    aider_apply_confirmation_phrase, aider_config_backup_pattern, aider_next_provider_config,
+    aider_provider_config_matches, configure_aider_provider_config, AIDER_NATIVE_APPLY_RECORD_ID,
+    AIDER_NATIVE_MARKER, AIDER_NATIVE_OWNER,
+};
 use crate::client_adapters::{
     codex_provider_block_matches, configure_planned_switchboard_sidecar, disable_client_setup,
     execute_provider_sidecar_apply, load_setup_state, planned_switchboard_sidecar_matches,
@@ -13,35 +18,30 @@ use crate::client_adapters::{
     GEMINI_BASE_URL_ENV_KEY, GOOSE_SIDECAR_APPLY_RECORD_ID, GOOSE_SIDECAR_OWNER,
     GROK_SIDECAR_APPLY_RECORD_ID, GROK_SIDECAR_OWNER,
 };
-use crate::aider_provider_configs::{
-    aider_apply_confirmation_phrase, aider_config_backup_pattern, aider_next_provider_config,
-    aider_provider_config_matches, configure_aider_provider_config, AIDER_NATIVE_APPLY_RECORD_ID,
-    AIDER_NATIVE_MARKER, AIDER_NATIVE_OWNER,
-};
 use crate::client_paths::{
     aider_config_path, codex_config_toml_path, continue_config_path, grok_config_path, home_dir,
     opencode_config_path, planned_sidecar_routing_path, windsurf_config_path, zed_config_path,
     SWITCHBOARD_ROUTING_FILE,
-};
-use crate::continue_provider_configs::{
-    configure_continue_provider_config, continue_apply_confirmation_phrase,
-    continue_config_backup_pattern, continue_next_provider_config,
-    continue_provider_config_matches, CONTINUE_NATIVE_APPLY_RECORD_ID, CONTINUE_NATIVE_MARKER,
-    CONTINUE_NATIVE_OWNER,
 };
 use crate::client_provider_configs::{
     configure_grok_provider_config, configure_opencode_provider_config,
     configure_windsurf_provider_config, configure_zed_provider_config,
     grok_apply_confirmation_phrase, grok_config_backup_pattern, grok_next_provider_config,
     grok_provider_config_matches, opencode_apply_confirmation_phrase,
-    opencode_config_backup_pattern, opencode_next_provider_config, opencode_provider_config_matches,
-    windsurf_apply_confirmation_phrase, windsurf_config_backup_pattern,
-    windsurf_next_provider_config, windsurf_provider_config_matches, zed_apply_confirmation_phrase,
-    zed_config_backup_pattern, zed_next_provider_config, zed_provider_config_matches,
-    GROK_MARKER_PREFIX,
+    opencode_config_backup_pattern, opencode_next_provider_config,
+    opencode_provider_config_matches, windsurf_apply_confirmation_phrase,
+    windsurf_config_backup_pattern, windsurf_next_provider_config,
+    windsurf_provider_config_matches, zed_apply_confirmation_phrase, zed_config_backup_pattern,
+    zed_next_provider_config, zed_provider_config_matches, GROK_MARKER_PREFIX,
 };
 use crate::client_sidecar_rollbacks::{
     execute_sidecar_rollback, preview_sidecar_rollback, sidecar_rollback_target,
+};
+use crate::continue_provider_configs::{
+    configure_continue_provider_config, continue_apply_confirmation_phrase,
+    continue_config_backup_pattern, continue_next_provider_config,
+    continue_provider_config_matches, CONTINUE_NATIVE_APPLY_RECORD_ID, CONTINUE_NATIVE_MARKER,
+    CONTINUE_NATIVE_OWNER,
 };
 use crate::goose_provider_configs::{
     configure_goose_provider_config, goose_apply_confirmation_phrase, goose_config_backup_pattern,
@@ -1211,9 +1211,8 @@ mod tests {
         assert!(!json.contains("json-secret"));
         assert!(!json.contains("token-secret"));
 
-        let toml = redact_toml_for_display(
-            "[auth]\napi_key = \"toml-secret\"\nmodel = \"gpt-4o\"\n",
-        );
+        let toml =
+            redact_toml_for_display("[auth]\napi_key = \"toml-secret\"\nmodel = \"gpt-4o\"\n");
         assert!(toml.contains("model = \"gpt-4o\""));
         assert!(toml.contains("<redacted>"));
         assert!(!toml.contains("toml-secret"));

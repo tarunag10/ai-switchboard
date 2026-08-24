@@ -50,7 +50,6 @@ mod repo_memory_mcp;
 mod runtime_lifecycle;
 mod runtime_maintenance;
 mod savings;
-pub use savings::ContentClassCompressionStats;
 use headroom_learn_runtime::HeadroomLearnRuntimeState;
 use launch_profile::{
     persist_last_known_good_plan, persist_launch_profile, LastKnownGoodPlan, LaunchProfile,
@@ -61,6 +60,7 @@ use repo_memory_mcp::{
 use runtime_maintenance::{
     emit_runtime_upgrade_progress, PostSpawnSnapshot, RuntimeMaintenancePlan,
 };
+pub use savings::ContentClassCompressionStats;
 use savings::{
     aggregate_savings_attribution_counters, aggregate_weekly_totals, build_addon_attribution_event,
     build_agent_memory_attribution_event, build_insights,
@@ -136,15 +136,13 @@ pub struct AppState {
     /// Native-issued, short-lived model-routing completion capabilities. The
     /// map is process-local and consumed before persistence to make retries
     /// and forged completion decisions fail closed.
-    pub(crate) model_routing_completion_handles: Mutex<
-        BTreeMap<String, crate::optimization::model_routing::PendingModelRoutingCompletion>,
-    >,
+    pub(crate) model_routing_completion_handles:
+        Mutex<BTreeMap<String, crate::optimization::model_routing::PendingModelRoutingCompletion>>,
     /// Short-lived, one-shot export capabilities created only after a native
     /// completion persisted successfully. Raw run-ID export remains a manual
     /// diagnostic path.
-    pub(crate) completed_model_routing_runs: Mutex<
-        BTreeMap<String, crate::optimization::model_routing::CompletedModelRoutingRun>,
-    >,
+    pub(crate) completed_model_routing_runs:
+        Mutex<BTreeMap<String, crate::optimization::model_routing::CompletedModelRoutingRun>>,
     /// Dedicated content-free analytics snapshots. This never aliases the
     /// savings ledger, so clearing analytics cannot remove attribution evidence.
     analytics_dir: PathBuf,
@@ -316,7 +314,7 @@ impl AppState {
                     base_dir.join("semantic-cache-fallback.json"),
                 )
                 .map_err(|fallback_err| {
-                        anyhow::anyhow!("opening response cache fallback: {fallback_err}")
+                    anyhow::anyhow!("opening response cache fallback: {fallback_err}")
                 })?;
                 fallback.set_enabled(false).map_err(|fallback_err| {
                     anyhow::anyhow!("disabling response cache fallback: {fallback_err}")
@@ -332,8 +330,7 @@ impl AppState {
         let savings_tracker = SavingsTracker::load_or_create(&base_dir)?;
         let activity_facts = ActivityFacts::load_or_create(&base_dir)?;
 
-        let proxy_session_auth =
-            crate::proxy_session_auth::ProxySessionAuth::open(&base_dir);
+        let proxy_session_auth = crate::proxy_session_auth::ProxySessionAuth::open(&base_dir);
         let state = Self {
             tool_manager,
             semantic_cache,
@@ -1538,11 +1535,9 @@ impl AppState {
     pub fn daily_usage_briefing(&self) -> crate::analytics_models::DailyUsageBriefingV1 {
         let dashboard = self.dashboard();
         let attribution = self.savings_attribution_events();
-        let briefing = crate::daily_briefing::build_briefing(
-            &dashboard,
-            attribution.clone(),
-        );
-        let normalized = crate::analytics_normalization::normalize(&dashboard, attribution, |_| true, |_| true);
+        let briefing = crate::daily_briefing::build_briefing(&dashboard, attribution.clone());
+        let normalized =
+            crate::analytics_normalization::normalize(&dashboard, attribution, |_| true, |_| true);
         if let Err(error) =
             crate::analytics_store::save_events(&self.analytics_dir, &normalized.events)
         {
@@ -1828,15 +1823,23 @@ impl AppState {
             || measurement_id.len() > 128
             || measurement_id.chars().any(char::is_control)
         {
-            return Err(anyhow!("measured attribution requires a stable measurement ID"));
+            return Err(anyhow!(
+                "measured attribution requires a stable measurement ID"
+            ));
         }
         if let Some(provenance) = &measurement_provenance {
             for (label, value) in [
                 ("session ID", provenance.session_id.as_deref()),
                 ("provider", provenance.provider.as_deref()),
                 ("model", provenance.model.as_deref()),
-                ("baseline timestamp", provenance.baseline_observed_at.as_deref()),
-                ("optimized timestamp", provenance.optimized_observed_at.as_deref()),
+                (
+                    "baseline timestamp",
+                    provenance.baseline_observed_at.as_deref(),
+                ),
+                (
+                    "optimized timestamp",
+                    provenance.optimized_observed_at.as_deref(),
+                ),
             ] {
                 if let Some(value) = value {
                     if value.trim().is_empty()
@@ -1893,7 +1896,8 @@ impl AppState {
     pub fn headroom_content_class_for_xray(
         &self,
     ) -> Option<crate::state::ContentClassCompressionStats> {
-        self.cached_headroom_stats().map(|stats| stats.content_class)
+        self.cached_headroom_stats()
+            .map(|stats| stats.content_class)
     }
 
     pub fn record_provider_billed_counterfactual(
@@ -4824,7 +4828,7 @@ mod tests {
             session_actual_cost_usd: Some(1.5),
             session_total_tokens_sent: Some(9_000),
             savings_history: vec![hp(9, 0), hp(10, 1_000), hp(11, 3_000)],
-        ..Default::default()
+            ..Default::default()
         });
         let total_second: u64 = tracker
             .hourly_savings()

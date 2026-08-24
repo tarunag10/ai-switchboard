@@ -4,8 +4,8 @@ use chrono::Utc;
 use tauri::{AppHandle, Manager, State};
 
 use crate::models::{
-    ActivityFeedResponse, AppliedSection, ClaudeCodeProject, ClaudeUsage,
-    TransformationFeedEvent, TransformationFeedResponse,
+    ActivityFeedResponse, AppliedSection, ClaudeCodeProject, ClaudeUsage, TransformationFeedEvent,
+    TransformationFeedResponse,
 };
 use crate::state::AppState;
 use crate::{learning_commands, message_logging, pricing};

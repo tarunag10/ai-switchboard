@@ -9,9 +9,9 @@ use crate::client_connector_status::{
     planned_connector_automation_path, MANAGED_CLIENT_SPECS,
 };
 use crate::client_connectors::{
-    connector_manifest, manifest_config_locations, manifest_detection_sources,
-    manifest_forbidden_reads, manifest_support_status, planned_config_creation_step_details,
-    managed_connector_dry_run_preview, planned_connector_dry_run_preview,
+    connector_manifest, managed_connector_dry_run_preview, manifest_config_locations,
+    manifest_detection_sources, manifest_forbidden_reads, manifest_support_status,
+    planned_config_creation_step_details, planned_connector_dry_run_preview,
     planned_connector_has_implemented_setup, planned_connector_has_implemented_sidecar_setup,
     PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
 };

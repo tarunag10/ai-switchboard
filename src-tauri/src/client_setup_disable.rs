@@ -11,8 +11,8 @@ use crate::client_paths::{
     claude_settings_candidates, headroom_rtk_hook_path, planned_sidecar_routing_path,
 };
 use crate::client_provider_configs::{
-    remove_grok_provider_config, remove_opencode_provider_config,
-    remove_windsurf_provider_config, remove_zed_provider_config, HEADROOM_ANTHROPIC_BASE_URL,
+    remove_grok_provider_config, remove_opencode_provider_config, remove_windsurf_provider_config,
+    remove_zed_provider_config, HEADROOM_ANTHROPIC_BASE_URL,
 };
 use crate::client_setup_state::{
     load_setup_state, normalized_setup_id, resolve_client_shell_targets_for_cleanup,

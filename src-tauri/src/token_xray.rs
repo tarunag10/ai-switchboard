@@ -285,9 +285,7 @@ fn provider_billed_metric(
     };
     let value = match kind {
         ProviderBilledMetricKind::Optimized => extract_headroom_billed_input_tokens(sent),
-        ProviderBilledMetricKind::Baseline => {
-            extract_headroom_baseline_tokens(sent, saved)
-        }
+        ProviderBilledMetricKind::Baseline => extract_headroom_baseline_tokens(sent, saved),
     };
     let Some(value) = value else {
         return TokenMetricV1::unavailable(
@@ -730,8 +728,13 @@ mod tests {
         let usage = (0..(LIVE_UPDATE_TIMELINE_LIMIT as u64 + 4))
             .map(|index| usage("https://example.test/model=latest", index + 1, 2))
             .collect();
-        let snapshot =
-            build_snapshot_with_cache_metrics(&dashboard_with_usage(usage), vec![], None, None, None);
+        let snapshot = build_snapshot_with_cache_metrics(
+            &dashboard_with_usage(usage),
+            vec![],
+            None,
+            None,
+            None,
+        );
         let update = live_update_projection(snapshot, 7);
 
         assert_eq!(update.revision, 7);

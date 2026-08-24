@@ -1144,18 +1144,17 @@ impl SavingsTracker {
         );
         if is_addon_source
             && self.attribution_events().iter().any(|existing| {
-                (event.measurement_id.is_some()
-                    && existing.measurement_id == event.measurement_id)
+                (event.measurement_id.is_some() && existing.measurement_id == event.measurement_id)
                     || (event.measurement_id.is_none()
                         && existing.measurement_id.is_none()
                         && existing.source == event.source
-                    && existing.scope == event.scope
-                    && existing.confidence == event.confidence
-                    && existing.delta_tokens_saved == event.delta_tokens_saved
-                    && existing.delta_usd == event.delta_usd
-                    && existing.total_tokens_sent == event.total_tokens_sent
-                    && existing.request_delta == event.request_delta
-                    && existing.evidence == event.evidence)
+                        && existing.scope == event.scope
+                        && existing.confidence == event.confidence
+                        && existing.delta_tokens_saved == event.delta_tokens_saved
+                        && existing.delta_usd == event.delta_usd
+                        && existing.total_tokens_sent == event.total_tokens_sent
+                        && existing.request_delta == event.request_delta
+                        && existing.evidence == event.evidence)
             })
         {
             return Ok(());
@@ -1176,8 +1175,13 @@ impl SavingsTracker {
                 .open(&self.attribution_events_path)
                 .with_context(|| format!("opening {}", self.attribution_events_path.display()))?;
             use std::io::Write;
-            file.write_all(lines.last().expect("just appended attribution line").as_bytes())
-                .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+            file.write_all(
+                lines
+                    .last()
+                    .expect("just appended attribution line")
+                    .as_bytes(),
+            )
+            .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
             file.write_all(b"\n")
                 .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
             return Ok(());
@@ -1679,12 +1683,7 @@ pub(super) fn parse_content_class_compression(root: &Value) -> ContentClassCompr
     ContentClassCompressionStats {
         tool_result_tokens: content_class_layer_value(
             root,
-            &[
-                "tool_results",
-                "tool_result",
-                "tool-results",
-                "toolResults",
-            ],
+            &["tool_results", "tool_result", "tool-results", "toolResults"],
         ),
         history_tokens: content_class_layer_value(
             root,
@@ -3050,21 +3049,33 @@ mod tests {
         .expect("first attribution");
         first.measurement_id = Some("measurement-replay-1".to_string());
         let mut replay = first.clone();
-        replay.evidence.push("replayed with changed wording".to_string());
+        replay
+            .evidence
+            .push("replayed with changed wording".to_string());
         let mut distinct = first.clone();
         distinct.measurement_id = Some("measurement-replay-2".to_string());
 
         let tracker = make_tracker();
-        tracker.append_attribution_event(&first).expect("append first");
-        tracker.append_attribution_event(&replay).expect("ignore replay");
+        tracker
+            .append_attribution_event(&first)
+            .expect("append first");
+        tracker
+            .append_attribution_event(&replay)
+            .expect("ignore replay");
         tracker
             .append_attribution_event(&distinct)
             .expect("append distinct sample");
 
         let events = tracker.attribution_events();
         assert_eq!(events.len(), 2);
-        assert_eq!(events[0].measurement_id.as_deref(), Some("measurement-replay-1"));
-        assert_eq!(events[1].measurement_id.as_deref(), Some("measurement-replay-2"));
+        assert_eq!(
+            events[0].measurement_id.as_deref(),
+            Some("measurement-replay-1")
+        );
+        assert_eq!(
+            events[1].measurement_id.as_deref(),
+            Some("measurement-replay-2")
+        );
         let _ = std::fs::remove_file(&tracker.attribution_events_path);
     }
 

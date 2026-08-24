@@ -3,13 +3,13 @@ use anyhow::{anyhow, Result};
 use crate::client_codex_setup::codex_provider_block_matches;
 use crate::client_connectors::planned_sidecar_spec;
 use crate::client_paths::{
-    grok_config_path, opencode_config_path, planned_sidecar_routing_path, headroom_rtk_hook_path,
+    grok_config_path, headroom_rtk_hook_path, opencode_config_path, planned_sidecar_routing_path,
     windsurf_config_path, zed_config_path,
 };
 use crate::client_provider_configs::{
     grok_provider_config_matches, opencode_provider_config_matches,
-    windsurf_provider_config_matches, zed_provider_config_matches,
-    HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL, OPENCODE_HEADROOM_PROVIDER_ID,
+    windsurf_provider_config_matches, zed_provider_config_matches, HEADROOM_ANTHROPIC_BASE_URL,
+    HEADROOM_OPENAI_BASE_URL, OPENCODE_HEADROOM_PROVIDER_ID,
 };
 use crate::client_setup_sidecar::planned_switchboard_sidecar_matches;
 use crate::client_setup_state::{

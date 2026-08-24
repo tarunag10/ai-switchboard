@@ -289,9 +289,7 @@ impl AppState {
                 session.last_checked_at = Some(Utc::now());
                 session.last_exit_at = Some(Utc::now());
                 if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
-                    log::warn!(
-                        "failed to persist repo-memory MCP relaunch failed state: {err:#}"
-                    );
+                    log::warn!("failed to persist repo-memory MCP relaunch failed state: {err:#}");
                 }
             }
         }

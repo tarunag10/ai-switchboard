@@ -7,11 +7,19 @@ use chrono::Utc;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+pub(crate) use crate::client_claude_settings::{
+    claude_hook_present_in_value, configure_claude_settings_env, configure_vscode_settings,
+    ensure_claude_settings_hook, entry_contains_hook, remove_claude_settings_env,
+    remove_legacy_vscode_base_url_keys, remove_vscode_connector_keys,
+};
+pub use crate::client_codex_setup::{codex_provider_block_matches, CODEX_ROOT_BLOCK_ID};
+pub(crate) use crate::client_codex_setup::{
+    configure_codex_provider_block, disable_codex_cli, disable_codex_gui,
+};
 use crate::client_connector_status::MANAGED_CLIENT_SPECS;
 use crate::client_connectors::{
     planned_connector_has_implemented_setup, planned_connector_has_implemented_sidecar_setup,
-    planned_sidecar_spec, PlannedSidecarSpec,
-    PLANNED_SIDECAR_SPECS,
+    planned_sidecar_spec, PlannedSidecarSpec, PLANNED_SIDECAR_SPECS,
 };
 use crate::client_detection::codex_home;
 use crate::client_paths::{
@@ -23,21 +31,10 @@ use crate::client_paths::{
 use crate::client_provider_configs::{
     configure_grok_provider_config, configure_opencode_provider_config,
     configure_windsurf_provider_config, configure_zed_provider_config,
-    grok_provider_config_matches, opencode_provider_config_matches,
-    remove_grok_provider_config, remove_opencode_provider_config,
-    remove_windsurf_provider_config, remove_zed_provider_config,
-    windsurf_provider_config_matches, zed_provider_config_matches,
-    GROK_MARKER_PREFIX, HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL,
-    OPENCODE_HEADROOM_PROVIDER_ID,
-};
-pub(crate) use crate::client_codex_setup::{
-    configure_codex_provider_block, disable_codex_cli, disable_codex_gui,
-};
-pub use crate::client_codex_setup::{codex_provider_block_matches, CODEX_ROOT_BLOCK_ID};
-pub(crate) use crate::client_claude_settings::{
-    configure_claude_settings_env, configure_vscode_settings, ensure_claude_settings_hook,
-    remove_claude_settings_env, remove_legacy_vscode_base_url_keys, remove_vscode_connector_keys,
-    claude_hook_present_in_value, entry_contains_hook,
+    grok_provider_config_matches, opencode_provider_config_matches, remove_grok_provider_config,
+    remove_opencode_provider_config, remove_windsurf_provider_config, remove_zed_provider_config,
+    windsurf_provider_config_matches, zed_provider_config_matches, GROK_MARKER_PREFIX,
+    HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL, OPENCODE_HEADROOM_PROVIDER_ID,
 };
 pub(crate) use crate::client_setup_sidecar::{
     configure_planned_switchboard_sidecar, execute_provider_sidecar_apply,
@@ -46,16 +43,17 @@ pub(crate) use crate::client_setup_sidecar::{
     CURSOR_SIDECAR_OWNER, GOOSE_SIDECAR_APPLY_RECORD_ID, GOOSE_SIDECAR_OWNER,
     GROK_SIDECAR_APPLY_RECORD_ID, GROK_SIDECAR_OWNER,
 };
+use crate::client_setup_state::{
+    default_headroom_managed_python_path, default_headroom_rtk_path, is_codex_enabled,
+    load_setup_state, normalized_setup_id, resolve_client_shell_targets,
+    resolve_client_shell_targets_for_cleanup, write_setup_state, ClientSetupState,
+};
+pub use crate::client_setup_verify::verify_client_setup;
 pub(crate) use crate::client_shell_setup::{
     build_headroom_rtk_hook, claude_settings_env_matches, claude_settings_hook_matches,
     configure_shell_block, ensure_rtk_integrations_for_targets, is_headroom_proxy_reachable,
     managed_block_contains_text, shell_block_contains_in_files, shell_block_contains_text_in_files,
     shell_double_quote,
-};
-use crate::client_setup_state::{
-    default_headroom_managed_python_path, default_headroom_rtk_path, is_codex_enabled,
-    load_setup_state, normalized_setup_id, resolve_client_shell_targets,
-    resolve_client_shell_targets_for_cleanup, write_setup_state, ClientSetupState,
 };
 use crate::managed_files::{
     backup_if_exists, managed_block_updated_content, managed_marker_end, managed_marker_start,
@@ -66,7 +64,6 @@ use crate::models::{
     ClientSetupResult, ClientSetupVerification, ManagedConfigApplyPreview,
     ManagedConfigApplyResult, ManagedRollbackExecutionStatus,
 };
-pub use crate::client_setup_verify::verify_client_setup;
 
 // Raw proxy base — use provider-specific constants below when configuring client endpoints.
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
@@ -212,7 +209,8 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             backup_files.extend(updates.1);
         }
         "continue" => {
-            let mut updates = crate::continue_provider_configs::configure_continue_provider_config()?;
+            let mut updates =
+                crate::continue_provider_configs::configure_continue_provider_config()?;
             let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
             if changed {
                 updates.0.push(
@@ -365,9 +363,7 @@ pub fn restore_client_setups() {
     }
 }
 
-pub use crate::client_setup_disable::{
-    clear_client_setups, disable_client_setup,
-};
 pub(crate) use crate::client_claude_settings::{
     remove_pre_tool_use_markers, strip_headroom_hook_from_settings,
 };
+pub use crate::client_setup_disable::{clear_client_setups, disable_client_setup};

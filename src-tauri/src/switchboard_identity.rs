@@ -185,9 +185,8 @@ mod tests {
     #[test]
     fn recognizes_all_marker_prefix_variants() {
         for prefix in ["ai-switchboard", "mac-ai-switchboard", "headroom"] {
-            let content = format!(
-                "# >>> {prefix}:continue >>>\nproxy\n# <<< {prefix}:continue <<<\n"
-            );
+            let content =
+                format!("# >>> {prefix}:continue >>>\nproxy\n# <<< {prefix}:continue <<<\n");
             assert!(sidecar_marker_present(&content, "continue"));
         }
     }

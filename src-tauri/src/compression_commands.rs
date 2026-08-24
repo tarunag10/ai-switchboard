@@ -2,15 +2,14 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
 use crate::client_adapters;
+use crate::headroom_advanced_settings::{
+    load_headroom_advanced_settings, save_headroom_advanced_settings, HeadroomAdvancedSettings,
+};
 use crate::models::SavingsMode;
 use crate::provider_upstream_profiles::{
     clear_provider_upstream_profiles, load_provider_upstream_profiles,
     save_provider_upstream_profiles, test_provider_upstream_url,
-    validate_provider_upstream_profiles, ProviderUpstreamProfilesState,
-    ProviderUpstreamTestResult,
-};
-use crate::headroom_advanced_settings::{
-    load_headroom_advanced_settings, save_headroom_advanced_settings, HeadroomAdvancedSettings,
+    validate_provider_upstream_profiles, ProviderUpstreamProfilesState, ProviderUpstreamTestResult,
 };
 use crate::state::{AppState, ContentClassCompressionStats};
 use crate::switchboard_commands::repair_runtime;
@@ -132,9 +131,7 @@ pub async fn get_headroom_content_class_stats(
     app: AppHandle,
 ) -> Result<ContentClassCompressionStats, String> {
     let state: State<'_, AppState> = app.state();
-    Ok(state
-        .headroom_content_class_for_xray()
-        .unwrap_or_default())
+    Ok(state.headroom_content_class_for_xray().unwrap_or_default())
 }
 
 #[tauri::command]
@@ -170,7 +167,8 @@ fn build_compression_profile_view(state: CompressionProfileState) -> Compression
         preset_id: state.preset_id.as_str().to_string(),
         advanced: state.advanced.clone(),
         effective_savings_mode: savings_mode_label(&savings_mode),
-        history_compression_supported: crate::tool_manager::compression_profiles::history_compression_toggle_supported(),
+        history_compression_supported:
+            crate::tool_manager::compression_profiles::history_compression_toggle_supported(),
         presets: all_compression_profile_definitions()
             .into_iter()
             .map(|preset| CompressionProfilePresetView {

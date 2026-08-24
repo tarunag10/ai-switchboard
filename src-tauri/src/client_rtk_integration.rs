@@ -8,12 +8,12 @@ use sha2::{Digest, Sha256};
 
 use crate::client_claude_settings::{entry_contains_hook, remove_pre_tool_use_markers};
 use crate::client_paths::{
-    claude_settings_path, headroom_rtk_hook_path, resolve_default_shell_targets, rtk_codex_agents_path,
-    shell_path, ALL_SHELL_FILES,
+    claude_settings_path, headroom_rtk_hook_path, resolve_default_shell_targets,
+    rtk_codex_agents_path, shell_path, ALL_SHELL_FILES,
 };
 use crate::client_setup_apply::build_headroom_rtk_hook;
-use crate::client_shell_setup::build_rtk_codex_nudge;
 use crate::client_setup_state::{is_codex_enabled, load_setup_state, write_setup_state};
+use crate::client_shell_setup::build_rtk_codex_nudge;
 use crate::managed_files::{
     managed_marker_end, managed_marker_start, parse_json_object, remove_managed_block,
 };
@@ -137,9 +137,12 @@ fn canonical_rtk_codex_block(managed_rtk_path: &Path) -> String {
 
 fn canonical_settings_hook() -> Result<Value> {
     let hook_path = headroom_rtk_hook_path();
-    let command = hook_path
-        .to_str()
-        .ok_or_else(|| anyhow!("RTK hook path contains invalid UTF-8: {}", hook_path.display()))?;
+    let command = hook_path.to_str().ok_or_else(|| {
+        anyhow!(
+            "RTK hook path contains invalid UTF-8: {}",
+            hook_path.display()
+        )
+    })?;
     Ok(json!({
         "matcher": "Bash",
         "hooks": [{
@@ -195,10 +198,13 @@ fn artifact_fingerprint(id: &str) -> Result<Option<String>> {
             .map(|entry| serde_json::to_vec(&entry).map(fingerprint))
             .transpose()
             .context("serializing managed RTK Claude settings hook"),
-        CODEX_NUDGE_ARTIFACT => managed_block(&rtk_codex_agents_path(), "rtk")
-            .map(|block| block.map(fingerprint)),
-        id if id.starts_with("shell:") => managed_block(&shell_path_for_artifact(id)?, "managed_rtk")
-            .map(|block| block.map(fingerprint)),
+        CODEX_NUDGE_ARTIFACT => {
+            managed_block(&rtk_codex_agents_path(), "rtk").map(|block| block.map(fingerprint))
+        }
+        id if id.starts_with("shell:") => {
+            managed_block(&shell_path_for_artifact(id)?, "managed_rtk")
+                .map(|block| block.map(fingerprint))
+        }
         _ => bail!("unknown RTK integration artifact: {id}"),
     }
 }
@@ -217,7 +223,9 @@ fn expected_artifact_fingerprint(
             .map(fingerprint)
             .context("serializing expected RTK Claude settings hook"),
         CODEX_NUDGE_ARTIFACT => Ok(fingerprint(canonical_rtk_codex_block(managed_rtk_path))),
-        id if id.starts_with("shell:") => Ok(fingerprint(canonical_rtk_shell_block(managed_rtk_path)?)),
+        id if id.starts_with("shell:") => {
+            Ok(fingerprint(canonical_rtk_shell_block(managed_rtk_path)?))
+        }
         _ => bail!("unknown RTK integration artifact: {id}"),
     }
 }
@@ -355,9 +363,7 @@ fn shell_double_quote(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        canonical_managed_block, newly_created_rtk_artifacts, RtkIntegrationSnapshot,
-    };
+    use super::{canonical_managed_block, newly_created_rtk_artifacts, RtkIntegrationSnapshot};
     use std::collections::BTreeMap;
 
     #[test]

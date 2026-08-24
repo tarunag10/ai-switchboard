@@ -396,7 +396,9 @@ pub(crate) fn observation_from_completed_route(
     } else if decision.actual_model == decision.candidate_model {
         ModelRoutingEvidenceArm::Candidate
     } else {
-        return Err("completed route model does not match baseline or candidate identity".to_string());
+        return Err(
+            "completed route model does not match baseline or candidate identity".to_string(),
+        );
     };
     let quality_score_bps = completion
         .quality_score_bps
@@ -405,7 +407,9 @@ pub(crate) fn observation_from_completed_route(
         .follow_up_rework
         .ok_or_else(|| "completed route requires an explicit rework result".to_string())?;
     if quality_score_bps > 10_000 {
-        return Err("completed route quality score must be between 0 and 10000 basis points".to_string());
+        return Err(
+            "completed route quality score must be between 0 and 10000 basis points".to_string(),
+        );
     }
     if completion.succeeded != completion.successful_task_cost_microunits.is_some() {
         return Err(
@@ -467,7 +471,9 @@ pub(crate) fn aggregate_model_routing_evidence(
             model_pair = Some((baseline_model.to_string(), candidate_model.to_string()));
         }
         if sample.quality_score_bps > 10_000 {
-            return Err("model-routing quality scores must be at most 10000 basis points".to_string());
+            return Err(
+                "model-routing quality scores must be at most 10000 basis points".to_string(),
+            );
         }
         match sample.arm {
             ModelRoutingEvidenceArm::Baseline => baseline.push(sample),
@@ -475,16 +481,24 @@ pub(crate) fn aggregate_model_routing_evidence(
         }
     }
     if baseline.len() != candidate.len() || baseline.is_empty() {
-        return Err("model-routing evidence requires equal non-zero baseline and candidate samples".to_string());
+        return Err(
+            "model-routing evidence requires equal non-zero baseline and candidate samples"
+                .to_string(),
+        );
     }
 
     fn success_count(samples: &[&ModelRoutingEvidenceSample]) -> u64 {
         samples.iter().filter(|sample| sample.succeeded).count() as u64
     }
     fn average_success_cost(samples: &[&ModelRoutingEvidenceSample]) -> Result<u64, String> {
-        let successful = samples.iter().filter(|sample| sample.succeeded).collect::<Vec<_>>();
+        let successful = samples
+            .iter()
+            .filter(|sample| sample.succeeded)
+            .collect::<Vec<_>>();
         if successful.is_empty() {
-            return Err("model-routing evidence requires a successful task cost in each arm".to_string());
+            return Err(
+                "model-routing evidence requires a successful task cost in each arm".to_string(),
+            );
         }
         let mut total = 0u64;
         for sample in &successful {
@@ -498,17 +512,27 @@ pub(crate) fn aggregate_model_routing_evidence(
         Ok(total / successful.len() as u64)
     }
     fn average_quality(samples: &[&ModelRoutingEvidenceSample]) -> u32 {
-        let total: u64 = samples.iter().map(|sample| sample.quality_score_bps as u64).sum();
+        let total: u64 = samples
+            .iter()
+            .map(|sample| sample.quality_score_bps as u64)
+            .sum();
         (total / samples.len() as u64) as u32
     }
     fn p95_latency(samples: &[&ModelRoutingEvidenceSample]) -> u64 {
-        let mut latencies = samples.iter().map(|sample| sample.latency_ms).collect::<Vec<_>>();
+        let mut latencies = samples
+            .iter()
+            .map(|sample| sample.latency_ms)
+            .collect::<Vec<_>>();
         latencies.sort_unstable();
         let index = ((latencies.len() * 95).div_ceil(100)).saturating_sub(1);
         latencies[index]
     }
     fn rework_rate(samples: &[&ModelRoutingEvidenceSample]) -> u32 {
-        ((samples.iter().filter(|sample| sample.follow_up_rework).count() as u64 * 10_000)
+        ((samples
+            .iter()
+            .filter(|sample| sample.follow_up_rework)
+            .count() as u64
+            * 10_000)
             / samples.len() as u64) as u32
     }
 
@@ -775,7 +799,8 @@ pub(crate) fn assess_evidence(
     let success_regression_bps = baseline_success_bps.saturating_sub(candidate_success_bps);
     let quality_regression_bps = evidence
         .baseline_quality_score_bps
-        .saturating_sub(evidence.candidate_quality_score_bps) as i32;
+        .saturating_sub(evidence.candidate_quality_score_bps)
+        as i32;
     let cost_improvement_bps = if evidence.baseline_average_success_cost_microunits == 0 {
         0
     } else {
@@ -788,15 +813,16 @@ pub(crate) fn assess_evidence(
     let success_ok = success_regression_bps <= thresholds.maximum_success_regression_bps as i32;
     let quality_ok = quality_regression_bps <= thresholds.maximum_quality_regression_bps as i32;
     let cost_ok = cost_improvement_bps >= thresholds.minimum_cost_improvement_bps as i32;
-    let latency_regression_ms = if evidence.candidate_p95_latency_ms >= evidence.baseline_p95_latency_ms {
-        (evidence.candidate_p95_latency_ms - evidence.baseline_p95_latency_ms)
-            .min(i64::MAX as u64) as i64
-    } else {
-        -(evidence
-            .baseline_p95_latency_ms
-            .saturating_sub(evidence.candidate_p95_latency_ms)
-            .min(i64::MAX as u64) as i64)
-    };
+    let latency_regression_ms =
+        if evidence.candidate_p95_latency_ms >= evidence.baseline_p95_latency_ms {
+            (evidence.candidate_p95_latency_ms - evidence.baseline_p95_latency_ms)
+                .min(i64::MAX as u64) as i64
+        } else {
+            -(evidence
+                .baseline_p95_latency_ms
+                .saturating_sub(evidence.candidate_p95_latency_ms)
+                .min(i64::MAX as u64) as i64)
+        };
     let latency_ok = latency_regression_ms <= thresholds.maximum_latency_regression_ms as i64;
     let rework_ok = evidence.follow_up_rework_rate_bps <= thresholds.maximum_rework_rate_bps;
     let passed = enough_samples && success_ok && quality_ok && cost_ok && latency_ok && rework_ok;
@@ -836,13 +862,18 @@ fn validate_benchmark_evidence(evidence: &ModelRoutingBenchmarkEvidence) -> Resu
         return Err("benchmark_evidence_invalid: successes cannot exceed sample_size".to_string());
     }
     if evidence.baseline_successes == 0 || evidence.candidate_successes == 0 {
-        return Err("benchmark_evidence_invalid: each arm requires at least one successful task".to_string());
+        return Err(
+            "benchmark_evidence_invalid: each arm requires at least one successful task"
+                .to_string(),
+        );
     }
     if evidence.baseline_quality_score_bps > 10_000
         || evidence.candidate_quality_score_bps > 10_000
         || evidence.follow_up_rework_rate_bps > 10_000
     {
-        return Err("benchmark_evidence_invalid: basis-point metrics must be at most 10000".to_string());
+        return Err(
+            "benchmark_evidence_invalid: basis-point metrics must be at most 10000".to_string(),
+        );
     }
     Ok(())
 }
@@ -883,7 +914,12 @@ mod tests {
             .any(|reason| reason == "task_class=formatting"));
         assert_eq!(decision.baseline_model, "frontier");
         assert_eq!(decision.candidate_model, "fast/local");
-        assert_eq!(ModelRoutingExperimentPolicy::default().thresholds.minimum_sample_size, 100);
+        assert_eq!(
+            ModelRoutingExperimentPolicy::default()
+                .thresholds
+                .minimum_sample_size,
+            100
+        );
     }
 
     #[test]
@@ -985,22 +1021,28 @@ mod tests {
 
         let mut invalid_timestamp = completion();
         invalid_timestamp.captured_at = "\u{0000}".to_string();
-        assert!(observation_from_completed_route(&decision, invalid_timestamp)
-            .unwrap_err()
-            .contains("capture timestamp"));
+        assert!(
+            observation_from_completed_route(&decision, invalid_timestamp)
+                .unwrap_err()
+                .contains("capture timestamp")
+        );
 
         let mut invalid_task_class = completion();
         let mut invalid_decision = decision.clone();
         invalid_decision.task_class = "\n".to_string();
-        assert!(observation_from_completed_route(&invalid_decision, invalid_task_class)
-            .unwrap_err()
-            .contains("task class"));
+        assert!(
+            observation_from_completed_route(&invalid_decision, invalid_task_class)
+                .unwrap_err()
+                .contains("task class")
+        );
 
         let mut oversized_latency = completion();
         oversized_latency.latency_ms = i64::MAX as u64 + 1;
-        assert!(observation_from_completed_route(&decision, oversized_latency)
-            .unwrap_err()
-            .contains("latency"));
+        assert!(
+            observation_from_completed_route(&decision, oversized_latency)
+                .unwrap_err()
+                .contains("latency")
+        );
     }
 
     #[test]
@@ -1141,8 +1183,12 @@ mod tests {
         assert_eq!(assessment.quality_regression_bps, 300);
         assert_eq!(assessment.latency_regression_ms, 100);
         assert!(!assessment.passed);
-        assert!(assessment.explanation.contains("quality_regression_bps=300/100"));
-        assert!(assessment.explanation.contains("latency_regression_ms=100/50"));
+        assert!(assessment
+            .explanation
+            .contains("quality_regression_bps=300/100"));
+        assert!(assessment
+            .explanation
+            .contains("latency_regression_ms=100/50"));
     }
 
     #[test]

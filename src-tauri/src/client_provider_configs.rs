@@ -29,7 +29,9 @@ fn json_settings_has_managed_markers(root: &serde_json::Map<String, Value>, suff
 fn remove_json_managed_markers(root: &mut serde_json::Map<String, Value>, suffix: &str) -> bool {
     let mut changed = false;
     for marker_id in marker_id_variants(suffix) {
-        changed |= root.remove(&json_comment_marker_start(&marker_id)).is_some();
+        changed |= root
+            .remove(&json_comment_marker_start(&marker_id))
+            .is_some();
         changed |= root.remove(&json_comment_marker_end(&marker_id)).is_some();
     }
     changed

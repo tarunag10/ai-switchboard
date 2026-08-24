@@ -118,7 +118,8 @@ pub async fn run_connector_smoke_test(
         launched: true,
         success,
         summary: if success {
-            "Test prompt returned the exact expected response. Connector verification passed.".into()
+            "Test prompt returned the exact expected response. Connector verification passed."
+                .into()
         } else if output.status.success() && !response_matches {
             "Test prompt completed, but the connector returned an unexpected response. Open the connector and send a tiny prompt manually.".into()
         } else {

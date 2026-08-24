@@ -3806,7 +3806,9 @@ mod tests {
 
     #[test]
     fn request_auth_code_decodes_headroom_web_response() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let body = serde_json::json!({
             "email": "user@example.com",
             "expiresInSeconds": 600
@@ -3829,7 +3831,9 @@ mod tests {
 
     #[test]
     fn request_auth_code_clamps_expiry_to_documented_maximum() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let body = serde_json::json!({
             "email": "user@example.com",
             "expiresInSeconds": 99999
@@ -3867,7 +3871,9 @@ mod tests {
 
     #[test]
     fn request_auth_code_returns_error_on_5xx_response() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let body = serde_json::json!({"error": "internal"});
         let (port, server) =
             spawn_canned_response_server(body, "HTTP/1.1 500 Internal Server Error");
@@ -3888,7 +3894,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn verify_auth_code_decodes_and_writes_session_token() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         // Override HOME / XDG_DATA_HOME so the keychain debug store and
         // app_data_dir live in a fresh tempdir, not the dev's real profile.
         let prev_home = std::env::var_os("HOME");
@@ -4128,7 +4136,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn activate_account_decodes_remote_envelope_and_returns_pricing_status() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) =
             spawn_canned_response_server(sample_account_envelope_body(), "HTTP/1.1 200 OK");
@@ -4149,7 +4159,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn activate_account_clears_session_and_returns_expired_error_on_401() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) =
             spawn_canned_response_server(serde_json::json!({}), "HTTP/1.1 401 Unauthorized");
@@ -4237,7 +4249,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn create_checkout_session_returns_url_from_response() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) = spawn_canned_response_server(
             serde_json::json!({ "url": "https://buy.polar.sh/abc123" }),
@@ -4258,7 +4272,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn create_checkout_session_rejects_untrusted_redirect_urls() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         for value in [
             "http://buy.polar.sh/abc123",
             "https://127.0.0.1:6767/checkout",
@@ -4290,7 +4306,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn create_checkout_session_surfaces_api_error_message() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) = spawn_canned_response_server(
             serde_json::json!({ "error": "Plan unavailable in your region" }),
@@ -4311,7 +4329,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn create_checkout_session_falls_back_to_status_message_when_no_api_error() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) =
             spawn_canned_response_server(serde_json::json!({}), "HTTP/1.1 502 Bad Gateway");
@@ -4330,7 +4350,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn create_checkout_session_clears_session_on_401() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) =
             spawn_canned_response_server(serde_json::json!({}), "HTTP/1.1 401 Unauthorized");
@@ -4355,7 +4377,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn reactivate_subscription_succeeds_on_200() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) =
             spawn_canned_response_server(serde_json::json!({ "ok": true }), "HTTP/1.1 200 OK");
@@ -4368,7 +4392,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn reactivate_subscription_surfaces_api_error_message() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) = spawn_canned_response_server(
             serde_json::json!({ "error": "Subscription is not scheduled for cancellation." }),
@@ -4384,7 +4410,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn reactivate_subscription_clears_session_on_401() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) =
             spawn_canned_response_server(serde_json::json!({}), "HTTP/1.1 401 Unauthorized");
@@ -4405,7 +4433,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn get_billing_portal_url_returns_url_from_response() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) = spawn_canned_response_server(
             serde_json::json!({ "url": "https://billing.polar.sh/customer/abc" }),
@@ -4423,7 +4453,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn get_billing_portal_url_rejects_untrusted_redirect_urls() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         for value in [
             "http://billing.polar.sh/customer/abc",
             "https://localhost:6767/customer/abc",
@@ -4454,7 +4486,9 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn get_billing_portal_url_surfaces_api_error_message() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) = spawn_canned_response_server(
             serde_json::json!({ "error": "Customer not found" }),

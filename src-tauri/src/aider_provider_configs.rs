@@ -67,21 +67,17 @@ fn read_config(path: &PathBuf) -> Result<(Mapping, String)> {
         std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let value = serde_yaml::from_str::<Value>(&raw)
         .with_context(|| format!("parsing Aider YAML config {}", path.display()))?;
-    let mapping = value
-        .as_mapping()
-        .cloned()
-        .ok_or_else(|| {
-            anyhow!(
-                "{} must contain a YAML mapping at the top level before Switchboard can manage Aider.",
-                path.display()
-            )
-        })?;
+    let mapping = value.as_mapping().cloned().ok_or_else(|| {
+        anyhow!(
+            "{} must contain a YAML mapping at the top level before Switchboard can manage Aider.",
+            path.display()
+        )
+    })?;
     Ok((mapping, raw))
 }
 
 fn managed_openai_api_base_matches(mapping: &Mapping) -> bool {
-    scalar_string(mapping, AIDER_OPENAI_API_BASE_KEY).as_deref()
-        == Some(HEADROOM_OPENAI_BASE_URL)
+    scalar_string(mapping, AIDER_OPENAI_API_BASE_KEY).as_deref() == Some(HEADROOM_OPENAI_BASE_URL)
 }
 
 fn upsert_openai_api_base(root: &mut Mapping) -> Result<bool> {
@@ -242,11 +238,8 @@ model: gpt-4o
     #[serial_test::serial]
     fn refuses_conflicting_openai_api_base() {
         with_aider_home("conflict", |config| {
-            fs::write(
-                &config,
-                "openai-api-base: https://api.openai.com/v1\n",
-            )
-            .expect("seed config");
+            fs::write(&config, "openai-api-base: https://api.openai.com/v1\n")
+                .expect("seed config");
 
             let error = aider_next_provider_config().expect_err("conflict");
             assert!(error.to_string().contains("refusing to overwrite"));

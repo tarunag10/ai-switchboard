@@ -195,7 +195,8 @@ fn find_u64_key_recursive(value: &Value, keys: &[&str]) -> Option<u64> {
                     return Some(found);
                 }
             }
-            map.values().find_map(|child| find_u64_key_recursive(child, keys))
+            map.values()
+                .find_map(|child| find_u64_key_recursive(child, keys))
         }
         Value::Array(items) => items
             .iter()

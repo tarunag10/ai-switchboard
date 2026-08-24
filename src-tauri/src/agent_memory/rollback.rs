@@ -325,7 +325,8 @@ fn compact_managed_blocks(content: &str) -> Option<String> {
     let mut cursor = 0;
     let mut output = String::new();
     let mut found = false;
-    while let Some((start, start_marker, end_marker)) = find_agent_memory_block_start(content, cursor)
+    while let Some((start, start_marker, end_marker)) =
+        find_agent_memory_block_start(content, cursor)
     {
         let body_start = start + start_marker.len();
         let relative_end = content[body_start..].find(end_marker)?;
@@ -367,7 +368,8 @@ fn managed_block_ids(content: &str) -> Vec<String> {
     let mut ids = Vec::new();
     let mut cursor = 0;
     while find_agent_memory_block_start(content, cursor).is_some() {
-        let (offset, start_marker, _) = find_agent_memory_block_start(content, cursor).expect("checked");
+        let (offset, start_marker, _) =
+            find_agent_memory_block_start(content, cursor).expect("checked");
         ids.push(format!("agent-memory-{}", ids.len() + 1));
         cursor = offset + start_marker.len();
     }
@@ -422,7 +424,9 @@ mod tests {
     use tempfile::tempdir;
 
     fn managed(content: &str) -> String {
-        format!("user-owned\n{AGENT_MEMORY_START}\n{content}\n{AGENT_MEMORY_END}\nkeep-user-owned\n")
+        format!(
+            "user-owned\n{AGENT_MEMORY_START}\n{content}\n{AGENT_MEMORY_END}\nkeep-user-owned\n"
+        )
     }
 
     #[test]

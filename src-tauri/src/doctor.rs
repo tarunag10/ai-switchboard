@@ -339,9 +339,9 @@ pub(crate) fn build_doctor_report(state: &AppState) -> DoctorReport {
         issues.push(issue);
     }
 
-    if let Some((id, body)) =
-        provider_upstream_profiles::doctor_upstream_issue(&provider_upstream_profiles::load_provider_upstream_profiles())
-    {
+    if let Some((id, body)) = provider_upstream_profiles::doctor_upstream_issue(
+        &provider_upstream_profiles::load_provider_upstream_profiles(),
+    ) {
         issues.push(DoctorIssue {
             id,
             title: "Provider upstream override is misconfigured".to_string(),
@@ -375,11 +375,9 @@ pub(crate) fn build_doctor_report(state: &AppState) -> DoctorReport {
         });
     }
 
-    if let Some(issue) = exact_cache_recommended_issue(
-        &desired_mode,
-        &runtime,
-        state.semantic_cache.enabled(),
-    ) {
+    if let Some(issue) =
+        exact_cache_recommended_issue(&desired_mode, &runtime, state.semantic_cache.enabled())
+    {
         issues.push(issue);
     }
 

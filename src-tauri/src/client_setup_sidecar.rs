@@ -9,8 +9,12 @@ use crate::client_paths::{planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE
 use crate::client_provider_configs::HEADROOM_OPENAI_BASE_URL;
 use crate::client_setup_state::{load_setup_state, normalized_setup_id, write_setup_state};
 use crate::managed_files::{managed_block_updated_content, upsert_managed_block};
-use crate::switchboard_identity::{managed_marker_id, retire_legacy_planned_sidecar, sidecar_marker_present};
-use crate::models::{ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedRollbackExecutionStatus};
+use crate::models::{
+    ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedRollbackExecutionStatus,
+};
+use crate::switchboard_identity::{
+    managed_marker_id, retire_legacy_planned_sidecar, sidecar_marker_present,
+};
 
 pub(crate) const CURSOR_MARKER_PREFIX: &str = "ai-switchboard:cursor";
 pub(crate) const CURSOR_SIDECAR_APPLY_RECORD_ID: &str = "cursor-sidecar-routing";
@@ -41,7 +45,9 @@ fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
     )
 }
 
-pub(crate) fn configure_planned_switchboard_sidecar(client_id: &str) -> Result<(bool, Option<PathBuf>)> {
+pub(crate) fn configure_planned_switchboard_sidecar(
+    client_id: &str,
+) -> Result<(bool, Option<PathBuf>)> {
     let spec = planned_sidecar_spec(client_id)
         .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
     retire_legacy_planned_sidecar(client_id)?;

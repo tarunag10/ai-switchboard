@@ -48,14 +48,15 @@ pub(crate) fn build_route_plan(
     evidence: Option<&ModelRoutingBenchmarkEvidence>,
 ) -> RoutePlan {
     let endpoint = decide_endpoint_route(endpoint_request, endpoint_candidates);
-    let model = model_input.map(|input| {
-        decide_model_route_experiment(input, model_policy, user_approved, evidence)
-    });
+    let model = model_input
+        .map(|input| decide_model_route_experiment(input, model_policy, user_approved, evidence));
     let actual_model = model
         .as_ref()
         .map(|decision| decision.actual_model.clone())
         .unwrap_or_else(|| endpoint_request.requested_model.clone());
-    let proposed_model = model.as_ref().map(|decision| decision.selected_model.clone());
+    let proposed_model = model
+        .as_ref()
+        .map(|decision| decision.selected_model.clone());
     RoutePlan {
         strategy: RoutePlanStrategy::ObserveOnlyShadow,
         execution_mode: RoutePlanExecutionMode::ObserveOnly,
@@ -76,7 +77,7 @@ mod tests {
         EndpointRouteRequest {
             requested_model: "fixture-model".to_string(),
             required_features: BTreeSet::from(["streaming".to_string()]),
-        privacy: crate::endpoint_routing::PrivacyRequirement::RequireLocal,
+            privacy: crate::endpoint_routing::PrivacyRequirement::RequireLocal,
             maximum_cost_microusd_per_million_input_tokens: None,
             maximum_queue_latency_ms: None,
             preferred_endpoint_id: None,
@@ -99,7 +100,14 @@ mod tests {
 
     #[test]
     fn composes_endpoint_decision_without_enabling_execution() {
-        let plan = build_route_plan(&request(), &[candidate("local")], None, &ModelRoutingExperimentPolicy::default(), false, None);
+        let plan = build_route_plan(
+            &request(),
+            &[candidate("local")],
+            None,
+            &ModelRoutingExperimentPolicy::default(),
+            false,
+            None,
+        );
         assert_eq!(plan.strategy, RoutePlanStrategy::ObserveOnlyShadow);
         assert_eq!(plan.execution_mode, RoutePlanExecutionMode::ObserveOnly);
         assert_eq!(plan.endpoint.selected_endpoint_id.as_deref(), Some("local"));
@@ -121,9 +129,19 @@ mod tests {
         };
         let mut policy = ModelRoutingExperimentPolicy::default();
         policy.stage = ModelRoutingStage::AutomaticAllowlisted;
-        let plan = build_route_plan(&request(), &[candidate], Some(&model_input), &policy, false, None);
+        let plan = build_route_plan(
+            &request(),
+            &[candidate],
+            Some(&model_input),
+            &policy,
+            false,
+            None,
+        );
         assert!(plan.endpoint.selected_endpoint_id.is_none());
-        assert_eq!(plan.endpoint.reason, "no_eligible_endpoint_no_automatic_fallback");
+        assert_eq!(
+            plan.endpoint.reason,
+            "no_eligible_endpoint_no_automatic_fallback"
+        );
         assert_eq!(plan.actual_model, "fixture-model");
         assert_eq!(plan.proposed_model.as_deref(), Some("capable-model"));
         assert_eq!(

@@ -107,10 +107,7 @@ pub(crate) fn zed_config_path() -> PathBuf {
 pub(crate) fn continue_config_path() -> PathBuf {
     let continue_dir = std::env::var_os("CONTINUE_PATH_ROOT")
         .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME")
-                .map(|home| PathBuf::from(home).join(".continue"))
-        })
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".continue")))
         .unwrap_or_else(|| home_dir().join(".continue"));
     continue_dir.join(CONTINUE_CONFIG_FILE)
 }

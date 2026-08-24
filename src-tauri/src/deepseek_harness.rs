@@ -129,10 +129,19 @@ fn parse_dsh_version(stdout: &str, stderr: &str) -> Option<String> {
             return None;
         };
         let numbers = release.split('.').collect::<Vec<_>>();
-        if numbers.len() != 3 || numbers.iter().any(|part| part.is_empty() || !part.chars().all(|character| character.is_ascii_digit())) {
+        if numbers.len() != 3
+            || numbers.iter().any(|part| {
+                part.is_empty() || !part.chars().all(|character| character.is_ascii_digit())
+            })
+        {
             return None;
         }
-        if pieces.any(|part| part.is_empty() || !part.chars().all(|character| character.is_ascii_alphanumeric() || character == '.')) {
+        if pieces.any(|part| {
+            part.is_empty()
+                || !part
+                    .chars()
+                    .all(|character| character.is_ascii_alphanumeric() || character == '.')
+        }) {
             return None;
         }
         Some(normalized.to_string())
@@ -714,7 +723,10 @@ mod tests {
         fs::write(&executable, "#!/bin/sh\nsleep 30\n").unwrap();
         let adapter = DeepSeekHarnessAdapter;
         let plan = adapter.plan(SwitchboardMode::Full).unwrap();
-        assert!(plan.evidence.iter().any(|line| line.contains("failed safely")));
+        assert!(plan
+            .evidence
+            .iter()
+            .any(|line| line.contains("failed safely")));
         let consent = ConsentToken::issue(&plan, &plan.confirmation_phrase).unwrap();
         assert!(adapter.apply(&plan, consent).is_err());
         assert!(!fixture.patch().exists());
@@ -731,10 +743,7 @@ mod tests {
             Some("0.1.0-rc.5".to_string())
         );
         assert_eq!(parse_dsh_version("warning 0.1.0-rc.5\n", ""), None);
-        assert_eq!(
-            parse_dsh_version("0.1.0-rc.5\n0.1.0-rc.4\n", ""),
-            None
-        );
+        assert_eq!(parse_dsh_version("0.1.0-rc.5\n0.1.0-rc.4\n", ""), None);
     }
 
     #[test]

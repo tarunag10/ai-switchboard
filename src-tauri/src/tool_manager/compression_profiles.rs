@@ -203,8 +203,7 @@ pub fn load_compression_profile() -> CompressionProfileState {
 pub fn save_compression_profile(state: &CompressionProfileState) -> Result<()> {
     let path = compression_profile_path();
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
     }
     let body = serde_json::to_vec_pretty(state)?;
     let tmp = path.with_extension("json.tmp");
@@ -221,7 +220,9 @@ pub fn clear_compression_profile() -> Result<()> {
     Ok(())
 }
 
-pub fn resolved_compression_profile(state: &CompressionProfileState) -> CompressionProfileDefinition {
+pub fn resolved_compression_profile(
+    state: &CompressionProfileState,
+) -> CompressionProfileDefinition {
     let mut definition = preset_definition(state.preset_id);
     definition.advanced = state.advanced.clone();
     definition
@@ -240,10 +241,7 @@ pub fn apply_compression_profile_env(command: &mut Command, state: &CompressionP
     let definition = resolved_compression_profile(state);
     let savings_mode = effective_savings_mode(state);
     command
-        .env(
-            "HEADROOM_MODE",
-            definition.headroom_mode,
-        )
+        .env("HEADROOM_MODE", definition.headroom_mode)
         .env(
             "HEADROOM_COMPRESS_USER_MESSAGES",
             if definition.advanced.compress_user_messages {
@@ -292,7 +290,10 @@ mod tests {
     #[test]
     fn aggressive_preset_enables_tool_result_interception_path() {
         let preset = preset_definition(CompressionProfileId::Aggressive);
-        assert_eq!(effective_savings_mode(&preset.to_state()), SavingsMode::Aggressive);
+        assert_eq!(
+            effective_savings_mode(&preset.to_state()),
+            SavingsMode::Aggressive
+        );
         assert!(preset.advanced.compress_tool_results);
     }
 

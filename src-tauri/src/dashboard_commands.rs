@@ -170,16 +170,20 @@ pub async fn get_provider_billed_usage_snapshot(
         let (sent, _saved) = state
             .headroom_provider_billed_for_xray()
             .unwrap_or((None, None));
-        let billed = crate::provider_billed_counterfactual::extract_headroom_billed_input_tokens(sent)
-            .ok_or_else(|| {
-                "Headroom /stats did not expose provider-billed input tokens.".to_string()
-            })?;
-        Ok(crate::provider_billed_counterfactual::ProviderBilledReading {
-            provider: crate::provider_billed_counterfactual::ProviderBilledProvider::HeadroomStats,
-            billed_input_tokens: billed,
-            source_endpoint: "headroom /stats".into(),
-            observed_at: chrono::Utc::now(),
-        })
+        let billed =
+            crate::provider_billed_counterfactual::extract_headroom_billed_input_tokens(sent)
+                .ok_or_else(|| {
+                    "Headroom /stats did not expose provider-billed input tokens.".to_string()
+                })?;
+        Ok(
+            crate::provider_billed_counterfactual::ProviderBilledReading {
+                provider:
+                    crate::provider_billed_counterfactual::ProviderBilledProvider::HeadroomStats,
+                billed_input_tokens: billed,
+                source_endpoint: "headroom /stats".into(),
+                observed_at: chrono::Utc::now(),
+            },
+        )
     })
     .await
     .map_err(|err| err.to_string())?

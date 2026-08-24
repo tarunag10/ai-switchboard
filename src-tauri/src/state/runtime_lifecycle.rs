@@ -280,7 +280,9 @@ impl AppState {
                 total_saved: rtk_gain_summary.as_ref().map(|stats| stats.total_saved),
                 avg_savings_pct: rtk_gain_summary.as_ref().map(|stats| stats.avg_savings_pct),
                 total_time_ms: rtk_gain_summary.as_ref().map(|stats| stats.total_time_ms),
-                avg_time_ms: rtk_gain_summary.as_ref().and_then(|stats| stats.avg_time_ms),
+                avg_time_ms: rtk_gain_summary
+                    .as_ref()
+                    .and_then(|stats| stats.avg_time_ms),
                 daily: rtk_daily_stats,
                 command_families: rtk_command_families,
             },

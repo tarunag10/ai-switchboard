@@ -259,7 +259,9 @@ fn planned_cli_compatibility_report(
     }
 }
 
-pub(crate) fn planned_cli_compatibility_evidence(report: &PlannedCliCompatibilityReport) -> Vec<String> {
+pub(crate) fn planned_cli_compatibility_evidence(
+    report: &PlannedCliCompatibilityReport,
+) -> Vec<String> {
     let mut evidence = Vec::new();
     if let Some(path) = &report.binary_path {
         evidence.push(format!("{} binary: {}", report.label, path.display()));

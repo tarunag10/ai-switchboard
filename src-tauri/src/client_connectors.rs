@@ -1,11 +1,11 @@
 use serde::Deserialize;
 
 use crate::cursor_native::{CURSOR_API_KEYS_DOCS_URL, CURSOR_NATIVE_GATE_REASON};
-use crate::switchboard_identity::{dry_run_backup_path, dry_run_marker};
 use crate::models::{
     ClientConnectorConfigCreationStep, ClientConnectorConfigDryRunPreview,
     ClientConnectorSupportStatus,
 };
+use crate::switchboard_identity::{dry_run_backup_path, dry_run_marker};
 
 pub(crate) const CONNECTOR_MANIFEST_JSON: &str = include_str!("../../connectors/manifest.json");
 

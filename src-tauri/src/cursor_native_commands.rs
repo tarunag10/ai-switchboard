@@ -37,6 +37,9 @@ mod tests {
         let assessment = get_cursor_native_schema_assessment();
         assert!(!assessment.supported);
         assert_eq!(assessment.schema_id, "cursor-native-provider-schema");
-        assert!(assessment.evidence.iter().any(|line| line.contains("remain blocked")));
+        assert!(assessment
+            .evidence
+            .iter()
+            .any(|line| line.contains("remain blocked")));
     }
 }

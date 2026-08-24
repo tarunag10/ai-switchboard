@@ -377,7 +377,11 @@ async fn handle(
             "Request exceeds Headroom preflight size; routing direct so the client can compact/retry"
         );
         let event_id = transport_recorder().begin(
-            if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
+            if is_codex {
+                TransportRoute::DirectOpenai
+            } else {
+                TransportRoute::DirectAnthropic
+            },
             &request_class,
             streaming,
         );
@@ -391,7 +395,11 @@ async fn handle(
     // already-running CC sessions stay alive while optimization is off.
     if bypass.load(std::sync::atomic::Ordering::Acquire) {
         let event_id = transport_recorder().begin(
-            if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
+            if is_codex {
+                TransportRoute::DirectOpenai
+            } else {
+                TransportRoute::DirectAnthropic
+            },
             &request_class,
             streaming,
         );
@@ -402,7 +410,11 @@ async fn handle(
 
     if headroom_compression_bypass_active(is_codex) {
         let event_id = transport_recorder().begin(
-            if is_codex { TransportRoute::DirectOpenai } else { TransportRoute::DirectAnthropic },
+            if is_codex {
+                TransportRoute::DirectOpenai
+            } else {
+                TransportRoute::DirectAnthropic
+            },
             &request_class,
             streaming,
         );
@@ -416,11 +428,8 @@ async fn handle(
     // Python backend up for Claude. `forward_direct_to_anthropic` routes
     // OpenAI paths to OPENAI_DIRECT_BASE, so it does the right thing here.
     if is_codex && codex_bypass.load(std::sync::atomic::Ordering::Acquire) {
-        let event_id = transport_recorder().begin(
-            TransportRoute::DirectOpenai,
-            &request_class,
-            streaming,
-        );
+        let event_id =
+            transport_recorder().begin(TransportRoute::DirectOpenai, &request_class, streaming);
         let result = forward_direct_to_anthropic(client, buf, &upstream_base).await;
         transport_recorder().finish(&event_id, result.0, result.1);
         return;
@@ -453,7 +462,8 @@ async fn handle(
         let _ = client
             .write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
             .await;
-        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, streaming);
+        let event_id =
+            transport_recorder().begin(TransportRoute::Headroom, &request_class, streaming);
         transport_recorder().finish(&event_id, Some(502), TransportOutcome::ConnectFailure);
         return;
     };
@@ -470,7 +480,8 @@ async fn handle(
     }
 
     if backend.write_all(&buf).await.is_err() {
-        let event_id = transport_recorder().begin(TransportRoute::Headroom, &request_class, streaming);
+        let event_id =
+            transport_recorder().begin(TransportRoute::Headroom, &request_class, streaming);
         transport_recorder().finish(&event_id, None, TransportOutcome::WriteFailure);
         return;
     }
@@ -1745,7 +1756,10 @@ async fn forward_direct_to_anthropic(
     }
     head.push_str("Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n");
     if client.write_all(head.as_bytes()).await.is_err() {
-        return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
+        return (
+            Some(resp.status().as_u16()),
+            TransportOutcome::ClientDisconnect,
+        );
     }
 
     loop {
@@ -1766,13 +1780,22 @@ async fn forward_direct_to_anthropic(
             Ok(Ok(Some(bytes))) if !bytes.is_empty() => {
                 let header = format!("{:X}\r\n", bytes.len());
                 if client.write_all(header.as_bytes()).await.is_err() {
-                    return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
+                    return (
+                        Some(resp.status().as_u16()),
+                        TransportOutcome::ClientDisconnect,
+                    );
                 }
                 if client.write_all(&bytes).await.is_err() {
-                    return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
+                    return (
+                        Some(resp.status().as_u16()),
+                        TransportOutcome::ClientDisconnect,
+                    );
                 }
                 if client.write_all(b"\r\n").await.is_err() {
-                    return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
+                    return (
+                        Some(resp.status().as_u16()),
+                        TransportOutcome::ClientDisconnect,
+                    );
                 }
             }
             Ok(Ok(Some(_))) => {}
@@ -1780,7 +1803,10 @@ async fn forward_direct_to_anthropic(
         }
     }
     if client.write_all(b"0\r\n\r\n").await.is_err() {
-        return (Some(resp.status().as_u16()), TransportOutcome::ClientDisconnect);
+        return (
+            Some(resp.status().as_u16()),
+            TransportOutcome::ClientDisconnect,
+        );
     }
     let status = resp.status().as_u16();
     let outcome = if resp.status().is_success() {
@@ -2057,16 +2083,14 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 mod tests {
     use super::{
         annotate_provider_auth_error, bearer_value_changed, bounded_json_response_len,
-        cache_plan_from_request,
-        classify_provider_auth_error, codex_snapshot_from_usage_payload, codex_window_label,
-        decode_codex_plan_tier, extract_bearer, extract_header_value, find_header_end,
-        is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
-        is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
-        parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
-        request_is_loopback_safe, request_should_bypass_headroom, response_allows_cache,
-        response_body_allows_cache, request_class, request_declares_streaming,
+        cache_plan_from_request, classify_provider_auth_error, codex_snapshot_from_usage_payload,
+        codex_window_label, copy_with_idle_timeout, decode_codex_plan_tier, extract_bearer,
+        extract_header_value, find_header_end, is_headroom_compression_refusal_response,
+        is_hop_by_hop_request_header, is_hop_by_hop_response_header, is_local_proxy_path,
+        is_openai_path, parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
+        request_class, request_declares_streaming, request_is_loopback_safe,
+        request_should_bypass_headroom, response_allows_cache, response_body_allows_cache,
         response_status_code, run, stamp_codex_client_header, BypassFlag, SharedToken,
-        copy_with_idle_timeout,
         PROVIDER_AUTH_SCOPE_MISSING,
     };
     use crate::backend_port;
@@ -2074,8 +2098,8 @@ mod tests {
     use crate::models::CodexPlanTier;
     use base64::Engine;
     use parking_lot::Mutex;
-    use serial_test::serial;
     use serde::Deserialize;
+    use serial_test::serial;
     use std::collections::BTreeMap;
     use std::net::SocketAddr;
     use std::sync::atomic::AtomicBool;
@@ -2096,7 +2120,10 @@ mod tests {
     fn transport_metadata_uses_path_without_query_or_response_body() {
         let request = b"POST /v1/responses?prompt=secret HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
         assert_eq!(request_class(request), "/v1/responses");
-        assert_eq!(response_status_code(b"HTTP/1.1 503 Service Unavailable\r\n\r\n"), Some(503));
+        assert_eq!(
+            response_status_code(b"HTTP/1.1 503 Service Unavailable\r\n\r\n"),
+            Some(503)
+        );
         assert_eq!(response_status_code(b"malformed"), None);
     }
 
@@ -2174,10 +2201,9 @@ mod tests {
 
     #[test]
     fn request_path_regression_fixtures_lock_current_classification() {
-        let fixture: RequestPathFixtureFile = serde_json::from_str(include_str!(
-            "../../fixtures/request-path/v1.json"
-        ))
-        .expect("request-path fixture parses");
+        let fixture: RequestPathFixtureFile =
+            serde_json::from_str(include_str!("../../fixtures/request-path/v1.json"))
+                .expect("request-path fixture parses");
         assert_eq!(fixture.version, 1);
         assert_eq!(fixture.cases.len(), 13);
 
@@ -2185,7 +2211,8 @@ mod tests {
         for case in fixture.cases {
             let raw = fixture_request_bytes(&case.request, false);
             let header_end = find_header_end(&raw).expect("fixture header boundary");
-            let parsed = parse_request_head(&raw[..header_end + 4]).expect("fixture request parses");
+            let parsed =
+                parse_request_head(&raw[..header_end + 4]).expect("fixture request parses");
             let provider = if is_local_proxy_path(&parsed.path) {
                 "local"
             } else if is_openai_path(&parsed.path) {
@@ -2219,11 +2246,9 @@ mod tests {
                 let alternate_end = find_header_end(&alternate_raw).expect("alternate header");
                 let alternate_parsed = parse_request_head(&alternate_raw[..alternate_end + 4])
                     .expect("alternate request parses");
-                let alternate = cache_plan_from_request(
-                    &alternate_parsed,
-                    case.request.body.as_bytes(),
-                )
-                .expect("alternate namespace");
+                let alternate =
+                    cache_plan_from_request(&alternate_parsed, case.request.body.as_bytes())
+                        .expect("alternate namespace");
                 assert_ne!(first.namespace.account, alternate.namespace.account);
                 assert_ne!(first.namespace.workspace, alternate.namespace.workspace);
             }
@@ -2518,13 +2543,10 @@ mod tests {
         let (mut idle_writer, mut idle_reader) = duplex(128);
         let (mut idle_sink, _idle_sink_reader) = duplex(128);
         idle_writer.write_all(b"partial").await.unwrap();
-        let error = copy_with_idle_timeout(
-            &mut idle_reader,
-            &mut idle_sink,
-            Duration::from_millis(5),
-        )
-        .await
-        .expect_err("an idle request body must time out");
+        let error =
+            copy_with_idle_timeout(&mut idle_reader, &mut idle_sink, Duration::from_millis(5))
+                .await
+                .expect_err("an idle request body must time out");
         assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
     }
 
@@ -2592,7 +2614,9 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn exact_cache_hit_is_served_by_intercept_without_second_backend_request() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let (backend_listener, backend_addr) = bind_ephemeral().await;
         let backend_task = tokio::spawn(async move {
             let (mut sock, _) = backend_listener.accept().await.expect("backend accept");
@@ -2704,7 +2728,9 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn intercept_captures_bearer_and_forwards_headers_to_backend() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         // Fake backend: accept one connection, read its header block, hold the
         // connection open long enough for the test to inspect what arrived.
         let (backend_listener, backend_addr) = bind_ephemeral().await;
@@ -2808,7 +2834,9 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn intercept_returns_502_when_backend_is_unreachable() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         // Pick a backend port that nothing is listening on. Bind+immediately
         // drop a listener to grab a free port, then connect attempts will fail.
         let (probe, dead_backend_addr) = bind_ephemeral().await;
@@ -3038,7 +3066,9 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn bypass_forwards_request_to_upstream_and_streams_response_back() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let (upstream_listener, upstream_addr) = bind_ephemeral().await;
         let upstream_base = format!("http://127.0.0.1:{}", upstream_addr.port());
 
@@ -3143,9 +3173,7 @@ mod tests {
                 let mut response = [0u8; 512];
                 let detail =
                     match timeout(Duration::from_millis(250), client.read(&mut response)).await {
-                        Ok(Ok(count)) => {
-                            String::from_utf8_lossy(&response[..count]).into_owned()
-                        }
+                        Ok(Ok(count)) => String::from_utf8_lossy(&response[..count]).into_owned(),
                         Ok(Err(error)) => format!("client read error: {error}"),
                         Err(_) => "no client response".to_string(),
                     };
@@ -3240,7 +3268,9 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn bypass_returns_502_when_upstream_unreachable() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         // Bind+drop to grab a free port nothing is listening on.
         let (probe, dead_addr) = bind_ephemeral().await;
         drop(probe);
@@ -3321,7 +3351,9 @@ mod tests {
     #[tokio::test]
     #[serial(backend_port)]
     async fn intercept_picks_up_backend_port_changes_between_connections() {
-        if crate::test_support::skip_if_local_socket_unavailable() { return; }
+        if crate::test_support::skip_if_local_socket_unavailable() {
+            return;
+        }
         let (first_listener, first_addr) = bind_ephemeral().await;
         let (second_listener, second_addr) = bind_ephemeral().await;
 
