@@ -60,11 +60,11 @@ Current verification snapshot:
 
 - `19` focused Workbench bridge/view tests pass, including historical receipt
   visibility and late-plan invalidation.
-- `107` focused native `workbench_kernel` tests pass, including `14` fake
+- `119` focused native `workbench_kernel` tests pass, including `14` fake
   process-controller lifecycle/restart/CAS tests and `5` deterministic
   verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
-  catalog/probe-contract tests, `17` fixed-location collector tests, and `11`
-  launcher-chain/containment preflight tests.
+  catalog/probe-contract tests, `17` fixed-location collector tests, `11`
+  launcher-chain/containment preflight tests, and `12` pure Mach-O parser tests.
 - Selective activation recovery passes `12` focused frontend tests and `15`
   native activation-command tests; no recovery path automatically retries or
   reapplies a tool.
@@ -672,7 +672,7 @@ started by weakening an earlier gate.
    classify absence/failure/unsafe resolution separately; bind bounded content
    and stable leaf/target metadata into an opaque digest; expose no path,
    process, provider, workspace, renderer command, or version claim.
-7. **Codex launcher/containment preflight — Done with this update** — validate
+7. **Codex launcher/containment preflight — Done (`09425c4f`)** — validate
    supplied content-free evidence binding the process spec and fixed candidate
    to a direct Mach-O or supplied npm launcher/package/native-payload shape;
    require fail-closed network denial, disposable-only writes, cleared
@@ -680,12 +680,23 @@ started by weakening an earlier gate.
    kill, and reap evidence; include synthetic attempt/host/boot identities
    without claiming freshness or provenance, prove no upstream authenticity,
    collect or enforce none of it, and keep all execution authority false.
-7. **Opt-in manual version harness** — first add native launcher/Mach-O/npm/
-   signing collection, a separately restricted helper with enforced containment,
-   an evidence-bound grant/admission contract, and authoritative support policy;
-   then use a disposable workspace, inherit no provider credentials, write no
-   user workspace, and preserve pre/post-probe identity while enforcing the
-   existing bounded `--version` plan.
+7. **Pure Codex Mach-O shape parser — Done with this update** — parse only
+   bounded little-endian 64-bit arm64/x86_64 Mach-O bytes; validate complete
+   aligned load-command envelopes and the bounded embedded code-signature
+   superblob shape; derive domain-separated load-command and signature-blob
+   digests; reject malformed/fat/32-bit/wrong-architecture/duplicate shapes,
+   signature ranges overlapping load commands, and overlapping signature child
+   blobs; and claim no signer, team, notarization, provenance, trust, path,
+   collection, or execution result.
+7. **Opt-in manual version harness** — next add race-safe native launcher/npm
+   root, platform, and payload-manifest collection, bind the exact constant
+   `bin/codex` payload entrypoint, and feed the prepared Mach-O parser through
+   bounded same-descriptor reads without allocating the complete native payload;
+   then add a separately restricted helper with enforced containment, an
+   evidence-bound grant/admission contract, and authoritative support policy.
+   The eventual probe must use a disposable workspace, inherit no provider
+   credentials, write no user workspace, and preserve pre/post-probe identity
+   while enforcing the existing bounded `--version` plan.
 8. **Single Codex executor** — new explicit execution capability, ephemeral task
    and workspace handle, final revalidation, content-free terminal receipts.
 9. **Live Router shadow binding** — request/completion receipt pair in the real
@@ -737,11 +748,11 @@ Current gate truth on 2026-08-24:
   of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `107 passed`, including `14` deterministic fake-controller
+- Native Workbench: `119 passed`, including `14` deterministic fake-controller
   tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
   fixed Codex catalog/probe-contract, `17` fixed-location collector, plus `11`
-  launcher-chain/containment preflight tests; the focused Workbench bridge/view
-  gate has `19 passed`.
+  launcher-chain/containment preflight and `12` pure Mach-O parser tests; the
+  focused Workbench bridge/view gate has `19 passed`.
 - Selective activation restart recovery: `12` frontend tests and `15` native
   activation-command tests pass; malformed/oversized/symlinked recovery state
   fails closed and dashboard-refresh failure preserves the native undo handle.

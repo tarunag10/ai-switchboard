@@ -4,6 +4,7 @@
 //! start a process, construct a command, persist state, or grant execution.
 
 use super::codex_command_catalog::{validate_probe_plan, CodexProbePlan};
+pub(super) use super::codex_macho::{CodexMachOArchitecture, CodexMachOFileType};
 use super::codex_probe_preflight_digest::{
     bounded_digest, containment_digest, containment_digests, launcher_chain_digest,
     probe_plan_digest,
@@ -21,19 +22,6 @@ const NPM_ROOT_BIN_NAME: &str = "codex";
 const NPM_ROOT_BIN_RELATIVE_PATH: &str = "bin/codex.js";
 const REQUIRED_DISPOSABLE_ROOTS: u8 = 5;
 const TERM_GRACE_MILLISECONDS: u64 = 250;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CodexMachOArchitecture {
-    Arm64,
-    X86_64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum CodexMachOFileType {
-    Execute,
-    DynamicLibrary,
-    Other,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CodexLauncherChainKind {
@@ -71,7 +59,7 @@ pub(super) struct CodexProbeTargetObservation {
     pub macho_class_64: bool,
     pub macho_file_type: CodexMachOFileType,
     pub macho_load_commands_identity_digest: String,
-    pub signing_identity_digest: Option<String>,
+    pub code_signature_blob_identity_digest: Option<String>,
     pub derivation_verified: bool,
     pub interpreter_launcher_selected_for_execution: bool,
     pub path_lookup_used: bool,
@@ -214,8 +202,9 @@ fn validate_target(
     ] {
         validate_digest(digest, label).map_err(|error| error.to_string())?;
     }
-    if let Some(digest) = target.signing_identity_digest.as_deref() {
-        validate_digest(digest, "Codex signing identity").map_err(|error| error.to_string())?;
+    if let Some(digest) = target.code_signature_blob_identity_digest.as_deref() {
+        validate_digest(digest, "Codex code-signature blob identity")
+            .map_err(|error| error.to_string())?;
     }
     if target.target_architecture != host_architecture
         || !target.target_is_regular_file

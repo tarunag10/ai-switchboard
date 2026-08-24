@@ -87,7 +87,10 @@ pub(super) fn launcher_chain_digest(target: &CodexProbeTargetObservation) -> Str
             target.target_identity_digest.as_str(),
             macho_file_type,
             target.macho_load_commands_identity_digest.as_str(),
-            target.signing_identity_digest.as_deref().unwrap_or("none"),
+            target
+                .code_signature_blob_identity_digest
+                .as_deref()
+                .unwrap_or("none"),
             target_policy_flags.as_str(),
         ],
     )

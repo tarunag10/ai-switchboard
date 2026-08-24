@@ -80,7 +80,7 @@ pub(super) fn direct_target() -> CodexProbeTargetObservation {
         macho_class_64: true,
         macho_file_type: CodexMachOFileType::Execute,
         macho_load_commands_identity_digest: digest('2'),
-        signing_identity_digest: Some(digest('3')),
+        code_signature_blob_identity_digest: Some(digest('3')),
         derivation_verified: true,
         interpreter_launcher_selected_for_execution: false,
         path_lookup_used: false,
