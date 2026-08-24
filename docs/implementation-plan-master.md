@@ -522,10 +522,12 @@ Core extraction progress:
   binary for `harness status` and bounded Workbench session serialization,
   backed by the shared core/runtime contracts. Its source-purity and binary
   contract tests reject filesystem, process, network, provider, Tauri, and
-  content-bearing surfaces. `.github/workflows/cross-platform-cli.yml` runs
-  locked format, test, and Clippy checks for core, runtime, and CLI on Ubuntu,
-  macOS, and Windows. This does not yet replace the Node preview command or
-  enable live routing/process execution.
+  content-bearing surfaces. A cross-platform workflow draft is prepared
+  locally to run locked format, test, and Clippy checks for core, runtime, and
+  CLI on Ubuntu, macOS, and Windows; publishing that workflow is blocked by the
+  current GitHub OAuth credential lacking the `workflow` scope. This does not
+  yet replace the Node preview command or enable live routing/process
+  execution.
 
 ### Remaining build work
 
