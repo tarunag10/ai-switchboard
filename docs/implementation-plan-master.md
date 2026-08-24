@@ -623,6 +623,12 @@ Core extraction progress:
   checkbox gating, and plan-preparation guards. The focused frontend suite
   passes 21/21 and TypeScript typechecking passes; this does not promote Node
   preview routing or enable process/provider execution.
+- The public Node CLI now has an explicit `--native` bridge for only
+  `harness status` and `workbench session serialize`, using the configured
+  `SWITCHBOARD_NATIVE_CLI` path with inherited streams and no guessed-path or
+  fallback behavior. Native opt-in is rejected for `router` and `optimize`;
+  four bridge tests and the existing Switchboard CLI checker pass. This is
+  discovery/delegation only, not native router parity or installer packaging.
 
 ### Remaining build work
 

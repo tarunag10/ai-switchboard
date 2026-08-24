@@ -7,7 +7,39 @@ import packageJson from "../package.json" with { type: "json" };
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
-const command = args[0];
+const nativeRequested = args.includes("--native");
+const commandArgs = args.filter((arg) => arg !== "--native");
+const command = commandArgs[0];
+
+function runNativeCli(nativeArgs) {
+  const nativeCli = process.env.SWITCHBOARD_NATIVE_CLI?.trim();
+  if (!nativeCli) {
+    console.error(
+      "Native CLI bridge is disabled. Set SWITCHBOARD_NATIVE_CLI to an executable native CLI, then retry with --native.",
+    );
+    process.exit(1);
+  }
+
+  const result = spawnSync(nativeCli, nativeArgs, {
+    cwd: repoRoot,
+    stdio: "inherit",
+    shell: false,
+  });
+
+  if (result.error) {
+    console.error(
+      `Native CLI bridge could not execute SWITCHBOARD_NATIVE_CLI. Set it to an executable file and retry: ${result.error.message}`,
+    );
+    process.exit(1);
+  }
+  if (typeof result.status === "number") {
+    process.exit(result.status);
+  }
+  console.error(
+    "Native CLI bridge terminated without an exit status. Retry with an executable SWITCHBOARD_NATIVE_CLI.",
+  );
+  process.exit(1);
+}
 
 function printHelp() {
   console.log(`Switchboard CLI ${packageJson.version}
@@ -15,8 +47,9 @@ function printHelp() {
 Usage:
   switchboard repo-intelligence <repo-path> [options]
   switchboard repo <repo-path> [options]
-  switchboard harness status
+  switchboard harness status [--native]
   switchboard harness session <repo-path> [options]
+  switchboard workbench session serialize [--native]
   switchboard router <repo-path> [options]
   switchboard optimize <repo-path> [options]
   switchboard --version
@@ -56,16 +89,19 @@ if (command === "--version" || command === "-v" || command === "version") {
 }
 
 if (["repo-intelligence", "repo", "intelligence"].includes(command)) {
-  runNodeScript("scripts/repo-intelligence.mjs", args.slice(1));
+  runNodeScript("scripts/repo-intelligence.mjs", commandArgs.slice(1));
 }
 
 if (command === "harness") {
-  const subcommand = args[1];
+  const subcommand = commandArgs[1];
   if (!subcommand || subcommand === "--help" || subcommand === "help") {
     printHelp();
     process.exit(0);
   }
   if (subcommand === "status") {
+    if (nativeRequested) {
+      runNativeCli(commandArgs);
+    }
     console.log(JSON.stringify({
       version: packageJson.version,
       surface: "switchboard-harness",
@@ -81,9 +117,9 @@ if (command === "harness") {
   }
   if (subcommand === "session") {
     runNodeScript("scripts/repo-intelligence.mjs", [
-      args[2] ?? ".",
+      commandArgs[2] ?? ".",
       "--start-session",
-      ...args.slice(3),
+      ...commandArgs.slice(3),
     ]);
   }
   console.error(`Unknown harness command: ${subcommand}`);
@@ -91,19 +127,33 @@ if (command === "harness") {
   process.exit(2);
 }
 
+if (
+  command === "workbench" &&
+  commandArgs[1] === "session" &&
+  commandArgs[2] === "serialize" &&
+  nativeRequested
+) {
+  runNativeCli(commandArgs);
+}
+
+if (nativeRequested && ["router", "optimize"].includes(command)) {
+  console.error("--native is supported only for harness status and Workbench session serialize.");
+  process.exit(2);
+}
+
 if (command === "router") {
   runNodeScript("scripts/repo-intelligence.mjs", [
-    args[1] ?? ".",
+    commandArgs[1] ?? ".",
     "--start-session",
-    ...args.slice(2),
+    ...commandArgs.slice(2),
   ]);
 }
 
 if (command === "optimize") {
   runNodeScript("scripts/repo-intelligence.mjs", [
-    args[1] ?? ".",
+    commandArgs[1] ?? ".",
     "--start-session",
-    ...args.slice(2),
+    ...commandArgs.slice(2),
   ]);
 }
 

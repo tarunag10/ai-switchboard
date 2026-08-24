@@ -23,6 +23,24 @@ JSON followed by one newline.
 The serializer does not create or mutate sessions. Production code has no file,
 child-process, network, provider, Tauri, keychain, or database dependency.
 
+## Opt-in Node bridge
+
+The package-level `switchboard` command remains the default Node Repo
+Intelligence preview. To delegate only the native-capable commands to an
+explicitly selected Rust binary, set `SWITCHBOARD_NATIVE_CLI` to that
+executable path and add `--native`:
+
+```bash
+SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
+  switchboard harness status --native
+SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
+  switchboard workbench session serialize --native < session.json
+```
+
+The bridge never guesses an installation path, invokes a shell, or forwards
+`router` or `optimize` to Rust. If the variable is unset or unusable, it fails
+closed with an actionable error.
+
 ## Verification
 
 ```bash
