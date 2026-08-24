@@ -124,30 +124,7 @@ pub(crate) fn admit_process(
 
 impl WorkbenchProcessAdmission {
     pub(crate) fn validate(&self) -> Result<()> {
-        if self.schema_version != ADMISSION_SCHEMA_VERSION
-            || self.adapter_id != "codex"
-            || self.state != AUTHORIZED_NOT_STARTED
-            || self.execution_enabled
-            || self.provider_traffic != "none"
-            || self.writes_enabled
-        {
-            bail!("Workbench process admission violates the non-executing boundary");
-        }
-        for (value, label) in [
-            (&self.admission_id, "process admission ID"),
-            (&self.session_id, "session ID"),
-            (&self.plan_id, "plan ID"),
-            (&self.process_run_id, "process run ID"),
-            (&self.grant_id, "process grant ID"),
-        ] {
-            validate_identifier(value, label)?;
-        }
-        DateTime::parse_from_rfc3339(&self.admitted_at)
-            .map_err(|_| anyhow!("Workbench process admission time is invalid"))?;
-        if self.receipt_digest != admission_digest(self)? {
-            bail!("Workbench process admission receipt digest does not match its content");
-        }
-        Ok(())
+        core_admission(self).validate()
     }
 }
 
@@ -412,8 +389,15 @@ mod tests {
         suffix: &str,
     ) -> WorkbenchProcessAdmission {
         let mut variant = base.clone();
-        variant.admission_id = format!("process-admission:{suffix}");
         variant.grant_id = format!("process-grant:{suffix}");
+        variant.admission_id = switchboard_core::process_admission::process_admission_id_for(
+            &variant.session_id,
+            &variant.plan_id,
+            &variant.process_run_id,
+            &variant.grant_id,
+            &variant.adapter_id,
+        )
+        .expect("derive admission variant identity");
         variant.receipt_digest = admission_digest(&variant).expect("digest admission variant");
         variant
     }
@@ -582,6 +566,14 @@ mod tests {
         let now = Utc.with_ymd_and_hms(2026, 8, 23, 0, 0, 0).unwrap();
         let admission = admit_process(&session, &plan, process, &grant(&session, &plan, now), now)
             .expect("admit active process");
+        let mut rewritten_identity = admission.clone();
+        rewritten_identity.admission_id = "process-admission:rewritten".into();
+        rewritten_identity.receipt_digest =
+            admission_digest(&rewritten_identity).expect("refresh rewritten admission digest");
+        let directory = tempfile::tempdir().expect("rewritten admission directory");
+        let store =
+            WorkbenchProcessAdmissionStore::at(directory.path().join("rewritten-admission.json"));
+        assert!(store.issue(rewritten_identity).is_err());
         for forbidden in ["prompt", "path", "credential", "argv", "output"] {
             let mut value = serde_json::to_value(&admission).expect("serialize admission");
             value[forbidden] = serde_json::json!("must not be persisted");

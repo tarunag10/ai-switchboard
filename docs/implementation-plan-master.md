@@ -576,6 +576,17 @@ Core extraction progress:
   duplicating the Gemini exception in the component. Focused bridge/component
   tests (21 tests total) and TypeScript typechecking pass; live process start
   and provider traffic remain disabled.
+- Tauri process-admission reload validation now delegates the complete
+  converted receipt to `switchboard-core`, including deterministic
+  `admissionId` binding. A regression test rewrites the ID and refreshes the
+  digest, and persistence rejects it; the focused process-supervisor suite
+  remains 5/5 after the fix.
+- `switchboard-core::process_run_spec` now owns the provider-neutral,
+  content-free containment schema, deterministic run identity, and exact
+  snapshot digest contract. Tauri remains unchanged for this core-only slice;
+  the shared core has 29 passing tests including compatibility golden values,
+  identity sensitivity, and tamper/containment checks. The later Tauri adapter
+  delegation is still to be completed.
 
 ### Remaining build work
 
