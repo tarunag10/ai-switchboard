@@ -561,8 +561,11 @@ Core extraction progress:
 - `switchboard-core::process_admission` now owns the provider-neutral
   admission receipt schema, deterministic identity, receipt digest, strict
   timestamp validation, and non-executing boundary. Cross-object binding to
-  sessions, plans, process specs, and grants remains Tauri-owned until the
-  compatibility adapter phase.
+  sessions, plans, process specs, and grants remains Tauri-owned. Tauri now
+  delegates admission identity and receipt digest generation through an
+  explicit conversion adapter while retaining cross-object validation,
+  lifecycle, persistence, and locking. The focused process-supervisor suite
+  (5 tests) and full Workbench suite (211 tests) pass after this integration.
 
 ### Remaining build work
 

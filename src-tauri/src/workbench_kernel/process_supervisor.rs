@@ -12,7 +12,6 @@ use std::sync::Mutex;
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use super::capability_grant::WorkbenchProcessStartGrant;
 use super::events::{validate_identifier, WorkbenchSessionStatus};
@@ -96,19 +95,16 @@ pub(crate) fn admit_process(
     {
         bail!("Workbench process admission bindings are invalid");
     }
-    let canonical = serde_json::json!({
-        "sessionId": &session.session_id,
-        "planId": &plan.plan_id,
-        "processRunId": &process.run_id,
-        "grantId": &grant.grant_id,
-        "adapterId": "codex",
-    });
-    let digest = Sha256::digest(
-        serde_json::to_vec(&canonical).context("canonicalizing Workbench process admission")?,
-    );
+    let admission_id = switchboard_core::process_admission::process_admission_id_for(
+        &session.session_id,
+        &plan.plan_id,
+        &process.run_id,
+        &grant.grant_id,
+        "codex",
+    )?;
     let mut admission = WorkbenchProcessAdmission {
         schema_version: ADMISSION_SCHEMA_VERSION,
-        admission_id: format!("process-admission:{digest:x}"),
+        admission_id,
         session_id: session.session_id.clone(),
         plan_id: plan.plan_id.clone(),
         process_run_id: process.run_id.clone(),
@@ -156,24 +152,27 @@ impl WorkbenchProcessAdmission {
 }
 
 fn admission_digest(admission: &WorkbenchProcessAdmission) -> Result<String> {
-    let canonical = serde_json::json!({
-        "schemaVersion": admission.schema_version,
-        "admissionId": &admission.admission_id,
-        "sessionId": &admission.session_id,
-        "planId": &admission.plan_id,
-        "processRunId": &admission.process_run_id,
-        "grantId": &admission.grant_id,
-        "adapterId": &admission.adapter_id,
-        "admittedAt": &admission.admitted_at,
-        "state": &admission.state,
-        "executionEnabled": admission.execution_enabled,
-        "providerTraffic": &admission.provider_traffic,
-        "writesEnabled": admission.writes_enabled,
-    });
-    Ok(format!(
-        "sha256:{:x}",
-        Sha256::digest(serde_json::to_vec(&canonical)?)
-    ))
+    switchboard_core::process_admission::process_admission_digest(&core_admission(admission))
+}
+
+fn core_admission(
+    admission: &WorkbenchProcessAdmission,
+) -> switchboard_core::process_admission::WorkbenchProcessAdmission {
+    switchboard_core::process_admission::WorkbenchProcessAdmission {
+        schema_version: admission.schema_version,
+        admission_id: admission.admission_id.clone(),
+        session_id: admission.session_id.clone(),
+        plan_id: admission.plan_id.clone(),
+        process_run_id: admission.process_run_id.clone(),
+        grant_id: admission.grant_id.clone(),
+        adapter_id: admission.adapter_id.clone(),
+        admitted_at: admission.admitted_at.clone(),
+        state: admission.state.clone(),
+        execution_enabled: admission.execution_enabled,
+        provider_traffic: admission.provider_traffic.clone(),
+        writes_enabled: admission.writes_enabled,
+        receipt_digest: admission.receipt_digest.clone(),
+    }
 }
 
 impl WorkbenchProcessAdmissionStore {
