@@ -38,8 +38,8 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `559584c` plus the
-Router shadow persistence foundation recorded with this update, and
+This status was reconciled against committed `main` through `55b06e2` plus the
+sandboxed no-process helper-app foundation recorded with this update, and
 against the visible frontend/native command wiring on 2026-08-24. Unrelated
 concurrent unstaged work is not counted as shipped. A check mark therefore means the capability is
 in the committed product boundary, not merely described in another plan or
@@ -84,6 +84,17 @@ Current verification snapshot:
   authority explicitly false. The crate also passes formatting,
   Clippy with warnings denied, metadata-shape, advisory, ban, licence, and
   source checks. It is a library only and is not an app dependency or bundle.
+- `14` locked tests pass in the standalone `codex-probe-helper-app` binary crate:
+  one bounded closed frame yields the existing no-process response; malformed,
+  trailing, concatenated, oversized, secret-like, argument-bearing, and inherited
+  environment inputs cannot create a control or reflection surface; a negative
+  fake-child case proves the EOF supervisor rejects exit before the explicit close
+  signal; child tests have a fixed kill/reap deadline; normal Cargo output cannot invalidate source-purity checks;
+  and the future nested app plist has exactly App Sandbox with no network, JIT,
+  inherit, user-selected-file, or temporary-exception entitlement. Formatting,
+  Clippy with warnings denied, offline locked metadata, and plist validation pass.
+  It remains unbundled, unlaunched, absent from the parent graph, and not
+  independently or release signed; local compiler output is linker ad-hoc signed only.
 - Selective activation recovery passes `12` focused frontend tests and `15`
   native activation-command tests; no recovery path automatically retries or
   reapplies a tool.
@@ -793,6 +804,20 @@ started by weakening an earlier gate.
    Keep it outside the app Cargo
    graph and Tauri bundle. It provides no executable, IPC authentication,
    descriptor transfer, freshness, signing, containment, or execution result.
+7. **Sandboxed no-process helper executable — Prepared / partial with this
+   update** — add an independently locked binary crate over the local protocol
+   library; accept exactly one bounded length-prefixed frame followed by EOF;
+   return only the shape-consistent no-process response or one fixed generic
+   error; read no arguments or environment and expose no filesystem, path,
+   network, shell, process, Tauri, provider, workspace, or logging API; pin the future nested app
+   identity to a background-only macOS 14 app with exactly App Sandbox and no
+   network/JIT/inherit/file exception; and supervise all spawned test children
+   with a fixed kill/reap deadline. Cargo build output is explicitly excluded
+   from the reviewed-source set without allowing a symlink at that boundary.
+   This executable is not in the parent Cargo graph or Tauri bundle, is not
+   independently or release signed or launched (local compiler output is linker
+   ad-hoc signed only), authenticates no host, grants no freshness/authority,
+   waits for host EOF, starts no process, and still performs no Codex probe.
 7. **One-shot Codex attempt authority — Done foundation with this update** —
    persist at most 128 content-free attempt records with exact full-ledger CAS;
    derive deterministic authority and claim identities from the complete
@@ -806,17 +831,19 @@ started by weakening an earlier gate.
    records once on owner-epoch change; and keep claimed/abandoned records
    terminal. This records no launch reservation and must be revalidated again by
    any future helper-invocation boundary.
-7. **Opt-in manual version harness** — next add a separately restricted helper with
-   enforced containment, a one-shot attempt grant/CAS claim, and authoritative
-   support policy. Package it as a separately signed nested helper app rather
-   than a Tauri `externalBin`; give it its own App Sandbox entitlement and no
-   network/JIT/inherit entitlement; remove blanket `codesign --deep` from that
-   release path; pass only a same-descriptor payload lease and fixed protocol;
-   and treat the helper's whole unique container as disposable because public
+7. **Nested helper packaging/signing** — next bundle the existing helper as a
+   separately signed nested app rather than a Tauri `externalBin`; preserve its
+   exact App Sandbox entitlement; remove blanket `codesign --deep` from that
+   release path; verify nested designated requirements and entitlements; and add
+   no parent launch or Codex execution authority in the packaging commit.
+7. **Opt-in manual version probe** — only after packaging proof, add authenticated
+   parent IPC, enforced containment, an atomic one-shot attempt claim plus launch
+   reservation, authoritative support policy, and a same-descriptor payload
+   lease. Treat the helper's whole unique container as disposable because public
    App Sandbox does not prove kernel-level denial between five subdirectories
-   inside that container. The eventual probe must inherit no provider
-   credentials, write no user workspace, and preserve pre/post-probe identity
-   while enforcing the existing bounded `--version` plan.
+   inside that container. The eventual probe must inherit no provider credentials,
+   write no user workspace, preserve pre/post-probe identity, and enforce the
+   existing bounded `--version` plan with parent-owned timeout/cancel/kill/reap.
 8. **Single Codex executor** — new explicit execution capability, ephemeral task
    and workspace handle, final revalidation, content-free terminal receipts.
 9. **Live Router shadow binding** — request/completion receipt pair in the real
@@ -886,6 +913,15 @@ Current gate truth on 2026-08-24:
   `serde_json`, and `sha2` direct dependencies, and `cargo-deny` reports
   advisories, bans, licences, and sources all passing. The parent app manifest
   and Tauri bundle contain no reference to the crate.
+- Sandboxed Codex helper app foundation: `14 passed` across stdio contract and
+  source/manifest/app-graph purity suites; formatting and Clippy with warnings
+  denied pass; both property lists validate; the exact entitlement is App
+  Sandbox only; child tests have a five-second kill/reap deadline; and the parent
+  app still contains no bundle, dependency, command, launcher, or IPC reference.
+  A local optimized arm64 build succeeds and links only `/usr/lib/libSystem.B.dylib`;
+  the local output is linker ad-hoc signed only, so this is build-shape evidence,
+  not independent/release signing, sandbox-enforcement, notarization, packaging,
+  or distribution proof.
 - Selective activation restart recovery: `12` frontend tests and `15` native
   activation-command tests pass; malformed/oversized/symlinked recovery state
   fails closed and dashboard-refresh failure preserves the native undo handle.

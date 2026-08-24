@@ -1,0 +1,16 @@
+[package]
+name = "codex-probe-helper-app"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "ai-switchboard-codex-probe"
+path = "src/main.rs"
+
+[dependencies]
+codex-probe-helper = { path = "../codex-probe-helper" }
+
+[dev-dependencies]
+sha2 = "=0.10.9"
