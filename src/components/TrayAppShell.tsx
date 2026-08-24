@@ -481,7 +481,10 @@ export function TrayAppShell({
 
         <RoutingModelsView hidden={activeView !== "routingModels"} />
 
-        <WorkbenchView hidden={activeView !== "workbench"} />
+        <WorkbenchView
+          hidden={activeView !== "workbench"}
+          onOpenHarnessReplay={() => setActiveView("addons")}
+        />
 
         <AddonsView
           activeView={activeView}

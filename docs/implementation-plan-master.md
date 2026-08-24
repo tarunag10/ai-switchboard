@@ -710,6 +710,13 @@ Core extraction progress:
   closed with a stable exit-2 usage error and no native or repository
   invocation; the exact native command and legacy `router <repo-path>` path
   remain covered by seven focused bridge tests.
+- Workbench now exposes a compact Harness/CLI/Routing readiness card with
+  separate configured, effective, and automatic routing states; explicit
+  Codex, Claude Code, and Gemini CLI readiness; truthful version/process
+  boundaries; and a direct path to the existing redacted harness replay.
+  Responsive styles preserve opaque IDs and long labels at the supported
+  760px minimum, while focused Workbench and TrayApp tests verify the single
+  Add-ons replay surface and fail-closed status copy.
 
 ### Remaining build work
 

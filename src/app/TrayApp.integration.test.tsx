@@ -124,6 +124,28 @@ describe("TrayApp integrated shell", () => {
     expect(settingsButton).toHaveClass("is-active");
   }, 30_000);
 
+  it("opens the existing Addons harness replay panel from Workbench readiness", async () => {
+    render(<TrayApp />);
+
+    const navigation = await screen.findByRole("navigation", {
+      name: "AI Switchboard navigation",
+    });
+    fireEvent.click(within(navigation).getByRole("button", { name: "Workbench" }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Workbench" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Open harness replay" }));
+
+    expect(within(navigation).getByRole("button", { name: "Addons" })).toHaveClass("is-active");
+    const replayHeadings = screen.getAllByRole("heading", {
+      level: 2,
+      name: "Redacted harness replay",
+    });
+    expect(replayHeadings).toHaveLength(1);
+    expect(replayHeadings[0]).toBeVisible();
+  }, 30_000);
+
   it("blocks the assembled app on updated legal terms and resumes after persisted acceptance", async () => {
     dashboardResponse = {
       ...dashboardResponse,

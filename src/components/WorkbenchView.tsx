@@ -56,6 +56,7 @@ import {
 
 interface WorkbenchViewProps {
   hidden: boolean;
+  onOpenHarnessReplay?: () => void;
 }
 
 const taskClasses: Array<{ id: WorkbenchTaskClass; label: string }> = [
@@ -116,7 +117,7 @@ function grantEligibility(
   return grant.effectiveState;
 }
 
-export function WorkbenchView({ hidden }: WorkbenchViewProps) {
+export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProps) {
   const [sessions, setSessions] = useState<WorkbenchSession[]>([]);
   const [projection, setProjection] = useState<WorkbenchCapabilityProjection | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -610,9 +611,6 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const requestsRedactedReplay = capabilityIds.includes("redacted_replay");
   const adapterCommandReadinessPolicy = getAdapterCommandReadinessPolicy(adapterId);
   const selectedPreset = projection?.presets.find((preset) => preset.presetId === presetId) ?? null;
-  const selectedAdapterReadiness = projection?.adapterReadiness.find(
-    (readiness) => readiness.adapterId === adapterId,
-  ) ?? null;
   const processGrantPolicy = projection?.processStartGrantPolicy ?? null;
   const processGrantPhrase = runPlan && processGrantPolicy
     ? processGrantPolicy.confirmationTemplate.replace("{planId}", runPlan.planId)
@@ -651,6 +649,105 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
             <span>Execution: {projection?.executionMode ?? "plan_only"}</span>
             <span>Provider traffic: {projection?.providerTraffic ?? "none"}</span>
             <span>Writes: {projection?.writesEnabled ? "enabled" : "disabled"}</span>
+          </div>
+        </article>
+
+        <article className="soft-card panel-card workbench-readiness" aria-labelledby="workbench-readiness-title">
+          <div className="panel-card__header">
+            <div>
+              <h2 id="workbench-readiness-title">Harness, CLI &amp; routing readiness</h2>
+              <p>
+                Current local evidence only. CLI versions are not probed, process start remains disabled, and harness replay stays observe-only.
+              </p>
+            </div>
+            <ShieldCheck weight="duotone" aria-hidden="true" />
+          </div>
+          <div className="workbench-readiness__grid">
+            <section className="workbench-readiness__section" aria-labelledby="workbench-routing-readiness-title">
+              <h3 id="workbench-routing-readiness-title">Routing status</h3>
+              <div aria-label="Operational routing status" aria-live="polite">
+                <dl className="workbench-readiness__facts">
+                  <div>
+                    <dt>Configured routing</dt>
+                    <dd aria-label="Configured routing value"><code>{routePlanStatus.configuredStage}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Effective routing</dt>
+                    <dd aria-label="Effective routing value"><code>{routePlanStatus.effectiveStage}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Automatic routing</dt>
+                    <dd aria-label="Automatic routing value"><code>{routePlanStatus.automaticRouting}</code></dd>
+                  </div>
+                </dl>
+                <p className="optimize-minimal__meta">{routePlanStatus.reason}</p>
+              </div>
+            </section>
+
+            <section className="workbench-readiness__section" aria-labelledby="workbench-cli-readiness-title">
+              <h3 id="workbench-cli-readiness-title">CLI adapters</h3>
+              <ul aria-label="CLI adapter readiness" className="workbench-readiness__adapters">
+                {adapters.map((adapter) => {
+                  const readiness = projection?.adapterReadiness.find(
+                    (candidate) => candidate.adapterId === adapter.id,
+                  );
+                  const adapterStatus = adapter.id === "gemini_cli"
+                    ? "Plan only"
+                    : !projection
+                      ? "Awaiting metadata"
+                      : readiness?.knownCandidatePresent
+                        ? "Candidate metadata available"
+                        : "No candidate metadata";
+                  const versionStatus = readiness
+                    ? "Not probed"
+                    : adapter.id === "gemini_cli"
+                      ? "Not available"
+                      : "Awaiting metadata";
+
+                  return (
+                    <li
+                      aria-label={`${adapter.label} readiness`}
+                      className={adapter.id === adapterId ? "is-selected" : undefined}
+                      key={adapter.id}
+                    >
+                      <div className="workbench-readiness__adapter-title">
+                        <strong>{adapter.label}</strong>
+                        {adapter.id === adapterId ? <span>Selected</span> : null}
+                      </div>
+                      <dl className="workbench-readiness__facts">
+                        <div><dt>Adapter</dt><dd aria-label={`${adapter.label} adapter status`}>{adapterStatus}</dd></div>
+                        <div><dt>Version</dt><dd aria-label={`${adapter.label} version status`}>{versionStatus}</dd></div>
+                        <div><dt>Process</dt><dd aria-label={`${adapter.label} process status`}>Disabled</dd></div>
+                      </dl>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+
+            <section className="workbench-readiness__section" aria-labelledby="workbench-harness-readiness-title">
+              <h3 id="workbench-harness-readiness-title">Harness replay</h3>
+              <dl className="workbench-readiness__facts">
+                <div>
+                  <dt>Availability</dt>
+                  <dd aria-label="Harness replay availability value">
+                    {replayReferences.length > 0
+                      ? `${replayReferences.length} validated receipt${replayReferences.length === 1 ? "" : "s"} available`
+                      : "No validated receipts available"}
+                  </dd>
+                </div>
+                <div><dt>Mode</dt><dd>Observe only</dd></div>
+                <div><dt>Provider traffic</dt><dd>None</dd></div>
+              </dl>
+              <button
+                className="secondary-button secondary-button--small"
+                disabled={!onOpenHarnessReplay}
+                onClick={onOpenHarnessReplay}
+                type="button"
+              >
+                Open harness replay
+              </button>
+            </section>
           </div>
         </article>
 
@@ -701,7 +798,6 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
               <div className="workbench-projection">
                 <p><strong>{projection.registry.providers.length}</strong> providers · <strong>{projection.registry.tools.length}</strong> tools · registry {projection.registry.registryMode}</p>
                 <p className="optimize-minimal__meta">Approval mode: {projection.registry.approvalMode}. Capability requests remain pending and non-executable.</p>
-                <p className="optimize-minimal__meta">Adapter readiness: metadata-only for {projection.adapterReadiness.map((readiness) => readiness.adapterId.replace(/_/g, " ")).join(" and ")}. CLI versions are not probed.</p>
               </div>
             ) : <p className="optimize-minimal__meta">Load the desktop Workbench to inspect the current shared capability registry.</p>}
           </article>
@@ -774,22 +870,14 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   <label className="workbench-field"><span>Context pack SHA-256 digest (optional)</span><input aria-label="Context pack SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => { setContextPackDigest(event.target.value); invalidatePreparedPlan(); }} placeholder="sha256:…" spellCheck={false} value={contextPackDigest} /></label>
                 <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => { setRouterDecisionId(event.target.value); invalidatePreparedPlan(); }} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
                 {selectedRouterDecision ? (
-                  <p className="optimize-minimal__meta">
+                  <p className="optimize-minimal__meta workbench-long-value">
                     Selected Router decision: task class {selectedRouterDecision.taskClass} · stage {selectedRouterDecision.decisionStage.replace(/_/g, " ")} · routing mode {selectedRouterDecision.routingMode} · evidence digest {selectedRouterDecision.evidenceDigest}
                   </p>
                 ) : null}
-                <div aria-live="polite" className="optimize-minimal__meta" aria-label="Operational routing status">
-                  <strong>Operational routing status</strong>
-                  <p>
-                    Previewing stage <code>{routePlanStatus.configuredStage}</code> as effective <code>{routePlanStatus.effectiveStage}</code> with automatic routing <code>{routePlanStatus.automaticRouting}</code>.
-                  </p>
-                  <p>{routePlanStatus.reason}</p>
-                </div>
                 <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => { setReplayReferenceId(event.target.value); invalidatePreparedPlan(); }} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
                 </div>
                 <p className="optimize-minimal__meta">Native presets only compose existing plan-only capabilities and evidence sources. Router and replay references are re-resolved before a plan is created; replay paths, events, and manually entered metadata are not accepted here.</p>
                 {selectedPreset ? <p className="optimize-minimal__meta">Preset evidence source: {selectedPreset.evidenceSource.replace(/_/g, " ")}. {selectedPreset.description}</p> : null}
-                {selectedAdapterReadiness ? <p className="optimize-minimal__meta">{selectedAdapterReadiness.adapterId.replace(/_/g, " ")} readiness checks fixed known locations only: {selectedAdapterReadiness.knownCandidatePresent ? "candidate metadata present" : "no candidate metadata present"}. CLI version: not probed; process start remains disabled.</p> : null}
                 {adapterCommandReadinessPolicy.disclosure ? <p className="optimize-minimal__meta">{adapterCommandReadinessPolicy.disclosure}</p> : null}
                 <fieldset className="workbench-capabilities">
                   <legend>Required capabilities</legend>
@@ -817,7 +905,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   {runPlan.commandReadiness ? <p><strong>Command readiness:</strong> {runPlan.commandReadiness.logicalBinary} · fixed-location metadata only · CLI version not probed · process start disabled</p> : null}
                   {runPlan.processContainment ? <p><strong>Native containment:</strong> {runPlan.processContainment.state.replace(/_/g, " ")} · {runPlan.processContainment.processGroup.replace(/_/g, " ")} · fixed timeout policy required · start unavailable</p> : null}
                   <p><strong>Execution:</strong> {runPlan.executionMode} · <strong>Provider traffic:</strong> {runPlan.providerTraffic} · <strong>Writes:</strong> disabled</p>
-                  <p className="optimize-minimal__meta">Plan ID: {runPlan.planId}</p>
+                  <p className="optimize-minimal__meta workbench-long-value">Plan ID: {runPlan.planId}</p>
                 </div>
                 {runPlan.processContainment && processGrantPolicy ? (
                   <section className="workbench-projection" aria-labelledby="future-process-authorization-title">

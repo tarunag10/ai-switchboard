@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -202,13 +202,44 @@ describe("WorkbenchView", () => {
     });
   });
 
-  it("surfaces the local plan-only boundary and shared capability registry", async () => {
-    render(<WorkbenchView hidden={false} />);
+  it("surfaces labelled routing, CLI, and harness readiness without enabling execution", async () => {
+    const user = userEvent.setup();
+    const onOpenHarnessReplay = vi.fn();
+    render(
+      <WorkbenchView
+        hidden={false}
+        onOpenHarnessReplay={onOpenHarnessReplay}
+      />,
+    );
 
     expect(await screen.findByText(/approval mode: fail_closed/i)).toBeInTheDocument();
     expect(screen.getByText(/provider traffic: none/i)).toBeInTheDocument();
     expect(screen.getByText(/writes: disabled/i)).toBeInTheDocument();
     expect(screen.getByText(/CLI versions are not probed/i)).toBeInTheDocument();
+    const readiness = screen.getByRole("article", {
+      name: "Harness, CLI & routing readiness",
+    });
+    const routing = within(readiness).getByLabelText("Operational routing status");
+    expect(within(routing).getByLabelText("Configured routing value")).toHaveTextContent("observe");
+    expect(within(routing).getByLabelText("Effective routing value")).toHaveTextContent("observe");
+    expect(within(routing).getByLabelText("Automatic routing value")).toHaveTextContent("observe_only");
+
+    const adaptersList = within(readiness).getByRole("list", { name: "CLI adapter readiness" });
+    expect(within(adaptersList).getByLabelText("Codex adapter status")).toHaveTextContent("No candidate metadata");
+    expect(within(adaptersList).getByLabelText("Codex version status")).toHaveTextContent("Not probed");
+    expect(within(adaptersList).getByLabelText("Codex process status")).toHaveTextContent("Disabled");
+    expect(within(adaptersList).getByLabelText("Claude Code adapter status")).toHaveTextContent("No candidate metadata");
+    expect(within(adaptersList).getByLabelText("Claude Code version status")).toHaveTextContent("Not probed");
+    expect(within(adaptersList).getByLabelText("Claude Code process status")).toHaveTextContent("Disabled");
+    expect(within(adaptersList).getByLabelText("Gemini CLI adapter status")).toHaveTextContent("Plan only");
+    expect(within(adaptersList).getByLabelText("Gemini CLI version status")).toHaveTextContent("Not available");
+    expect(within(adaptersList).getByLabelText("Gemini CLI process status")).toHaveTextContent("Disabled");
+    expect(within(readiness).getByLabelText("Harness replay availability value")).toHaveTextContent(
+      "1 validated receipt available",
+    );
+    await user.click(within(readiness).getByRole("button", { name: "Open harness replay" }));
+    expect(onOpenHarnessReplay).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /execute|start/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("workbench:test").length).toBeGreaterThan(0);
   });
 
@@ -638,22 +669,25 @@ describe("WorkbenchView", () => {
     await screen.findAllByText("workbench:test");
 
     await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
-    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+    const routerSummary = screen.getByText(/Selected Router decision:/i);
+    expect(routerSummary).toHaveTextContent(
       "task class formatting",
     );
-    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+    expect(routerSummary).toHaveTextContent(
       "stage observe",
     );
-    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+    expect(routerSummary).toHaveTextContent(
       "routing mode observe_only",
     );
-    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+    expect(routerSummary).toHaveTextContent(
       routerDigest,
     );
-    expect(await screen.findByLabelText("Operational routing status")).toHaveTextContent(
-      "Previewing stage observe as effective observe with automatic routing observe_only",
-    );
-    expect(screen.getByLabelText("Operational routing status")).toHaveTextContent(
+    expect(routerSummary).toHaveClass("workbench-long-value");
+    const routingStatus = await screen.findByLabelText("Operational routing status");
+    expect(within(routingStatus).getByLabelText("Configured routing value")).toHaveTextContent("observe");
+    expect(within(routingStatus).getByLabelText("Effective routing value")).toHaveTextContent("observe");
+    expect(within(routingStatus).getByLabelText("Automatic routing value")).toHaveTextContent("observe_only");
+    expect(routingStatus).toHaveTextContent(
       "Evidence collection is active; no model route is executed automatically.",
     );
     expect(screen.getByRole("checkbox", { name: /adapter command readiness/i })).toBeEnabled();
@@ -681,7 +715,9 @@ describe("WorkbenchView", () => {
     await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-2");
 
     const status = await screen.findByLabelText("Operational routing status");
-    expect(status).toHaveTextContent("Previewing stage userApproved as effective observe with automatic routing observe_only");
+    expect(within(status).getByLabelText("Configured routing value")).toHaveTextContent("userApproved");
+    expect(within(status).getByLabelText("Effective routing value")).toHaveTextContent("observe");
+    expect(within(status).getByLabelText("Automatic routing value")).toHaveTextContent("observe_only");
     expect(status).toHaveTextContent(
       "This stage is saved as configuration only. The current completion path remains observe-only until trusted completion evidence is wired.",
     );
