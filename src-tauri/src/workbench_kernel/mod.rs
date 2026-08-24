@@ -8,6 +8,8 @@ mod adapter_readiness;
 mod admission_command;
 mod capability_grant;
 mod codex_command_catalog;
+mod codex_command_collector;
+mod codex_command_identity;
 mod events;
 mod presets;
 pub(crate) mod process_controller;
@@ -333,6 +335,12 @@ mod admission_command_tests;
 
 #[cfg(test)]
 mod codex_command_catalog_tests;
+
+#[cfg(test)]
+mod codex_command_collector_tests;
+
+#[cfg(test)]
+mod codex_command_collector_race_tests;
 
 #[cfg(test)]
 mod tests {

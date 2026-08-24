@@ -8,7 +8,7 @@
 
 use super::session::validate_digest;
 use std::collections::{BTreeMap, BTreeSet};
-const CATALOG_SCHEMA_VERSION: u32 = 1;
+pub(super) const CATALOG_SCHEMA_VERSION: u32 = 1;
 const PROBE_SCHEMA_VERSION: u32 = 1;
 const CODEX_ADAPTER_ID: &str = "codex";
 const CODEX_VERSION_ARGUMENT: &str = "--version";
