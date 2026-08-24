@@ -260,7 +260,10 @@ export function useMasterActivationController({
             results?: Array<{ toolId: string; state: string; detail: string }>;
           };
         }>("activate_selected_tools", {
-          selectedToolIds: ["headroom", "rtk", "ponytail", "caveman", "markitdown"],
+          // Keep the master action offline-safe. MarkItDown is intentionally
+          // user-selectable, but it may require a first-time package install;
+          // that should never make the core workspace activation partial.
+          selectedToolIds: ["headroom", "rtk", "ponytail", "caveman", "token-xray"],
         });
         nativeActivationRunId = managedActivation?.receipt?.runId;
         const results = managedActivation?.receipt?.results ?? [];
