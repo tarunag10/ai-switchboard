@@ -698,6 +698,13 @@ Core extraction progress:
   cross-platform workflow draft remains intentionally untracked because the
   current GitHub credential cannot publish workflow changes without the
   `workflow` OAuth scope; no workflow file is claimed as shipped.
+- Executable candidate planning is now a pure, bounded contract in
+  `switchboard-runtime`: PATH entries, binary names, platform, and PATHEXT are
+  injected; invalid names, unsupported platforms, and expansion limits fail
+  closed before allocation. Tauri retains environment reads, filesystem
+  checks, and process ownership, while Unix ordering and Windows PATHEXT
+  behavior remain compatible. Runtime and focused Tauri discovery tests pass;
+  Windows managed runtime execution remains disabled.
 
 ### Remaining build work
 

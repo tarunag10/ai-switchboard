@@ -4,6 +4,8 @@
 //! The default capability set is deliberately fail-closed: declaring a
 //! capability does not grant permission to exercise it.
 
+pub mod executable_search;
+
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 

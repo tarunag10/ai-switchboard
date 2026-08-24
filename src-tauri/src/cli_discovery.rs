@@ -512,6 +512,44 @@ mod tests {
     }
 
     #[test]
+    fn injected_windows_path_lookup_expands_pathext_without_shell_or_spawn() {
+        let tmp = ScopedTempDir::new("windows_pathext_plan");
+        let candidate = tmp.path().join("codex.cmd");
+        fs::write(&candidate, "not executed").unwrap();
+
+        let detected = crate::client_detection::find_on_path_entries_for_target(
+            vec![tmp.path().to_path_buf()],
+            &["codex"],
+            switchboard_runtime::executable_search::ExecutableSearchPlatform::Windows,
+            Some("cmd;.EXE"),
+        );
+
+        assert_eq!(detected.as_deref(), Some(candidate.as_path()));
+    }
+
+    #[test]
+    fn injected_non_windows_path_lookup_does_not_accept_windows_extensions() {
+        let tmp = ScopedTempDir::new("unix_ignores_pathext");
+        fs::write(tmp.path().join("codex.cmd"), "not executed").unwrap();
+
+        let unix = crate::client_detection::find_on_path_entries_for_target(
+            vec![tmp.path().to_path_buf()],
+            &["codex"],
+            switchboard_runtime::executable_search::ExecutableSearchPlatform::Unix,
+            Some(".cmd"),
+        );
+        let unsupported = crate::client_detection::find_on_path_entries_for_target(
+            vec![tmp.path().to_path_buf()],
+            &["codex"],
+            switchboard_runtime::executable_search::ExecutableSearchPlatform::Unsupported,
+            Some(".cmd"),
+        );
+
+        assert!(unix.is_none());
+        assert!(unsupported.is_none());
+    }
+
+    #[test]
     fn unix_shell_selection_defaults_to_zsh_and_uses_fish_login_flags() {
         let (default_shell, default_flags) = unix_login_shell_spec(None);
         assert_eq!(default_shell, Path::new("/bin/zsh"));

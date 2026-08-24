@@ -1,6 +1,9 @@
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use switchboard_runtime::executable_search::{
+    plan_executable_candidates, ExecutableSearchPlatform,
+};
 
 use crate::cli_discovery;
 use crate::client_paths::{
@@ -118,18 +121,10 @@ fn claude_code_candidate_paths() -> Vec<PathBuf> {
 }
 
 fn binary_candidates_in_dirs(directories: &[PathBuf], binary_names: &[&str]) -> Vec<PathBuf> {
-    let mut candidates = Vec::new();
-    for directory in directories {
-        for binary_name in binary_names {
-            candidates.push(directory.join(binary_name));
-            if cfg!(windows) {
-                for ext in windows_path_extensions() {
-                    candidates.push(directory.join(format!("{binary_name}{ext}")));
-                }
-            }
-        }
-    }
-    candidates
+    let platform = ExecutableSearchPlatform::current();
+    let pathext = windows_pathext_for(platform);
+    plan_executable_candidates(platform, directories, binary_names, pathext.as_deref())
+        .unwrap_or_default()
 }
 
 pub(crate) fn nvm_binary_candidates(home: &Path, binary_names: &[&str]) -> Vec<PathBuf> {
@@ -990,39 +985,30 @@ pub(crate) fn find_on_path_entries<I>(path_entries: I, binary_names: &[&str]) ->
 where
     I: IntoIterator<Item = PathBuf>,
 {
-    for entry in path_entries {
-        for binary_name in binary_names {
-            let candidate = entry.join(binary_name);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-
-            if cfg!(windows) {
-                for ext in windows_path_extensions() {
-                    let with_ext = entry.join(format!("{binary_name}{ext}"));
-                    if with_ext.exists() {
-                        return Some(with_ext);
-                    }
-                }
-            }
-        }
-    }
-
-    None
+    let platform = ExecutableSearchPlatform::current();
+    let pathext = windows_pathext_for(platform);
+    find_on_path_entries_for_target(path_entries, binary_names, platform, pathext.as_deref())
 }
 
-fn windows_path_extensions() -> Vec<String> {
-    std::env::var_os("PATHEXT")
-        .unwrap_or_else(|| OsStr::new(".COM;.EXE;.BAT;.CMD").to_os_string())
-        .to_string_lossy()
-        .split(';')
-        .filter(|value| !value.is_empty())
-        .map(|value| {
-            if value.starts_with('.') {
-                value.to_string()
-            } else {
-                format!(".{value}")
-            }
-        })
-        .collect()
+pub(crate) fn find_on_path_entries_for_target<I>(
+    path_entries: I,
+    binary_names: &[&str],
+    platform: ExecutableSearchPlatform,
+    windows_pathext: Option<&str>,
+) -> Option<PathBuf>
+where
+    I: IntoIterator<Item = PathBuf>,
+{
+    let entries = path_entries.into_iter().collect::<Vec<_>>();
+    plan_executable_candidates(platform, &entries, binary_names, windows_pathext)
+        .ok()?
+        .into_iter()
+        .find(|candidate| candidate.exists())
+}
+
+fn windows_pathext_for(platform: ExecutableSearchPlatform) -> Option<String> {
+    if platform != ExecutableSearchPlatform::Windows {
+        return None;
+    }
+    std::env::var_os("PATHEXT").map(|value| value.to_string_lossy().into_owned())
 }
