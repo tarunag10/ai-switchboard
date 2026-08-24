@@ -11,6 +11,11 @@ mod codex_command_catalog;
 mod codex_command_collector;
 mod codex_command_identity;
 mod codex_macho;
+mod codex_npm_chain_model;
+mod codex_npm_fs;
+mod codex_npm_launcher_chain;
+mod codex_npm_launcher_chain_digest;
+mod codex_npm_manifest;
 mod codex_probe_preflight;
 mod codex_probe_preflight_digest;
 mod codex_probe_semver;
@@ -348,6 +353,18 @@ mod codex_command_collector_race_tests;
 
 #[cfg(test)]
 mod codex_macho_tests;
+
+#[cfg(test)]
+mod codex_npm_chain_model_tests;
+
+#[cfg(test)]
+mod codex_npm_fs_tests;
+
+#[cfg(test)]
+mod codex_npm_launcher_chain_tests;
+
+#[cfg(test)]
+mod codex_npm_manifest_tests;
 
 #[cfg(test)]
 mod codex_probe_preflight_test_support;

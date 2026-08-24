@@ -58,6 +58,25 @@ pub(super) fn identity_digest(
     format!("sha256:{:x}", hasher.finalize())
 }
 
+pub(super) fn evidence_identity_digest(
+    domain: &[u8],
+    identities: &[&MetadataIdentity],
+    values: &[&[u8]],
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update((identities.len() as u64).to_be_bytes());
+    for identity in identities {
+        update_identity_digest(&mut hasher, identity);
+    }
+    hasher.update((values.len() as u64).to_be_bytes());
+    for value in values {
+        hasher.update((value.len() as u64).to_be_bytes());
+        hasher.update(value);
+    }
+    format!("sha256:{:x}", hasher.finalize())
+}
+
 fn update_identity_digest(hasher: &mut Sha256, identity: &MetadataIdentity) {
     for value in [
         identity.device,
@@ -131,6 +150,38 @@ pub(super) fn metadata_identity(metadata: &Metadata) -> MetadataIdentity {
         modified_nanoseconds: metadata.mtime_nsec(),
         changed_seconds: metadata.ctime(),
         changed_nanoseconds: metadata.ctime_nsec(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(super) fn metadata_identity_from_stat(value: &libc::stat) -> MetadataIdentity {
+    MetadataIdentity {
+        device: value.st_dev as u64,
+        inode: value.st_ino as u64,
+        mode: value.st_mode as u32,
+        user_id: value.st_uid,
+        group_id: value.st_gid,
+        size: value.st_size as u64,
+        modified_seconds: value.st_mtime,
+        modified_nanoseconds: value.st_mtime_nsec,
+        changed_seconds: value.st_ctime,
+        changed_nanoseconds: value.st_ctime_nsec,
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub(super) fn metadata_identity_from_stat(value: &libc::stat) -> MetadataIdentity {
+    MetadataIdentity {
+        device: value.st_dev,
+        inode: value.st_ino,
+        mode: value.st_mode,
+        user_id: value.st_uid,
+        group_id: value.st_gid,
+        size: value.st_size as u64,
+        modified_seconds: value.st_mtime,
+        modified_nanoseconds: value.st_mtime_nsec,
+        changed_seconds: value.st_ctime,
+        changed_nanoseconds: value.st_ctime_nsec,
     }
 }
 

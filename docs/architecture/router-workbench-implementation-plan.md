@@ -38,12 +38,12 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `f4216568` plus the
-non-executing Codex probe-preflight contract recorded with this update, and
-against the visible frontend/native command wiring on 2026-08-24. Unrelated
-concurrent unstaged work is not counted as shipped. A check mark therefore
-means the capability is in the committed product boundary, not merely
-described in another plan or present in an unrelated local diff.
+This status was reconciled against committed `main` through `87d26f7` plus the
+fixed home-npm collector recorded with this update, and against the visible
+frontend/native command wiring on 2026-08-24. Unrelated concurrent unstaged
+work is not counted as shipped. A check mark therefore means the capability is
+in the committed product boundary, not merely described in another plan or
+present in an unrelated local diff.
 
 - **Done** — implemented on `main`, reachable through its intended product
   surface, and covered by focused deterministic checks.
@@ -60,11 +60,12 @@ Current verification snapshot:
 
 - `19` focused Workbench bridge/view tests pass, including historical receipt
   visibility and late-plan invalidation.
-- `119` focused native `workbench_kernel` tests pass, including `14` fake
+- `154` focused native `workbench_kernel` tests pass, including `14` fake
   process-controller lifecycle/restart/CAS tests and `5` deterministic
   verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
   catalog/probe-contract tests, `17` fixed-location collector tests, `11`
-  launcher-chain/containment preflight tests, and `12` pure Mach-O parser tests.
+  launcher-chain/containment preflight tests, `12` pure Mach-O parser tests, and
+  `35` npm manifest/model/descriptor/collector tests.
 - Selective activation recovery passes `12` focused frontend tests and `15`
   native activation-command tests; no recovery path automatically retries or
   reapplies a tool.
@@ -81,7 +82,7 @@ Current verification snapshot:
 | Area | Already done | Prepared or partial | Still left |
 |---|---|---|---|
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
-| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a fixed-location metadata collector, a pure launcher-chain/containment preflight, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | The collector observes only seven fixed locations; the preflight validates supplied synthetic launcher/Mach-O/npm-shape/containment identities but proves neither upstream authenticity nor real collection/enforcement and always leaves execution disabled; the controller models lifecycle and persistence only | Native launcher/Mach-O/npm/signing/provenance evidence collection, a separately restricted helper and enforced OS containment, a new attempt-bound grant/admission contract, authoritative support/version/layout policy, an opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
+| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a fixed-location metadata collector, a pure launcher-chain/containment preflight, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | A private fixed home-npm collector now binds descriptor-relative launcher/package/payload evidence without execution, but no production preflight or UI consumer invokes it; the preflight still validates supplied synthetic launcher/Mach-O/npm-shape/containment identities, proves neither upstream authenticity nor real collection/enforcement, and always leaves execution disabled; the controller models lifecycle and persistence only | Bind same-descriptor Mach-O/signing/provenance inspection to the npm evidence and preflight, add a separately restricted helper and enforced OS containment, create a new attempt-bound grant/admission contract, define authoritative support/version/layout policy, add an opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, drift-safe rollback, native selection hydration, and a sanitized restart recovery view cover the managed actions | A run can end `partial`; restart restores rollback access but never retries automatically | Expose bounded receipt history and add a checkpointed safe retry/resume design that cannot reapply successful tools or overwrite ownership |
 | Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
@@ -420,6 +421,12 @@ Deliverables:
 - [x] Add the fixed-location native collector. It observes exactly seven
   catalogued paths, rejects escaped/racy/special candidates, and emits only
   content-free identity metadata without starting a process.
+- [x] Prepare the private fixed home-npm launcher-chain collector. It recomputes the
+  fixed-catalog launcher identity from the same descriptor-bound symlink and
+  launcher bytes, validates the complete v1 payload-manifest shape and required
+  fixed resource/path directories, streams the payload-file hash, and emits an
+  unbound content-free receipt without interpreting JavaScript or enabling a
+  process.
 - [x] Add a pure manual-probe preflight contract. It validates content-free
   supplied evidence binding the process spec and fixed candidate to either a
   direct Mach-O or a supplied npm launcher/package/native-payload shape,
@@ -430,10 +437,11 @@ Deliverables:
   provenance remain external; this phase does not collect or enforce any of
   that evidence.
 - [ ] Add the opt-in manual version-probe harness. Runnable/supported validation
-  remains gated on native launcher/Mach-O/npm/signing evidence collection, a
-  separately restricted helper with enforced OS containment, a new
-  evidence-bound grant/admission contract, explicit manual evidence, and a
-  separately reviewed authoritative version/layout/signing policy.
+  remains gated on same-descriptor Mach-O/signing inspection of the collected
+  npm payload file, a separately restricted helper with enforced OS
+  containment, a new evidence-bound grant/admission contract, explicit manual
+  evidence, and a separately reviewed authoritative version/layout/signing
+  policy.
 - [x] Add a crate-only deterministic fake process registry and state machine.
   It performs no process, shell, network, provider, workspace, or Tauri action;
   persists only bounded content-free stream counters and digests; uses exact-
@@ -464,11 +472,13 @@ Immediate Phase 4 order:
    finality, and bounded content-free stream metadata are implemented. The
    Workbench-specific fixed Codex catalog, native fixed-location collector,
    pure probe-result evaluator, and non-executing launcher/containment preflight
-   are done. Still add native launcher-chain evidence collection, the opt-in
-   manual probe, app-owned process group, null stdin, environment allowlist,
-   bounded redacted buffers, fixed timeout, idempotent cancellation, reaping,
-   and TERM-then-KILL cleanup. Reuse process-group and Leanctx shutdown ideas,
-   not the generic runner's argument/stdout/stderr-bearing error surface.
+   are done. The fixed home-npm launcher-chain collector is implemented as a
+   private, unconsumed kernel foundation. Still bind its evidence to segmented
+   Mach-O/helper evidence, add the opt-in manual probe, app-owned process group,
+   null stdin, environment allowlist, bounded redacted buffers, fixed timeout,
+   idempotent cancellation, reaping, and TERM-then-KILL cleanup. Reuse
+   process-group and Leanctx shutdown ideas, not the generic runner's
+   argument/stdout/stderr-bearing error surface.
 4. **4.4 One-adapter opt-in executor** — canonical Codex only, behind a new
    explicit execution capability. Revalidate session, grant, admission,
    adapter/routing verification, binary identity, and workspace digest at the
@@ -680,7 +690,7 @@ started by weakening an earlier gate.
    kill, and reap evidence; include synthetic attempt/host/boot identities
    without claiming freshness or provenance, prove no upstream authenticity,
    collect or enforce none of it, and keep all execution authority false.
-7. **Pure Codex Mach-O shape parser — Done with this update** — parse only
+7. **Pure Codex Mach-O shape parser — Done (`87d26f7`)** — parse only
    bounded little-endian 64-bit arm64/x86_64 Mach-O bytes; validate complete
    aligned load-command envelopes and the bounded embedded code-signature
    superblob shape; derive domain-separated load-command and signature-blob
@@ -688,15 +698,25 @@ started by weakening an earlier gate.
    signature ranges overlapping load commands, and overlapping signature child
    blobs; and claim no signer, team, notarization, provenance, trust, path,
    collection, or execution result.
-7. **Opt-in manual version harness** — next add race-safe native launcher/npm
-   root, platform, and payload-manifest collection, bind the exact constant
-   `bin/codex` payload entrypoint, and feed the prepared Mach-O parser through
-   bounded same-descriptor reads without allocating the complete native payload;
-   then add a separately restricted helper with enforced containment, an
-   evidence-bound grant/admission contract, and authoritative support policy.
-   The eventual probe must use a disposable workspace, inherit no provider
-   credentials, write no user workspace, and preserve pre/post-probe identity
-   while enforcing the existing bounded `--version` plan.
+7. **Fixed home-npm launcher-chain collector — Prepared / partial with this update** — bind
+   the exact relative launcher symlink, user/root-owned non-writable
+   descriptor-relative tree, duplicate-safe bounded root/platform/complete-v1
+   payload manifests, constant `bin/codex` entrypoint and resource/path
+   directories, and streamed payload-file hash; recompute the original launcher
+   identity from the same observed symlink/launcher generation, revalidate every
+   directory/file, support only `home-npm-global-bin`, expose only opaque
+   content-free evidence, and remain unbound to Mach-O trust, preflight, support,
+   process, network, or execution. No production preflight or renderer command
+   consumes it yet, so it is not classified as Done.
+7. **Opt-in manual version harness** — next refactor Mach-O inspection to bounded
+   same-descriptor header/load-command/signature reads without allocating the
+   complete native payload, bind the npm payload manifest/symlink/derivation
+   identities into preflight, and add a separately restricted helper with
+   enforced containment, an evidence-bound grant/admission contract, and
+   authoritative support policy. The eventual probe must use a disposable
+   workspace, inherit no provider credentials, write no user workspace, and
+   preserve pre/post-probe identity while enforcing the existing bounded
+   `--version` plan.
 8. **Single Codex executor** — new explicit execution capability, ephemeral task
    and workspace handle, final revalidation, content-free terminal receipts.
 9. **Live Router shadow binding** — request/completion receipt pair in the real
@@ -748,11 +768,12 @@ Current gate truth on 2026-08-24:
   of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `119 passed`, including `14` deterministic fake-controller
+- Native Workbench: `154 passed`, including `14` deterministic fake-controller
   tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
   fixed Codex catalog/probe-contract, `17` fixed-location collector, plus `11`
-  launcher-chain/containment preflight and `12` pure Mach-O parser tests; the
-  focused Workbench bridge/view gate has `19 passed`.
+  launcher-chain/containment preflight, `12` pure Mach-O parser, and `35` npm
+  manifest/model/descriptor/collector tests; the focused Workbench bridge/view
+  gate has `19 passed`.
 - Selective activation restart recovery: `12` frontend tests and `15` native
   activation-command tests pass; malformed/oversized/symlinked recovery state
   fails closed and dashboard-refresh failure preserves the native undo handle.
