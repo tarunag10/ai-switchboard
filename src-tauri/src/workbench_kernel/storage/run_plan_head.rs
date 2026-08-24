@@ -311,6 +311,15 @@ impl WorkbenchPlanHeadLedger {
 }
 
 impl WorkbenchPlanHeadStore {
+    pub(in crate::workbench_kernel) fn in_app_storage() -> Self {
+        Self {
+            path: crate::storage::config_file(
+                &crate::storage::app_data_dir(),
+                PLAN_HEAD_LEDGER_FILE,
+            ),
+        }
+    }
+
     pub(in crate::workbench_kernel) fn for_authority_directory(directory: &Path) -> Self {
         Self {
             path: directory.join(PLAN_HEAD_LEDGER_FILE),

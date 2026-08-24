@@ -308,7 +308,7 @@ fn validate_capability_ids(ids: &[String]) -> Result<()> {
     Ok(())
 }
 
-fn prepare_run_plan_with_reference(
+pub(super) fn prepare_run_plan_with_reference(
     session: &WorkbenchSession,
     input: WorkbenchRunSpecInput,
     router_decision: RouterDecisionReference,

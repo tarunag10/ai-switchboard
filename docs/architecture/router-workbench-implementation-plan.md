@@ -38,13 +38,15 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `b4640e6f`, including
-the atomic no-process launch-reservation foundation, plus the durable current-plan
-head and exact-head binding work recorded with this update, and against the
-visible frontend/native command wiring on 2026-08-24. Unrelated
-concurrent unstaged work is not counted as shipped. A check mark therefore means the capability is
-in the committed product boundary, not merely described in another plan or
-present in an unrelated local diff.
+This status was reconciled against committed `main` through `37208289`, including
+the atomic no-process launch-reservation foundation, durable current-plan-head
+ledger, and exact-head helper/attempt binding, plus the production plan-publication
+phase committed with this status update. The 49 other Rust files in the incoming
+working tree were independently compared after formatting normalization and are
+mechanical formatting only. The 13 Playwright captures and two redesign images
+are preserved repository artifacts, not shipped runtime capabilities. A check
+mark therefore means the capability is in the committed product boundary, not
+merely described in another plan or inferred from an artifact.
 
 - **Done** — implemented on `main`, reachable through its intended product
   surface, and covered by focused deterministic checks.
@@ -68,7 +70,8 @@ Current verification snapshot:
   monotonic-priority wall-clock jumps, redirects, clock rollback, model mismatch,
   canonical generation integrity/orphan detection, durable capacity, and privacy
   boundaries.
-- `213` focused native `workbench_kernel` tests pass, including `14` fake
+- `219` focused native `workbench_kernel` tests pass, including `6` production
+  plan-publication/response-boundary/failure-preservation tests, `14` fake
   process-controller lifecycle/restart/CAS tests and `5` deterministic
   verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
   catalog/probe-contract tests, `17` fixed-location collector tests, `11`
@@ -116,12 +119,78 @@ Current verification snapshot:
   registry-test reference was replaced with the shared Workbench projection,
   Addons integration, and native registry checks.
 
+## Reconciled implementation ledger
+
+This is the current answer to “what has been created and what is still left.”
+It merges the previously scattered implementation sequences into one status
+ledger and separates functioning product behavior from foundations, test-only
+infrastructure, and repository artifacts.
+
+### Created and usable now
+
+| Capability | Current result | Evidence boundary |
+|---|---|---|
+| Router planning and diagnostics | Observe-only route plans, endpoint eligibility, task classes, redacted observations, immutable decision/completion receipts, presets, and visible Routing UI | The requested model is not substituted; a real provider request is not yet correlated end-to-end. |
+| Workbench plan-only product | Durable content-free sessions, lifecycle/fork/export, timeline, presets, capability projection, replay, plan inspection, grant/revoke, admission validation, receipt history, expiry refresh, and stale-plan rejection | It plans and authorizes only; it does not execute a model client. |
+| Durable plan authority | Canonical private plan snapshots, unique generation/head identity, A→B→A protection, reciprocal supersession lineage, bounded no-follow reads, exact-byte CAS, and fail-closed helper/attempt validation | Production `prepare_workbench_run_plan` now publishes the current head under the shared authority transaction before returning the existing public plan payload. Private head fields and full snapshot JSON stay native. |
+| Select-five optimization | The user can select exactly five of ten visible tools and activate them in one click, with native preflight, per-tool results, receipts, rollback, hydration, and restart-safe recovery | Partial runs remain possible and are never auto-retried. |
+| Ponytail | Six reviewed MIT skills are bundled at the pinned revision with hashes/licence; Switchboard-owned profile, Addons, Doctor, and rollback paths are active | Five future one-shot Workbench actions and disposable-home migration coverage remain. |
+| UI reachability | Workbench and Routing are top-level; Addons exposes select-five and managed tools; Settings exposes advanced Headroom controls plus support/quit errors | Deliberately unsafe or backend-less actions remain disabled rather than pretending to work. |
+| Safety foundations | Containment intent, fixed Codex catalog/metadata collection, launcher-chain/Mach-O validation, helper preparation/protocol/app packaging, one-shot attempt authority, and deterministic fake lifecycle | The nested helper is packaged but unreachable; no real process, provider traffic, prompt, output, or workspace mutation occurs. |
+
+### Prepared foundations that are not yet end-to-end features
+
+| Foundation | What exists | Missing before usable |
+|---|---|---|
+| Process grant/admission | Fifteen-minute grants, durable `authorized_not_started` admissions, derived eligibility, and fake lifecycle revalidation | Bind v2 grant/admission records to exact plan-head ID/generation/digest and mutate them under the shared cross-process transaction. Preserve v1 as `legacy_unbound`. |
+| Restricted helper | Closed protocol, sandbox-only nested helper app, packaging/signature-shape checks, and no-process responses | Authenticated parent/helper IPC, freshness proof, same-descriptor payload lease, atomic reservation consumption, authoritative support policy, and runtime containment proof. |
+| Codex execution path | Fixed candidates, bounded collectors, pure preflight, attempt authority, reservations, and fake controller | Opt-in `--version` probe, real single-adapter executor, app-owned process group, timeout/cancel/kill/reap, ephemeral task/workspace handles, and terminal receipts. |
+| Router promotion | User-approved/automatic policies can be saved and evaluated | Bind observe-only receipts to one real request/completion lifecycle first; then add per-request approval and only later evidence-gated automatic routing. |
+| OSS harness migration | DeepSeek preview contracts, replay/strategy/session prototypes, inventory, notices, and promotion gates | Choose exact DeepSeek/Switchyard source slices, resolve JCode repository/licence ambiguity, remove MarkItDown and RTK runtime-download paths, and add complete bundled licence/NOTICE evidence. |
+
+### Remaining implementation order
+
+1. Bind grants and admissions to the exact current plan head using side-by-side
+   v2 ledgers, one authority transaction, exact-byte CAS, and explicit
+   `legacy_unbound` handling.
+2. Add externally protected monotonic state and crash-repair semantics before
+   any launch authority, because coordinated rollback of all local ledgers is
+   not currently detectable.
+3. Implement authenticated parent/helper IPC, process-derived owner epochs,
+   freshness, descriptor leasing, atomic reservation consumption, and enforced
+   containment.
+4. Add the opt-in bounded Codex `--version` probe with credential isolation,
+   cancellation, timeout, complete child-tree kill/reap, and manual runtime tests.
+5. Build one real canonical-Codex executor using ephemeral task/workspace
+   handles and content-free terminal receipts; then wire live status, cancel,
+   recovery, and repair UX.
+6. Bind Router decisions to real request/completion evidence without changing
+   the requested model, then stage user-approved and evidence-gated routing.
+7. Implement goal queues, subagent scheduling, locks, budgets, checkpoints,
+   attach/resume/cancel/fork, and capability-separated tool grants.
+8. Complete self-contained OSS migration and remove remaining external/runtime
+   download dependencies before claiming an all-in-one distribution.
+9. Pass clean automated gates, then separately perform manual runtime,
+   cancellation, offline, malformed-output, keyboard/VoiceOver, signing,
+   notarization, and release acceptance.
+
+### Repository-only artifacts in this reconciliation
+
+- The 49 Rust source modifications are rustfmt-equivalent to `37208289`; they
+  are committed separately as mechanical formatting and add no capability.
+- Thirteen timestamped `.playwright-mcp` YAML captures are retained because the
+  user requested every uncommitted item. They include public browser-page
+  snapshots and are not test fixtures or release evidence.
+- `website-redesign-desktop.png` and `website-redesign-mobile.png` are retained
+  design screenshots. They are not referenced by production code and do not
+  prove the current UI matches those images.
+
 ## Executive implementation status
 
 | Area | Already done | Prepared or partial | Still left |
 |---|---|---|---|
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
-| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a private durable current-plan-head foundation, a fixed-location metadata collector, a pure launcher-chain/containment preflight, a separately signed sandboxed nested no-process helper, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | The private current-plan ledger stores canonical complete plan snapshots with unique generation-based A→B→A identities, predecessor/tombstone lineage, session-snapshot invalidation, strict byte/count caps, exact-byte CAS, canonical lock-domain checks, and corruption-preserving rejection. Helper preparation and one-shot attempt authority now fail closed on a missing or superseded head. It has no production plan-publication command yet; grants/admissions do not bind the unique head identity; admission mutation is not yet in the shared transaction; valid whole-ledger rollback remains undetectable without external monotonic state. The one-shot ledger still requires exact manual consent, caps authority at 60 seconds, and atomically creates a no-process reservation capped at 10 seconds and the parent grant. An interrupted anchor-first authority commit remains deliberately unavailable and fail-closed, with no automatic repair claim. There is no authenticated IPC, descriptor lease, helper invocation, process start, renderer command, support claim, or execution authority | Wire existing native plan preparation to publish the head; bind grants/admissions/preparation to head ID, generation, and digest under one transaction; add fresh process-derived owner epochs, externally protected monotonic anti-rollback state, authenticated parent/helper transport, a non-serializable same-descriptor payload lease, crash-recovery/repair semantics, authoritative support/version/layout/signing policy, opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
+| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a private durable current-plan-head ledger, production plan publication under the shared authority transaction, a fixed-location metadata collector, a pure launcher-chain/containment preflight, a separately signed sandboxed nested no-process helper, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | The private current-plan ledger stores canonical complete plan snapshots with unique generation-based A→B→A identities, predecessor/tombstone lineage, session-snapshot invalidation, strict byte/count caps, exact-byte CAS, canonical lock-domain checks, and corruption-preserving rejection. Helper preparation and one-shot attempt authority fail closed on a missing or superseded head. Grants/admissions still do not bind the unique head identity; admission mutation is not yet in the shared transaction; valid whole-ledger rollback remains undetectable without external monotonic state. The one-shot ledger still requires exact manual consent, caps authority at 60 seconds, and atomically creates a no-process reservation capped at 10 seconds and the parent grant. An interrupted anchor-first authority commit remains deliberately unavailable and fail-closed, with no automatic repair claim. There is no authenticated IPC, descriptor lease, helper invocation, process start, renderer command, support claim, or execution authority | Bind grants/admissions/preparation to head ID, generation, and digest under one transaction; add fresh process-derived owner epochs, externally protected monotonic anti-rollback state, authenticated parent/helper transport, a non-serializable same-descriptor payload lease, crash-recovery/repair semantics, authoritative support/version/layout/signing policy, opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, drift-safe rollback, native selection hydration, and a sanitized restart recovery view cover the managed actions | A run can end `partial`; restart restores rollback access but never retries automatically | Expose bounded receipt history and add a checkpointed safe retry/resume design that cannot reapply successful tools or overwrite ownership |
 | Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
@@ -151,10 +220,10 @@ commands, paths, prompts, or provider credentials to the renderer.
 | Context packs and agent memory | `src/lib/agentSessionPacks.ts`, `src-tauri/src/agent_memory/` | Done, bounded | Reference pack IDs/digests only; do not persist prompts or source content. |
 | OSS capability metadata/promotion gate | `oss_capabilities.rs`, `plugin_promotion_gate.rs` | Done, metadata only | Project from Kernel registry/grants while retaining fail-closed promotion. |
 | Selective activation receipts | `activation_commands.rs` | Done | Use the same ownership/rollback model for future capability changes. |
-| Durable Workbench session/run authority | `src-tauri/src/workbench_kernel/` | Done, plan-only | Persist opaque sessions and prepare non-executable router/adapter plans. |
+| Durable Workbench session/run authority | `src-tauri/src/workbench_kernel/` | Done, plan-only with durable current-head publication | Persist opaque sessions, prepare non-executable router/adapter plans, and publish the private current plan head before returning the unchanged public plan. |
 | Process authorization and admission | `capability_grant.rs`, `process_supervisor.rs` | Prepared, non-executing | Revalidate a plan, issue/revoke a fixed-expiry grant, and record Codex `authorized_not_started`; do not describe this as process supervision. |
 | Fake process lifecycle controller | `process_controller.rs` and its focused submodules | Done as deterministic no-process infrastructure | Revalidate the durable grant ledger at start, persist content-free state with exact-byte CAS, preserve same-launch ownership, orphan changed-launch active receipts once, reclaim terminal receipts with non-resurrectable tombstones, and keep this crate-only until a separate real-executor gate passes. |
-| Select-five optimization UI | `SelectiveActivationCard.tsx`, `activationTools.ts` | Done, restart follow-up open | Keep exactly five of the ten explicit tools and show each native result; add native last-receipt recovery. |
+| Select-five optimization UI | `SelectiveActivationCard.tsx`, `activationTools.ts` | Done, including restart-safe recovery | Keep exactly five of the ten explicit tools, show each native result, and restore only the bounded last-receipt/rollback view after restart; never retry automatically. |
 | DeepSeek Harness preview adapter | `deepseek_harness.rs`, `dsh_plugin_maturity.rs` | Prepared, internal experimental pin | Expose its normal consent/verify/rollback lifecycle as an explicit Experimental connector or remove production-only prototypes; retain guided-only fallback for unknown versions. |
 | Real agent execution backend | — | Remaining build, deliberately gated | Add only after the non-autonomous kernel and UI are verified. |
 
@@ -514,9 +583,13 @@ Deliverables:
   canonical authority lock. Tombstone/successor lineage is reciprocal.
   Pause/resume or any other session mutation makes the old head inert until a
   fresh publication. Missing, corrupt, cross-directory, and superseded heads
-  fail closed in helper preparation and attempt authority. This foundation has
-  no production publication command, does not bind grants/admissions to head
-  identity, and does not detect rollback of a self-consistent whole ledger.
+  fail closed in helper preparation and attempt authority. Production
+  `prepare_workbench_run_plan` now acquires the same authority transaction,
+  reloads the durable session, constructs the plan, publishes its head, and
+  returns the plan only after publication succeeds. The public plan payload is
+  unchanged and contains no head record or complete snapshot JSON. Grants and
+  admissions still do not bind head identity, and a self-consistent whole-ledger
+  rollback is not yet detectable.
 - [x] Add a private native one-shot Codex attempt-authority ledger. It
   reloads the durable active session and revalidates the complete supplied plan/process snapshot, exact
   durable grant/admission, and complete helper request/preparation receipt;
@@ -760,29 +833,29 @@ started by weakening an earlier gate.
    command; current-grant gate, registry/state transitions, bounded content-free
    stream metadata, exact-byte CAS, launch-epoch reconciliation, terminal
    reclamation/finality, and deterministic tests.
-6. **Settings and route reachability repair — Done (`e36ca4b3`)** — mount
+7. **Settings and route reachability repair — Done (`e36ca4b3`)** — mount
    the existing support/quit component in production Settings so command errors
    are visible, and include Workbench in the assembled every-sidebar-route
    contract.
-6. **Verified-routing admission test seam — Done (`2b12ce13`)** — inject
+8. **Verified-routing admission test seam — Done (`2b12ce13`)** — inject
    only deterministic verifier/storage test dependencies into the existing
    admission orchestration; denied/error verification cannot persist an
    admission, and no new command or execution authority is added.
-7. **Pure fixed Codex catalog/evaluator — Done (`1901a74c`)** — native-only
+9. **Pure fixed Codex catalog/evaluator — Done (`1901a74c`)** — native-only
    fixed candidate IDs/location templates, complete-snapshot state evaluation,
    identity-bound bounded `--version` protocol metadata, and no collector,
    process, provider, workspace, renderer command, or compatibility claim.
-7. **Restart-safe selective activation recovery — Done (`53052e7d`)** —
+10. **Restart-safe selective activation recovery — Done (`53052e7d`)** —
    restore the native exact-five selection and a bounded receipt view on mount;
    expose only run/status/time/rollback discovery fields, preserve receipt-owned
    initial rollback after relaunch, classify interrupted rollback as
    repair-required, and never auto-retry or reapply successful tools.
-7. **Fixed-location Codex metadata collector — Done (`f4216568`)** — resolve
+11. **Fixed-location Codex metadata collector — Done (`f4216568`)** — resolve
    exactly seven catalogued locations from account-home or absolute templates;
    classify absence/failure/unsafe resolution separately; bind bounded content
    and stable leaf/target metadata into an opaque digest; expose no path,
    process, provider, workspace, renderer command, or version claim.
-7. **Codex launcher/containment preflight — Done foundation (`09425c4f`),
+12. **Codex launcher/containment preflight — Done foundation (`09425c4f`),
    collected-receipt binding updated here** — validate supplied direct-Mach-O
    evidence or a revalidated collected npm schema-v2 receipt binding the process
    spec and fixed candidate to the native payload;
@@ -791,7 +864,7 @@ started by weakening an earlier gate.
    kill, and reap evidence; include synthetic attempt/host/boot identities
    without claiming freshness or provenance, prove no upstream authenticity,
    collect or enforce none of it, and keep all execution authority false.
-7. **Pure Codex Mach-O shape parser — Done (`87d26f7`)** — parse only
+13. **Pure Codex Mach-O shape parser — Done (`87d26f7`)** — parse only
    bounded little-endian 64-bit arm64/x86_64 Mach-O bytes; validate complete
    aligned load-command envelopes and the bounded embedded code-signature
    superblob shape; derive domain-separated load-command and signature-blob
@@ -799,7 +872,7 @@ started by weakening an earlier gate.
    signature ranges overlapping load commands, and overlapping signature child
    blobs; and claim no signer, team, notarization, provenance, trust, path,
    collection, or execution result.
-7. **Fixed home-npm launcher-chain collector — Prepared / partial** — bind
+14. **Fixed home-npm launcher-chain collector — Prepared / partial** — bind
    the exact relative launcher symlink, user/root-owned non-writable
    descriptor-relative tree, duplicate-safe bounded root/platform/complete-v1
    payload manifests, constant `bin/codex` entrypoint and resource/path
@@ -811,7 +884,8 @@ started by weakening an earlier gate.
    unbound to signer identity, trust, support, process, network, or execution.
    The pure preflight now consumes and revalidates the receipt, but no production
    orchestrator or renderer command invokes the chain, so it is not classified as Done.
-7. **Durable current-plan head — Prepared / partial with this update** — persist
+15. **Durable current-plan head and production publication — Done as plan-only
+   authority foundation (`37208289` plus this publication phase)** — persist
    canonical complete plan JSON and its recomputable snapshot digest in a
    bounded private ledger; assign every publication a unique generation/head ID;
    retain exact predecessor records as supersession tombstones; bind the durable
@@ -820,12 +894,17 @@ started by weakening an earlier gate.
    state without replacement. Reads cap allocation from one no-follow descriptor,
    and reciprocal lineage rejects self-consistent one-way tampering. A→B→A
    produces a third identity and stale A1 helper/authority evidence remains
-   rejected after A2 publication. This is not Done:
-   production plan preparation does not publish it, grants/admissions do not yet
-   bind head identity, admission mutation is outside the shared lock, and whole-ledger
-   rollback needs externally protected monotonic state before launch authority.
-7. **Attempt-bound restricted-helper preparation — Done foundation with this
-   update** — record private direct-vs-collected provenance and permit only a
+   rejected after A2 publication. Production plan preparation now acquires the
+   shared authority transaction, reloads the durable session, prepares the
+   non-executable plan, publishes the private current head, and returns only
+   after publication succeeds. Identical preparation is idempotent; changed
+   plans supersede; cross-directory, corrupt-ledger, and paused-session cases
+   fail without returning or replacing a plan. The remaining execution-bound
+   work is to bind grants/admissions to exact head identity, move admission
+   mutation into the shared transaction, and add externally protected monotonic
+   state before launch authority.
+16. **Attempt-bound restricted-helper preparation — Done foundation
+   (`37208289`)** — record private direct-vs-collected provenance and permit only a
    revalidated collected-npm schema-v2 preflight into the helper boundary;
    reconstruct the admission at its original timestamp; bind the full validated
    durable current session, durable current-plan head/process snapshot, exact grant/admission, probe, attempt,
@@ -837,8 +916,8 @@ started by weakening an earlier gate.
    restrict authority IO to the native grant/admission ledgers; and keep helper
    invocation, process start, execution reservation, support, traffic, and user
    workspace writes false.
-7. **Standalone restricted-helper protocol — Prepared / partial with this
-   update** — define an independently locked Rust library with one closed,
+17. **Standalone restricted-helper protocol — Prepared / partial
+   (`37208289`)** — define an independently locked Rust library with one closed,
    length-prefixed shape-consistent preparation/no-process protocol; strict
    identifier and lowercase SHA-256 validation; complete upstream transcript
    recomputation; canonical JSON; semantic frame digests; fixed false authority,
@@ -848,7 +927,7 @@ started by weakening an earlier gate.
    Keep it outside the parent app Cargo graph; it is linked only into the
    separately packaged, still-unreachable nested helper. It provides no IPC authentication,
    descriptor transfer, freshness, signing, containment, or execution result.
-7. **Sandboxed no-process helper executable — Prepared / partial** — add an
+18. **Sandboxed no-process helper executable — Prepared / partial** — add an
    independently locked binary crate over the local protocol
    library; accept exactly one bounded length-prefixed frame followed by EOF;
    return only the shape-consistent no-process response or one fixed generic
@@ -863,8 +942,8 @@ started by weakening an earlier gate.
    ad-hoc and no Developer ID/notarization claim is made. It authenticates no
    host, grants no freshness/authority,
    waits for host EOF, starts no process, and still performs no Codex probe.
-7. **One-shot Codex attempt authority — Done foundation (`b4640e6f`), extended
-   with exact plan-head validation in this update** —
+19. **One-shot Codex attempt authority — Done foundation (`b4640e6f`), extended
+   with exact plan-head validation in `37208289`** —
    persist at most 128 content-free attempt records with exact full-ledger CAS;
    derive deterministic authority and claim identities from the complete
    preparation binding; revalidate the current native session, exact durable
@@ -890,7 +969,7 @@ started by weakening an earlier gate.
    and fail-closed, with repair semantics still required before launch authority.
    This phase intentionally persists no nonce, path, descriptor, executable,
    process identity, environment, or output and creates no descriptor lease.
-7. **Nested helper packaging/signing — Done foundation (`0a955c4d`)** —
+20. **Nested helper packaging/signing — Done foundation (`0a955c4d`)** —
    build the helper from its independent lockfile in Tauri's pre-bundle hook;
    support arm64, x86_64, and explicit universal assembly; place the separately
    signed app under `Contents/Helpers` through `macOS.files`, never
@@ -901,7 +980,7 @@ started by weakening an earlier gate.
    releases in draft until packaged verification succeeds. The eight static
    packaging tests and a full local arm64 Tauri app build pass. This adds no
    launcher, IPC, runtime command, LaunchServices registration, or Codex process.
-7. **Opt-in manual version probe** — after packaging and atomic reservation proof,
+21. **Opt-in manual version probe** — after packaging and atomic reservation proof,
    add authenticated parent IPC, enforced containment, atomic reservation
    consumption, authoritative support policy, and a non-serializable same-descriptor payload
    lease. Treat the helper's whole unique container as disposable because public
@@ -909,22 +988,22 @@ started by weakening an earlier gate.
    inside that container. The eventual probe must inherit no provider credentials,
    write no user workspace, preserve pre/post-probe identity, and enforce the
    existing bounded `--version` plan with parent-owned timeout/cancel/kill/reap.
-8. **Single Codex executor** — new explicit execution capability, ephemeral task
+22. **Single Codex executor** — new explicit execution capability, ephemeral task
    and workspace handle, final revalidation, content-free terminal receipts.
-9. **Live Router shadow binding** — request/completion receipt pair in the real
+23. **Live Router shadow binding** — request/completion receipt pair in the real
    path with actual model unchanged.
-10. **User-approved Router stage** — per-request consent and rollback; no
+24. **User-approved Router stage** — per-request consent and rollback; no
    automatic promotion.
-11. **Evidence-gated automatic Router stage** — only allowlisted task classes
+25. **Evidence-gated automatic Router stage** — only allowlisted task classes
     with trusted passing benchmark/runtime evidence and global/client kill
     switches.
-12. **Goal/subagent orchestration** — queue, locks, budgets, checkpoints,
+26. **Goal/subagent orchestration** — queue, locks, budgets, checkpoints,
     attach/resume/cancel/fork, and capability-separated tools.
-13. **Bundled OSS slices — Ponytail done; remainder open** — dependency-ordered
+27. **Bundled OSS slices — Ponytail done; remainder open** — dependency-ordered
     DeepSeek contracts, Switchyard protocol conversion, minimal MarkItDown,
     leanctx core, RTK sidecar, and resolved JCode semantics; each separately
     verified and pushed.
-14. **Release evidence** — clean build/test/check suite, signed package, and
+28. **Release evidence** — clean build/test/check suite, signed package, and
     separate manual runtime/accessibility/security acceptance.
 
 ## Verification and publication
@@ -932,8 +1011,10 @@ started by weakening an earlier gate.
 Each phase is committed and pushed separately. Required evidence is scoped to
 the phase: deterministic Rust/TypeScript tests, type checking where the
 existing checkout permits it, no sensitive fields in persisted artifacts,
-read-only/no-network plan-mode proof, and a clean staged diff. Existing user
-work remains unmodified and unstaged.
+read-only/no-network plan-mode proof, and a clean staged diff. For this
+reconciliation the user explicitly requested every pre-existing modified and
+untracked item be preserved, classified, committed, and pushed; mechanical and
+artifact-only changes therefore remain separate from the semantic phase.
 
 Minimum automated gates by area:
 
@@ -956,14 +1037,24 @@ git diff --check
 
 Current gate truth on 2026-08-24:
 
+- Full frontend suite on the reconciled tree: `170` files and `1,193` tests
+  pass. The first run under three simultaneous Cargo builds timed out in nine
+  tests and observed one late-call assertion; all 32 affected tests then passed
+  together after the temporary compiler load was removed, and the complete
+  suite passed cleanly.
+- Full native suite on the reconciled tree: `1,430 passed`, `1 ignored` across
+  three suites. The first aggregate run had one retained-output assertion fail
+  under compiler/disk contention; that exact test passed alone and the clean
+  serialized aggregate rerun passed.
 - Settings/footer/assembled-route reachability: `13 passed` across three
   frontend suites; support and quit preserve exact native commands, rejected
   support commands are visible in production Settings, and Workbench is part
   of the every-sidebar-route contract.
 - Focused Switchboard Pack Compaction and consumer gate: `74 passed` across six
   frontend suites.
-- Native Workbench: `213 passed`, including `14` deterministic fake-controller
-  tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
+- Native Workbench: `219 passed`, including `6` production plan-publication,
+  public-response privacy, and failure-preservation tests, `14` deterministic
+  fake-controller tests, `5` verified-routing admission-orchestration/expiry tests, and `10`
   fixed Codex catalog/probe-contract, `17` fixed-location collector, plus `11`
   launcher-chain/containment preflight, `10` attempt-bound restricted-helper
   preparation, `10` durable current-plan-head/CAS, `29` one-shot no-process

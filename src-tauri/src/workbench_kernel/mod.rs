@@ -30,6 +30,7 @@ mod process_eligibility;
 mod process_run_spec;
 mod process_supervisor;
 mod run_contract;
+mod run_plan_publication;
 mod session;
 mod storage;
 
@@ -55,6 +56,7 @@ use process_supervisor::WorkbenchProcessAdmissionStore;
 pub use run_contract::{
     CapabilityRequest, RouterDecisionReference, WorkbenchRunPlan, WorkbenchRunSpecInput,
 };
+use run_plan_publication::prepare_and_publish_workbench_run_plan;
 pub use session::{CreateWorkbenchSessionInput, WorkbenchSession};
 use storage::WorkbenchStore;
 
@@ -191,10 +193,17 @@ pub fn prepare_workbench_run_plan(
     input: WorkbenchRunSpecInput,
 ) -> Result<WorkbenchRunPlan, String> {
     let (_guard, store) = locked_store()?;
-    let session = store
-        .get(input.session_id.trim())
-        .map_err(|error| error.to_string())?;
-    run_contract::prepare_run_plan(&session, input).map_err(|error| error.to_string())
+    let grant_store = WorkbenchProcessGrantStore::in_app_storage();
+    let plan_head_store = storage::run_plan_head::WorkbenchPlanHeadStore::in_app_storage();
+    prepare_and_publish_workbench_run_plan(
+        &store,
+        &grant_store,
+        &plan_head_store,
+        input,
+        |session, input| {
+            run_contract::prepare_run_plan(session, input).map_err(|error| error.to_string())
+        },
+    )
 }
 
 /// Stores an explicit, expiry-bound authorization receipt for one previously
@@ -383,6 +392,9 @@ mod codex_probe_attempt_authority_tests;
 
 #[cfg(test)]
 mod codex_restricted_helper_preparation_tests;
+
+#[cfg(test)]
+mod run_plan_publication_tests;
 
 #[cfg(test)]
 mod tests {
