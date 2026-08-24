@@ -12,10 +12,15 @@ mod codex_command_collector;
 mod codex_command_identity;
 mod codex_macho;
 mod codex_npm_chain_model;
+#[cfg(unix)]
 mod codex_npm_fs;
+#[cfg(unix)]
 mod codex_npm_fs_stable;
+#[cfg(unix)]
 mod codex_npm_launcher_chain;
+#[cfg(unix)]
 mod codex_npm_launcher_chain_digest;
+#[cfg(unix)]
 mod codex_npm_macho;
 mod codex_npm_manifest;
 mod codex_probe_attempt_authority;
@@ -363,24 +368,29 @@ mod admission_command_tests;
 mod codex_command_catalog_tests;
 
 #[cfg(test)]
+#[cfg(unix)]
 mod codex_command_collector_tests;
 
 #[cfg(test)]
 mod codex_command_collector_race_tests;
 
 #[cfg(test)]
+#[cfg(unix)]
 mod codex_macho_tests;
 
 #[cfg(test)]
 mod codex_npm_chain_model_tests;
 
 #[cfg(test)]
+#[cfg(unix)]
 mod codex_npm_fs_tests;
 
 #[cfg(test)]
+#[cfg(unix)]
 mod codex_npm_launcher_chain_tests;
 
 #[cfg(test)]
+#[cfg(unix)]
 mod codex_npm_macho_tests;
 
 #[cfg(test)]
@@ -392,6 +402,7 @@ mod codex_probe_preflight_test_support;
 mod codex_probe_preflight_tests;
 
 #[cfg(test)]
+#[cfg(unix)]
 mod codex_probe_attempt_authority_tests;
 
 #[cfg(test)]

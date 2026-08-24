@@ -676,6 +676,12 @@ Core extraction progress:
   before timeout cleanup, preserving the capture-limit contract. Six focused
   process-runner tests pass; Windows Job Object containment remains required
   before enabling Windows process execution.
+- Unix-only Workbench filesystem, launcher-chain, Mach-O, and related authority
+  test modules are now explicitly `cfg(unix)`-gated. The descriptor-relative,
+  raw-byte, symlink-safe implementation is unchanged; unsupported platforms do
+  not receive a guessed path abstraction or accidental partial runtime. The
+  focused Unix regression set remains green: 10 filesystem tests and 29
+  authority tests.
 
 ### Remaining build work
 
