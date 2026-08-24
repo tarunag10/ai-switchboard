@@ -12,8 +12,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { SwitchboardMode } from "../lib/types";
 import {
+  defaultModelRoutingExperimentPolicy,
+  getModelRoutingEffectiveStageReceipt,
   listModelRoutingDecisionReferences,
+  modelRoutingEffectiveStageReceipt,
   type ModelRoutingDecisionReference,
+  type ModelRoutingEffectiveStageReceipt,
+  type ModelRoutingExperimentPolicy,
 } from "../lib/optimization";
 import {
   listOssHarnessReplayReferences,
@@ -149,6 +154,16 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     () => routerDecisionReferences.find((reference) => reference.decisionId === routerDecisionId) ?? null,
     [routerDecisionId, routerDecisionReferences],
   );
+  const routePlanPolicy = useMemo<ModelRoutingExperimentPolicy>(
+    () => ({
+      ...defaultModelRoutingExperimentPolicy,
+      stage: selectedRouterDecision?.decisionStage ?? defaultModelRoutingExperimentPolicy.stage,
+    }),
+    [selectedRouterDecision],
+  );
+  const [routePlanStatus, setRoutePlanStatus] = useState<ModelRoutingEffectiveStageReceipt>(
+    () => modelRoutingEffectiveStageReceipt(routePlanPolicy),
+  );
   const desktopRuntime = hasTauriRuntime();
   const planRevision = useRef(0);
 
@@ -217,6 +232,18 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   useEffect(() => {
     if (!hidden) void refresh();
   }, [hidden, refresh]);
+
+  useEffect(() => {
+    let current = true;
+    void getModelRoutingEffectiveStageReceipt(routePlanPolicy)
+      .then((receipt) => {
+        if (current) setRoutePlanStatus(receipt);
+      })
+      .catch(() => {
+        if (current) setRoutePlanStatus(modelRoutingEffectiveStageReceipt(routePlanPolicy));
+      });
+    return () => { current = false; };
+  }, [routePlanPolicy]);
 
   useEffect(() => {
     let cancelled = false;
@@ -751,6 +778,13 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                     Selected Router decision: task class {selectedRouterDecision.taskClass} · stage {selectedRouterDecision.decisionStage.replace(/_/g, " ")} · routing mode {selectedRouterDecision.routingMode} · evidence digest {selectedRouterDecision.evidenceDigest}
                   </p>
                 ) : null}
+                <div aria-live="polite" className="optimize-minimal__meta" aria-label="Operational routing status">
+                  <strong>Operational routing status</strong>
+                  <p>
+                    Previewing stage <code>{routePlanStatus.configuredStage}</code> as effective <code>{routePlanStatus.effectiveStage}</code> with automatic routing <code>{routePlanStatus.automaticRouting}</code>.
+                  </p>
+                  <p>{routePlanStatus.reason}</p>
+                </div>
                 <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => { setReplayReferenceId(event.target.value); invalidatePreparedPlan(); }} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
                 </div>
                 <p className="optimize-minimal__meta">Native presets only compose existing plan-only capabilities and evidence sources. Router and replay references are re-resolved before a plan is created; replay paths, events, and manually entered metadata are not accepted here.</p>

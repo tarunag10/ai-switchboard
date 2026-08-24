@@ -15,6 +15,7 @@ const admitProcess = vi.fn();
 const listProcessAdmissions = vi.fn();
 const deriveAdmissionEligibility = vi.fn();
 const listRouterDecisionReferences = vi.fn();
+const getEffectiveRoutingStageReceipt = vi.fn();
 const listReplayReferences = vi.fn();
 
 vi.mock("../lib/tauriRuntime", () => ({ hasTauriRuntime: () => true }));
@@ -22,6 +23,7 @@ vi.mock("../lib/optimization", async () => {
   const actual = await vi.importActual<typeof import("../lib/optimization")>("../lib/optimization");
   return {
     ...actual,
+    getModelRoutingEffectiveStageReceipt: (...args: unknown[]) => getEffectiveRoutingStageReceipt(...args),
     listModelRoutingDecisionReferences: (...args: unknown[]) => listRouterDecisionReferences(...args),
   };
 });
@@ -63,6 +65,16 @@ const routerDecisionReference = {
   decisionStage: "observe" as const,
   routingMode: "observe_only" as const,
   evidenceDigest: routerDigest,
+};
+const userApprovedRouterDecisionReference = {
+  schemaVersion: 1 as const,
+  decisionId: "routing-decision-2",
+  runId: "routing-run-2",
+  capturedAt: "2026-08-23T01:00:00Z",
+  taskClass: "review",
+  decisionStage: "userApproved" as const,
+  routingMode: "observe_only" as const,
+  evidenceDigest: `sha256:${"e".repeat(64)}`,
 };
 const replayReference = {
   schemaVersion: 1 as const,
@@ -167,6 +179,14 @@ describe("WorkbenchView", () => {
     projection.mockResolvedValue(capabilityProjection);
     listRouterDecisionReferences.mockResolvedValue([routerDecisionReference]);
     listReplayReferences.mockResolvedValue([replayReference]);
+    getEffectiveRoutingStageReceipt.mockImplementation(async (policy: { stage: "observe" | "userApproved" | "automaticAllowlisted" }) => ({
+      configuredStage: policy.stage,
+      effectiveStage: "observe",
+      automaticRouting: "observe_only",
+      reason: policy.stage === "observe"
+        ? "Evidence collection is active; no model route is executed automatically."
+        : "This stage is saved as configuration only. The current completion path remains observe-only until trusted completion evidence is wired.",
+    }));
     listProcessStartGrants.mockResolvedValue([]);
     listProcessAdmissions.mockResolvedValue([]);
     deriveAdmissionEligibility.mockResolvedValue({
@@ -630,6 +650,12 @@ describe("WorkbenchView", () => {
     expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
       routerDigest,
     );
+    expect(await screen.findByLabelText("Operational routing status")).toHaveTextContent(
+      "Previewing stage observe as effective observe with automatic routing observe_only",
+    );
+    expect(screen.getByLabelText("Operational routing status")).toHaveTextContent(
+      "Evidence collection is active; no model route is executed automatically.",
+    );
     expect(screen.getByRole("checkbox", { name: /adapter command readiness/i })).toBeEnabled();
 
     await user.selectOptions(screen.getByLabelText("Client adapter"), "gemini_cli");
@@ -642,5 +668,25 @@ describe("WorkbenchView", () => {
     expect(screen.getByRole("checkbox", { name: /adapter command readiness/i })).toBeEnabled();
     expect(screen.queryByText(/Gemini remains adapter-plan-only/i)).not.toBeInTheDocument();
     expect(preparePlan).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a local routing preview when the receipt helper fails", async () => {
+    const user = userEvent.setup();
+    getEffectiveRoutingStageReceipt.mockRejectedValueOnce(new Error("routing stage unavailable"));
+    listRouterDecisionReferences.mockResolvedValue([userApprovedRouterDecisionReference]);
+
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-2");
+
+    const status = await screen.findByLabelText("Operational routing status");
+    expect(status).toHaveTextContent("Previewing stage userApproved as effective observe with automatic routing observe_only");
+    expect(status).toHaveTextContent(
+      "This stage is saved as configuration only. The current completion path remains observe-only until trusted completion evidence is wired.",
+    );
+    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent("task class review");
+    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent("stage userApproved");
+    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent("evidence digest");
   });
 });

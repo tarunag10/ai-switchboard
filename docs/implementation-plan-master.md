@@ -650,6 +650,11 @@ Core extraction progress:
   inherited stdio with `shell: false`, requires the explicit native executable
   environment variable, and keeps legacy router/optimize native shapes
   rejected. Bridge verification passes 5/5 tests plus the existing CLI check.
+  Workbench now visibly renders the bounded operational routing status beside
+  the selected Router decision, using the existing effective-stage receipt and
+  a local fail-safe preview when the native receipt is unavailable. The UI
+  slice is strictly observe-only; focused Workbench, Session Ready, and shared
+  Workbench tests pass 24/24 with TypeScript clean.
 
 ### Remaining build work
 
