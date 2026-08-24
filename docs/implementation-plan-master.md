@@ -553,6 +553,11 @@ Core extraction progress:
   plan-only flags, deterministic receipt digest, and effective-state checks.
   Grant ID/time generation, authority transactions, filesystem persistence,
   and process admission remain Tauri-owned for the next adapter phase.
+- Tauri grant receipt digest generation now delegates through an explicit
+  conversion to the shared process-grant contract, while Tauri keeps its
+  compatibility validation, effective-state behavior, authority locking, and
+  durable ledger unchanged. The grant-focused suite (5 tests) and full
+  Workbench suite (211 tests) pass with the updated lockfile.
 
 ### Remaining build work
 

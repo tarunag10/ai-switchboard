@@ -13,7 +13,6 @@ use std::fs::OpenOptions;
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::events::{validate_identifier, WorkbenchSessionStatus};
@@ -215,23 +214,28 @@ pub(crate) fn issue_process_start_grant(
 }
 
 pub(crate) fn process_start_grant_digest(grant: &WorkbenchProcessStartGrant) -> Result<String> {
-    let canonical = serde_json::json!({
-        "schemaVersion": grant.schema_version,
-        "grantId": &grant.grant_id,
-        "sessionId": &grant.session_id,
-        "planId": &grant.plan_id,
-        "processRunId": &grant.process_run_id,
-        "capabilityId": &grant.capability_id,
-        "issuedAt": &grant.issued_at,
-        "expiresAt": &grant.expires_at,
-        "status": &grant.status,
-        "revokedAt": &grant.revoked_at,
-        "executionEnabled": grant.execution_enabled,
-        "providerTraffic": &grant.provider_traffic,
-        "writesEnabled": grant.writes_enabled,
-    });
-    let bytes = serde_json::to_vec(&canonical).context("canonicalizing Workbench process grant")?;
-    Ok(format!("sha256:{:x}", Sha256::digest(bytes)))
+    switchboard_core::process_grant::process_start_grant_digest(&core_grant(grant))
+}
+
+fn core_grant(
+    grant: &WorkbenchProcessStartGrant,
+) -> switchboard_core::process_grant::WorkbenchProcessStartGrant {
+    switchboard_core::process_grant::WorkbenchProcessStartGrant {
+        schema_version: grant.schema_version,
+        grant_id: grant.grant_id.clone(),
+        session_id: grant.session_id.clone(),
+        plan_id: grant.plan_id.clone(),
+        process_run_id: grant.process_run_id.clone(),
+        capability_id: grant.capability_id.clone(),
+        issued_at: grant.issued_at.clone(),
+        expires_at: grant.expires_at.clone(),
+        status: grant.status.clone(),
+        revoked_at: grant.revoked_at.clone(),
+        execution_enabled: grant.execution_enabled,
+        provider_traffic: grant.provider_traffic.clone(),
+        writes_enabled: grant.writes_enabled,
+        receipt_digest: grant.receipt_digest.clone(),
+    }
 }
 
 impl WorkbenchProcessStartGrant {
