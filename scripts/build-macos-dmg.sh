@@ -4,6 +4,32 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SIGNING_TEMP_BASE="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+SIGNING_ENV_FILE=""
+TEMP_NOTARIZATION_KEY_PATH=""
+IMPORTED_SIGNING_KEYCHAIN=0
+
+cleanup() {
+  local status=$?
+  trap - EXIT
+
+  if [[ "${IMPORTED_SIGNING_KEYCHAIN}" == "1" ]]; then
+    if ! AI_SWITCHBOARD_SIGNING_TEMP_BASE="${SIGNING_TEMP_BASE}" \
+      "${REPO_ROOT}/scripts/cleanup-macos-signing-keychain.sh"; then
+      echo "Failed to remove the temporary signing keychain." >&2
+      status=1
+    fi
+  fi
+  if [[ -n "${SIGNING_ENV_FILE}" ]]; then
+    rm -f "${SIGNING_ENV_FILE}"
+  fi
+  if [[ -n "${TEMP_NOTARIZATION_KEY_PATH}" ]]; then
+    rm -f "${TEMP_NOTARIZATION_KEY_PATH}"
+  fi
+
+  exit "${status}"
+}
+trap cleanup EXIT
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "This script only runs on macOS." >&2
@@ -51,11 +77,9 @@ prepare_notarization() {
     require_env APPLE_API_KEY
     require_env APPLE_API_ISSUER
 
-    local key_path
-    key_path="$(mktemp "${TMPDIR:-/tmp}/headroom-authkey.XXXXXX.p8")"
-    trap 'rm -f "${key_path}"' EXIT
-    printf '%s' "${APPLE_API_PRIVATE_KEY_P8}" > "${key_path}"
-    export APPLE_API_KEY_PATH="${key_path}"
+    TEMP_NOTARIZATION_KEY_PATH="$(mktemp "${TMPDIR:-/tmp}/headroom-authkey.XXXXXX.p8")"
+    printf '%s' "${APPLE_API_PRIVATE_KEY_P8}" > "${TEMP_NOTARIZATION_KEY_PATH}"
+    export APPLE_API_KEY_PATH="${TEMP_NOTARIZATION_KEY_PATH}"
     return 0
   fi
 
@@ -70,6 +94,49 @@ prepare_notarization() {
   exit 1
 }
 
+import_signing_certificate_if_needed() {
+  if [[ -z "${APPLE_CERTIFICATE:-}" && -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]]; then
+    return 0
+  fi
+
+  require_env APPLE_CERTIFICATE
+  require_env APPLE_CERTIFICATE_PASSWORD
+
+  local existing_identities
+  local matching_identity_line
+  local existing_identity_sha1
+  existing_identities="$(security find-identity -v -p codesigning)"
+  matching_identity_line="$(grep -F -m1 -- "${APPLE_SIGNING_IDENTITY}" <<<"${existing_identities}" || true)"
+  existing_identity_sha1="$(awk '{ print $2 }' <<<"${matching_identity_line}")"
+  if [[ "${existing_identity_sha1}" =~ ^[0-9A-Fa-f]{40}$ ]]; then
+    export APPLE_SIGNING_IDENTITY="${existing_identity_sha1}"
+    unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD
+    echo "Using the existing matching macOS signing identity; skipped duplicate PKCS#12 import."
+    return 0
+  fi
+
+  SIGNING_ENV_FILE="$(mktemp "${SIGNING_TEMP_BASE}/ai-switchboard-signing-env.XXXXXX")"
+  AI_SWITCHBOARD_SIGNING_TEMP_BASE="${SIGNING_TEMP_BASE}" \
+    AI_SWITCHBOARD_SIGNING_ENV_FILE="${SIGNING_ENV_FILE}" \
+    "${REPO_ROOT}/scripts/import-macos-signing-certificate.sh"
+
+  while IFS='=' read -r key value; do
+    case "${key}" in
+      AI_SWITCHBOARD_CODESIGN_KEYCHAIN|AI_SWITCHBOARD_SIGNING_KEYCHAIN_ROOT|AI_SWITCHBOARD_SIGNING_TEMP_BASE|APPLE_SIGNING_IDENTITY)
+        printf -v "${key}" '%s' "${value}"
+        export "${key}"
+        ;;
+      *)
+        echo "Unexpected signing environment key: ${key}" >&2
+        exit 1
+        ;;
+    esac
+  done <"${SIGNING_ENV_FILE}"
+
+  IMPORTED_SIGNING_KEYCHAIN=1
+  unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD
+}
+
 require_env APPLE_SIGNING_IDENTITY
 require_env TAURI_SIGNING_PRIVATE_KEY
 require_env TAURI_SIGNING_PRIVATE_KEY_PASSWORD
@@ -77,6 +144,7 @@ require_env TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 load_env_value_from_file TAURI_SIGNING_PRIVATE_KEY
 load_env_value_from_file HEADROOM_UPDATER_PUBLIC_KEY
 
+import_signing_certificate_if_needed
 prepare_notarization
 
 if [[ -z "${HEADROOM_UPDATER_PUBLIC_KEY:-}" || -z "${HEADROOM_UPDATER_ENDPOINTS:-}" ]]; then

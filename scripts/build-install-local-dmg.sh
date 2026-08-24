@@ -25,6 +25,47 @@ LOCAL_DIR="dist/release-artifacts"
 LOCAL_DMG="${LOCAL_DIR}/Mac-AI-Switchboard_${APP_VERSION}-local-unsigned-${DMG_ARCH}.dmg"
 APP_DEST="${MAC_AI_SWITCHBOARD_LOCAL_APP_DEST:-/Applications/AI Switchboard.app}"
 LEGACY_APP_DEST="/Applications/AI Switchboard for Mac.app"
+HELPER_APP_RELATIVE="Contents/Helpers/AI Switchboard Codex Probe.app"
+HELPER_ENTITLEMENTS="${REPO_ROOT}/src-tauri/codex-probe-helper-app/Entitlements.plist"
+PARENT_ENTITLEMENTS="${REPO_ROOT}/src-tauri/Entitlements.plist"
+
+validate_app_destination() {
+  local destination="$1"
+  local parent
+  local name
+  parent="$(dirname "${destination}")"
+  name="$(basename "${destination}")"
+
+  if [[ "${parent}" != "/Applications" || "${name}" != *.app || "${name}" == ".app" ]]; then
+    echo "Local app destination must be a named .app directly under /Applications." >&2
+    exit 1
+  fi
+  if [[ "$(cd "${parent}" && pwd -P)" != "/Applications" ]]; then
+    echo "Local app destination parent does not resolve to /Applications." >&2
+    exit 1
+  fi
+  if [[ -L "${destination}" ]]; then
+    echo "Refusing to replace a symlinked local app destination: ${destination}" >&2
+    exit 1
+  fi
+  if [[ -e "${destination}" && ! -d "${destination}" ]]; then
+    echo "Refusing to replace a non-directory local app destination: ${destination}" >&2
+    exit 1
+  fi
+  if [[ -d "${destination}" ]]; then
+    local existing_info="${destination}/Contents/Info.plist"
+    local existing_identifier=""
+    if [[ -f "${existing_info}" && ! -L "${existing_info}" ]]; then
+      existing_identifier="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${existing_info}" 2>/dev/null || true)"
+    fi
+    if [[ "${existing_identifier}" != "com.tarunagarwal.mac-ai-switchboard" ]]; then
+      echo "Refusing to replace an app not owned by AI Switchboard: ${destination}" >&2
+      exit 1
+    fi
+  fi
+}
+
+validate_app_destination "${APP_DEST}"
 
 echo "Building local unsigned/ad-hoc DMG..."
 CI=true npx tauri build --bundles dmg --ci
@@ -69,9 +110,28 @@ fi
 pkill -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1 || true
 pkill -f "${LEGACY_APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1 || true
 
-rm -rf "${APP_DEST}"
+# Revalidate the live destination after the lengthy build/mount/process-stop
+# sequence and immediately before the destructive replacement.
+validate_app_destination "${APP_DEST}"
+rm -rf -- "${APP_DEST:?}"
 ditto "${DMG_APP}" "${APP_DEST}"
-codesign --force --deep --sign - "${APP_DEST}"
+HELPER_APP="${APP_DEST}/${HELPER_APP_RELATIVE}"
+if [[ ! -d "${HELPER_APP}" ]]; then
+  echo "Installed bundle is missing the nested Codex probe helper: ${HELPER_APP}" >&2
+  exit 1
+fi
+
+# Sign nested code first with its narrower sandbox-only entitlement. Signing the
+# parent with --deep would overwrite that boundary with the parent's settings.
+codesign --force --sign - \
+  --entitlements "${HELPER_ENTITLEMENTS}" \
+  --options runtime \
+  "${HELPER_APP}"
+"${REPO_ROOT}/scripts/verify-codex-probe-helper-app.sh" "${HELPER_APP}"
+codesign --force --sign - \
+  --entitlements "${PARENT_ENTITLEMENTS}" \
+  --options runtime \
+  "${APP_DEST}"
 codesign --verify --deep --strict --verbose=2 "${APP_DEST}"
 
 npm run smoke:installed:local

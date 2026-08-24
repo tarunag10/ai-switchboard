@@ -27,6 +27,14 @@ npm run build:mac:dmg
 ```
 
 This produces a signed `Mac-AI-Switchboard_<version>.dmg` in `src-tauri/target/release/bundle/dmg/`.
+Before Tauri seals the parent app, the pre-bundle hook builds the independently
+locked Codex probe helper and places its separately signed background app at
+`AI Switchboard.app/Contents/Helpers/AI Switchboard Codex Probe.app`. The helper
+is signed with its sandbox-only entitlement, while the parent keeps its own
+JIT/network entitlement set. It is intentionally a nested app rather than a
+Tauri sidecar so the parent entitlement file cannot replace the helper's
+narrower sandbox profile. Packaging does not expose a launcher, IPC, or Codex
+execution path.
 Run `npm run release:env` before publishing from a local Mac. It checks Node/npm, Rust/cargo/rustup, Xcode command-line tools, signing/notarization environment variables, and updater settings before the heavier release gate starts. Use `node scripts/check-release-env.mjs --json` or `npm --silent run release:env:json` when automation needs structured `ok`, `blockers`, and `warnings` output.
 Run `npm run release:proof` after or alongside `release:ready` to write `dist/public-release-proof-summary.md` and `.json`; the proof is allowed to be blocked, but it must list the exact signed DMG, notarization, updater feed, static smoke, and public installed-smoke evidence still missing.
 
@@ -46,7 +54,7 @@ verify and audit.
 
 For local unsigned/ad-hoc testing only, use `npm run evidence:local` when you want the same one-command local evidence sequence exposed by the app's **Run local evidence** button. It runs desktop validation, static smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, and a release report refresh, then writes `dist/local-evidence-summary.md`. This command does not run signing, notarization, updater publication, or the strict public-release gate.
 
-Use `npm run build:mac:local-install` when you only want the local install step. It builds a local DMG, copies it to `dist/release-artifacts`, installs the canonical bundle at `/Applications/AI Switchboard.app`, ad-hoc signs the installed app, runs `npm run smoke:installed:local`, then opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` for automated evidence runs that should not launch the app window. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. When the installed app is running, the same local smoke also records whether the loopback app listener (`127.0.0.1:6767`) and Headroom engine proxy (`127.0.0.1:6768`) report healthy `/readyz` status. Do not use local summaries as public release evidence.
+Use `npm run build:mac:local-install` when you only want the local install step. It builds a local DMG, copies it to `dist/release-artifacts`, installs the canonical bundle at `/Applications/AI Switchboard.app`, ad-hoc signs the nested helper first and the parent second, runs `npm run smoke:installed:local`, then opens the installed app. It never uses blanket deep signing to mutate nested entitlements. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` for automated evidence runs that should not launch the app window. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. When the installed app is running, the same local smoke also records whether the loopback app listener (`127.0.0.1:6767`) and Headroom engine proxy (`127.0.0.1:6768`) report healthy `/readyz` status. Do not use local summaries as public release evidence.
 
 If you want a universal build, install both Rust macOS targets first and then run:
 
@@ -107,7 +115,12 @@ Recommended for production builds of AI Switchboard for Mac so auto-update stays
 Optional, usually only needed outside your own machine:
 
 - `APPLE_CERTIFICATE`
-  Base64-encoded `.p12` signing certificate export. Useful for CI or a clean machine without the certificate already installed in your login keychain.
+  Base64-encoded `.p12` signing certificate export. The CI workflows and local
+  DMG script first reuse an already-installed matching identity when available;
+  otherwise they import the `.p12` into an ephemeral keychain before the helper
+  pre-bundle hook. They remove certificate material from Tauri's environment and
+  pin signing to the selected identity's SHA-1 fingerprint to avoid name-based
+  ambiguity. Temporary keychains are deleted after the build.
 - `APPLE_CERTIFICATE_PASSWORD`
   Password for the exported `.p12` certificate.
 
@@ -153,11 +166,12 @@ Store:
 
 For each mac release:
 
-1. Build with `HEADROOM_UPDATER_PUBLIC_KEY` and `HEADROOM_UPDATER_ENDPOINTS` set.
-2. Code-sign the app with your Apple Developer ID Application certificate.
-3. Notarize the build with Apple.
-4. Publish the signed updater artifacts and `latest.json`.
-5. Create or update the GitHub Release that hosts those files.
+1. Import the Developer ID certificate into an ephemeral CI keychain.
+2. Build with `HEADROOM_UPDATER_PUBLIC_KEY` and `HEADROOM_UPDATER_ENDPOINTS` set.
+3. Sign the nested helper first with its sandbox-only entitlement, then let Tauri sign and notarize the parent.
+4. Verify the packaged helper, outer signature, designated requirement, and matching TeamIdentifier values.
+5. Remove the ephemeral keychain and certificate material.
+6. Publish the draft release and its signed updater artifacts/`latest.json` only after packaged verification passes.
 
 The app is already configured with `"createUpdaterArtifacts": true`, so Tauri will emit updater-friendly release artifacts during bundling.
 

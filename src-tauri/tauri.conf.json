@@ -6,6 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
+    "beforeBundleCommand": "./scripts/prepare-codex-probe-helper-app.sh",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
@@ -89,7 +90,10 @@
     "macOS": {
       "minimumSystemVersion": "14.0",
       "infoPlist": "Info.plist",
-      "entitlements": "Entitlements.plist"
+      "entitlements": "Entitlements.plist",
+      "files": {
+        "Helpers/AI Switchboard Codex Probe.app": "target/codex-probe-helper-bundle/AI Switchboard Codex Probe.app"
+      }
     }
   }
 }

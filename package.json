@@ -30,6 +30,7 @@
     "check:connector-behavior": "npm run check:connector-lifecycle && cargo test --manifest-path src-tauri/Cargo.toml --lib client_adapters::tests -- --test-threads=1",
     "check:compression-proof": "node scripts/check-compression-proof.mjs",
     "check:model-routing-evidence": "node --test scripts/check-model-routing-evidence.node-test.mjs && node scripts/check-model-routing-evidence.mjs && cargo test --manifest-path src-tauri/Cargo.toml model_routing --lib -- --test-threads=1 && cargo test --manifest-path src-tauri/Cargo.toml telemetry_store --lib -- --test-threads=1",
+    "check:codex-probe-helper-bundle": "node --test scripts/codex-probe-helper-bundle.node-test.mjs",
     "release:env": "node scripts/check-release-env.mjs",
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",

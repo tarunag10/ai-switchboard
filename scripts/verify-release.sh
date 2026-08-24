@@ -8,6 +8,9 @@ cd "${REPO_ROOT}"
 echo "Checking deployment readiness..."
 npm run check:deployment
 
+echo "Checking Codex probe helper packaging contract..."
+npm run check:codex-probe-helper-bundle
+
 echo "Checking release environment..."
 node scripts/check-release-env.mjs --strict
 

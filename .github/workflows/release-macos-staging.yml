@@ -26,8 +26,6 @@ jobs:
       HEADROOM_UPDATER_ENDPOINTS: '["https://github.com/tarunag10/ai-switchboard/releases/latest/download/latest.json"]'
       HEADROOM_UPDATER_STAGING_ENDPOINTS: '["https://github.com/tarunag10/ai-switchboard/releases/download/staging-rolling/latest.json"]'
       HEADROOM_UPDATER_PUBLIC_KEY: ${{ vars.HEADROOM_UPDATER_PUBLIC_KEY }}
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
       APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
       APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -112,6 +110,13 @@ jobs:
           echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
           echo "should_release=${should_release}" >> "$GITHUB_OUTPUT"
 
+      - name: Import macOS signing certificate
+        if: steps.release_guard.outputs.should_release == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: ./scripts/import-macos-signing-certificate.sh
+
       - name: Validate release configuration
         if: steps.release_guard.outputs.should_release == 'true'
         shell: bash
@@ -121,9 +126,8 @@ jobs:
           required=(
             HEADROOM_APTABASE_APP_KEY
             HEADROOM_UPDATER_PUBLIC_KEY
-            APPLE_CERTIFICATE
-            APPLE_CERTIFICATE_PASSWORD
             APPLE_SIGNING_IDENTITY
+            AI_SWITCHBOARD_CODESIGN_KEYCHAIN
             TAURI_SIGNING_PRIVATE_KEY
             TAURI_SIGNING_PRIVATE_KEY_PASSWORD
             HEADROOM_SENTRY_DSN
@@ -136,6 +140,11 @@ jobs:
               exit 1
             fi
           done
+
+          if [[ ! -f "${AI_SWITCHBOARD_CODESIGN_KEYCHAIN}" ]]; then
+            echo "Imported signing keychain is missing: ${AI_SWITCHBOARD_CODESIGN_KEYCHAIN}" >&2
+            exit 1
+          fi
 
           if [[ -n "${APPLE_API_ISSUER:-}" && -n "${APPLE_API_KEY:-}" && -n "${APPLE_API_PRIVATE_KEY_P8:-}" ]]; then
             exit 0
@@ -174,9 +183,6 @@ jobs:
           HEADROOM_UPDATER_ENDPOINTS: ${{ env.HEADROOM_UPDATER_ENDPOINTS }}
           HEADROOM_UPDATER_STAGING_ENDPOINTS: ${{ env.HEADROOM_UPDATER_STAGING_ENDPOINTS }}
           HEADROOM_UPDATER_PUBLIC_KEY: ${{ env.HEADROOM_UPDATER_PUBLIC_KEY }}
-          APPLE_CERTIFICATE: ${{ env.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ env.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ env.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ env.APPLE_API_KEY }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
@@ -192,11 +198,30 @@ jobs:
           releaseBody: |
             Staging (release candidate) build. Not for general distribution.
           generateReleaseNotes: true
-          releaseDraft: false
+          releaseDraft: true
           prerelease: true
           assetNamePattern: '[name]_[version]_mac[ext]'
           includeUpdaterJson: true
           args: --target aarch64-apple-darwin
+
+      - name: Verify packaged Codex probe helper
+        if: steps.release_guard.outputs.should_release == 'true'
+        run: |
+          ./scripts/verify-codex-probe-helper-app.sh \
+            "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/AI Switchboard.app/Contents/Helpers/AI Switchboard Codex Probe.app" \
+            aarch64-apple-darwin \
+            "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/AI Switchboard.app"
+
+      - name: Remove temporary signing keychain
+        if: always() && steps.release_guard.outputs.should_release == 'true'
+        run: ./scripts/cleanup-macos-signing-keychain.sh
+
+      - name: Publish verified release draft
+        if: steps.release_guard.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: v${{ steps.release_guard.outputs.package_version }}
+        run: gh release edit "${RELEASE_TAG}" --draft=false --repo "${GITHUB_REPOSITORY}"
 
       - name: Mirror artifacts to rolling staging release
         if: steps.release_guard.outputs.should_release == 'true'

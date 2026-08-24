@@ -245,15 +245,17 @@ fn nested_app_identity_and_entitlements_are_exact() {
 }
 
 #[test]
-fn readme_preserves_the_unbundled_unlaunched_release_boundary() {
+fn readme_preserves_the_packaged_but_unlaunched_release_boundary() {
     let readme = fs::read_to_string(crate_root().join("README.md")).expect("read README");
     for required in [
         "MIT-licensed",
         "private, non-commercial research use",
         "non-executing protocol-v1",
-        "defines no bundling, installation, independent signing, launch, or parent-app connection",
-        "linker ad-hoc signed",
-        "not independent or release signing",
+        "assemble it under `Contents/Helpers`",
+        "sign the helper before the parent",
+        "local packaging is explicitly ad-hoc",
+        "adds no parent runtime command, launcher, IPC",
+        "unreachable from the running app",
         "separate phase",
     ] {
         assert!(readme.contains(required), "README missing {required}");
@@ -261,15 +263,10 @@ fn readme_preserves_the_unbundled_unlaunched_release_boundary() {
 }
 
 #[test]
-fn parent_build_graph_and_production_sources_do_not_reference_the_helper() {
+fn parent_runtime_graph_and_production_sources_do_not_reference_the_helper() {
     let parent = crate_root().parent().expect("src-tauri parent");
     let repository = parent.parent().expect("repository parent");
-    let build_graph = [
-        parent.join("Cargo.toml"),
-        parent.join("build.rs"),
-        parent.join("tauri.conf.json"),
-        repository.join("package.json"),
-    ];
+    let build_graph = [parent.join("Cargo.toml"), parent.join("build.rs")];
     for path in build_graph {
         let source = fs::read_to_string(&path).expect("read parent build file");
         for forbidden in [
@@ -300,6 +297,30 @@ fn parent_build_graph_and_production_sources_do_not_reference_the_helper() {
             assert!(
                 !source.contains(forbidden),
                 "parent graph/source references helper identity in {}",
+                path.display()
+            );
+        }
+    }
+
+    let mut frontend_sources = Vec::new();
+    collect_files(&repository.join("src"), &mut frontend_sources);
+    for path in frontend_sources.into_iter().filter(|path| {
+        path.extension().is_some_and(|extension| {
+            matches!(
+                extension.to_str(),
+                Some("ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs")
+            )
+        })
+    }) {
+        let source = fs::read_to_string(&path).expect("read frontend source file");
+        for forbidden in [
+            "codex-probe-helper-app",
+            "ai-switchboard-codex-probe",
+            "com.tarunagarwal.mac-ai-switchboard.codex-probe",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "frontend runtime source references helper identity in {}",
                 path.display()
             );
         }
