@@ -1,6 +1,6 @@
 # AI Switchboard Master Implementation Plan
 
-Updated: 2026-08-21
+Updated: 2026-08-25
 
 This is the authoritative reconciliation of the repository's implementation
 plans. Older plans remain useful as design history, but their individual status
@@ -690,6 +690,14 @@ Core extraction progress:
   checkout the pinned rustup toolchain lacks its Cargo component, while the
   explicit installed stable toolchain builds successfully; the helper leaves
   toolchain selection to the caller rather than mutating it silently.
+- The tracked `check:switchboard-cli` CI gate now also runs locked, offline
+  contract tests for `switchboard-core`, `switchboard-runtime`, and
+  `switchboard-cli`. The standalone runtime lockfile was repaired to include
+  the current `serde_json` dependency graph, and the combined gate passes with
+  `RUSTUP_TOOLCHAIN=stable CARGO_NET_OFFLINE=true`. The repository's prepared
+  cross-platform workflow draft remains intentionally untracked because the
+  current GitHub credential cannot publish workflow changes without the
+  `workflow` OAuth scope; no workflow file is claimed as shipped.
 
 ### Remaining build work
 

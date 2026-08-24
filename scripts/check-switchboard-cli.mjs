@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import packageJson from "../package.json" with { type: "json" };
+import { runSwitchboardContracts } from "./check-switchboard-contracts.mjs";
 
 function fail(message) {
   console.error(`switchboard cli check failed: ${message}`);
@@ -95,6 +96,11 @@ if (directAgents.status !== 0) {
 }
 if (!directAgents.stdout.includes("codex") || !directAgents.stdout.includes("gemini")) {
   fail("npm run repo:intelligence compatibility path did not return expected agent ids");
+}
+
+const contractsResult = runSwitchboardContracts();
+if (!contractsResult.ok) {
+  fail(contractsResult.message);
 }
 
 const readme = readFileSync("README.md", "utf8");

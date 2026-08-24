@@ -32,6 +32,7 @@
     "check:model-routing-evidence": "node --test scripts/check-model-routing-evidence.node-test.mjs && node scripts/check-model-routing-evidence.mjs && cargo test --manifest-path src-tauri/Cargo.toml model_routing --lib -- --test-threads=1 && cargo test --manifest-path src-tauri/Cargo.toml telemetry_store --lib -- --test-threads=1",
     "check:codex-probe-helper-bundle": "node --test scripts/codex-probe-helper-bundle.node-test.mjs",
     "check:native-cli-bridge": "node --test scripts/native-cli-bridge.node-test.mjs",
+    "check:switchboard-contracts": "node scripts/check-switchboard-contracts.mjs",
     "release:env": "node scripts/check-release-env.mjs",
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",
