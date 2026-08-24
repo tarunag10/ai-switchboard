@@ -91,7 +91,6 @@ test("native bridge fails closed when unset or unusable", () => {
     });
     assert.equal(unusable.status, 1);
     assert.match(unusable.stderr, /could not start the configured native CLI/);
-
   } finally {
     rmSync(stub.directory, { recursive: true, force: true });
   }

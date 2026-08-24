@@ -84,6 +84,13 @@ if (command === "--version" || command === "-v" || command === "version") {
   process.exit(0);
 }
 
+if (nativeRequested && ["router", "optimize"].includes(command)) {
+  console.error(
+    "--native is supported only for harness status and Workbench session serialize.",
+  );
+  process.exit(2);
+}
+
 if (["repo-intelligence", "repo", "intelligence"].includes(command)) {
   runNodeScript("scripts/repo-intelligence.mjs", commandArgs.slice(1));
 }
