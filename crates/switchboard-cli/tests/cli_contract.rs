@@ -1,5 +1,7 @@
 use serde_json::{json, Value};
-use switchboard_cli::{run_cli, EXIT_SUCCESS, EXIT_USAGE, MAX_SESSION_INPUT_BYTES};
+use switchboard_cli::{
+    run_cli, EXIT_SUCCESS, EXIT_USAGE, MAX_ROUTER_INPUT_BYTES, MAX_SESSION_INPUT_BYTES,
+};
 
 const SESSION: &[u8] = include_bytes!("fixtures/session-active-v1.json");
 
@@ -21,6 +23,44 @@ fn run(args: &[&str], input: &[u8]) -> (u8, String, String) {
 
 fn session_value() -> Value {
     serde_json::from_slice(SESSION).expect("session fixture")
+}
+
+fn router_request() -> Value {
+    json!({
+        "schemaVersion": 1,
+        "request": {
+            "requestedModel": "exact-model",
+            "requiredFeatures": ["streaming", "tools"],
+            "privacy": "prefer_local",
+            "maximumCostMicrousdPerMillionInputTokens": 10_000,
+            "maximumQueueLatencyMs": 100,
+            "preferredEndpointId": null
+        },
+        "candidates": [
+            {
+                "id": "remote",
+                "enabled": true,
+                "verified": true,
+                "health": "healthy",
+                "privacy": "remote",
+                "costMicrousdPerMillionInputTokens": 10,
+                "queueLatencyMs": 2,
+                "features": ["streaming", "tools"],
+                "availableModels": ["exact-model"]
+            },
+            {
+                "id": "local",
+                "enabled": true,
+                "verified": true,
+                "health": "healthy",
+                "privacy": "local",
+                "costMicrousdPerMillionInputTokens": 100,
+                "queueLatencyMs": 20,
+                "features": ["streaming", "tools"],
+                "availableModels": ["exact-model"]
+            }
+        ]
+    })
 }
 
 #[test]
@@ -54,6 +94,99 @@ fn session_serialization_is_valid_and_deterministic() {
     assert_eq!(value["executionMode"], "plan_only");
     assert_eq!(value["providerTraffic"], "none");
     assert_eq!(value["status"], "active");
+}
+
+#[test]
+fn endpoint_plan_is_deterministic_compact_and_observe_only() {
+    let first_input = serde_json::to_vec_pretty(&router_request()).expect("router request");
+    let (first_code, first, first_error) = run(&["router", "endpoint", "plan"], &first_input);
+
+    let mut reordered = router_request();
+    reordered["candidates"]
+        .as_array_mut()
+        .expect("candidate array")
+        .reverse();
+    let second_input = serde_json::to_vec(&reordered).expect("reordered router request");
+    let (second_code, second, second_error) = run(&["router", "endpoint", "plan"], &second_input);
+
+    assert_eq!(first_code, EXIT_SUCCESS);
+    assert_eq!(second_code, EXIT_SUCCESS);
+    assert!(first_error.is_empty());
+    assert!(second_error.is_empty());
+    assert_eq!(first, second);
+    assert!(first.ends_with('\n'));
+    assert!(!first[..first.len() - 1].contains('\n'));
+    assert!(!first.contains("  "));
+
+    let value: Value = serde_json::from_str(&first).expect("endpoint plan JSON");
+    assert_eq!(value["strategy"], "deterministic_endpoint");
+    assert_eq!(value["executionMode"], "observe_only");
+    assert_eq!(value["requestedModel"], "exact-model");
+    assert_eq!(value["actualModel"], "exact-model");
+    assert_eq!(value["providerTrafficEnabled"], false);
+    assert_eq!(value["processStartEnabled"], false);
+    assert_eq!(value["endpoint"]["selectedEndpointId"], "local");
+    assert_eq!(value["endpoint"]["explanations"][0]["endpointId"], "local");
+    assert_eq!(value["endpoint"]["explanations"][1]["endpointId"], "remote");
+}
+
+#[test]
+fn endpoint_plan_rejects_malformed_unknown_and_unsafe_input_without_echoing_values() {
+    let malformed = b"{\"schemaVersion\":1,\"request\":";
+    let (code, output, error) = run(&["router", "endpoint", "plan"], malformed);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("malformed"));
+    assert!(!error.contains("schemaVersion"));
+
+    let mut unknown = router_request();
+    unknown["privatePrompt"] = json!("private prompt contents");
+    let input = serde_json::to_vec(&unknown).expect("unknown-field request");
+    let (code, output, error) = run(&["router", "endpoint", "plan"], &input);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("unsupported field"));
+    assert!(!error.contains("private prompt contents"));
+
+    let mut unknown_enum = router_request();
+    unknown_enum["request"]["privacy"] = json!("private-routing-mode");
+    let input = serde_json::to_vec(&unknown_enum).expect("unknown-enum request");
+    let (code, output, error) = run(&["router", "endpoint", "plan"], &input);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("unsupported enum value"));
+    assert!(!error.contains("private-routing-mode"));
+
+    let mut unsafe_request = router_request();
+    unsafe_request["request"]["requestedModel"] = json!("private model prompt with spaces");
+    let input = serde_json::to_vec(&unsafe_request).expect("unsafe router request");
+    let (code, output, error) = run(&["router", "endpoint", "plan"], &input);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("failed validation"));
+    assert!(!error.contains("private model prompt"));
+}
+
+#[test]
+fn endpoint_plan_requires_exactly_one_bounded_json_request() {
+    let (code, output, error) = run(&["router", "endpoint", "plan"], b" \n\t");
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("JSON is required on stdin"));
+
+    let oversized = vec![b' '; MAX_ROUTER_INPUT_BYTES + 1];
+    let (code, output, error) = run(&["router", "endpoint", "plan"], &oversized);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("exceeds the 1 MiB limit"));
+
+    let one = serde_json::to_vec(&router_request()).expect("router request");
+    let mut two = one.clone();
+    two.extend_from_slice(&one);
+    let (code, output, error) = run(&["router", "endpoint", "plan"], &two);
+    assert_eq!(code, EXIT_USAGE);
+    assert!(output.is_empty());
+    assert!(error.contains("malformed"));
 }
 
 #[test]

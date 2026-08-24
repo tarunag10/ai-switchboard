@@ -632,13 +632,15 @@ Core extraction progress:
   This is discovery/delegation only, not native router parity or installer
   packaging.
 - `switchboard-core::router` now owns a strict, content-free endpoint route
-  plan contract for the native CLI follow-up: deterministic candidate
-  selection, stable endpoint-ID tie-breaking, requested/actual model
-  equality, bounded inputs, duplicate/unknown-field rejection, and hard-gate
-  fail-closed behavior. The planner is always observe-only with provider
-  traffic and process start disabled. Core verification passes 42/42 tests and
-  all-target Clippy; the native CLI command and Tauri compatibility adapter are
-  the next steps.
+  plan contract: deterministic candidate selection, stable endpoint-ID
+  tie-breaking, requested/actual model equality, bounded inputs,
+  duplicate/unknown-field rejection, and hard-gate fail-closed behavior. The
+  planner is always observe-only with provider traffic and process start
+  disabled. The native Rust CLI now exposes `switchboard router endpoint plan`
+  with one bounded stdin JSON request, deterministic compact JSON output, and
+  content-free malformed/unsafe-input errors. Core verification passes 42/42
+  tests; CLI verification passes 21/21 tests and all-target Clippy. The Tauri
+  compatibility adapter and Node opt-in bridge remain next steps.
 
 ### Remaining build work
 

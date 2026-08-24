@@ -7,11 +7,13 @@
 use std::io::{Read, Write};
 
 use chrono::DateTime;
+use switchboard_core::router::{build_endpoint_route_plan, EndpointRoutePlanInput};
 use switchboard_core::workbench::WorkbenchSession;
 use switchboard_core::{ExecutionMode, HarnessSurface};
 use switchboard_runtime::{PortableRuntime, RuntimeAdapter};
 
 pub const MAX_SESSION_INPUT_BYTES: usize = 1024 * 1024;
+pub const MAX_ROUTER_INPUT_BYTES: usize = 1024 * 1024;
 pub const EXIT_SUCCESS: u8 = 0;
 pub const EXIT_INTERNAL: u8 = 1;
 pub const EXIT_USAGE: u8 = 2;
@@ -20,14 +22,17 @@ pub const USAGE: &str = "Switchboard CLI
 
 Usage:
   switchboard harness status
+  switchboard router endpoint plan
   switchboard workbench session serialize
   switchboard --help
 
 Safety:
   harness status reports the fail-closed portable runtime contract.
+  router endpoint plan reads one bounded content-free endpoint request from
+  stdin and writes a deterministic observe-only plan without provider traffic.
   workbench session serialize reads one bounded JSON document from stdin,
   validates the content-free Workbench session, and writes deterministic JSON.
-  Neither command starts a process, accesses a provider, or reads or writes files.";
+  No command starts a process, accesses a provider, or reads or writes files.";
 
 pub fn run_cli<R: Read, W: Write, E: Write>(
     args: &[String],
@@ -43,6 +48,11 @@ pub fn run_cli<R: Read, W: Write, E: Write>(
             write_harness_status(output, error)
         }
         [command, subject, action]
+            if command == "router" && subject == "endpoint" && action == "plan" =>
+        {
+            plan_endpoint_route(input, output, error)
+        }
+        [command, subject, action]
             if command == "workbench" && subject == "session" && action == "serialize" =>
         {
             serialize_workbench_session(input, output, error)
@@ -50,6 +60,9 @@ pub fn run_cli<R: Read, W: Write, E: Write>(
         [] => usage_error(error, "a command is required"),
         [command, ..] if command == "harness" => {
             usage_error(error, "expected `switchboard harness status`")
+        }
+        [command, ..] if command == "router" => {
+            usage_error(error, "expected `switchboard router endpoint plan`")
         }
         [command, ..] if command == "workbench" => {
             usage_error(error, "expected `switchboard workbench session serialize`")
@@ -94,7 +107,7 @@ fn serialize_workbench_session<R: Read, W: Write, E: Write>(
     output: &mut W,
     error: &mut E,
 ) -> u8 {
-    let bytes = match read_bounded(input) {
+    let bytes = match read_bounded(input, MAX_SESSION_INPUT_BYTES) {
         Ok(bytes) => bytes,
         Err(ReadFailure::TooLarge) => {
             return invalid_input(error, "Workbench session input exceeds the 1 MiB limit")
@@ -118,6 +131,39 @@ fn serialize_workbench_session<R: Read, W: Write, E: Write>(
     let encoded = match serde_json::to_vec(&session) {
         Ok(encoded) => encoded,
         Err(_) => return internal_error(error, "failed to encode Workbench session"),
+    };
+    write_json(output, error, &encoded)
+}
+
+fn plan_endpoint_route<R: Read, W: Write, E: Write>(
+    input: &mut R,
+    output: &mut W,
+    error: &mut E,
+) -> u8 {
+    let bytes = match read_bounded(input, MAX_ROUTER_INPUT_BYTES) {
+        Ok(bytes) => bytes,
+        Err(ReadFailure::TooLarge) => {
+            return invalid_input(error, "Router endpoint plan input exceeds the 1 MiB limit")
+        }
+        Err(ReadFailure::Input) => {
+            return internal_error(error, "failed to read Router endpoint plan from stdin")
+        }
+    };
+    if bytes.iter().all(u8::is_ascii_whitespace) {
+        return invalid_input(error, "Router endpoint plan JSON is required on stdin");
+    }
+
+    let input = match serde_json::from_slice::<EndpointRoutePlanInput>(&bytes) {
+        Ok(input) => input,
+        Err(parse_error) => return invalid_router_endpoint_plan_input(error, parse_error),
+    };
+    let plan = match build_endpoint_route_plan(&input) {
+        Ok(plan) => plan,
+        Err(_) => return invalid_router_endpoint_plan_validation(error),
+    };
+    let encoded = match serde_json::to_vec(&plan) {
+        Ok(encoded) => encoded,
+        Err(_) => return internal_error(error, "failed to encode Router endpoint plan"),
     };
     write_json(output, error, &encoded)
 }
@@ -190,18 +236,83 @@ fn invalid_workbench_session_validation<E: Write>(error: &mut E) -> u8 {
     )
 }
 
+enum RouterEndpointPlanInputFailure {
+    MalformedJson,
+    UnsupportedField,
+    UnsupportedEnumValue,
+    ValidationFailed,
+}
+
+fn router_endpoint_plan_input_failure_message(
+    failure: RouterEndpointPlanInputFailure,
+) -> &'static str {
+    match failure {
+        RouterEndpointPlanInputFailure::MalformedJson => "Router endpoint plan JSON is malformed",
+        RouterEndpointPlanInputFailure::UnsupportedField => {
+            "Router endpoint plan JSON contains an unsupported field"
+        }
+        RouterEndpointPlanInputFailure::UnsupportedEnumValue => {
+            "Router endpoint plan JSON contains an unsupported enum value"
+        }
+        RouterEndpointPlanInputFailure::ValidationFailed => {
+            "Router endpoint plan JSON failed validation"
+        }
+    }
+}
+
+fn classify_router_endpoint_plan_parse_error(
+    error: &serde_json::Error,
+) -> RouterEndpointPlanInputFailure {
+    let message = error.to_string();
+    if message.contains("unknown field") {
+        RouterEndpointPlanInputFailure::UnsupportedField
+    } else if message.contains("unknown variant") || message.contains("invalid value") {
+        RouterEndpointPlanInputFailure::UnsupportedEnumValue
+    } else if message.contains("missing field") {
+        RouterEndpointPlanInputFailure::ValidationFailed
+    } else {
+        match error.classify() {
+            serde_json::error::Category::Syntax | serde_json::error::Category::Eof => {
+                RouterEndpointPlanInputFailure::MalformedJson
+            }
+            serde_json::error::Category::Data | serde_json::error::Category::Io => {
+                RouterEndpointPlanInputFailure::ValidationFailed
+            }
+        }
+    }
+}
+
+fn invalid_router_endpoint_plan_input<E: Write>(
+    error: &mut E,
+    parse_error: serde_json::Error,
+) -> u8 {
+    let message = router_endpoint_plan_input_failure_message(
+        classify_router_endpoint_plan_parse_error(&parse_error),
+    );
+    invalid_input(error, message)
+}
+
+fn invalid_router_endpoint_plan_validation<E: Write>(error: &mut E) -> u8 {
+    invalid_input(
+        error,
+        router_endpoint_plan_input_failure_message(
+            RouterEndpointPlanInputFailure::ValidationFailed,
+        ),
+    )
+}
+
 enum ReadFailure {
     TooLarge,
     Input,
 }
 
-fn read_bounded<R: Read>(input: &mut R) -> Result<Vec<u8>, ReadFailure> {
+fn read_bounded<R: Read>(input: &mut R, maximum_bytes: usize) -> Result<Vec<u8>, ReadFailure> {
     let mut bytes = Vec::new();
     input
-        .take((MAX_SESSION_INPUT_BYTES + 1) as u64)
+        .take((maximum_bytes + 1) as u64)
         .read_to_end(&mut bytes)
         .map_err(|_| ReadFailure::Input)?;
-    if bytes.len() > MAX_SESSION_INPUT_BYTES {
+    if bytes.len() > maximum_bytes {
         return Err(ReadFailure::TooLarge);
     }
     Ok(bytes)
