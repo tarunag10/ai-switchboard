@@ -78,17 +78,23 @@ test("native bridge delegates Workbench serialization only when opted in", () =>
 });
 
 test("native bridge fails closed when unset or unusable", () => {
-  const unset = run(["harness", "status", "--native"], {
-    SWITCHBOARD_NATIVE_CLI: "",
-  });
-  assert.equal(unset.status, 1);
-  assert.match(unset.stderr, /Set SWITCHBOARD_NATIVE_CLI to an executable native CLI/);
+  const stub = nativeStub();
+  try {
+    const unset = run(["harness", "status", "--native"], {
+      SWITCHBOARD_NATIVE_CLI: "",
+    });
+    assert.equal(unset.status, 1);
+    assert.match(unset.stderr, /Set SWITCHBOARD_NATIVE_CLI to an executable native CLI/);
 
-  const unusable = run(["harness", "status", "--native"], {
-    SWITCHBOARD_NATIVE_CLI: join(tmpdir(), "switchboard-native-does-not-exist"),
-  });
-  assert.equal(unusable.status, 1);
-  assert.match(unusable.stderr, /could not execute SWITCHBOARD_NATIVE_CLI/);
+    const unusable = run(["harness", "status", "--native"], {
+      SWITCHBOARD_NATIVE_CLI: join(tmpdir(), "switchboard-native-does-not-exist"),
+    });
+    assert.equal(unusable.status, 1);
+    assert.match(unusable.stderr, /could not start the configured native CLI/);
+
+  } finally {
+    rmSync(stub.directory, { recursive: true, force: true });
+  }
 });
 
 test("native opt-in is rejected for router and optimize", () => {

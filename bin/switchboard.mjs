@@ -27,17 +27,13 @@ function runNativeCli(nativeArgs) {
   });
 
   if (result.error) {
-    console.error(
-      `Native CLI bridge could not execute SWITCHBOARD_NATIVE_CLI. Set it to an executable file and retry: ${result.error.message}`,
-    );
+    console.error("Native CLI bridge could not start the configured native CLI.");
     process.exit(1);
   }
   if (typeof result.status === "number") {
     process.exit(result.status);
   }
-  console.error(
-    "Native CLI bridge terminated without an exit status. Retry with an executable SWITCHBOARD_NATIVE_CLI.",
-  );
+  console.error("Native CLI bridge terminated without an exit status.");
   process.exit(1);
 }
 
@@ -134,11 +130,6 @@ if (
   nativeRequested
 ) {
   runNativeCli(commandArgs);
-}
-
-if (nativeRequested && ["router", "optimize"].includes(command)) {
-  console.error("--native is supported only for harness status and Workbench session serialize.");
-  process.exit(2);
 }
 
 if (command === "router") {
