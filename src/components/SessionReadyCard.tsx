@@ -45,8 +45,8 @@ export function SessionReadyCard({ runtimeStatus, switchboardMode, setActiveView
       complete: false,
     },
     {
-      label: "Harness / CLI",
-      detail: "Shared workbench and local router plan",
+      label: "Workbench / CLI preview",
+      detail: "Workbench is ready; native router parity is not yet available",
       icon: PlugsConnected,
       view: "workbench" as TrayView,
       complete: true,

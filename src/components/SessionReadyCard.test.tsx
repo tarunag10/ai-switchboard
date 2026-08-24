@@ -10,9 +10,10 @@ describe("SessionReadyCard", () => {
 
     expect(screen.getByRole("heading", { name: "Session Ready" })).toBeInTheDocument();
     expect(screen.getByText("Loopback route is healthy")).toBeInTheDocument();
+    expect(screen.getByText("Workbench is ready; native router parity is not yet available")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Repo context/i }));
     expect(setActiveView).toHaveBeenCalledWith("repoIntelligence");
-    fireEvent.click(screen.getByRole("button", { name: /Harness \/ CLI/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Workbench \/ CLI preview/i }));
     expect(setActiveView).toHaveBeenCalledWith("workbench");
     fireEvent.click(screen.getByRole("button", { name: /Prepare agent handoff/i }));
     expect(setActiveView).toHaveBeenCalledWith("optimization");
