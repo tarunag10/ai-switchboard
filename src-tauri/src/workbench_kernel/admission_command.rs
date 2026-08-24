@@ -6,12 +6,14 @@
 //! Codex installation or configuration.
 
 use chrono::{DateTime, Utc};
+use switchboard_runtime::RuntimeClock;
 
 use crate::client_adapter_contract::VerificationReport;
 
 use super::capability_grant::WorkbenchProcessStartGrant;
 use super::events::{validate_identifier, WorkbenchSessionStatus};
 use super::process_supervisor::admit_process;
+use super::runtime_time::utc_from_runtime_clock;
 use super::{
     ProcessRunSpec, WorkbenchProcessAdmission, WorkbenchProcessAdmissionInput, WorkbenchRunPlan,
     WorkbenchRunSpecInput, WorkbenchSession,
@@ -42,6 +44,78 @@ where
     PersistAdmission:
         FnOnce(WorkbenchProcessAdmission) -> Result<WorkbenchProcessAdmission, String>,
 {
+    admit_workbench_process_with_fallible_now(
+        session,
+        input,
+        prepare_plan,
+        || Ok(now()),
+        require_grant,
+        verify_routing,
+        persist_admission,
+    )
+}
+
+pub(super) fn admit_workbench_process_with_clock<
+    C,
+    PreparePlan,
+    RequireGrant,
+    VerifyRouting,
+    PersistAdmission,
+>(
+    clock: &C,
+    session: &WorkbenchSession,
+    input: WorkbenchProcessAdmissionInput,
+    prepare_plan: PreparePlan,
+    require_grant: RequireGrant,
+    verify_routing: VerifyRouting,
+    persist_admission: PersistAdmission,
+) -> Result<WorkbenchProcessAdmission, String>
+where
+    C: RuntimeClock + ?Sized,
+    PreparePlan:
+        FnOnce(&WorkbenchSession, WorkbenchRunSpecInput) -> Result<WorkbenchRunPlan, String>,
+    RequireGrant:
+        FnOnce(&str, &str, &str, &str, DateTime<Utc>) -> Result<WorkbenchProcessStartGrant, String>,
+    VerifyRouting: FnOnce(&ProcessRunSpec) -> Result<VerificationReport, String>,
+    PersistAdmission:
+        FnOnce(WorkbenchProcessAdmission) -> Result<WorkbenchProcessAdmission, String>,
+{
+    admit_workbench_process_with_fallible_now(
+        session,
+        input,
+        prepare_plan,
+        || utc_from_runtime_clock(clock).map_err(|error| error.to_string()),
+        require_grant,
+        verify_routing,
+        persist_admission,
+    )
+}
+
+fn admit_workbench_process_with_fallible_now<
+    PreparePlan,
+    Now,
+    RequireGrant,
+    VerifyRouting,
+    PersistAdmission,
+>(
+    session: &WorkbenchSession,
+    input: WorkbenchProcessAdmissionInput,
+    prepare_plan: PreparePlan,
+    now: Now,
+    require_grant: RequireGrant,
+    verify_routing: VerifyRouting,
+    persist_admission: PersistAdmission,
+) -> Result<WorkbenchProcessAdmission, String>
+where
+    PreparePlan:
+        FnOnce(&WorkbenchSession, WorkbenchRunSpecInput) -> Result<WorkbenchRunPlan, String>,
+    Now: FnOnce() -> Result<DateTime<Utc>, String>,
+    RequireGrant:
+        FnOnce(&str, &str, &str, &str, DateTime<Utc>) -> Result<WorkbenchProcessStartGrant, String>,
+    VerifyRouting: FnOnce(&ProcessRunSpec) -> Result<VerificationReport, String>,
+    PersistAdmission:
+        FnOnce(WorkbenchProcessAdmission) -> Result<WorkbenchProcessAdmission, String>,
+{
     if session.status != WorkbenchSessionStatus::Active {
         return Err("Workbench process admission requires an active session".into());
     }
@@ -62,7 +136,7 @@ where
     if plan.adapter_id != "codex" {
         return Err("Workbench process admission is currently limited to canonical Codex".into());
     }
-    let now = now();
+    let now = now()?;
     let grant = require_grant(
         &input.grant_id,
         &session.session_id,

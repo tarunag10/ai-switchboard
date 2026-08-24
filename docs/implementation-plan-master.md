@@ -610,6 +610,13 @@ Core extraction progress:
   and failing-clock tests cover one-sample mutations and no-write-on-failure;
   the storage/run-plan-head suite passes 15/15 and the full Workbench suite
   passes 213/213. Grant/admission clocks remain a separate follow-up.
+- Grant issuance and process admission now have additive RuntimeClock-backed
+  orchestration paths. The runtime timestamp is sampled once after plan
+  preparation, reused for grant/admission binding and expiry, and failures
+  occur before verifier or ledger mutation. Focused grant/admission tests pass
+  14/14, and the full Workbench suite passes 217/217 after this integration.
+  Listing, revoke, and terminal-cleanup clock paths remain intentionally
+  separate because they can persist expiry state.
 
 ### Remaining build work
 

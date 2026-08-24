@@ -31,17 +31,19 @@ mod process_run_spec;
 mod process_supervisor;
 mod run_contract;
 mod run_plan_publication;
+mod runtime_time;
 mod session;
 mod storage;
 
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
+use switchboard_runtime::PortableRuntime;
 
 use adapter_readiness::all_adapter_readiness;
 pub use adapter_readiness::{WorkbenchAdapterCommandReadiness, WorkbenchAdapterReadiness};
 use capability_grant::{
-    issue_process_start_grant, process_start_grant_policy, WorkbenchProcessGrantStore,
+    issue_process_start_grant_with_clock, process_start_grant_policy, WorkbenchProcessGrantStore,
 };
 pub use capability_grant::{WorkbenchProcessStartGrantPolicy, WorkbenchProcessStartGrantView};
 pub use events::WorkbenchSessionAction;
@@ -230,12 +232,14 @@ pub fn issue_workbench_process_start_grant(
     if input.expected_plan_id != plan.plan_id || input.expected_process_run_id != process.run_id {
         return Err("Workbench process grant no longer matches the prepared native plan".into());
     }
-    let now = chrono::Utc::now();
-    let grant = issue_process_start_grant(&session, &plan, &input.confirmation_phrase, now)
-        .map_err(|error| error.to_string())?;
-    WorkbenchProcessGrantStore::in_app_storage()
-        .issue(grant, now)
-        .map_err(|error| error.to_string())
+    issue_process_start_grant_with_clock(
+        &WorkbenchProcessGrantStore::in_app_storage(),
+        &PortableRuntime,
+        &session,
+        &plan,
+        &input.confirmation_phrase,
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -271,13 +275,13 @@ pub fn admit_workbench_process(
         .map_err(|error| error.to_string())?;
     let grant_store = WorkbenchProcessGrantStore::in_app_storage();
     let admission_store = WorkbenchProcessAdmissionStore::in_app_storage();
-    admission_command::admit_workbench_process_with_dependencies(
+    admission_command::admit_workbench_process_with_clock(
+        &PortableRuntime,
         &session,
         input,
         |session, run_spec| {
             run_contract::prepare_run_plan(session, run_spec).map_err(|error| error.to_string())
         },
-        chrono::Utc::now,
         |grant_id, session_id, plan_id, process_run_id, now| {
             grant_store
                 .require_active_for(grant_id, session_id, plan_id, process_run_id, now)

@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use chrono::{Duration, TimeZone, Utc};
 
@@ -6,7 +7,9 @@ use crate::client_adapter_contract::VerificationReport;
 use crate::models::SwitchboardMode;
 
 use super::adapter_readiness::WorkbenchAdapterCommandReadiness;
-use super::admission_command::admit_workbench_process_with_dependencies;
+use super::admission_command::{
+    admit_workbench_process_with_clock, admit_workbench_process_with_dependencies,
+};
 use super::capability_grant::{
     issue_process_start_grant, process_start_confirmation_phrase, WorkbenchProcessGrantStore,
     WorkbenchProcessStartGrant,
@@ -19,6 +22,33 @@ use super::{
     CapabilityRequest, RouterDecisionReference, WorkbenchProcessAdmissionInput, WorkbenchRunPlan,
     WorkbenchRunSpecInput,
 };
+use switchboard_runtime::{RuntimeClock, RuntimeClockError};
+
+#[derive(Debug)]
+struct AdmissionClock<'a> {
+    unix_millis: i64,
+    calls: &'a AtomicUsize,
+    preparation_finished: &'a AtomicBool,
+    fail: bool,
+}
+
+impl RuntimeClock for AdmissionClock<'_> {
+    fn unix_millis(&self) -> i64 {
+        self.unix_millis
+    }
+
+    fn try_unix_millis(&self) -> Result<i64, RuntimeClockError> {
+        assert!(self.preparation_finished.load(Ordering::SeqCst));
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.fail {
+            Err(RuntimeClockError::Failed(
+                "injected admission clock failure",
+            ))
+        } else {
+            Ok(self.unix_millis)
+        }
+    }
+}
 
 struct Fixture {
     session: WorkbenchSession,
@@ -213,6 +243,125 @@ fn verified_fake_routing_persists_one_idempotent_non_executing_admission() {
             .expect("list admissions"),
         vec![first]
     );
+}
+
+#[test]
+fn runtime_clock_admission_samples_once_after_preparation_and_reuses_timestamp() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let fixture = fixture(40);
+    let grant_store = WorkbenchProcessGrantStore::at(directory.path().join("grants.json"));
+    let admission_store =
+        WorkbenchProcessAdmissionStore::at(directory.path().join("admissions.json"));
+    persist_grant(&grant_store, &fixture);
+    let preparation_finished = AtomicBool::new(false);
+    let clock_calls = AtomicUsize::new(0);
+    let clock = AdmissionClock {
+        unix_millis: fixture.now.timestamp_millis(),
+        calls: &clock_calls,
+        preparation_finished: &preparation_finished,
+        fail: false,
+    };
+    let verifier_called = Cell::new(0);
+    let plan = fixture.plan.clone();
+
+    let admission = admit_workbench_process_with_clock(
+        &clock,
+        &fixture.session,
+        fixture.input.clone(),
+        |_, _| {
+            preparation_finished.store(true, Ordering::SeqCst);
+            Ok(plan)
+        },
+        |grant_id, session_id, plan_id, process_run_id, now| {
+            assert_eq!(now, fixture.now);
+            grant_store
+                .require_active_for(grant_id, session_id, plan_id, process_run_id, now)
+                .map_err(|error| error.to_string())
+        },
+        |_| {
+            verifier_called.set(verifier_called.get() + 1);
+            Ok(verification(true, false))
+        },
+        |admission| {
+            admission_store
+                .issue(admission)
+                .map_err(|error| error.to_string())
+        },
+    )
+    .expect("admit with runtime clock");
+
+    assert_eq!(clock_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(verifier_called.get(), 1);
+    assert_eq!(admission.admitted_at, fixture.now.to_rfc3339());
+    assert_eq!(
+        admission_store
+            .list_for_session(&fixture.session.session_id)
+            .expect("load persisted admission"),
+        vec![admission]
+    );
+}
+
+#[test]
+fn runtime_clock_failure_preserves_ledgers_and_skips_grant_verifier_and_admission() {
+    let directory = tempfile::tempdir().expect("temporary directory");
+    let fixture = fixture(41);
+    let grant_path = directory.path().join("grants.json");
+    let admission_path = directory.path().join("admissions.json");
+    let grant_store = WorkbenchProcessGrantStore::at(grant_path.clone());
+    let admission_store = WorkbenchProcessAdmissionStore::at(admission_path.clone());
+    persist_grant(&grant_store, &fixture);
+    let grant_bytes = std::fs::read(&grant_path).expect("read seeded grant ledger");
+    let preparation_finished = AtomicBool::new(false);
+    let clock_calls = AtomicUsize::new(0);
+    let clock = AdmissionClock {
+        unix_millis: fixture.now.timestamp_millis(),
+        calls: &clock_calls,
+        preparation_finished: &preparation_finished,
+        fail: true,
+    };
+    let grant_called = Cell::new(0);
+    let verifier_called = Cell::new(0);
+    let persist_called = Cell::new(0);
+    let plan = fixture.plan.clone();
+
+    let error = admit_workbench_process_with_clock(
+        &clock,
+        &fixture.session,
+        fixture.input.clone(),
+        |_, _| {
+            preparation_finished.store(true, Ordering::SeqCst);
+            Ok(plan)
+        },
+        |grant_id, session_id, plan_id, process_run_id, now| {
+            grant_called.set(grant_called.get() + 1);
+            grant_store
+                .require_active_for(grant_id, session_id, plan_id, process_run_id, now)
+                .map_err(|error| error.to_string())
+        },
+        |_| {
+            verifier_called.set(verifier_called.get() + 1);
+            Ok(verification(true, false))
+        },
+        |admission| {
+            persist_called.set(persist_called.get() + 1);
+            admission_store
+                .issue(admission)
+                .map_err(|error| error.to_string())
+        },
+    )
+    .expect_err("runtime clock failure must deny admission");
+
+    assert!(error.contains("injected admission clock failure"));
+    assert!(preparation_finished.load(Ordering::SeqCst));
+    assert_eq!(clock_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(grant_called.get(), 0);
+    assert_eq!(verifier_called.get(), 0);
+    assert_eq!(persist_called.get(), 0);
+    assert_eq!(
+        std::fs::read(&grant_path).expect("read grant ledger after clock failure"),
+        grant_bytes
+    );
+    assert!(!admission_path.exists());
 }
 
 #[test]

@@ -13,9 +13,11 @@ use std::fs::OpenOptions;
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use switchboard_runtime::RuntimeClock;
 use uuid::Uuid;
 
 use super::events::{validate_identifier, WorkbenchSessionStatus};
+use super::runtime_time::utc_from_runtime_clock;
 use super::{WorkbenchRunPlan, WorkbenchSession};
 
 pub(crate) const PROCESS_START_CAPABILITY_ID: &str = "adapter_process_start";
@@ -211,6 +213,21 @@ pub(crate) fn issue_process_start_grant(
     grant.receipt_digest = process_start_grant_digest(&grant)?;
     grant.validate()?;
     Ok(grant)
+}
+
+pub(crate) fn issue_process_start_grant_with_clock<C>(
+    store: &WorkbenchProcessGrantStore,
+    clock: &C,
+    session: &WorkbenchSession,
+    plan: &WorkbenchRunPlan,
+    confirmation_phrase: &str,
+) -> Result<WorkbenchProcessStartGrantView>
+where
+    C: RuntimeClock + ?Sized,
+{
+    let now = utc_from_runtime_clock(clock)?;
+    let grant = issue_process_start_grant(session, plan, confirmation_phrase, now)?;
+    store.issue(grant, now)
 }
 
 pub(crate) fn process_start_grant_digest(grant: &WorkbenchProcessStartGrant) -> Result<String> {
@@ -792,8 +809,9 @@ fn expire_stale_grants(
 #[cfg(test)]
 mod tests {
     use super::{
-        issue_process_start_grant, process_start_confirmation_phrase, WorkbenchProcessGrantLedger,
-        WorkbenchProcessGrantStore, WorkbenchProcessStartGrant,
+        issue_process_start_grant, issue_process_start_grant_with_clock,
+        process_start_confirmation_phrase, WorkbenchProcessGrantLedger, WorkbenchProcessGrantStore,
+        WorkbenchProcessStartGrant,
     };
     use crate::models::SwitchboardMode;
     use crate::workbench_kernel::events::WorkbenchSessionStatus;
@@ -801,6 +819,54 @@ mod tests {
     use crate::workbench_kernel::session::{CreateWorkbenchSessionInput, WorkbenchSession};
     use crate::workbench_kernel::{CapabilityRequest, RouterDecisionReference, WorkbenchRunPlan};
     use chrono::{Duration, TimeZone, Utc};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use switchboard_runtime::{RuntimeClock, RuntimeClockError};
+
+    #[derive(Debug)]
+    struct CountingClock {
+        unix_millis: i64,
+        calls: AtomicUsize,
+    }
+
+    impl CountingClock {
+        fn new(unix_millis: i64) -> Self {
+            Self {
+                unix_millis,
+                calls: AtomicUsize::new(0),
+            }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::SeqCst)
+        }
+    }
+
+    impl RuntimeClock for CountingClock {
+        fn unix_millis(&self) -> i64 {
+            self.unix_millis
+        }
+
+        fn try_unix_millis(&self) -> Result<i64, RuntimeClockError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(self.unix_millis)
+        }
+    }
+
+    #[derive(Debug, Default)]
+    struct FailingClock {
+        calls: AtomicUsize,
+    }
+
+    impl RuntimeClock for FailingClock {
+        fn unix_millis(&self) -> i64 {
+            0
+        }
+
+        fn try_unix_millis(&self) -> Result<i64, RuntimeClockError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Err(RuntimeClockError::Failed("injected grant clock failure"))
+        }
+    }
 
     fn session() -> WorkbenchSession {
         WorkbenchSession::create(CreateWorkbenchSessionInput {
@@ -889,6 +955,76 @@ mod tests {
             now,
         )
         .is_err());
+    }
+
+    #[test]
+    fn runtime_clock_grant_issuance_uses_one_exact_timestamp() {
+        let session = session();
+        let plan = plan(&session);
+        let now = Utc.with_ymd_and_hms(2026, 8, 25, 4, 5, 6).unwrap() + Duration::milliseconds(789);
+        let clock = CountingClock::new(now.timestamp_millis());
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let store = WorkbenchProcessGrantStore::at(directory.path().join("grants.json"));
+
+        let view = issue_process_start_grant_with_clock(
+            &store,
+            &clock,
+            &session,
+            &plan,
+            &process_start_confirmation_phrase(&plan),
+        )
+        .expect("issue grant with runtime clock");
+
+        assert_eq!(clock.calls(), 1);
+        assert_eq!(view.issued_at, now.to_rfc3339());
+        assert_eq!(
+            view.expires_at,
+            (now + Duration::seconds(super::PROCESS_START_GRANT_TTL_SECONDS)).to_rfc3339()
+        );
+        let persisted = store
+            .list_for_session(&session.session_id, now)
+            .expect("load persisted grant");
+        assert_eq!(persisted, vec![view]);
+    }
+
+    #[test]
+    fn runtime_clock_failures_and_invalid_millis_do_not_write_grant_ledger() {
+        let session = session();
+        let plan = plan(&session);
+        let directory = tempfile::tempdir().expect("temporary directory");
+
+        let failing_path = directory.path().join("failing-grants.json");
+        let failing_store = WorkbenchProcessGrantStore::at(failing_path.clone());
+        let failing_clock = FailingClock::default();
+        let error = issue_process_start_grant_with_clock(
+            &failing_store,
+            &failing_clock,
+            &session,
+            &plan,
+            &process_start_confirmation_phrase(&plan),
+        )
+        .expect_err("fallible runtime clock must deny grant issuance");
+        assert!(error.to_string().contains("injected grant clock failure"));
+        assert_eq!(failing_clock.calls.load(Ordering::SeqCst), 1);
+        assert!(!failing_path.exists());
+
+        for (index, unix_millis) in [-1, i64::MAX].into_iter().enumerate() {
+            let path = directory
+                .path()
+                .join(format!("invalid-grants-{index}.json"));
+            let store = WorkbenchProcessGrantStore::at(path.clone());
+            let clock = CountingClock::new(unix_millis);
+            assert!(issue_process_start_grant_with_clock(
+                &store,
+                &clock,
+                &session,
+                &plan,
+                &process_start_confirmation_phrase(&plan),
+            )
+            .is_err());
+            assert_eq!(clock.calls(), 1);
+            assert!(!path.exists());
+        }
     }
 
     #[test]
