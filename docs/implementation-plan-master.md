@@ -544,6 +544,10 @@ Core extraction progress:
   tamper-evident receipt digest, and unknown-field rejection. The Tauri plan
   store still owns snapshot decoding, filesystem persistence, locking, and
   ledger publication; full receipt/ledger adapter integration remains next.
+- Tauri plan-head identity derivation now delegates to the shared core helper;
+  the existing Tauri record/ledger digests and storage behavior remain the
+  compatibility boundary. The focused plan-head storage suite (10 tests) and
+  full Workbench suite (211 tests) pass after this integration.
 
 ### Remaining build work
 

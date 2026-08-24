@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use switchboard_core::plan_head::plan_head_identity;
 use uuid::Uuid;
 
 use super::WorkbenchStore;
@@ -576,22 +577,14 @@ fn plan_head_id_for(
     predecessor_head_id: Option<&str>,
     predecessor_record_digest: Option<&str>,
 ) -> String {
-    let generation = generation.to_string();
-    let digest = bounded_text_digest(
-        b"ai-switchboard-workbench-plan-head-id-v1\0",
-        &[
-            ledger_id,
-            &generation,
-            session_id,
-            session_snapshot_digest,
-            plan_snapshot_digest,
-            predecessor_head_id.unwrap_or("none"),
-            predecessor_record_digest.unwrap_or("none"),
-        ],
-    );
-    format!(
-        "workbench-plan-head:{}",
-        &digest.trim_start_matches("sha256:")[..32]
+    plan_head_identity(
+        ledger_id,
+        generation,
+        session_id,
+        session_snapshot_digest,
+        plan_snapshot_digest,
+        predecessor_head_id,
+        predecessor_record_digest,
     )
 }
 
@@ -628,14 +621,6 @@ fn plan_head_ledger_digest(ledger: &WorkbenchPlanHeadLedger) -> Result<String> {
         "currentHeads": &ledger.current_heads,
         "retiredHeads": &ledger.retired_heads,
     }))
-}
-
-fn bounded_text_digest(domain: &[u8], fields: &[&str]) -> String {
-    let byte_fields = fields
-        .iter()
-        .map(|field| field.as_bytes())
-        .collect::<Vec<_>>();
-    domain_digest(domain, &byte_fields)
 }
 
 fn domain_digest(domain: &[u8], fields: &[&[u8]]) -> String {
