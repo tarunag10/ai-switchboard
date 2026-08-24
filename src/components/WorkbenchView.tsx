@@ -22,13 +22,12 @@ import {
 import { hasTauriRuntime } from "../lib/tauriRuntime";
 import {
   WORKBENCH_CAPABILITIES,
-  getAdapterCommandReadinessDisclosure,
-  isAdapterCommandReadinessAvailable,
   admitWorkbenchProcess,
   createWorkbenchSession,
   deriveWorkbenchProcessAdmissionEligibility,
   exportWorkbenchSession,
   forkWorkbenchSession,
+  getAdapterCommandReadinessPolicy,
   getWorkbenchCapabilityProjection,
   isWorkbenchDigest,
   issueWorkbenchProcessStartGrant,
@@ -145,6 +144,10 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   const selectedSession = useMemo(
     () => sessions.find((session) => session.sessionId === selectedSessionId) ?? null,
     [selectedSessionId, sessions],
+  );
+  const selectedRouterDecision = useMemo(
+    () => routerDecisionReferences.find((reference) => reference.decisionId === routerDecisionId) ?? null,
+    [routerDecisionId, routerDecisionReferences],
   );
   const desktopRuntime = hasTauriRuntime();
   const planRevision = useRef(0);
@@ -384,7 +387,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
   function selectAdapter(nextAdapterId: (typeof adapters)[number]["id"]) {
     setAdapterId(nextAdapterId);
     invalidatePreparedPlan();
-    if (nextAdapterId === "gemini_cli") {
+    if (!getAdapterCommandReadinessPolicy(nextAdapterId).available) {
       setCapabilityIds((current) =>
         current.filter((capabilityId) => capabilityId !== "adapter_command_readiness"),
       );
@@ -431,7 +434,7 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
       setError("Select the redacted replay capability before attaching a replay receipt.");
       return;
     }
-    if (requestsAdapterCommandReadiness && adapterId === "gemini_cli") {
+    if (requestsAdapterCommandReadiness && !getAdapterCommandReadinessPolicy(adapterId).available) {
       setError("Adapter command readiness is currently limited to canonical Codex and Claude Code adapters.");
       return;
     }
@@ -578,14 +581,11 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
     ? selectedSession.events[selectedSession.events.length - 1] ?? null
     : null;
   const requestsRedactedReplay = capabilityIds.includes("redacted_replay");
-  const adapterCommandReadinessAvailable =
-    isAdapterCommandReadinessAvailable(adapterId);
+  const adapterCommandReadinessPolicy = getAdapterCommandReadinessPolicy(adapterId);
   const selectedPreset = projection?.presets.find((preset) => preset.presetId === presetId) ?? null;
   const selectedAdapterReadiness = projection?.adapterReadiness.find(
     (readiness) => readiness.adapterId === adapterId,
   ) ?? null;
-  const adapterCommandReadinessDisclosure =
-    getAdapterCommandReadinessDisclosure(adapterId);
   const processGrantPolicy = projection?.processStartGrantPolicy ?? null;
   const processGrantPhrase = runPlan && processGrantPolicy
     ? processGrantPolicy.confirmationTemplate.replace("{planId}", runPlan.planId)
@@ -745,18 +745,23 @@ export function WorkbenchView({ hidden }: WorkbenchViewProps) {
                   <label className="workbench-field"><span>Plan preset</span><select aria-label="Workbench plan preset" disabled={!projection} onChange={(event) => loadPreset(event.target.value)} value={presetId}><option value="">Custom capability draft</option>{projection?.presets.map((preset: WorkbenchPlanPreset) => <option key={preset.presetId} value={preset.presetId}>{preset.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Requested Switchboard mode</span><select aria-label="Requested Switchboard mode" onChange={(event) => { setRequestedMode(event.target.value as SwitchboardMode); invalidatePreparedPlan(); }} value={requestedMode}>{modes.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
                   <label className="workbench-field"><span>Context pack SHA-256 digest (optional)</span><input aria-label="Context pack SHA-256 digest" autoCapitalize="none" autoCorrect="off" onChange={(event) => { setContextPackDigest(event.target.value); invalidatePreparedPlan(); }} placeholder="sha256:…" spellCheck={false} value={contextPackDigest} /></label>
-                  <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => { setRouterDecisionId(event.target.value); invalidatePreparedPlan(); }} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
-                  <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => { setReplayReferenceId(event.target.value); invalidatePreparedPlan(); }} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
+                <label className="workbench-field"><span>Observe-only Router decision</span><select aria-label="Observe-only Router decision" onChange={(event) => { setRouterDecisionId(event.target.value); invalidatePreparedPlan(); }} value={routerDecisionId}><option value="">Select a completed Router decision</option>{routerDecisionReferences.map((reference) => <option key={reference.decisionId} value={reference.decisionId}>{reference.taskClass} · {formatTimestamp(reference.capturedAt)} · {reference.decisionId}</option>)}</select></label>
+                {selectedRouterDecision ? (
+                  <p className="optimize-minimal__meta">
+                    Selected Router decision: task class {selectedRouterDecision.taskClass} · stage {selectedRouterDecision.decisionStage.replace(/_/g, " ")} · routing mode {selectedRouterDecision.routingMode} · evidence digest {selectedRouterDecision.evidenceDigest}
+                  </p>
+                ) : null}
+                <label className="workbench-field"><span>Validated redacted replay</span><select aria-label="Validated redacted replay" disabled={!requestsRedactedReplay} onChange={(event) => { setReplayReferenceId(event.target.value); invalidatePreparedPlan(); }} value={replayReferenceId}><option value="">{requestsRedactedReplay ? "Select a native replay receipt" : "Enable Redacted replay below first"}</option>{replayReferences.map((reference) => <option key={reference.replayId} value={reference.replayId}>{reference.eventCount} events · {formatTimestamp(reference.validatedAt)} · {reference.replayId}</option>)}</select></label>
                 </div>
                 <p className="optimize-minimal__meta">Native presets only compose existing plan-only capabilities and evidence sources. Router and replay references are re-resolved before a plan is created; replay paths, events, and manually entered metadata are not accepted here.</p>
                 {selectedPreset ? <p className="optimize-minimal__meta">Preset evidence source: {selectedPreset.evidenceSource.replace(/_/g, " ")}. {selectedPreset.description}</p> : null}
                 {selectedAdapterReadiness ? <p className="optimize-minimal__meta">{selectedAdapterReadiness.adapterId.replace(/_/g, " ")} readiness checks fixed known locations only: {selectedAdapterReadiness.knownCandidatePresent ? "candidate metadata present" : "no candidate metadata present"}. CLI version: not probed; process start remains disabled.</p> : null}
-                {adapterCommandReadinessDisclosure ? <p className="optimize-minimal__meta">{adapterCommandReadinessDisclosure}</p> : null}
+                {adapterCommandReadinessPolicy.disclosure ? <p className="optimize-minimal__meta">{adapterCommandReadinessPolicy.disclosure}</p> : null}
                 <fieldset className="workbench-capabilities">
                   <legend>Required capabilities</legend>
                   {WORKBENCH_CAPABILITIES.map((capability) => {
                     const unavailable = capability.id === "adapter_command_readiness"
-                      && !adapterCommandReadinessAvailable;
+                      && !adapterCommandReadinessPolicy.available;
                     return <label key={capability.id}><input checked={capabilityIds.includes(capability.id)} disabled={unavailable} onChange={() => toggleCapability(capability.id)} type="checkbox" /><span><strong>{capability.label}</strong><small>{capability.detail}</small></span></label>;
                   })}
                 </fieldset>

@@ -617,6 +617,12 @@ Core extraction progress:
   14/14, and the full Workbench suite passes 217/217 after this integration.
   Listing, revoke, and terminal-cleanup clock paths remain intentionally
   separate because they can persist expiry state.
+- Workbench now exposes the selected Router decision's existing content-free
+  metadata (`taskClass`, `decisionStage`, `routingMode`, and `evidenceDigest`)
+  and consumes one combined adapter-readiness policy object for disclosure,
+  checkbox gating, and plan-preparation guards. The focused frontend suite
+  passes 21/21 and TypeScript typechecking passes; this does not promote Node
+  preview routing or enable process/provider execution.
 
 ### Remaining build work
 

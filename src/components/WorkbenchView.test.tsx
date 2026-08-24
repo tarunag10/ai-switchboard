@@ -612,15 +612,35 @@ describe("WorkbenchView", () => {
     expect(screen.queryByRole("button", { name: /execute|start/i })).not.toBeInTheDocument();
   });
 
-  it("keeps command readiness unavailable for adapters outside the canonical Phase 4 matrix", async () => {
+  it("shows selected router summary and toggles adapter command readiness between Codex and Gemini", async () => {
     const user = userEvent.setup();
     render(<WorkbenchView hidden={false} />);
     await screen.findAllByText("workbench:test");
+
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
+    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+      "task class formatting",
+    );
+    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+      "stage observe",
+    );
+    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+      "routing mode observe_only",
+    );
+    expect(screen.getByText(/Selected Router decision:/i)).toHaveTextContent(
+      routerDigest,
+    );
+    expect(screen.getByRole("checkbox", { name: /adapter command readiness/i })).toBeEnabled();
 
     await user.selectOptions(screen.getByLabelText("Client adapter"), "gemini_cli");
 
     expect(screen.getByRole("checkbox", { name: /adapter command readiness/i })).toBeDisabled();
     expect(screen.getByText(/Gemini remains adapter-plan-only/i)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Client adapter"), "codex");
+
+    expect(screen.getByRole("checkbox", { name: /adapter command readiness/i })).toBeEnabled();
+    expect(screen.queryByText(/Gemini remains adapter-plan-only/i)).not.toBeInTheDocument();
     expect(preparePlan).not.toHaveBeenCalled();
   });
 });
