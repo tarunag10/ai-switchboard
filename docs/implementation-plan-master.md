@@ -636,7 +636,9 @@ Core extraction progress:
   tie-breaking, requested/actual model equality, bounded inputs,
   duplicate/unknown-field rejection, and hard-gate fail-closed behavior. The
   planner is always observe-only with provider traffic and process start
-  disabled. The native Rust CLI now exposes `switchboard router endpoint plan`
+  disabled. Cost and latency values are bounded to JavaScript's safe integer
+  range, and unknown rank measurements serialize as `null` rather than an
+  overflowing sentinel. The native Rust CLI now exposes `switchboard router endpoint plan`
   with one bounded stdin JSON request, deterministic compact JSON output, and
   content-free malformed/unsafe-input errors. Core verification passes 42/42
   tests; CLI verification passes 21/21 tests and all-target Clippy. The Tauri

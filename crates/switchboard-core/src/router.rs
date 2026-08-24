@@ -17,6 +17,8 @@ pub const MAX_REQUIRED_FEATURES: usize = 32;
 pub const MAX_CANDIDATE_FEATURES: usize = 64;
 pub const MAX_AVAILABLE_MODELS: usize = 128;
 pub const MAX_ROUTER_IDENTIFIER_BYTES: usize = 128;
+/// Largest integer that round-trips exactly through a JavaScript `Number`.
+pub const MAX_ROUTER_SAFE_INTEGER: u64 = (1_u64 << 53) - 1;
 const MAX_DECISION_REASONS: usize = MAX_REQUIRED_FEATURES + 8;
 const MAX_REASON_BYTES: usize = 256;
 
@@ -86,9 +88,9 @@ pub struct EndpointRank {
     pub health_penalty: u8,
     pub privacy_penalty: u8,
     pub unknown_cost_penalty: u8,
-    pub cost_microusd_per_million_input_tokens: u64,
+    pub cost_microusd_per_million_input_tokens: Option<u64>,
     pub unknown_queue_penalty: u8,
-    pub queue_latency_ms: u64,
+    pub queue_latency_ms: Option<u64>,
     pub endpoint_id: String,
 }
 
@@ -156,6 +158,11 @@ impl EndpointRouteRequest {
         if let Some(preferred_endpoint_id) = &self.preferred_endpoint_id {
             validate_identifier(preferred_endpoint_id, "preferred endpoint ID")?;
         }
+        validate_wire_integer(
+            self.maximum_cost_microusd_per_million_input_tokens,
+            "maximum cost",
+        )?;
+        validate_wire_integer(self.maximum_queue_latency_ms, "maximum queue latency")?;
         Ok(())
     }
 }
@@ -169,6 +176,23 @@ impl EndpointRouteCandidate {
             MAX_AVAILABLE_MODELS,
             "available model",
         )?;
+        validate_wire_integer(self.cost_microusd_per_million_input_tokens, "endpoint cost")?;
+        validate_wire_integer(self.queue_latency_ms, "endpoint queue latency")?;
+        Ok(())
+    }
+}
+
+impl EndpointRank {
+    fn validate(&self) -> Result<()> {
+        validate_identifier(&self.endpoint_id, "rank endpoint ID")?;
+        validate_wire_integer(self.cost_microusd_per_million_input_tokens, "rank cost")?;
+        validate_wire_integer(self.queue_latency_ms, "rank queue latency")?;
+        if self.unknown_cost_penalty
+            != u8::from(self.cost_microusd_per_million_input_tokens.is_none())
+            || self.unknown_queue_penalty != u8::from(self.queue_latency_ms.is_none())
+        {
+            bail!("endpoint rank unknown-value penalties are inconsistent");
+        }
         Ok(())
     }
 }
@@ -193,7 +217,7 @@ impl EndpointRouteDecision {
 
             match (&explanation.rank, explanation.eligible) {
                 (Some(rank), true) => {
-                    validate_identifier(&rank.endpoint_id, "rank endpoint ID")?;
+                    rank.validate()?;
                     if rank.endpoint_id != explanation.endpoint_id {
                         bail!("endpoint decision rank does not match its explanation");
                     }
@@ -375,11 +399,9 @@ fn explain_candidate(
         health_penalty,
         privacy_penalty,
         unknown_cost_penalty: u8::from(candidate.cost_microusd_per_million_input_tokens.is_none()),
-        cost_microusd_per_million_input_tokens: candidate
-            .cost_microusd_per_million_input_tokens
-            .unwrap_or(u64::MAX),
+        cost_microusd_per_million_input_tokens: candidate.cost_microusd_per_million_input_tokens,
         unknown_queue_penalty: u8::from(candidate.queue_latency_ms.is_none()),
-        queue_latency_ms: candidate.queue_latency_ms.unwrap_or(u64::MAX),
+        queue_latency_ms: candidate.queue_latency_ms,
         endpoint_id: candidate.id.clone(),
     };
     EndpointCandidateExplanation {
@@ -416,6 +438,13 @@ fn validate_identifier_set(values: &BTreeSet<String>, maximum: usize, label: &st
     }
     for value in values {
         validate_identifier(value, label)?;
+    }
+    Ok(())
+}
+
+fn validate_wire_integer(value: Option<u64>, label: &str) -> Result<()> {
+    if value.is_some_and(|value| value > MAX_ROUTER_SAFE_INTEGER) {
+        bail!("router {label} exceeds the JavaScript-safe integer limit");
     }
     Ok(())
 }
@@ -513,6 +542,139 @@ mod tests {
         let zulu = candidate("zulu", EndpointPrivacy::Local, 100, 20);
         let plan = build_endpoint_route_plan(&input(vec![zulu, alpha])).expect("plan");
         assert_eq!(plan.endpoint.selected_endpoint_id.as_deref(), Some("alpha"));
+    }
+
+    #[test]
+    fn wire_visible_metrics_accept_the_javascript_safe_integer_maximum() {
+        let mut input = input(vec![candidate(
+            "maximum",
+            EndpointPrivacy::Local,
+            MAX_ROUTER_SAFE_INTEGER,
+            MAX_ROUTER_SAFE_INTEGER,
+        )]);
+        input.request.maximum_cost_microusd_per_million_input_tokens =
+            Some(MAX_ROUTER_SAFE_INTEGER);
+        input.request.maximum_queue_latency_ms = Some(MAX_ROUTER_SAFE_INTEGER);
+
+        let plan = build_endpoint_route_plan(&input).expect("maximum safe integer plan");
+        let rank = plan.endpoint.explanations[0]
+            .rank
+            .as_ref()
+            .expect("eligible rank");
+        assert_eq!(
+            rank.cost_microusd_per_million_input_tokens,
+            Some(MAX_ROUTER_SAFE_INTEGER)
+        );
+        assert_eq!(rank.queue_latency_ms, Some(MAX_ROUTER_SAFE_INTEGER));
+
+        let value = serde_json::to_value(rank).expect("rank JSON");
+        assert_eq!(
+            value["costMicrousdPerMillionInputTokens"].as_u64(),
+            Some(MAX_ROUTER_SAFE_INTEGER)
+        );
+        assert_eq!(
+            value["queueLatencyMs"].as_u64(),
+            Some(MAX_ROUTER_SAFE_INTEGER)
+        );
+    }
+
+    #[test]
+    fn wire_visible_metrics_reject_values_above_the_javascript_safe_integer_maximum() {
+        let above_maximum = MAX_ROUTER_SAFE_INTEGER + 1;
+
+        let mut request_cost = input(Vec::new());
+        request_cost
+            .request
+            .maximum_cost_microusd_per_million_input_tokens = Some(above_maximum);
+        assert!(build_endpoint_route_plan(&request_cost).is_err());
+
+        let mut request_queue = input(Vec::new());
+        request_queue.request.maximum_queue_latency_ms = Some(above_maximum);
+        assert!(build_endpoint_route_plan(&request_queue).is_err());
+
+        let mut candidate_cost = input(vec![candidate(
+            "candidate-cost",
+            EndpointPrivacy::Local,
+            above_maximum,
+            1,
+        )]);
+        candidate_cost
+            .request
+            .maximum_cost_microusd_per_million_input_tokens = None;
+        assert!(build_endpoint_route_plan(&candidate_cost).is_err());
+
+        let mut candidate_queue = input(vec![candidate(
+            "candidate-queue",
+            EndpointPrivacy::Local,
+            1,
+            above_maximum,
+        )]);
+        candidate_queue.request.maximum_queue_latency_ms = None;
+        assert!(build_endpoint_route_plan(&candidate_queue).is_err());
+
+        let mut tampered = build_endpoint_route_plan(&input(vec![candidate(
+            "tampered",
+            EndpointPrivacy::Local,
+            1,
+            1,
+        )]))
+        .expect("valid plan before tampering");
+        tampered.endpoint.explanations[0]
+            .rank
+            .as_mut()
+            .expect("eligible rank")
+            .queue_latency_ms = Some(above_maximum);
+        assert!(tampered.validate().is_err());
+    }
+
+    #[test]
+    fn unknown_rank_metrics_are_explicit_nulls_without_changing_ordering() {
+        let known = candidate("known", EndpointPrivacy::Local, 100, 20);
+        let mut unknown = candidate("unknown", EndpointPrivacy::Local, 0, 0);
+        unknown.cost_microusd_per_million_input_tokens = None;
+        unknown.queue_latency_ms = None;
+
+        let mut first_input = input(vec![unknown.clone(), known.clone()]);
+        first_input
+            .request
+            .maximum_cost_microusd_per_million_input_tokens = None;
+        first_input.request.maximum_queue_latency_ms = None;
+        let mut second_input = input(vec![known, unknown]);
+        second_input
+            .request
+            .maximum_cost_microusd_per_million_input_tokens = None;
+        second_input.request.maximum_queue_latency_ms = None;
+
+        let first = build_endpoint_route_plan(&first_input).expect("first unknown-metric plan");
+        let second = build_endpoint_route_plan(&second_input).expect("second unknown-metric plan");
+        assert_eq!(first, second);
+        assert_eq!(
+            serde_json::to_vec(&first).expect("first plan JSON"),
+            serde_json::to_vec(&second).expect("second plan JSON")
+        );
+        assert_eq!(
+            first.endpoint.selected_endpoint_id.as_deref(),
+            Some("known")
+        );
+
+        let unknown_rank = first
+            .endpoint
+            .explanations
+            .iter()
+            .find(|explanation| explanation.endpoint_id == "unknown")
+            .and_then(|explanation| explanation.rank.as_ref())
+            .expect("unknown-metric rank");
+        assert_eq!(unknown_rank.unknown_cost_penalty, 1);
+        assert_eq!(unknown_rank.cost_microusd_per_million_input_tokens, None);
+        assert_eq!(unknown_rank.unknown_queue_penalty, 1);
+        assert_eq!(unknown_rank.queue_latency_ms, None);
+
+        let value = serde_json::to_value(unknown_rank).expect("unknown rank JSON");
+        assert!(value["costMicrousdPerMillionInputTokens"].is_null());
+        assert!(value["queueLatencyMs"].is_null());
+        assert!(!serde_json::to_string(&first)
+            .expect("plan JSON")
+            .contains(&u64::MAX.to_string()));
     }
 
     #[test]
