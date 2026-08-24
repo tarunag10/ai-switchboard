@@ -132,7 +132,8 @@ If Codex reports `The '' model is not supported when using Codex with a ChatGPT 
 
 ## CLI Preview
 
-The `switchboard` CLI is a repo-local preview for cross-platform Repo Intelligence workflows:
+The package-level `switchboard` command is a Node-based, repo-local preview
+for cross-platform Repo Intelligence and provider-neutral planning workflows:
 
 ```bash
 npm run switchboard -- repo-intelligence <repo-path> --manifest
@@ -145,4 +146,34 @@ The compatibility path remains supported:
 npm run repo:intelligence -- <repo-path> --manifest
 ```
 
-Linux and Windows support is CLI-preview only. Desktop app packaging, runtime management, repair, uninstall, bundle, and keychain workflows remain macOS-only. See [Platform support](platform-support.md).
+### Native Rust CLI
+
+The standalone Rust CLI is source-built and read-only. It exposes exactly three
+portable commands through standard input and output:
+
+```bash
+cargo run --manifest-path crates/switchboard-cli/Cargo.toml -- harness status
+cargo run --manifest-path crates/switchboard-cli/Cargo.toml -- router endpoint plan < endpoint-plan.json
+cargo run --manifest-path crates/switchboard-cli/Cargo.toml -- workbench session serialize < session.json
+```
+
+The package-level Node command can delegate only these native-capable commands
+when `SWITCHBOARD_NATIVE_CLI` is set to an explicit executable path:
+
+```bash
+SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
+  switchboard harness status --native
+SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
+  switchboard router endpoint plan --native < endpoint-plan.json
+SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
+  switchboard workbench session serialize --native < session.json
+```
+
+The bridge does not guess installation paths or invoke a shell. Legacy
+`router <repo-path> --native` forms and all `optimize --native` forms are
+rejected. If `SWITCHBOARD_NATIVE_CLI` is unset or unusable, it fails closed.
+
+Linux and Windows native CLI support is source/CI-supported only. No native
+installer or prebuilt native CLI artifact is currently shipped. Desktop app
+packaging, runtime management, repair, uninstall, bundle, and keychain
+workflows remain macOS-only. See [Platform support](platform-support.md).
