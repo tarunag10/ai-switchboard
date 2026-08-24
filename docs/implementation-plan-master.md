@@ -519,7 +519,9 @@ Core extraction progress:
   implementation. It does not start processes, touch files, access secrets, or
   send provider traffic. It also exposes a deterministic, non-negative
   `FixedClock` for contract tests and future injected Workbench timestamps;
-  production Workbench creation still uses its existing compatibility path
+  its additive `try_unix_millis` path preserves the existing infallible clock
+  API while allowing production mutations to fail closed on clock errors.
+  Production Workbench creation still uses its existing compatibility path
   until full clock/identity injection is extracted.
 - `crates/switchboard-cli` now provides a native, read-only `switchboard`
   binary for `harness status` and bounded Workbench session serialization,
