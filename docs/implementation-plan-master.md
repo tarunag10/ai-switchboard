@@ -597,6 +597,12 @@ Core extraction progress:
   the shared core contract, while retaining adapter allowlisting, contract
   version policy, plan assembly, persistence, and lifecycle behavior. Focused
   process-run, run-contract, and Codex-preflight suites pass (29 tests total).
+- `switchboard-core::workbench` now exposes additive deterministic lifecycle
+  constructors for explicit session IDs and Unix-millisecond timestamps, with
+  one timestamp per logical create/transition/fork mutation and validation
+  before mutation. Existing constructors remain compatibility wrappers; all
+  34 core tests and all-target Clippy pass. Tauri storage has not yet been
+  switched to injected runtime clocks; that remains the next adapter phase.
 
 ### Remaining build work
 

@@ -4,7 +4,7 @@
 //! process control, and Tauri command wiring remain outside the core crate.
 
 use anyhow::{anyhow, bail, Result};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -140,11 +140,20 @@ pub fn transition_status(
     }
 }
 
-pub fn new_event(
+fn timestamp_from_unix_millis(unix_millis: i64) -> Result<DateTime<Utc>> {
+    if unix_millis < 0 {
+        bail!("Workbench timestamp must not precede the Unix epoch");
+    }
+    DateTime::<Utc>::from_timestamp_millis(unix_millis)
+        .ok_or_else(|| anyhow!("Workbench timestamp is outside the supported range"))
+}
+
+fn new_event_at(
     session_id: &str,
     sequence: u64,
     kind: WorkbenchEventKind,
     parent_event_id: Option<String>,
+    occurred_at: &DateTime<Utc>,
 ) -> WorkbenchEvent {
     WorkbenchEvent {
         event_id: format!("{session_id}:{sequence}"),
@@ -152,8 +161,18 @@ pub fn new_event(
         sequence,
         kind,
         parent_event_id,
-        occurred_at: Utc::now().to_rfc3339(),
+        occurred_at: occurred_at.to_rfc3339(),
     }
+}
+
+pub fn new_event(
+    session_id: &str,
+    sequence: u64,
+    kind: WorkbenchEventKind,
+    parent_event_id: Option<String>,
+) -> WorkbenchEvent {
+    let occurred_at = Utc::now();
+    new_event_at(session_id, sequence, kind, parent_event_id, &occurred_at)
 }
 
 pub fn validate_event(
@@ -183,25 +202,46 @@ pub fn validate_event(
 
 impl WorkbenchSession {
     pub fn create(input: CreateWorkbenchSessionInput) -> Result<Self> {
+        let session_id = format!("workbench:{}", Uuid::new_v4());
+        let created_at = Utc::now();
+        Self::create_with_session_id_at(input, &session_id, &created_at)
+    }
+
+    pub fn create_with_session_id_at_unix_millis(
+        input: CreateWorkbenchSessionInput,
+        session_id: &str,
+        unix_millis: i64,
+    ) -> Result<Self> {
+        let created_at = timestamp_from_unix_millis(unix_millis)?;
+        Self::create_with_session_id_at(input, session_id, &created_at)
+    }
+
+    fn create_with_session_id_at(
+        input: CreateWorkbenchSessionInput,
+        session_id: &str,
+        created_at: &DateTime<Utc>,
+    ) -> Result<Self> {
         validate_digest(&input.workspace_digest, "workspace digest")?;
         validate_task_class(&input.task_class)?;
-        let session_id = format!("workbench:{}", Uuid::new_v4());
-        let created_at = Utc::now().to_rfc3339();
-        let event = new_event(&session_id, 0, WorkbenchEventKind::Started, None);
-        Ok(Self {
+        validate_identifier(session_id, "session ID")?;
+        let timestamp = created_at.to_rfc3339();
+        let event = new_event_at(session_id, 0, WorkbenchEventKind::Started, None, created_at);
+        let session = Self {
             schema_version: WORKBENCH_EVENT_SCHEMA_VERSION,
-            session_id,
+            session_id: session_id.to_string(),
             workspace_digest: input.workspace_digest,
             task_class: input.task_class,
             status: WorkbenchSessionStatus::Active,
             parent_session_id: None,
             fork_event_id: None,
-            created_at: created_at.clone(),
-            updated_at: created_at,
+            created_at: timestamp.clone(),
+            updated_at: timestamp,
             execution_mode: "plan_only".into(),
             provider_traffic: "none".into(),
             events: vec![event],
-        })
+        };
+        session.validate()?;
+        Ok(session)
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -252,6 +292,25 @@ impl WorkbenchSession {
     }
 
     pub fn transition(&mut self, action: WorkbenchSessionAction) -> Result<()> {
+        let occurred_at = Utc::now();
+        self.transition_at(action, &occurred_at)
+    }
+
+    pub fn transition_at_unix_millis(
+        &mut self,
+        action: WorkbenchSessionAction,
+        unix_millis: i64,
+    ) -> Result<()> {
+        let occurred_at = timestamp_from_unix_millis(unix_millis)?;
+        self.transition_at(action, &occurred_at)
+    }
+
+    fn transition_at(
+        &mut self,
+        action: WorkbenchSessionAction,
+        occurred_at: &DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate()?;
         if self.events.len() >= MAX_EVENT_COUNT {
             bail!("Workbench session reached its event retention cap");
         }
@@ -262,18 +321,40 @@ impl WorkbenchSession {
             WorkbenchSessionAction::Complete => WorkbenchEventKind::Completed,
         };
         let next_status = transition_status(self.status, kind)?;
-        self.events.push(new_event(
+        let event = new_event_at(
             &self.session_id,
             self.events.len() as u64,
             kind,
             None,
-        ));
-        self.status = next_status;
-        self.updated_at = Utc::now().to_rfc3339();
+            occurred_at,
+        );
+        validate_event(&event, &self.session_id, self.events.len())?;
+
+        let mut candidate = self.clone();
+        candidate.events.push(event);
+        candidate.status = next_status;
+        candidate.updated_at = occurred_at.to_rfc3339();
+        candidate.validate()?;
+        *self = candidate;
         Ok(())
     }
 
     pub fn fork_at_event(&mut self, event_id: &str) -> Result<Self> {
+        let occurred_at = Utc::now();
+        self.fork_at_event_at(event_id, &occurred_at)
+    }
+
+    pub fn fork_at_event_at_unix_millis(
+        &mut self,
+        event_id: &str,
+        unix_millis: i64,
+    ) -> Result<Self> {
+        let occurred_at = timestamp_from_unix_millis(unix_millis)?;
+        self.fork_at_event_at(event_id, &occurred_at)
+    }
+
+    fn fork_at_event_at(&mut self, event_id: &str, occurred_at: &DateTime<Utc>) -> Result<Self> {
+        self.validate()?;
         validate_identifier(event_id, "fork event ID")?;
         if !matches!(
             self.status,
@@ -287,22 +368,25 @@ impl WorkbenchSession {
         if self.events.len() >= MAX_EVENT_COUNT {
             bail!("Workbench session reached its event retention cap");
         }
-        self.events.push(new_event(
+        let fork_event = new_event_at(
             &self.session_id,
             self.events.len() as u64,
             WorkbenchEventKind::Forked,
             Some(event_id.to_string()),
-        ));
-        self.updated_at = Utc::now().to_rfc3339();
+            occurred_at,
+        );
+        validate_event(&fork_event, &self.session_id, self.events.len())?;
+
         let session_id = deterministic_fork_session_id(&self.session_id, event_id);
-        let created_at = Utc::now().to_rfc3339();
-        let root_event = new_event(
+        let timestamp = occurred_at.to_rfc3339();
+        let root_event = new_event_at(
             &session_id,
             0,
             WorkbenchEventKind::Started,
             Some(event_id.to_string()),
+            occurred_at,
         );
-        Ok(Self {
+        let child = Self {
             schema_version: WORKBENCH_EVENT_SCHEMA_VERSION,
             session_id,
             workspace_digest: self.workspace_digest.clone(),
@@ -310,12 +394,20 @@ impl WorkbenchSession {
             status: WorkbenchSessionStatus::Active,
             parent_session_id: Some(self.session_id.clone()),
             fork_event_id: Some(event_id.to_string()),
-            created_at: created_at.clone(),
-            updated_at: created_at,
+            created_at: timestamp.clone(),
+            updated_at: timestamp,
             execution_mode: "plan_only".into(),
             provider_traffic: "none".into(),
             events: vec![root_event],
-        })
+        };
+        child.validate()?;
+
+        let mut candidate = self.clone();
+        candidate.events.push(fork_event);
+        candidate.updated_at = occurred_at.to_rfc3339();
+        candidate.validate()?;
+        *self = candidate;
+        Ok(child)
     }
 }
 
@@ -328,11 +420,170 @@ pub fn deterministic_fork_session_id(parent_session_id: &str, event_id: &str) ->
 mod tests {
     use super::*;
 
+    const INITIAL_MILLIS: i64 = 1_700_000_000_456;
+
     fn input() -> CreateWorkbenchSessionInput {
         CreateWorkbenchSessionInput {
             workspace_digest: format!("sha256:{}", "a".repeat(64)),
             task_class: "coding".into(),
         }
+    }
+
+    fn timestamp(unix_millis: i64) -> String {
+        timestamp_from_unix_millis(unix_millis)
+            .expect("valid test timestamp")
+            .to_rfc3339()
+    }
+
+    fn explicit_session() -> WorkbenchSession {
+        WorkbenchSession::create_with_session_id_at_unix_millis(
+            input(),
+            "workbench:explicit",
+            INITIAL_MILLIS,
+        )
+        .expect("create explicit session")
+    }
+
+    #[test]
+    fn explicit_session_creation_is_deterministic() {
+        let first = explicit_session();
+        let second = explicit_session();
+        let expected_timestamp = timestamp(INITIAL_MILLIS);
+
+        assert_eq!(first, second);
+        assert_eq!(expected_timestamp, "2023-11-14T22:13:20.456+00:00");
+        assert_eq!(first.session_id, "workbench:explicit");
+        assert_eq!(first.created_at, expected_timestamp);
+        assert_eq!(first.updated_at, expected_timestamp);
+        assert_eq!(first.status, WorkbenchSessionStatus::Active);
+        assert_eq!(first.execution_mode, "plan_only");
+        assert_eq!(first.provider_traffic, "none");
+        assert_eq!(first.events.len(), 1);
+        assert_eq!(first.events[0].event_id, "workbench:explicit:0");
+        assert_eq!(first.events[0].sequence, 0);
+        assert_eq!(first.events[0].kind, WorkbenchEventKind::Started);
+        assert_eq!(first.events[0].occurred_at, expected_timestamp);
+        first.validate().expect("validate deterministic session");
+    }
+
+    #[test]
+    fn explicit_creation_rejects_invalid_identity_and_time() {
+        assert!(WorkbenchSession::create_with_session_id_at_unix_millis(
+            input(),
+            "workbench:invalid identity",
+            INITIAL_MILLIS,
+        )
+        .is_err());
+        assert!(WorkbenchSession::create_with_session_id_at_unix_millis(
+            input(),
+            "workbench:explicit",
+            -1,
+        )
+        .is_err());
+        assert!(WorkbenchSession::create_with_session_id_at_unix_millis(
+            input(),
+            "workbench:explicit",
+            i64::MAX,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn explicit_transition_uses_one_timestamp_and_is_atomic() {
+        let mut session = explicit_session();
+        let initial = session.clone();
+
+        assert!(session
+            .transition_at_unix_millis(WorkbenchSessionAction::Pause, -1)
+            .is_err());
+        assert_eq!(session, initial);
+        assert!(session
+            .transition_at_unix_millis(WorkbenchSessionAction::Pause, i64::MAX)
+            .is_err());
+        assert_eq!(session, initial);
+
+        let transition_millis = INITIAL_MILLIS + 1_000;
+        session
+            .transition_at_unix_millis(WorkbenchSessionAction::Pause, transition_millis)
+            .expect("pause at explicit time");
+        let expected_timestamp = timestamp(transition_millis);
+        let event = session.events.last().expect("transition event");
+        assert_eq!(session.updated_at, expected_timestamp);
+        assert_eq!(event.occurred_at, expected_timestamp);
+        assert_eq!(event.sequence, 1);
+        assert_eq!(event.kind, WorkbenchEventKind::Paused);
+        session.validate().expect("validate transitioned session");
+
+        let paused = session.clone();
+        assert!(session
+            .transition_at_unix_millis(WorkbenchSessionAction::Complete, transition_millis + 1_000,)
+            .is_err());
+        assert_eq!(session, paused);
+
+        let mut invalid_identity = initial;
+        invalid_identity.session_id = "workbench:invalid identity".into();
+        let invalid_snapshot = invalid_identity.clone();
+        assert!(invalid_identity
+            .transition_at_unix_millis(WorkbenchSessionAction::Pause, transition_millis)
+            .is_err());
+        assert_eq!(invalid_identity, invalid_snapshot);
+    }
+
+    #[test]
+    fn explicit_fork_uses_one_timestamp_for_parent_and_child() {
+        let mut parent = explicit_session();
+        let event_id = parent.events[0].event_id.clone();
+        let initial = parent.clone();
+
+        assert!(parent.fork_at_event_at_unix_millis(&event_id, -1).is_err());
+        assert_eq!(parent, initial);
+        assert!(parent
+            .fork_at_event_at_unix_millis(&event_id, i64::MAX)
+            .is_err());
+        assert_eq!(parent, initial);
+
+        let fork_millis = INITIAL_MILLIS + 2_000;
+        let child = parent
+            .fork_at_event_at_unix_millis(&event_id, fork_millis)
+            .expect("fork at explicit time");
+        let expected_timestamp = timestamp(fork_millis);
+        let fork_event = parent.events.last().expect("parent fork event");
+
+        assert_eq!(parent.updated_at, expected_timestamp);
+        assert_eq!(fork_event.occurred_at, expected_timestamp);
+        assert_eq!(fork_event.kind, WorkbenchEventKind::Forked);
+        assert_eq!(
+            fork_event.parent_event_id.as_deref(),
+            Some(event_id.as_str())
+        );
+        assert_eq!(child.created_at, expected_timestamp);
+        assert_eq!(child.updated_at, expected_timestamp);
+        assert_eq!(child.events[0].occurred_at, expected_timestamp);
+        assert_eq!(
+            child.parent_session_id.as_deref(),
+            Some(parent.session_id.as_str())
+        );
+        assert_eq!(child.fork_event_id.as_deref(), Some(event_id.as_str()));
+        parent.validate().expect("validate explicit parent");
+        child.validate().expect("validate explicit child");
+    }
+
+    #[test]
+    fn compatibility_constructors_still_validate() {
+        let event = new_event("workbench:compat", 0, WorkbenchEventKind::Started, None);
+        validate_event(&event, "workbench:compat", 0).expect("validate compatibility event");
+
+        let mut parent = WorkbenchSession::create(input()).expect("create compatibility session");
+        parent.validate().expect("validate compatibility session");
+        parent
+            .transition(WorkbenchSessionAction::Pause)
+            .expect("pause compatibility session");
+        let event_id = parent.events[0].event_id.clone();
+        let child = parent
+            .fork_at_event(&event_id)
+            .expect("fork compatibility session");
+        parent.validate().expect("validate compatibility parent");
+        child.validate().expect("validate compatibility child");
     }
 
     #[test]
