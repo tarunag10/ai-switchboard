@@ -38,8 +38,8 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `653d118` plus the
-one-shot Codex attempt-authority foundation recorded with this update, and
+This status was reconciled against committed `main` through `559584c` plus the
+Router shadow persistence foundation recorded with this update, and
 against the visible frontend/native command wiring on 2026-08-24. Unrelated
 concurrent unstaged work is not counted as shipped. A check mark therefore means the capability is
 in the committed product boundary, not merely described in another plan or
@@ -60,6 +60,13 @@ Current verification snapshot:
 
 - `19` focused Workbench bridge/view tests pass, including historical receipt
   visibility and late-plan invalidation.
+- `23` focused native Router shadow-store tests pass for fixed canonical JSON/
+  SHA-256 vectors, immutable decision/completion digests, closed content-free
+  types, append-only SQLite generations and rows, immediate-transaction duplicate
+  rejection and rollover, concurrent completion, corruption, exact expiry,
+  monotonic-priority wall-clock jumps, redirects, clock rollback, model mismatch,
+  canonical generation integrity/orphan detection, durable capacity, and privacy
+  boundaries.
 - `190` focused native `workbench_kernel` tests pass, including `14` fake
   process-controller lifecycle/restart/CAS tests and `5` deterministic
   verified-routing admission-orchestration/expiry tests plus `10` fixed Codex
@@ -316,6 +323,19 @@ rollback rules.
 
 Deliverables:
 
+- [x] Add the content-free persistence foundation: separate immutable shadow
+  decision, completion, and generation schemas, canonical digests, append-only SQLite
+  generation/row triggers, store-issued UUIDs and timestamps, a unique run
+  identity in both tables, `BEGIN IMMEDIATE` insertion/completion/rollover,
+  exact generation/decision/policy/plan binding with orphan/corrupt-lineage
+  rejection before append, requested-model preservation, fixed
+  transport/request enums, monotonic-priority-or-bounded-wall latency evidence, delivered
+  3xx non-success terminals, exclusive
+  24-hour completion expiry, explicit clock/model integrity terminals, durable
+  256-run generation rotation without eviction, corruption detection, and
+  explicit no-content privacy attestations. This foundation is compiled and
+  tested but is not yet called by the proxy, exported to Workbench, or exposed
+  in the UI.
 - [ ] Call the canonical route-plan authority from one real, bounded proxy or
   session request path. Today `build_route_plan()` is contract/test-only and
   always returns `ObserveOnlyShadow`.
@@ -858,6 +878,8 @@ Current gate truth on 2026-08-24:
   parser, and `43` npm
   manifest/model/descriptor/collector tests; the focused Workbench bridge/view
   gate has `19 passed`.
+- Router live-shadow persistence foundation: `23 passed`; it remains native-only
+  and unbound to provider traffic, so it is not evidence of a live Router run.
 - Standalone Codex helper protocol: `17 passed` across its library, contract,
   purity, and documentation suites; formatting and Clippy pass, Cargo metadata
   reports one library plus two test targets and exactly the pinned `serde`,

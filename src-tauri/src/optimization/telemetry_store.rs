@@ -9,6 +9,10 @@ use super::telemetry::{
 };
 
 mod model_routing_evidence;
+#[allow(dead_code)]
+pub(crate) mod router_shadow;
+#[cfg(test)]
+mod router_shadow_tests;
 
 pub(crate) use model_routing_evidence::{
     export_model_routing_evidence, list_model_routing_decision_references,
