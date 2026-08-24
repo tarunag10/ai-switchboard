@@ -107,6 +107,27 @@ mod tests {
     }
 
     #[test]
+    fn composition_preserves_the_compatibility_adapter_decision_bytes() {
+        let request = request();
+        let candidates = [candidate("zulu"), candidate("alpha")];
+        let expected = decide_endpoint_route(&request, &candidates);
+        let plan = build_route_plan(
+            &request,
+            &candidates,
+            None,
+            &ModelRoutingExperimentPolicy::default(),
+            false,
+            None,
+        );
+
+        assert_eq!(plan.endpoint, expected);
+        assert_eq!(
+            serde_json::to_vec(&plan.endpoint).expect("composed endpoint JSON"),
+            serde_json::to_vec(&expected).expect("adapter endpoint JSON")
+        );
+    }
+
+    #[test]
     fn preserves_fail_closed_no_eligible_endpoint() {
         let mut candidate = candidate("remote");
         candidate.privacy = crate::endpoint_routing::EndpointPrivacy::Remote;

@@ -642,7 +642,10 @@ Core extraction progress:
   with one bounded stdin JSON request, deterministic compact JSON output, and
   content-free malformed/unsafe-input errors. Core verification passes 42/42
   tests; CLI verification passes 21/21 tests and all-target Clippy. The Tauri
-  compatibility adapter and Node opt-in bridge remain next steps.
+  endpoint-routing module now delegates to the same core planner, preserving
+  its internal infallible compatibility signature while failing closed on
+  invalid legacy input; endpoint and route-plan parity tests pass 11/11. The
+  exact Node opt-in bridge remains next.
 
 ### Remaining build work
 
