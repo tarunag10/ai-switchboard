@@ -717,6 +717,11 @@ Core extraction progress:
   Responsive styles preserve opaque IDs and long labels at the supported
   760px minimum, while focused Workbench and TrayApp tests verify the single
   Add-ons replay surface and fail-closed status copy.
+- The native `record_model_routing_evidence` command is now registered in the
+  Tauri bridge and has a typed TypeScript wrapper with exact invoke-contract
+  tests. This exposes validated, observe-only evidence persistence to the app
+  without fabricating provider metrics or enabling automatic routing; native
+  validation and the TS contract suite both pass.
 
 ### Remaining build work
 

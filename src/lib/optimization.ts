@@ -223,6 +223,22 @@ export interface ModelRoutingCompletionEvidence {
   followUpRework?: boolean | null;
 }
 
+export type ModelRoutingEvidenceArm = "baseline" | "candidate";
+
+export interface ModelRoutingEvidenceObservation {
+  runId: string;
+  capturedAt: string;
+  taskClass: string;
+  arm: ModelRoutingEvidenceArm;
+  baselineModel: string;
+  candidateModel: string;
+  succeeded: boolean;
+  successfulTaskCostMicrounits?: number | null;
+  qualityScoreBps: number;
+  latencyMs: number;
+  followUpRework: boolean;
+}
+
 export type ModelRoutingCompletionMetrics = ModelRoutingCompletionEvidence;
 
 export interface ModelRoutingCompletionHandle {
@@ -552,6 +568,12 @@ export function completeModelRoutingCompletion(
   metrics: ModelRoutingCompletionMetrics,
 ): Promise<ModelRoutingDecisionReference> {
   return invoke<ModelRoutingDecisionReference>("complete_model_routing_completion", { handleId, metrics });
+}
+
+export function recordModelRoutingEvidence(
+  observation: ModelRoutingEvidenceObservation,
+): Promise<void> {
+  return invoke<void>("record_model_routing_evidence", { observation });
 }
 
 export function listModelRoutingDecisionReferences(): Promise<ModelRoutingDecisionReference[]> {

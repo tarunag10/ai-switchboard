@@ -908,6 +908,7 @@ pub fn run() {
             optimization_commands::get_model_routing_policy_presets,
             optimization_commands::get_model_routing_effective_stage_receipt,
             optimization_commands::validate_model_routing,
+            optimization_commands::record_model_routing_evidence,
             optimization_commands::issue_model_routing_completion_handle,
             optimization_commands::complete_model_routing_completion,
             optimization_commands::list_model_routing_decision_references,

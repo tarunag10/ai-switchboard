@@ -17,6 +17,7 @@ import {
   listModelRoutingDecisionReferences,
   modelRoutingEffectiveStageReceipt,
   resolveModelRoutingDecisionReference,
+  recordModelRoutingEvidence,
   saveModelRoutingExperimentPolicy,
   saveOptimizationActionPolicy,
   validateModelRouting,
@@ -358,6 +359,50 @@ describe("optimization helpers", () => {
       ["complete_model_routing_completion", { handleId: handle.handleId, metrics }],
       ["export_model_routing_evidence_for_handle", { handleId: handle.handleId, taskClass: "formatting" }],
     ]);
+  });
+
+  it("records native routing observations with the exact Tauri payload shape", async () => {
+    const observation = {
+      runId: "native-run",
+      capturedAt: "2026-08-23T00:00:00Z",
+      taskClass: "formatting",
+      arm: "candidate" as const,
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      succeeded: true,
+      successfulTaskCostMicrounits: 725,
+      qualityScoreBps: 9800,
+      latencyMs: 700,
+      followUpRework: false,
+    };
+    invokeMock.mockResolvedValueOnce(undefined);
+
+    await expect(recordModelRoutingEvidence(observation)).resolves.toBeUndefined();
+    expect(invokeMock).toHaveBeenCalledWith("record_model_routing_evidence", {
+      observation,
+    });
+  });
+
+  it("propagates native routing observation failures without rewriting them", async () => {
+    const observation = {
+      runId: "native-run",
+      capturedAt: "2026-08-23T00:00:00Z",
+      taskClass: "formatting",
+      arm: "baseline" as const,
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      succeeded: false,
+      successfulTaskCostMicrounits: null,
+      qualityScoreBps: 10000,
+      latencyMs: 700,
+      followUpRework: true,
+    };
+    invokeMock.mockRejectedValueOnce(new Error("native store unavailable"));
+
+    await expect(recordModelRoutingEvidence(observation)).rejects.toThrow("native store unavailable");
+    expect(invokeMock).toHaveBeenCalledWith("record_model_routing_evidence", {
+      observation,
+    });
   });
 
   it("exports completion evidence through the native handle capability", async () => {
