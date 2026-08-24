@@ -12,6 +12,7 @@ pub mod presets;
 pub mod process_admission;
 pub mod process_grant;
 pub mod process_run_spec;
+pub mod router;
 pub mod workbench;
 
 pub use workbench::{WorkbenchEventKind, WorkbenchSessionAction, WorkbenchSessionStatus};

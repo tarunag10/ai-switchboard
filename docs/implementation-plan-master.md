@@ -631,6 +631,14 @@ Core extraction progress:
   existing Switchboard CLI checker pass. Startup failures are content-free.
   This is discovery/delegation only, not native router parity or installer
   packaging.
+- `switchboard-core::router` now owns a strict, content-free endpoint route
+  plan contract for the native CLI follow-up: deterministic candidate
+  selection, stable endpoint-ID tie-breaking, requested/actual model
+  equality, bounded inputs, duplicate/unknown-field rejection, and hard-gate
+  fail-closed behavior. The planner is always observe-only with provider
+  traffic and process start disabled. Core verification passes 42/42 tests and
+  all-target Clippy; the native CLI command and Tauri compatibility adapter are
+  the next steps.
 
 ### Remaining build work
 
