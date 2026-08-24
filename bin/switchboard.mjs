@@ -85,13 +85,26 @@ if (command === "--version" || command === "-v" || command === "version") {
   process.exit(0);
 }
 
+const routerEndpointPlan =
+  commandArgs.length === 3 &&
+  commandArgs[0] === "router" &&
+  commandArgs[1] === "endpoint" &&
+  commandArgs[2] === "plan";
 const nativeRouterEndpointPlan =
+  routerEndpointPlan &&
   nativeRequested &&
   args.length === 4 &&
   args[0] === "router" &&
   args[1] === "endpoint" &&
   args[2] === "plan" &&
   args[3] === "--native";
+
+if (routerEndpointPlan && !nativeRouterEndpointPlan) {
+  console.error(
+    "router endpoint plan requires --native as the final argument.",
+  );
+  process.exit(2);
+}
 
 if (nativeRequested && command === "router" && !nativeRouterEndpointPlan) {
   console.error(

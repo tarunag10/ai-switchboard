@@ -94,6 +94,46 @@ test("native bridge delegates the exact router endpoint plan command", () => {
   }
 });
 
+test("endpoint plan without a final native flag fails closed before router aliases", () => {
+  const stub = nativeStub();
+  try {
+    const privateInput = "private-endpoint-input-must-not-be-echoed\n";
+    const rejected = [
+      ["router", "endpoint", "plan"],
+      ["router", "--native", "endpoint", "plan"],
+      ["router", "endpoint", "--native", "plan"],
+    ];
+
+    for (const args of rejected) {
+      const result = run(
+        args,
+        { SWITCHBOARD_NATIVE_CLI: stub.executable },
+        privateInput,
+      );
+      assert.equal(result.status, 2);
+      assert.equal(result.stdout, "");
+      assert.equal(
+        result.stderr,
+        "router endpoint plan requires --native as the final argument.\n",
+      );
+      assert.doesNotMatch(result.stderr, /private-endpoint-input/);
+    }
+  } finally {
+    rmSync(stub.directory, { recursive: true, force: true });
+  }
+});
+
+test("legacy router repo path remains on the Node compatibility path", () => {
+  const result = run(
+    ["router", ".", "--list-agents"],
+    { SWITCHBOARD_NATIVE_CLI: "/path/that/must/not/be/used" },
+  );
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /^codex$/m);
+  assert.match(result.stdout, /^gemini$/m);
+  assert.equal(result.stderr, "");
+});
+
 test("native bridge fails closed when unset or unusable", () => {
   const stub = nativeStub();
   try {
@@ -122,7 +162,6 @@ test("native bridge fails closed when unset or unusable", () => {
 test("legacy router native shapes and optimize native are rejected", () => {
   const rejected = [
     ["router", ".", "--native"],
-    ["router", "--native", "endpoint", "plan"],
     ["router", "endpoint", "plan", "--native", "extra"],
     ["optimize", ".", "--native"],
   ];

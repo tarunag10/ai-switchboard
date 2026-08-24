@@ -705,6 +705,11 @@ Core extraction progress:
   checks, and process ownership, while Unix ordering and Windows PATHEXT
   behavior remain compatible. Runtime and focused Tauri discovery tests pass;
   Windows managed runtime execution remains disabled.
+- The Node bridge now detects the exact `router endpoint plan` shape before
+  legacy Repo Intelligence routing. Missing or misplaced `--native` fails
+  closed with a stable exit-2 usage error and no native or repository
+  invocation; the exact native command and legacy `router <repo-path>` path
+  remain covered by seven focused bridge tests.
 
 ### Remaining build work
 
