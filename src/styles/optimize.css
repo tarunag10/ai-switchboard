@@ -2068,7 +2068,7 @@ html.window-hiding {
 
 .session-ready-card__steps {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 0.5rem;
   margin: 1rem 0;
 }
@@ -2081,8 +2081,9 @@ html.window-hiding {
   padding: 0.65rem;
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
   border-radius: 0.55rem;
-  background: transparent;
-  color: inherit;
+  appearance: none;
+  background: var(--surface-muted, rgba(20, 14, 11, 0.72));
+  color: var(--text-primary, #f8ead0);
   text-align: left;
   cursor: pointer;
 }
@@ -2105,20 +2106,24 @@ html.window-hiding {
 }
 
 .session-ready-card__step-copy strong {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.25rem;
   font-size: 0.78rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .session-ready-card__step-copy small {
   color: var(--text-muted, #9e9a92);
   font-size: 0.68rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 900px) {
   .session-ready-card__steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
   }
 }

@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle, Circle, ClipboardText, FolderOpen, Gauge, ShieldCheck } from "@phosphor-icons/react";
+import { ArrowRight, CheckCircle, Circle, ClipboardText, FolderOpen, Gauge, PlugsConnected, ShieldCheck } from "@phosphor-icons/react";
 
 import type { RuntimeStatus, SwitchboardMode } from "../lib/types";
 import type { TrayView } from "../lib/trayHelpers";
@@ -43,6 +43,13 @@ export function SessionReadyCard({ runtimeStatus, switchboardMode, setActiveView
       icon: Gauge,
       view: "usage" as TrayView,
       complete: false,
+    },
+    {
+      label: "Harness / CLI",
+      detail: "Shared workbench and local router plan",
+      icon: PlugsConnected,
+      view: "workbench" as TrayView,
+      complete: true,
     },
   ];
 

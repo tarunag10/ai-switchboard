@@ -9,6 +9,7 @@
  */
 
 :root {
+  color-scheme: dark;
   --surface: #211914;
   --surface-app: #17100d;
   --surface-muted: rgba(20, 14, 11, 0.72);
@@ -40,6 +41,8 @@
   --radius-card: 10px;
   --space-control-x: 14px;
   --space-control-y: 9px;
+  --text-strong: var(--text-primary);
+  --surface-hover: var(--fill-hover);
 }
 
 /* The desktop window has enough room for readable navigation. Keep labels
@@ -50,6 +53,9 @@
 }
 
 .tray-sidebar {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--surface-sidebar);
   border-right-color: var(--border-subtle);
 }
@@ -99,6 +105,33 @@
 
   .switchboard-panel__inspector {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .connector-readiness {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .connector-readiness__metrics {
+    grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  }
+
+  .connector-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .connector-item__controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .connector-item__action,
+  .connector-item__manual-guide {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
   }
 }
 

@@ -1,6 +1,6 @@
 .tray-shell {
   display: grid;
-  grid-template-columns: clamp(168px, 16vw, 196px) minmax(0, 1fr);
+  grid-template-columns: clamp(208px, 22vw, 248px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   background: transparent;
@@ -17,6 +17,9 @@
   overflow-x: hidden;
   overflow-y: auto;
   z-index: 2;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .tray-sidebar__footer {

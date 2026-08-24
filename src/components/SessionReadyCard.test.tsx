@@ -12,6 +12,8 @@ describe("SessionReadyCard", () => {
     expect(screen.getByText("Loopback route is healthy")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Repo context/i }));
     expect(setActiveView).toHaveBeenCalledWith("repoIntelligence");
+    fireEvent.click(screen.getByRole("button", { name: /Harness \/ CLI/i }));
+    expect(setActiveView).toHaveBeenCalledWith("workbench");
     fireEvent.click(screen.getByRole("button", { name: /Prepare agent handoff/i }));
     expect(setActiveView).toHaveBeenCalledWith("optimization");
   });

@@ -32,8 +32,8 @@ if (!packageJson.scripts?.switchboard?.includes("bin/switchboard.mjs")) {
 }
 
 const help = run(["--help"]);
-if (!help.includes("switchboard repo-intelligence") || !help.includes("Legacy Mac AI Switchboard paths")) {
-  fail("help output must document repo-intelligence and legacy compatibility");
+if (!help.includes("switchboard repo-intelligence") || !help.includes("switchboard harness status") || !help.includes("Legacy Mac AI Switchboard paths")) {
+  fail("help output must document Repo Intelligence, harness status, and legacy compatibility");
 }
 
 const version = run(["--version"]).trim();
@@ -57,6 +57,26 @@ const session = run([
 ]);
 if (!session.includes('"kind": "mac_ai_switchboard.agent_session_preparation"')) {
   fail("--start-session alias did not return an agent session preparation");
+}
+
+const harnessStatus = JSON.parse(run(["harness", "status"]));
+if (harnessStatus.router?.available !== true || harnessStatus.workbench?.available !== true || harnessStatus.router?.providerTraffic !== false) {
+  fail("harness status must expose provider-neutral router and Workbench contracts");
+}
+
+const harnessSession = run(["harness", "session", ".", "--agent", "codex", "--budget", "1200"]);
+if (!harnessSession.includes('"kind": "mac_ai_switchboard.agent_session_preparation"')) {
+  fail("harness session did not return an agent session preparation");
+}
+
+const routerSession = run(["router", ".", "--agent", "codex", "--budget", "1200"]);
+if (!routerSession.includes('"kind": "mac_ai_switchboard.agent_session_preparation"')) {
+  fail("router alias did not return an agent session preparation");
+}
+
+const optimizeSession = run(["optimize", ".", "--agent", "codex", "--budget", "1200"]);
+if (!optimizeSession.includes('"kind": "mac_ai_switchboard.agent_session_preparation"')) {
+  fail("optimize alias did not return an agent session preparation");
 }
 
 const directAgents = spawnSync(

@@ -454,6 +454,44 @@ the current checkout.
   conjunction of environment, artifact, backend, updater, static-smoke, and
   installed-smoke gates, preventing contradictory public-release status.
 
+### Cross-platform harness and UI phase — started 2026-08-24
+
+Status: in progress. The first slice is implemented and locally verifiable; the
+shared Rust core extraction and native Linux/Windows runtime adapters remain.
+
+Done in this slice:
+
+- The public `switchboard` command now exposes `harness status`,
+  `harness session`, `router`, and `optimize` provider-neutral local planning paths on
+  macOS, Linux, and Windows Node environments.
+- The CLI contract explicitly reports that live provider traffic and process
+  start remain disabled in the cross-platform preview until the shared core and
+  runtime adapters are extracted.
+- The Session Ready UI now exposes a visible Harness / CLI entry point into the
+  Workbench, and its step cards use the Switchboard theme, responsive sizing,
+  wrapping labels, and overflow-safe detail text.
+- The cross-screen UI hardening slice now removes conflicting legacy sidebar
+  widths, gives the shell one geometry owner, disables OS light-control leakage,
+  removes forced 360px narrow-content overflow, defines the missing semantic
+  hover/strong tokens, and stacks connector readiness/actions on narrow windows.
+
+Remaining in this phase:
+
+1. Extract `switchboard-core` from `src-tauri/src` for route plans, Workbench
+   sessions, grants, receipts, capability projection, and OSS contracts.
+2. Introduce `switchboard-runtime` traits for filesystem, process supervision,
+   clock/cancellation, provider transport, and secrets/keychain boundaries.
+3. Make the desktop Tauri crate a thin adapter over the shared core and replace
+   the Node preview router/session aliases with the real core-backed CLI.
+4. Add macOS, Linux, and Windows runtime adapters plus CI compile/smoke jobs;
+   package desktop installers only after those adapters have passing evidence.
+5. Add UI integration coverage for Harness / CLI visibility, Workbench routing,
+   live runtime status, narrow windows, long labels, and browser-preview guards.
+6. Consolidate the Workbench information architecture: rename the sidebar/page
+   to Harness / CLI Workbench, embed replay validation beside router decisions,
+   add Settings and capability-detail actions, and refresh Workbench references
+   after validation without enabling unauthorised process execution.
+
 ### Remaining build work
 
 1. **Fresh quality evidence loop:** the machine-checked evidence contract and
