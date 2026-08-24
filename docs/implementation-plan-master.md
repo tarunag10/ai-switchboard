@@ -503,6 +503,10 @@ Core extraction progress:
 - The full Rust workspace split is intentionally not claimed yet: Workbench
   persistence, capability grants, OSS registry projection, and runtime traits
   still depend on the Tauri application crate and are next.
+- `crates/switchboard-runtime` now defines the platform-neutral runtime adapter
+  boundary with clock and capability contracts plus a fail-closed portable
+  implementation. It does not start processes, touch files, access secrets, or
+  send provider traffic.
 
 ### Remaining build work
 
