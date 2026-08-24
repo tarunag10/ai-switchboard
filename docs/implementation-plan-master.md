@@ -645,7 +645,11 @@ Core extraction progress:
   endpoint-routing module now delegates to the same core planner, preserving
   its internal infallible compatibility signature while failing closed on
   invalid legacy input; endpoint and route-plan parity tests pass 11/11. The
-  exact Node opt-in bridge remains next.
+  exact Node opt-in bridge now exposes only `router endpoint plan --native`
+  alongside the existing harness and Workbench native commands. It forwards
+  inherited stdio with `shell: false`, requires the explicit native executable
+  environment variable, and keeps legacy router/optimize native shapes
+  rejected. Bridge verification passes 5/5 tests plus the existing CLI check.
 
 ### Remaining build work
 

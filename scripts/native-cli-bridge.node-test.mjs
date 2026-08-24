@@ -77,6 +77,23 @@ test("native bridge delegates Workbench serialization only when opted in", () =>
   }
 });
 
+test("native bridge delegates the exact router endpoint plan command", () => {
+  const stub = nativeStub();
+  try {
+    const result = run(["router", "endpoint", "plan", "--native"], {
+      SWITCHBOARD_NATIVE_CLI: stub.executable,
+    }, "endpoint-json\n");
+    assert.equal(result.status, 0);
+    assert.deepEqual(JSON.parse(result.stdout.slice("native:".length)), {
+      args: ["router", "endpoint", "plan"],
+      input: "endpoint-json\n",
+    });
+    assert.equal(result.stderr, "native stderr\n");
+  } finally {
+    rmSync(stub.directory, { recursive: true, force: true });
+  }
+});
+
 test("native bridge fails closed when unset or unusable", () => {
   const stub = nativeStub();
   try {
@@ -85,6 +102,12 @@ test("native bridge fails closed when unset or unusable", () => {
     });
     assert.equal(unset.status, 1);
     assert.match(unset.stderr, /Set SWITCHBOARD_NATIVE_CLI to an executable native CLI/);
+
+    const routerUnset = run(["router", "endpoint", "plan", "--native"], {
+      SWITCHBOARD_NATIVE_CLI: "",
+    }, "endpoint-json\n");
+    assert.equal(routerUnset.status, 1);
+    assert.match(routerUnset.stderr, /Set SWITCHBOARD_NATIVE_CLI to an executable native CLI/);
 
     const unusable = run(["harness", "status", "--native"], {
       SWITCHBOARD_NATIVE_CLI: join(tmpdir(), "switchboard-native-does-not-exist"),
@@ -96,12 +119,18 @@ test("native bridge fails closed when unset or unusable", () => {
   }
 });
 
-test("native opt-in is rejected for router and optimize", () => {
-  for (const command of ["router", "optimize"]) {
-    const result = run([command, ".", "--native"], {
+test("legacy router native shapes and optimize native are rejected", () => {
+  const rejected = [
+    ["router", ".", "--native"],
+    ["router", "--native", "endpoint", "plan"],
+    ["router", "endpoint", "plan", "--native", "extra"],
+    ["optimize", ".", "--native"],
+  ];
+  for (const args of rejected) {
+    const result = run(args, {
       SWITCHBOARD_NATIVE_CLI: "/path/that/must/not/be/used",
     });
     assert.equal(result.status, 2);
-    assert.match(result.stderr, /supported only for harness status/);
+    assert.match(result.stderr, /--native is (supported only for router endpoint plan|not supported for optimize)/);
   }
 });

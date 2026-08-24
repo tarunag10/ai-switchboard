@@ -47,6 +47,7 @@ Usage:
   switchboard harness session <repo-path> [options]
   switchboard workbench session serialize [--native]
   switchboard router <repo-path> [options]
+  switchboard router endpoint plan --native
   switchboard optimize <repo-path> [options]
   switchboard --version
 
@@ -84,9 +85,24 @@ if (command === "--version" || command === "-v" || command === "version") {
   process.exit(0);
 }
 
-if (nativeRequested && ["router", "optimize"].includes(command)) {
+const nativeRouterEndpointPlan =
+  nativeRequested &&
+  args.length === 4 &&
+  args[0] === "router" &&
+  args[1] === "endpoint" &&
+  args[2] === "plan" &&
+  args[3] === "--native";
+
+if (nativeRequested && command === "router" && !nativeRouterEndpointPlan) {
   console.error(
-    "--native is supported only for harness status and Workbench session serialize.",
+    "--native is supported only for router endpoint plan, harness status, and Workbench session serialize.",
+  );
+  process.exit(2);
+}
+
+if (nativeRequested && command === "optimize") {
+  console.error(
+    "--native is not supported for optimize.",
   );
   process.exit(2);
 }
@@ -136,6 +152,10 @@ if (
   commandArgs[2] === "serialize" &&
   nativeRequested
 ) {
+  runNativeCli(commandArgs);
+}
+
+if (nativeRouterEndpointPlan) {
   runNativeCli(commandArgs);
 }
 
