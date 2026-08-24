@@ -663,6 +663,12 @@ Core extraction progress:
   pass. Full Windows runtime support remains a separate implementation phase
   requiring archive-kind metadata, Windows executable/venv paths, Headroom
   wheel selection, and platform-safe process code.
+- CLI discovery now has an explicit platform boundary: Windows uses PATH and
+  PATHEXT-aware resolution only, never Unix login-shell probing, and emits a
+  stable fail-closed diagnostic when no candidate is usable. Unix shell and
+  candidate ordering remain unchanged. Nineteen focused discovery tests pass;
+  the Windows-only PATHEXT integration test remains CI-gated because this
+  checkout runs on macOS.
 
 ### Remaining build work
 

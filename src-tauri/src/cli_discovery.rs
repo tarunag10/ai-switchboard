@@ -1,11 +1,21 @@
+#[cfg(any(unix, test))]
+use std::ffi::OsStr;
+#[cfg(unix)]
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
+#[cfg(unix)]
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+#[cfg(unix)]
 const SHELL_LOOKUP_TIMEOUT: Duration = Duration::from_secs(2);
 const SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(3);
+#[cfg(any(windows, test))]
+const WINDOWS_PATH_LOOKUP_FAILED_DIAGNOSTIC: &str =
+    "cli_discovery_windows_path_lookup_failed_closed";
+#[cfg(not(any(unix, windows)))]
+const UNSUPPORTED_PLATFORM_DIAGNOSTIC: &str = "cli_discovery_unsupported_platform_failed_closed";
 
 pub fn detect_claude_cli() -> Option<PathBuf> {
     detect_cli("claude")
@@ -35,7 +45,7 @@ fn detect_cli(name: &str) -> Option<PathBuf> {
     if let Some(path) = probe_known_paths(name) {
         return Some(path);
     }
-    probe_via_login_shell(name)
+    probe_via_platform(name)
 }
 
 fn probe_known_paths(name: &str) -> Option<PathBuf> {
@@ -43,6 +53,14 @@ fn probe_known_paths(name: &str) -> Option<PathBuf> {
 }
 
 fn known_path_candidates(home: PathBuf, name: &str) -> Vec<PathBuf> {
+    known_path_candidates_for(home, name, cfg!(unix))
+}
+
+fn known_path_candidates_for(home: PathBuf, name: &str, unix_layout: bool) -> Vec<PathBuf> {
+    if !unix_layout {
+        return Vec::new();
+    }
+
     vec![
         home.join(".claude").join("local").join(name),
         PathBuf::from(format!("/opt/homebrew/bin/{name}")),
@@ -60,8 +78,34 @@ fn first_runnable<I: Iterator<Item = PathBuf>>(candidates: I) -> Option<PathBuf>
         .find(|candidate| is_runnable(candidate))
 }
 
-fn probe_via_login_shell(name: &str) -> Option<PathBuf> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+#[cfg(unix)]
+fn probe_via_platform(name: &str) -> Option<PathBuf> {
+    probe_via_login_shell(name)
+}
+
+#[cfg(windows)]
+fn probe_via_platform(name: &str) -> Option<PathBuf> {
+    let candidate = std::env::var_os("PATH").and_then(|path_var| {
+        crate::client_detection::find_on_path_entries(std::env::split_paths(&path_var), &[name])
+    });
+    let candidate = first_runnable(candidate.into_iter());
+    if candidate.is_none() {
+        eprintln!("{WINDOWS_PATH_LOOKUP_FAILED_DIAGNOSTIC}:{name}");
+    }
+    candidate
+}
+
+#[cfg(not(any(unix, windows)))]
+fn probe_via_platform(name: &str) -> Option<PathBuf> {
+    eprintln!("{UNSUPPORTED_PLATFORM_DIAGNOSTIC}:{name}");
+    None
+}
+
+#[cfg(any(unix, test))]
+fn unix_login_shell_spec(shell: Option<&OsStr>) -> (PathBuf, &'static str) {
+    let shell = shell
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/bin/zsh"));
     let shell_name = Path::new(&shell)
         .file_name()
         .and_then(|name| name.to_str())
@@ -70,6 +114,13 @@ fn probe_via_login_shell(name: &str) -> Option<PathBuf> {
         "fish" => "-lc",
         _ => "-ilc",
     };
+    (shell, flags)
+}
+
+#[cfg(unix)]
+fn probe_via_login_shell(name: &str) -> Option<PathBuf> {
+    let configured_shell = std::env::var_os("SHELL");
+    let (shell, flags) = unix_login_shell_spec(configured_shell.as_deref());
 
     let mut command = Command::new(&shell);
     command.arg(flags).arg(format!("command -v {name}"));
@@ -82,6 +133,7 @@ fn probe_via_login_shell(name: &str) -> Option<PathBuf> {
 /// the child to exit. Interactive shells (`-ilc`) print the `command -v`
 /// result immediately but then run through `.zshrc`, so waiting for exit
 /// before reading stdout was dropping valid paths on the floor.
+#[cfg(unix)]
 fn read_path_from_shell(mut command: Command, timeout: Duration) -> Option<PathBuf> {
     let mut child = command
         .stdin(Stdio::null())
@@ -163,11 +215,13 @@ fn is_runnable(path: &Path) -> bool {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     if let Some(dir) = path.parent() {
-        let existing = std::env::var("PATH").unwrap_or_default();
-        let augmented = if existing.is_empty() {
-            dir.display().to_string()
-        } else {
-            format!("{}:{}", dir.display(), existing)
+        let mut entries = vec![dir.to_path_buf()];
+        if let Some(existing) = std::env::var_os("PATH") {
+            entries.extend(std::env::split_paths(&existing));
+        }
+        let augmented = match std::env::join_paths(entries) {
+            Ok(augmented) => augmented,
+            Err(_) => return false,
         };
         command.env("PATH", augmented);
     }
@@ -211,8 +265,24 @@ mod tests {
     use super::*;
     use serial_test::serial;
     use std::fs;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
     use std::time::Instant;
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum DiscoveryFallback {
+        UnixLoginShell,
+        WindowsPath,
+        FailClosed,
+    }
+
+    fn discovery_fallback_for_target(is_unix: bool, is_windows: bool) -> DiscoveryFallback {
+        match (is_unix, is_windows) {
+            (true, false) => DiscoveryFallback::UnixLoginShell,
+            (false, true) => DiscoveryFallback::WindowsPath,
+            _ => DiscoveryFallback::FailClosed,
+        }
+    }
 
     struct ScopedTempDir(PathBuf);
     impl ScopedTempDir {
@@ -258,6 +328,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     fn make_executable(path: &Path) {
         fs::write(path, "#!/bin/sh\nexit 0\n").unwrap();
         let mut perms = fs::metadata(path).unwrap().permissions();
@@ -266,6 +337,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn is_executable_accepts_executable_files() {
         let tmp = ScopedTempDir::new("is_exec_ok");
         let path = tmp.path().join("claude");
@@ -274,6 +346,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn is_executable_rejects_non_executable_files() {
         let tmp = ScopedTempDir::new("is_exec_no");
         let path = tmp.path().join("not_exec");
@@ -296,6 +369,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn is_runnable_accepts_working_executable() {
         let tmp = ScopedTempDir::new("runnable_ok");
         let path = tmp.path().join("claude");
@@ -304,6 +378,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn is_runnable_rejects_executable_that_fails_to_spawn() {
         // Regression: an x86_64-only Homebrew leftover at /usr/local/bin/claude
         // on an arm64 Mac satisfied the POSIX exec bit but the kernel returned
@@ -320,6 +395,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn is_runnable_rejects_executable_that_exits_non_zero() {
         let tmp = ScopedTempDir::new("runnable_exit1");
         let path = tmp.path().join("claude");
@@ -331,6 +407,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn is_runnable_rejects_non_executable_file() {
         let tmp = ScopedTempDir::new("runnable_no_x");
         let path = tmp.path().join("claude");
@@ -340,6 +417,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn first_runnable_walks_past_broken_candidates() {
         // Reproduces the production scenario: an Intel-only `/usr/local/bin/claude`
         // remnant on an arm64 Mac is the second candidate examined; the first
@@ -369,6 +447,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn first_runnable_returns_none_when_all_candidates_broken() {
         let tmp = ScopedTempDir::new("first_runnable_none");
         let broken = tmp.path().join("broken");
@@ -388,7 +467,7 @@ mod tests {
         // Intel-only `claude` left behind in /usr/local/bin reach the working
         // arm64 binary first. The bug we fixed only surfaced because all
         // earlier candidates were missing.
-        let candidates = known_path_candidates(PathBuf::from("/Users/test"), "claude");
+        let candidates = known_path_candidates_for(PathBuf::from("/Users/test"), "claude", true);
         let opt = candidates
             .iter()
             .position(|p| p == Path::new("/opt/homebrew/bin/claude"));
@@ -397,6 +476,50 @@ mod tests {
             .position(|p| p == Path::new("/usr/local/bin/claude"));
         assert!(opt.is_some() && usr.is_some());
         assert!(opt.unwrap() < usr.unwrap());
+    }
+
+    #[test]
+    fn known_candidate_matrix_keeps_unix_paths_off_windows() {
+        let home = PathBuf::from("/platform-neutral-home");
+        let unix = known_path_candidates_for(home.clone(), "claude", true);
+        let windows = known_path_candidates_for(home, "claude", false);
+
+        assert!(!unix.is_empty());
+        assert!(unix
+            .iter()
+            .any(|candidate| candidate == Path::new("/opt/homebrew/bin/claude")));
+        assert!(windows.is_empty());
+    }
+
+    #[test]
+    fn discovery_fallback_platform_matrix_never_selects_a_shell_for_windows() {
+        assert_eq!(
+            discovery_fallback_for_target(true, false),
+            DiscoveryFallback::UnixLoginShell
+        );
+        assert_eq!(
+            discovery_fallback_for_target(false, true),
+            DiscoveryFallback::WindowsPath
+        );
+        assert_eq!(
+            discovery_fallback_for_target(false, false),
+            DiscoveryFallback::FailClosed
+        );
+        assert_eq!(
+            WINDOWS_PATH_LOOKUP_FAILED_DIAGNOSTIC,
+            "cli_discovery_windows_path_lookup_failed_closed"
+        );
+    }
+
+    #[test]
+    fn unix_shell_selection_defaults_to_zsh_and_uses_fish_login_flags() {
+        let (default_shell, default_flags) = unix_login_shell_spec(None);
+        assert_eq!(default_shell, Path::new("/bin/zsh"));
+        assert_eq!(default_flags, "-ilc");
+
+        let (fish, fish_flags) = unix_login_shell_spec(Some(OsStr::new("/opt/homebrew/bin/fish")));
+        assert_eq!(fish, Path::new("/opt/homebrew/bin/fish"));
+        assert_eq!(fish_flags, "-lc");
     }
 
     #[test]
@@ -412,6 +535,7 @@ mod tests {
 
     #[test]
     #[serial]
+    #[cfg(unix)]
     fn is_runnable_finds_colocated_interpreter_via_augmented_path() {
         // Regression: nvm/volta/bun/asdf installs of `claude` are
         // `#!/usr/bin/env <interp>` scripts with the interpreter colocated in
@@ -444,6 +568,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn is_runnable_kills_and_rejects_a_hung_executable() {
         // A binary that hangs forever must not stall detection. We override
         // the timeout indirectly by invoking wait_with_timeout directly with
@@ -474,6 +599,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn read_path_from_shell_returns_path_before_shell_exits() {
         // Regression: interactive shells print the `command -v claude` output
         // immediately but keep running through `.zshrc`. Previously we waited
@@ -499,6 +625,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn read_path_from_shell_times_out_when_no_output() {
         let mut cmd = Command::new("/bin/sh");
         cmd.arg("-c").arg("sleep 30");
@@ -511,6 +638,22 @@ mod tests {
         assert!(
             elapsed < Duration::from_secs(1),
             "timeout should bound the wait; took {elapsed:?}",
+        );
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(windows)]
+    fn windows_path_lookup_uses_existing_pathext_resolution() {
+        let tmp = ScopedTempDir::new("windows_pathext");
+        let candidate = tmp.path().join("codex.cmd");
+        fs::write(&candidate, "@exit /b 0\r\n").unwrap();
+        let _path = EnvRestore::set("PATH", &tmp.path().display().to_string());
+        let _pathext = EnvRestore::set("PATHEXT", ".CMD;.EXE");
+
+        assert_eq!(
+            probe_via_platform("codex").as_deref(),
+            Some(candidate.as_path())
         );
     }
 }
