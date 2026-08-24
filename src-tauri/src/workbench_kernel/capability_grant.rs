@@ -101,10 +101,26 @@ pub(crate) struct WorkbenchProcessGrantStore {
 /// Cross-process serialization shared by grant mutation and one-shot attempt
 /// claims. The lock carries no authority and stores no content.
 pub(crate) struct WorkbenchAuthorityTransaction {
+    authority_directory: PathBuf,
     #[cfg(unix)]
     file: std::fs::File,
     #[cfg(not(unix))]
     _guard: std::sync::MutexGuard<'static, ()>,
+}
+
+impl WorkbenchAuthorityTransaction {
+    pub(crate) fn require_authority_directory(&self, directory: &std::path::Path) -> Result<()> {
+        let canonical = std::fs::canonicalize(directory).with_context(|| {
+            format!(
+                "resolving Workbench authority transaction directory {}",
+                directory.display()
+            )
+        })?;
+        if canonical != self.authority_directory {
+            bail!("Workbench authority transaction belongs to another storage directory");
+        }
+        Ok(())
+    }
 }
 
 #[cfg(not(unix))]
@@ -324,6 +340,12 @@ impl WorkbenchProcessGrantStore {
         Self { path }
     }
 
+    pub(crate) fn for_authority_directory(directory: &std::path::Path) -> Self {
+        Self {
+            path: directory.join(GRANT_LEDGER_FILE),
+        }
+    }
+
     pub(crate) fn begin_authority_transaction(&self) -> Result<WorkbenchAuthorityTransaction> {
         let parent = self
             .path
@@ -335,7 +357,13 @@ impl WorkbenchProcessGrantStore {
                 parent.display()
             )
         })?;
-        let lock_path = parent.join(AUTHORITY_TRANSACTION_LOCK_FILE);
+        let authority_directory = std::fs::canonicalize(parent).with_context(|| {
+            format!(
+                "resolving Workbench authority transaction directory {}",
+                parent.display()
+            )
+        })?;
+        let lock_path = authority_directory.join(AUTHORITY_TRANSACTION_LOCK_FILE);
 
         #[cfg(unix)]
         {
@@ -380,7 +408,10 @@ impl WorkbenchProcessGrantStore {
                     )
                 });
             }
-            Ok(WorkbenchAuthorityTransaction { file })
+            Ok(WorkbenchAuthorityTransaction {
+                authority_directory,
+                file,
+            })
         }
 
         #[cfg(not(unix))]
@@ -388,7 +419,10 @@ impl WorkbenchProcessGrantStore {
             let guard = WORKBENCH_AUTHORITY_TRANSACTION_LOCK
                 .lock()
                 .map_err(|_| anyhow!("Workbench authority transaction lock is unavailable"))?;
-            Ok(WorkbenchAuthorityTransaction { _guard: guard })
+            Ok(WorkbenchAuthorityTransaction {
+                authority_directory,
+                _guard: guard,
+            })
         }
     }
 

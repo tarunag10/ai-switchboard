@@ -22,6 +22,7 @@ use super::process_supervisor::{
 };
 use super::run_contract::{workbench_run_plan_identity, workbench_run_plan_snapshot_digest};
 use super::session::CreateWorkbenchSessionInput;
+use super::storage::WorkbenchStore;
 use super::{CapabilityRequest, RouterDecisionReference, WorkbenchRunPlan, WorkbenchSession};
 use crate::client_adapter_contract::{
     coding_client_adapter_for_version, ConfigPlanAction, CODING_CLIENT_ADAPTER_CONTRACT_VERSION,
@@ -30,6 +31,7 @@ use crate::models::SwitchboardMode;
 
 pub(super) struct Fixture {
     pub(super) session: WorkbenchSession,
+    pub(super) session_store: WorkbenchStore,
     pub(super) plan: WorkbenchRunPlan,
     pub(super) process: ProcessRunSpec,
     pub(super) grant: WorkbenchProcessStartGrant,
@@ -44,11 +46,14 @@ pub(super) struct Fixture {
 }
 
 pub(super) fn fixture() -> Fixture {
-    let session = WorkbenchSession::create(CreateWorkbenchSessionInput {
-        workspace_digest: digest('w'),
-        task_class: "coding".into(),
-    })
-    .expect("create Workbench session");
+    let directory = tempfile::tempdir().expect("temporary authority directory");
+    let session_store = WorkbenchStore::at(directory.path().join("workbench-sessions.json"));
+    let session = session_store
+        .create(CreateWorkbenchSessionInput {
+            workspace_digest: digest('w'),
+            task_class: "coding".into(),
+        })
+        .expect("create Workbench session");
     let adapter =
         coding_client_adapter_for_version("codex", CODING_CLIENT_ADAPTER_CONTRACT_VERSION)
             .expect("canonical Codex adapter");
@@ -117,7 +122,6 @@ pub(super) fn fixture() -> Fixture {
     .expect("issue process grant");
     let admission =
         admit_process(&session, &plan, &process, &grant, now).expect("admit prepared process");
-    let directory = tempfile::tempdir().expect("temporary authority directory");
     let grant_store = WorkbenchProcessGrantStore::at(directory.path().join("grants.json"));
     let admission_store =
         WorkbenchProcessAdmissionStore::at(directory.path().join("admissions.json"));
@@ -133,6 +137,7 @@ pub(super) fn fixture() -> Fixture {
         .expect("evaluate collected Codex preflight");
     Fixture {
         session,
+        session_store,
         plan,
         process,
         grant,

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 
+use super::capability_grant::{WorkbenchAuthorityTransaction, WorkbenchProcessGrantStore};
 use super::events::WorkbenchSessionStatus;
 use super::session::{
     deterministic_fork_session_id, CreateWorkbenchSessionInput, WorkbenchSession,
@@ -61,7 +62,18 @@ impl WorkbenchStore {
             .ok_or_else(|| anyhow!("Workbench session was not found"))
     }
 
+    pub(crate) fn get_for_authority_transaction(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+        session_id: &str,
+    ) -> Result<WorkbenchSession> {
+        transaction.require_authority_directory(self.authority_directory()?)?;
+        self.get(session_id)
+    }
+
     pub(crate) fn create(&self, input: CreateWorkbenchSessionInput) -> Result<WorkbenchSession> {
+        let transaction = self.begin_authority_transaction()?;
+        transaction.require_authority_directory(self.authority_directory()?)?;
         let mut ledger = self.load()?;
         trim_terminal_sessions(&mut ledger.sessions);
         if ledger.sessions.len() >= MAX_SESSIONS {
@@ -82,6 +94,17 @@ impl WorkbenchStore {
         session_id: &str,
         action: super::events::WorkbenchSessionAction,
     ) -> Result<WorkbenchSession> {
+        let transaction = self.begin_authority_transaction()?;
+        self.transition_for_authority_transaction(&transaction, session_id, action)
+    }
+
+    fn transition_for_authority_transaction(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+        session_id: &str,
+        action: super::events::WorkbenchSessionAction,
+    ) -> Result<WorkbenchSession> {
+        transaction.require_authority_directory(self.authority_directory()?)?;
         let mut ledger = self.load()?;
         let session = ledger
             .sessions
@@ -94,6 +117,8 @@ impl WorkbenchStore {
     }
 
     pub(crate) fn fork(&self, session_id: &str, event_id: &str) -> Result<WorkbenchSession> {
+        let transaction = self.begin_authority_transaction()?;
+        transaction.require_authority_directory(self.authority_directory()?)?;
         let mut ledger = self.load()?;
         let parent = ledger
             .sessions
@@ -125,6 +150,17 @@ impl WorkbenchStore {
             .insert(child.session_id.clone(), child.clone());
         self.save(&ledger)?;
         Ok(child)
+    }
+
+    fn authority_directory(&self) -> Result<&std::path::Path> {
+        self.path
+            .parent()
+            .ok_or_else(|| anyhow!("Workbench session ledger has no parent directory"))
+    }
+
+    fn begin_authority_transaction(&self) -> Result<WorkbenchAuthorityTransaction> {
+        WorkbenchProcessGrantStore::for_authority_directory(self.authority_directory()?)
+            .begin_authority_transaction()
     }
 
     fn load(&self) -> Result<WorkbenchLedger> {
