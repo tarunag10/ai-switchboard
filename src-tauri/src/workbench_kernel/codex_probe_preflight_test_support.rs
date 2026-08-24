@@ -4,9 +4,12 @@ use super::codex_command_catalog::{
     codex_command_catalog, plan_codex_version_probe, CodexCandidateObservation,
     CodexCommandSnapshot, CodexResolvedCandidateKind,
 };
+use super::codex_npm_chain_model::{
+    bind_codex_npm_launcher_chain, CodexNpmCollectedEvidence, CodexNpmLauncherChainObservation,
+};
 use super::codex_probe_preflight::{
     evaluate_codex_manual_probe_preflight, CodexLauncherChainKind, CodexMachOArchitecture,
-    CodexMachOFileType, CodexNpmPayloadLayout, CodexProbeContainmentObservation,
+    CodexMachOFileType, CodexProbeContainmentObservation, CodexProbeTargetEvidence,
     CodexProbeTargetObservation,
 };
 use super::process_run_spec::{process_run_spec_for, ProcessRunSpec};
@@ -19,7 +22,10 @@ pub(super) fn digest(character: char) -> String {
 }
 
 pub(super) fn probe_plan() -> super::codex_command_catalog::CodexProbePlan {
-    let selected = &codex_command_catalog()[0];
+    let selected = codex_command_catalog()
+        .iter()
+        .find(|entry| entry.candidate_id == "home-npm-global-bin")
+        .expect("fixed npm candidate");
     let observations = codex_command_catalog()
         .iter()
         .map(|entry| {
@@ -57,7 +63,7 @@ pub(super) fn process_spec() -> ProcessRunSpec {
 pub(super) fn direct_target() -> CodexProbeTargetObservation {
     let plan = probe_plan();
     CodexProbeTargetObservation {
-        schema_version: 1,
+        schema_version: 2,
         candidate_id: plan.candidate_id,
         launcher_identity_digest: digest('1'),
         chain_kind: CodexLauncherChainKind::DirectMachO,
@@ -73,6 +79,10 @@ pub(super) fn direct_target() -> CodexProbeTargetObservation {
         npm_platform_version: None,
         npm_target_triple: None,
         npm_payload_layout: None,
+        npm_launcher_symlink_identity_digest: None,
+        npm_payload_manifest_identity_digest: None,
+        npm_derivation_identity_digest: None,
+        npm_collection_identity_digest: None,
         target_identity_digest: digest('1'),
         target_architecture: CodexMachOArchitecture::Arm64,
         target_is_regular_file: true,
@@ -81,36 +91,63 @@ pub(super) fn direct_target() -> CodexProbeTargetObservation {
         macho_file_type: CodexMachOFileType::Execute,
         macho_load_commands_identity_digest: digest('2'),
         code_signature_blob_identity_digest: Some(digest('3')),
-        derivation_verified: true,
         interpreter_launcher_selected_for_execution: false,
         path_lookup_used: false,
     }
 }
 
-pub(super) fn npm_target() -> CodexProbeTargetObservation {
-    CodexProbeTargetObservation {
-        chain_kind: CodexLauncherChainKind::SuppliedNpmPlatformPackageV1,
-        npm_root_manifest_identity_digest: Some(digest('4')),
-        npm_root_manifest_name: Some("@openai/codex".into()),
-        npm_root_bin_name: Some("codex".into()),
-        npm_root_bin_relative_path: Some("bin/codex.js".into()),
-        npm_dependency_alias: Some("@openai/codex-darwin-arm64".into()),
-        npm_dependency_version_spec: Some("npm:@openai/codex@1.2.3-darwin-arm64".into()),
-        npm_platform_manifest_identity_digest: Some(digest('5')),
-        npm_platform_manifest_name: Some("@openai/codex".into()),
-        npm_root_version: Some("1.2.3".into()),
-        npm_platform_version: Some("1.2.3-darwin-arm64".into()),
-        npm_target_triple: Some("aarch64-apple-darwin".into()),
-        npm_payload_layout: Some(CodexNpmPayloadLayout::VendorTargetBinV1),
-        target_identity_digest: digest('6'),
-        ..direct_target()
-    }
+pub(super) fn npm_receipt() -> CodexNpmLauncherChainObservation {
+    npm_receipt_with_signature(Some(digest('3')))
+}
+
+pub(super) fn npm_receipt_without_signature() -> CodexNpmLauncherChainObservation {
+    npm_receipt_with_signature(None)
+}
+
+fn npm_receipt_with_signature(signature: Option<String>) -> CodexNpmLauncherChainObservation {
+    bind_codex_npm_launcher_chain(
+        CodexMachOArchitecture::Arm64,
+        CodexNpmCollectedEvidence {
+            candidate_id: "home-npm-global-bin".into(),
+            launcher_identity_digest: digest('1'),
+            launcher_symlink_identity_digest: digest('s'),
+            root_manifest_identity_digest: digest('4'),
+            root_package_name: "@openai/codex".into(),
+            root_version: "1.2.3".into(),
+            root_bin_name: "codex".into(),
+            root_bin_entrypoint: "bin/codex.js".into(),
+            dependency_alias: "@openai/codex-darwin-arm64".into(),
+            dependency_version_spec: "npm:@openai/codex@1.2.3-darwin-arm64".into(),
+            platform_manifest_identity_digest: digest('5'),
+            platform_package_name: "@openai/codex".into(),
+            platform_version: "1.2.3-darwin-arm64".into(),
+            platform_os: "darwin".into(),
+            platform_cpu: "arm64".into(),
+            payload_manifest_identity_digest: digest('m'),
+            payload_layout_version: 1,
+            payload_version: "1.2.3".into(),
+            payload_target: "aarch64-apple-darwin".into(),
+            payload_variant: "codex".into(),
+            payload_entrypoint: "bin/codex".into(),
+            payload_resources_directory: "codex-resources".into(),
+            payload_path_directory: "codex-path".into(),
+            payload_file_identity_digest: digest('6'),
+            payload_macho_architecture: CodexMachOArchitecture::Arm64,
+            payload_macho_file_type: CodexMachOFileType::Execute,
+            payload_macho_load_commands_identity_digest: digest('2'),
+            payload_code_signature_blob_identity_digest: signature,
+            derivation_identity_digest: digest('d'),
+            payload_file_is_regular: true,
+            payload_file_is_executable: true,
+        },
+    )
+    .expect("valid npm receipt")
 }
 
 pub(super) fn containment() -> CodexProbeContainmentObservation {
     let plan = probe_plan();
     CodexProbeContainmentObservation {
-        schema_version: 1,
+        schema_version: 2,
         profile_id: "macos-restricted-helper-v1".into(),
         attempt_id: "codex-probe:attempt-1234".into(),
         host_instance_identity_digest: digest('h'),
@@ -161,7 +198,21 @@ pub(super) fn evaluate(
         spec,
         &probe_plan(),
         CodexMachOArchitecture::Arm64,
-        target,
+        CodexProbeTargetEvidence::Direct(target),
+        containment,
+    )
+}
+
+pub(super) fn evaluate_npm(
+    spec: &ProcessRunSpec,
+    receipt: &CodexNpmLauncherChainObservation,
+    containment: &CodexProbeContainmentObservation,
+) -> Result<super::codex_probe_preflight::CodexManualProbePreflight, String> {
+    evaluate_codex_manual_probe_preflight(
+        spec,
+        &probe_plan(),
+        CodexMachOArchitecture::Arm64,
+        CodexProbeTargetEvidence::CollectedNpm(receipt),
         containment,
     )
 }

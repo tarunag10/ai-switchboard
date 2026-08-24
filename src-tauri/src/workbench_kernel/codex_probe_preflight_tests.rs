@@ -1,6 +1,9 @@
-use super::codex_probe_preflight::{CodexMachOArchitecture, CodexMachOFileType};
+use super::codex_probe_preflight::{
+    CodexLauncherChainKind, CodexMachOArchitecture, CodexMachOFileType,
+};
 use super::codex_probe_preflight_test_support::{
-    containment, digest, direct_target, evaluate, npm_target, process_spec,
+    containment, digest, direct_target, evaluate, evaluate_npm, npm_receipt,
+    npm_receipt_without_signature, process_spec,
 };
 use super::process_run_spec::process_run_spec_for;
 
@@ -12,6 +15,7 @@ fn complete_synthetic_direct_evidence_remains_non_executing() {
         result.state,
         "supplied_evidence_shape_complete_non_executing"
     );
+    assert_eq!(result.schema_version, 2);
     assert_eq!(
         result.reason_code,
         "native_collection_and_manual_harness_still_required"
@@ -70,10 +74,16 @@ fn process_spec_probe_plan_and_workspace_are_bound() {
 #[test]
 fn npm_chain_binds_alias_manifests_versions_layout_payload_and_roots() {
     let spec = process_spec();
-    let first = evaluate(&spec, &npm_target(), &containment()).expect("npm preflight");
+    let receipt = npm_receipt();
+    let first = evaluate_npm(&spec, &receipt, &containment()).expect("npm preflight");
+    assert_eq!(first.state, "collected_target_shape_complete_non_executing");
+    assert_eq!(
+        first.reason_code,
+        "restricted_helper_and_manual_harness_still_required"
+    );
     let mut changed = containment();
     changed.disposable_roots_identity_digest = digest('z');
-    let second = evaluate(&spec, &npm_target(), &changed).expect("changed roots");
+    let second = evaluate_npm(&spec, &receipt, &changed).expect("changed roots");
     assert_ne!(
         first.preflight_identity_digest,
         second.preflight_identity_digest
@@ -92,7 +102,7 @@ fn npm_chain_binds_alias_manifests_versions_layout_payload_and_roots() {
             "boot" => changed.boot_session_identity_digest = digest('v'),
             _ => unreachable!(),
         }
-        let rebound = evaluate(&spec, &npm_target(), &changed).expect("rebound identity");
+        let rebound = evaluate_npm(&spec, &receipt, &changed).expect("rebound identity");
         assert_ne!(
             first.containment_identity_digest,
             rebound.containment_identity_digest
@@ -102,6 +112,14 @@ fn npm_chain_binds_alias_manifests_versions_layout_payload_and_roots() {
             rebound.preflight_identity_digest
         );
     }
+    let unsigned = evaluate_npm(&spec, &npm_receipt_without_signature(), &containment())
+        .expect("signature absence remains an observation, not a support decision");
+    assert_ne!(
+        first.launcher_chain_identity_digest,
+        unsigned.launcher_chain_identity_digest
+    );
+    assert!(!unsigned.runnable);
+    assert!(!unsigned.supported);
 }
 
 #[test]
@@ -119,7 +137,7 @@ fn fixed_candidate_and_launcher_binding_fail_closed() {
 }
 
 #[test]
-fn macho_shape_architecture_identity_and_derivation_fail_closed() {
+fn macho_shape_architecture_and_identity_fail_closed() {
     for case in [
         "arch",
         "regular",
@@ -128,7 +146,6 @@ fn macho_shape_architecture_identity_and_derivation_fail_closed() {
         "dylib",
         "load_commands",
         "signature_blob",
-        "derivation",
         "interpreter",
         "path_lookup",
     ] {
@@ -141,7 +158,6 @@ fn macho_shape_architecture_identity_and_derivation_fail_closed() {
             "dylib" => target.macho_file_type = CodexMachOFileType::DynamicLibrary,
             "load_commands" => target.macho_load_commands_identity_digest = "bad".into(),
             "signature_blob" => target.code_signature_blob_identity_digest = Some("bad".into()),
-            "derivation" => target.derivation_verified = false,
             "interpreter" => target.interpreter_launcher_selected_for_execution = true,
             "path_lookup" => target.path_lookup_used = true,
             _ => unreachable!(),
@@ -159,50 +175,67 @@ fn direct_and_npm_chain_specific_rules_fail_closed() {
     direct.target_identity_digest = digest('6');
     assert!(evaluate(&process_spec(), &direct, &containment()).is_err());
     let mut direct_with_npm = direct_target();
-    direct_with_npm.npm_root_manifest_identity_digest = Some(digest('4'));
+    direct_with_npm.npm_collection_identity_digest = Some(digest('4'));
     assert!(evaluate(&process_spec(), &direct_with_npm, &containment()).is_err());
+    let mut raw_npm = direct_target();
+    raw_npm.chain_kind = CodexLauncherChainKind::SuppliedNpmPlatformPackageV1;
+    assert!(evaluate(&process_spec(), &raw_npm, &containment()).is_err());
 
     for case in [
+        "schema",
+        "state",
+        "launcher",
+        "symlink",
         "root_manifest",
-        "root_name",
-        "bin_name",
-        "bin_path",
         "alias",
         "dependency_spec",
         "platform_manifest",
-        "manifest_name",
         "root_version",
         "platform_version",
+        "payload_manifest",
         "target_triple",
         "layout",
         "payload",
+        "macho_architecture",
+        "macho_file_type",
+        "load_commands",
+        "signature",
+        "derivation",
+        "collection",
     ] {
-        let mut npm = npm_target();
+        let mut npm = npm_receipt();
         match case {
-            "root_manifest" => npm.npm_root_manifest_identity_digest = None,
-            "root_name" => npm.npm_root_manifest_name = Some("lookalike".into()),
-            "bin_name" => npm.npm_root_bin_name = Some("runner".into()),
-            "bin_path" => npm.npm_root_bin_relative_path = Some("other.js".into()),
-            "alias" => npm.npm_dependency_alias = Some("@openai/codex-darwin-x64".into()),
-            "dependency_spec" => npm.npm_dependency_version_spec = Some("latest".into()),
-            "platform_manifest" => npm.npm_platform_manifest_identity_digest = None,
-            "manifest_name" => npm.npm_platform_manifest_name = Some("alias-name".into()),
-            "root_version" => npm.npm_root_version = Some("invalid version".into()),
-            "platform_version" => npm.npm_platform_version = Some("1.2.3".into()),
-            "target_triple" => npm.npm_target_triple = Some("x86_64-apple-darwin".into()),
-            "layout" => npm.npm_payload_layout = None,
-            "payload" => npm.target_identity_digest = digest('1'),
+            "schema" => npm.schema_version += 1,
+            "state" => npm.state = "forged".into(),
+            "launcher" => npm.launcher_identity_digest = digest('a'),
+            "symlink" => npm.launcher_symlink_identity_digest = digest('b'),
+            "root_manifest" => npm.root_manifest_identity_digest = digest('c'),
+            "alias" => npm.dependency_alias = "@openai/codex-darwin-x64".into(),
+            "dependency_spec" => npm.dependency_version_spec = "latest".into(),
+            "platform_manifest" => npm.platform_manifest_identity_digest = digest('e'),
+            "root_version" => npm.root_version = "invalid version".into(),
+            "platform_version" => npm.platform_version = "1.2.3".into(),
+            "payload_manifest" => npm.payload_manifest_identity_digest = digest('f'),
+            "target_triple" => npm.payload_target = "x86_64-apple-darwin".into(),
+            "layout" => npm.payload_layout_version += 1,
+            "payload" => npm.payload_file_identity_digest = digest('g'),
+            "macho_architecture" => npm.payload_macho_architecture = CodexMachOArchitecture::X86_64,
+            "macho_file_type" => npm.payload_macho_file_type = CodexMachOFileType::DynamicLibrary,
+            "load_commands" => npm.payload_macho_load_commands_identity_digest = digest('i'),
+            "signature" => npm.payload_code_signature_blob_identity_digest = None,
+            "derivation" => npm.derivation_identity_digest = digest('j'),
+            "collection" => npm.collection_identity_digest = digest('k'),
             _ => unreachable!(),
         }
-        assert!(evaluate(&process_spec(), &npm, &containment()).is_err());
+        assert!(evaluate_npm(&process_spec(), &npm, &containment()).is_err());
     }
     for version in [
         ".", "-", "+", "01.2.3", "1.02.3", "1.2.03", "1.2", "1.2.3-01",
     ] {
-        let mut npm = npm_target();
-        npm.npm_root_version = Some(version.into());
-        npm.npm_platform_version = Some(format!("{version}-darwin-arm64"));
-        assert!(evaluate(&process_spec(), &npm, &containment()).is_err());
+        let mut npm = npm_receipt();
+        npm.root_version = version.into();
+        npm.platform_version = format!("{version}-darwin-arm64");
+        assert!(evaluate_npm(&process_spec(), &npm, &containment()).is_err());
     }
 }
 

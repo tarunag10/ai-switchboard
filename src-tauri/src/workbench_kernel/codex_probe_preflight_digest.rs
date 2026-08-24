@@ -45,12 +45,11 @@ pub(super) fn launcher_chain_digest(target: &CodexProbeTargetObservation) -> Str
         target.target_is_regular_file,
         target.target_is_executable,
         target.macho_class_64,
-        target.derivation_verified,
         target.interpreter_launcher_selected_for_execution,
         target.path_lookup_used,
     ]);
     bounded_digest(
-        b"ai-switchboard-codex-launcher-chain-v1\0",
+        b"ai-switchboard-codex-launcher-chain-v2\0",
         &[
             schema_version.as_str(),
             target.candidate_id.as_str(),
@@ -84,6 +83,22 @@ pub(super) fn launcher_chain_digest(target: &CodexProbeTargetObservation) -> Str
             target.npm_platform_version.as_deref().unwrap_or("none"),
             target.npm_target_triple.as_deref().unwrap_or("none"),
             payload_layout,
+            target
+                .npm_launcher_symlink_identity_digest
+                .as_deref()
+                .unwrap_or("none"),
+            target
+                .npm_payload_manifest_identity_digest
+                .as_deref()
+                .unwrap_or("none"),
+            target
+                .npm_derivation_identity_digest
+                .as_deref()
+                .unwrap_or("none"),
+            target
+                .npm_collection_identity_digest
+                .as_deref()
+                .unwrap_or("none"),
             target.target_identity_digest.as_str(),
             macho_file_type,
             target.macho_load_commands_identity_digest.as_str(),

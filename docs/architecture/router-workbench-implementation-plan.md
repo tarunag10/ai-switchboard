@@ -38,8 +38,8 @@ without runtime downloads, host checkouts, or mutable `latest` dependencies.
 
 ## Audit basis and status vocabulary
 
-This status was reconciled against committed `main` through `def908e` plus the
-same-descriptor Mach-O collector binding recorded with this update, and against the visible
+This status was reconciled against committed `main` through `7da79d7` plus the
+collected-receipt preflight binding recorded with this update, and against the visible
 frontend/native command wiring on 2026-08-24. Unrelated concurrent unstaged
 work is not counted as shipped. A check mark therefore means the capability is
 in the committed product boundary, not merely described in another plan or
@@ -82,7 +82,7 @@ launcher-chain/containment preflight tests, `14` pure Mach-O parser tests, and
 | Area | Already done | Prepared or partial | Still left |
 |---|---|---|---|
 | Router authority | Observe-only route planning, endpoint eligibility, bounded task classes, native completion handles, redacted evidence, decision receipts, presets, and visible Routing UI | `userApproved` and `automaticAllowlisted` can be saved and deterministically evaluated, but the operational receipt truthfully reports effective `observe` | Bind one real request/session lifecycle to outcome evidence; then add per-request approved routing and, only after evidence, automatic allowlisted routing |
-| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a fixed-location metadata collector, a pure launcher-chain/containment preflight, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | A private fixed home-npm collector now binds descriptor-relative launcher/package/payload evidence plus bounded Mach-O and embedded-signature-blob shape from the same payload descriptor, then stream-hashes and revalidates that descriptor; no production preflight or UI consumer invokes the receipt, no signer/trust claim is made, and execution remains disabled | Make preflight consume and revalidate the collected npm receipt, then add a separately restricted helper and enforced OS containment, create a new attempt-bound grant/admission contract, define authoritative support/version/layout/signing policy, add an opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
+| Workbench kernel | Content-free durable sessions/events, lifecycle/fork/export, capability projection, replay/Router receipt resolution, adapter dry-run plans, containment intent, 15-minute grants, durable Codex admission, a fixed-location metadata collector, a pure launcher-chain/containment preflight, and a crate-only deterministic fake controller with current-grant revalidation, exact-byte CAS, launch-epoch recovery, bounded stream metadata, and terminal tombstones | A private fixed home-npm collector binds descriptor-relative launcher/package/payload plus bounded Mach-O/signature-blob shape from one streamed descriptor; the pure preflight now rejects raw npm shapes and revalidates that schema-v2 receipt, but no production orchestrator or UI invokes the chain, no signer/trust claim is made, and execution remains disabled | Add a separately restricted helper and enforced OS containment, create a new attempt-bound grant/admission contract, define authoritative support/version/layout/signing policy, add an opt-in manual version harness, native supervisor, process ownership, real timeout/cancel, ephemeral task channel, workspace revalidation, execution receipts, recovery, and orchestration |
 | Workbench UI | Navigation, session timeline, presets, plan inspection, grant/revoke, admission validation, session-level receipt history, derived current eligibility, expiry refresh, stale-response rejection, truthful no-traffic/no-write badges, and hidden-view refresh guard | Execution is deliberately absent and admissions remain immutable historical evidence | Add live run status/cancel/recovery only when the native supervisor exists; never add a renderer-owned shell or command field |
 | Selective optimization | A production Addons card lets the user choose exactly five of ten tools and activate them in one click; native validation, preflight, single-run locking, per-tool results, receipts, drift-safe rollback, native selection hydration, and a sanitized restart recovery view cover the managed actions | A run can end `partial`; restart restores rollback access but never retries automatically | Expose bounded receipt history and add a checkpointed safe retry/resume design that cannot reapply successful tools or overwrite ownership |
 | Ponytail | Six unmodified MIT skills from `4.9.0` commit `2ed6c52c9d7e5e56942508591085fd45dea277d3` are app-bundled with hashes and licence; the core profile uses Switchboard-owned client blocks and existing Addons/select-five/Doctor/rollback paths | A legacy Switchboard-owned marketplace receipt may need its old host CLI once to remove the app-owned plugin entry before migration; user-owned entries are preserved | Add disposable-home legacy migration tests and expose the five one-shot review/audit/debt/gain/help resources through future Workbench actions without reintroducing host plugins |
@@ -428,8 +428,8 @@ Deliverables:
   streams the payload-file hash through one descriptor, and emits a recomputable
   content-free schema-v2 receipt without interpreting JavaScript or enabling a process.
 - [x] Add a pure manual-probe preflight contract. It validates content-free
-  supplied evidence binding the process spec and fixed candidate to either a
-  direct Mach-O or a supplied npm launcher/package/native-payload shape,
+  supplied direct-Mach-O evidence or a revalidated collected npm schema-v2
+  receipt binding the process spec and fixed candidate to the native payload,
   requires exact fail-closed macOS network/write/process-group/timeout evidence,
   rejects interpreter/PATH execution, and still leaves process start, runnable,
   and supported false. Attempt, host-instance, and boot-session identities are
@@ -437,8 +437,7 @@ Deliverables:
   provenance remain external; this phase does not collect or enforce any of
   that evidence.
 - [ ] Add the opt-in manual version-probe harness. Runnable/supported validation
-  remains gated on preflight consumption of the validated same-descriptor npm
-  receipt, a separately restricted helper with enforced OS
+  remains gated on a separately restricted helper with enforced OS
   containment, a new evidence-bound grant/admission contract, explicit manual
   evidence, and a separately reviewed authoritative version/layout/signing
   policy.
@@ -682,9 +681,10 @@ started by weakening an earlier gate.
    classify absence/failure/unsafe resolution separately; bind bounded content
    and stable leaf/target metadata into an opaque digest; expose no path,
    process, provider, workspace, renderer command, or version claim.
-7. **Codex launcher/containment preflight — Done (`09425c4f`)** — validate
-   supplied content-free evidence binding the process spec and fixed candidate
-   to a direct Mach-O or supplied npm launcher/package/native-payload shape;
+7. **Codex launcher/containment preflight — Done foundation (`09425c4f`),
+   collected-receipt binding updated here** — validate supplied direct-Mach-O
+   evidence or a revalidated collected npm schema-v2 receipt binding the process
+   spec and fixed candidate to the native payload;
    require fail-closed network denial, disposable-only writes, cleared
    credentials/environment, process-group ownership, bounded output, timeout,
    kill, and reap evidence; include synthetic attempt/host/boot identities
@@ -707,12 +707,10 @@ started by weakening an earlier gate.
    identity from the same observed symlink/launcher generation, revalidate every
    directory/file, support only `home-npm-global-bin`, expose only opaque
    content-free schema-v2 evidence with a recomputable receipt digest, and remain
-   unbound to signer identity, trust, preflight, support, process, network, or
-   execution. No production preflight or renderer command
-   consumes it yet, so it is not classified as Done.
-7. **Opt-in manual version harness** — next make preflight validate and consume
-   the collected npm payload/Mach-O/manifest/symlink/derivation receipt instead
-   of accepting independently assembled npm fields, and add a separately restricted helper with
+   unbound to signer identity, trust, support, process, network, or execution.
+   The pure preflight now consumes and revalidates the receipt, but no production
+   orchestrator or renderer command invokes the chain, so it is not classified as Done.
+7. **Opt-in manual version harness** — next add a separately restricted helper with
    enforced containment, an evidence-bound grant/admission contract, and
    authoritative support policy. The eventual probe must use a disposable
    workspace, inherit no provider credentials, write no user workspace, and

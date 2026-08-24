@@ -5,6 +5,9 @@
 
 use super::codex_command_catalog::{validate_probe_plan, CodexProbePlan};
 pub(super) use super::codex_macho::{CodexMachOArchitecture, CodexMachOFileType};
+use super::codex_npm_chain_model::{
+    validate_codex_npm_launcher_chain_observation, CodexNpmLauncherChainObservation,
+};
 use super::codex_probe_preflight_digest::{
     bounded_digest, containment_digest, containment_digests, launcher_chain_digest,
     probe_plan_digest,
@@ -14,7 +17,7 @@ use super::events::validate_identifier;
 use super::process_run_spec::{process_run_spec_digest, ProcessRunSpec};
 use super::session::validate_digest;
 
-const PREFLIGHT_SCHEMA_VERSION: u32 = 1;
+const PREFLIGHT_SCHEMA_VERSION: u32 = 2;
 const CODEX_ADAPTER_ID: &str = "codex";
 const CONTAINMENT_PROFILE_ID: &str = "macos-restricted-helper-v1";
 const NPM_MANIFEST_NAME: &str = "@openai/codex";
@@ -52,6 +55,10 @@ pub(super) struct CodexProbeTargetObservation {
     pub npm_platform_version: Option<String>,
     pub npm_target_triple: Option<String>,
     pub npm_payload_layout: Option<CodexNpmPayloadLayout>,
+    pub npm_launcher_symlink_identity_digest: Option<String>,
+    pub npm_payload_manifest_identity_digest: Option<String>,
+    pub npm_derivation_identity_digest: Option<String>,
+    pub npm_collection_identity_digest: Option<String>,
     pub target_identity_digest: String,
     pub target_architecture: CodexMachOArchitecture,
     pub target_is_regular_file: bool,
@@ -60,9 +67,13 @@ pub(super) struct CodexProbeTargetObservation {
     pub macho_file_type: CodexMachOFileType,
     pub macho_load_commands_identity_digest: String,
     pub code_signature_blob_identity_digest: Option<String>,
-    pub derivation_verified: bool,
     pub interpreter_launcher_selected_for_execution: bool,
     pub path_lookup_used: bool,
+}
+
+pub(super) enum CodexProbeTargetEvidence<'a> {
+    Direct(&'a CodexProbeTargetObservation),
+    CollectedNpm(&'a CodexNpmLauncherChainObservation),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -134,7 +145,7 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
     process_spec: &ProcessRunSpec,
     probe_plan: &CodexProbePlan,
     host_architecture: CodexMachOArchitecture,
-    target: &CodexProbeTargetObservation,
+    target: CodexProbeTargetEvidence<'_>,
     containment: &CodexProbeContainmentObservation,
 ) -> Result<CodexManualProbePreflight, String> {
     process_spec.validate().map_err(|error| error.to_string())?;
@@ -142,6 +153,20 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
         return Err("Codex probe preflight requires the canonical Codex process spec".into());
     }
     validate_probe_plan(probe_plan)?;
+    let normalized_target;
+    let (target, collected_npm_receipt) = match target {
+        CodexProbeTargetEvidence::Direct(target) => {
+            if target.chain_kind != CodexLauncherChainKind::DirectMachO {
+                return Err("Raw npm target evidence is not accepted by Codex preflight".into());
+            }
+            (target, false)
+        }
+        CodexProbeTargetEvidence::CollectedNpm(receipt) => {
+            validate_codex_npm_launcher_chain_observation(host_architecture, receipt)?;
+            normalized_target = normalize_collected_npm_target(receipt);
+            (&normalized_target, true)
+        }
+    };
     validate_target(probe_plan, host_architecture, target)?;
     validate_containment(probe_plan, containment)?;
     let process_digest =
@@ -150,7 +175,7 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
     let chain_digest = launcher_chain_digest(target);
     let containment_digest = containment_digest(containment);
     let preflight_digest = bounded_digest(
-        b"ai-switchboard-codex-probe-preflight-v1\0",
+        b"ai-switchboard-codex-probe-preflight-v2\0",
         &[
             process_spec.run_id.as_str(),
             process_digest.as_str(),
@@ -170,8 +195,18 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
         launcher_chain_identity_digest: chain_digest,
         containment_identity_digest: containment_digest,
         preflight_identity_digest: preflight_digest,
-        state: "supplied_evidence_shape_complete_non_executing".into(),
-        reason_code: "native_collection_and_manual_harness_still_required".into(),
+        state: if collected_npm_receipt {
+            "collected_target_shape_complete_non_executing"
+        } else {
+            "supplied_evidence_shape_complete_non_executing"
+        }
+        .into(),
+        reason_code: if collected_npm_receipt {
+            "restricted_helper_and_manual_harness_still_required"
+        } else {
+            "native_collection_and_manual_harness_still_required"
+        }
+        .into(),
         manual_opt_in_required: true,
         runnable: false,
         supported: false,
@@ -179,6 +214,53 @@ pub(super) fn evaluate_codex_manual_probe_preflight(
         provider_traffic: "none".into(),
         user_workspace_writes_enabled: false,
     })
+}
+
+fn normalize_collected_npm_target(
+    receipt: &CodexNpmLauncherChainObservation,
+) -> CodexProbeTargetObservation {
+    CodexProbeTargetObservation {
+        schema_version: PREFLIGHT_SCHEMA_VERSION,
+        candidate_id: receipt.candidate_id.clone(),
+        launcher_identity_digest: receipt.launcher_identity_digest.clone(),
+        chain_kind: CodexLauncherChainKind::SuppliedNpmPlatformPackageV1,
+        npm_root_manifest_identity_digest: Some(receipt.root_manifest_identity_digest.clone()),
+        npm_root_manifest_name: Some(NPM_MANIFEST_NAME.into()),
+        npm_root_bin_name: Some(NPM_ROOT_BIN_NAME.into()),
+        npm_root_bin_relative_path: Some(NPM_ROOT_BIN_RELATIVE_PATH.into()),
+        npm_dependency_alias: Some(receipt.dependency_alias.clone()),
+        npm_dependency_version_spec: Some(receipt.dependency_version_spec.clone()),
+        npm_platform_manifest_identity_digest: Some(
+            receipt.platform_manifest_identity_digest.clone(),
+        ),
+        npm_platform_manifest_name: Some(NPM_MANIFEST_NAME.into()),
+        npm_root_version: Some(receipt.root_version.clone()),
+        npm_platform_version: Some(receipt.platform_version.clone()),
+        npm_target_triple: Some(receipt.payload_target.clone()),
+        npm_payload_layout: Some(CodexNpmPayloadLayout::VendorTargetBinV1),
+        npm_launcher_symlink_identity_digest: Some(
+            receipt.launcher_symlink_identity_digest.clone(),
+        ),
+        npm_payload_manifest_identity_digest: Some(
+            receipt.payload_manifest_identity_digest.clone(),
+        ),
+        npm_derivation_identity_digest: Some(receipt.derivation_identity_digest.clone()),
+        npm_collection_identity_digest: Some(receipt.collection_identity_digest.clone()),
+        target_identity_digest: receipt.payload_file_identity_digest.clone(),
+        target_architecture: receipt.payload_macho_architecture,
+        target_is_regular_file: true,
+        target_is_executable: true,
+        macho_class_64: true,
+        macho_file_type: receipt.payload_macho_file_type,
+        macho_load_commands_identity_digest: receipt
+            .payload_macho_load_commands_identity_digest
+            .clone(),
+        code_signature_blob_identity_digest: receipt
+            .payload_code_signature_blob_identity_digest
+            .clone(),
+        interpreter_launcher_selected_for_execution: false,
+        path_lookup_used: false,
+    }
 }
 
 fn validate_target(
@@ -211,7 +293,6 @@ fn validate_target(
         || !target.target_is_executable
         || !target.macho_class_64
         || target.macho_file_type != CodexMachOFileType::Execute
-        || !target.derivation_verified
         || target.interpreter_launcher_selected_for_execution
         || target.path_lookup_used
     {
@@ -237,7 +318,11 @@ fn validate_direct_chain(target: &CodexProbeTargetObservation) -> Result<(), Str
         && target.npm_root_version.is_none()
         && target.npm_platform_version.is_none()
         && target.npm_target_triple.is_none()
-        && target.npm_payload_layout.is_none();
+        && target.npm_payload_layout.is_none()
+        && target.npm_launcher_symlink_identity_digest.is_none()
+        && target.npm_payload_manifest_identity_digest.is_none()
+        && target.npm_derivation_identity_digest.is_none()
+        && target.npm_collection_identity_digest.is_none();
     if !npm_fields_absent || target.target_identity_digest != target.launcher_identity_digest {
         return Err("Direct Codex target identity is not self-contained".into());
     }
@@ -260,6 +345,38 @@ fn validate_npm_chain(
         .map_err(|error| error.to_string())?;
     validate_digest(platform_manifest, "Codex npm platform manifest identity")
         .map_err(|error| error.to_string())?;
+    for (digest, label) in [
+        (
+            required_option(
+                target.npm_launcher_symlink_identity_digest.as_deref(),
+                "Codex npm launcher symlink identity",
+            )?,
+            "Codex npm launcher symlink identity",
+        ),
+        (
+            required_option(
+                target.npm_payload_manifest_identity_digest.as_deref(),
+                "Codex npm payload manifest identity",
+            )?,
+            "Codex npm payload manifest identity",
+        ),
+        (
+            required_option(
+                target.npm_derivation_identity_digest.as_deref(),
+                "Codex npm derivation identity",
+            )?,
+            "Codex npm derivation identity",
+        ),
+        (
+            required_option(
+                target.npm_collection_identity_digest.as_deref(),
+                "Codex npm collection identity",
+            )?,
+            "Codex npm collection identity",
+        ),
+    ] {
+        validate_digest(digest, label).map_err(|error| error.to_string())?;
+    }
     let (alias, suffix, target_triple) = match host_architecture {
         CodexMachOArchitecture::Arm64 => (
             "@openai/codex-darwin-arm64",
