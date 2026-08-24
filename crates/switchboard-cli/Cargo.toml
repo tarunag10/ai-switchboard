@@ -1,0 +1,17 @@
+[package]
+name = "switchboard-cli"
+version = "0.1.0"
+description = "Read-only cross-platform CLI for AI Switchboard core contracts."
+license = "MIT"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "switchboard"
+path = "src/main.rs"
+
+[dependencies]
+chrono = "0.4"
+serde_json = "=1.0.149"
+switchboard-core = { path = "../switchboard-core" }
+switchboard-runtime = { path = "../switchboard-runtime" }

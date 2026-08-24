@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "workbench:test",
+  "workspaceDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "taskClass": "coding",
+  "status": "active",
+  "parentSessionId": null,
+  "forkEventId": null,
+  "createdAt": "2026-08-25T00:00:00Z",
+  "updatedAt": "2026-08-25T00:00:00Z",
+  "executionMode": "plan_only",
+  "providerTraffic": "none",
+  "events": [
+    {
+      "eventId": "workbench:test:0",
+      "sessionId": "workbench:test",
+      "sequence": 0,
+      "kind": "started",
+      "parentEventId": null,
+      "occurredAt": "2026-08-25T00:00:00Z"
+    }
+  ]
+}
