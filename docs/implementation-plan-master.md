@@ -682,6 +682,14 @@ Core extraction progress:
   not receive a guessed path abstraction or accidental partial runtime. The
   focused Unix regression set remains green: 10 filesystem tests and 29
   authority tests.
+- The portable CLI now has a canonical `npm run build:native-cli` source-build
+  helper. It resolves the repository root, invokes the locked Cargo manifest
+  with `shell: false`, propagates build failures, and has three contract tests
+  covering arguments, working directory, failure status, and missing Cargo. It
+  does not install, discover, configure, or publish a native artifact. On this
+  checkout the pinned rustup toolchain lacks its Cargo component, while the
+  explicit installed stable toolchain builds successfully; the helper leaves
+  toolchain selection to the caller rather than mutating it silently.
 
 ### Remaining build work
 

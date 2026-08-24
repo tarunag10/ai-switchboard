@@ -177,3 +177,13 @@ Linux and Windows native CLI support is source/CI-supported only. No native
 installer or prebuilt native CLI artifact is currently shipped. Desktop app
 packaging, runtime management, repair, uninstall, bundle, and keychain
 workflows remain macOS-only. See [Platform support](platform-support.md).
+
+For a repository-local or CI source build of the native CLI, use:
+
+```bash
+npm run build:native-cli
+```
+
+This invokes the locked Cargo manifest and produces a local Cargo build. It is
+not an installer, package publisher, platform artifact download, or automatic
+`SWITCHBOARD_NATIVE_CLI` configuration step.

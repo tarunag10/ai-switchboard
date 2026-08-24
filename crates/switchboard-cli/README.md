@@ -58,6 +58,16 @@ Linux and Windows native CLI support is source/CI-supported only at present.
 There is no native installer or prebuilt platform artifact; build the Rust
 crate locally with the commands above.
 
+The repository also provides a convenience source-build command:
+
+```bash
+npm run build:native-cli
+```
+
+This runs Cargo with the locked native CLI manifest from the repository root.
+It compiles a local/CI build only; it does not install, package, discover, or
+publish a native CLI artifact.
+
 ## Verification
 
 ```bash
