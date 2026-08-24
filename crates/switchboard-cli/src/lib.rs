@@ -59,8 +59,22 @@ pub fn run_cli<R: Read, W: Write, E: Write>(
 }
 
 fn write_harness_status<W: Write, E: Write>(output: &mut W, error: &mut E) -> u8 {
-    let status = PortableRuntime.harness_status(HarnessSurface::Cli);
-    if status.surface != HarnessSurface::Cli
+    write_harness_status_with_runtime(&PortableRuntime, HarnessSurface::Cli, output, error)
+}
+
+fn write_harness_status_with_runtime<R, W, E>(
+    runtime: &R,
+    surface: HarnessSurface,
+    output: &mut W,
+    error: &mut E,
+) -> u8
+where
+    R: RuntimeAdapter,
+    W: Write,
+    E: Write,
+{
+    let status = runtime.harness_status(surface);
+    if status.surface != surface
         || status.execution_mode != ExecutionMode::ObserveOnly
         || status.provider_traffic_enabled
         || status.process_start_enabled
@@ -224,4 +238,86 @@ fn invalid_input<E: Write>(error: &mut E, message: &str) -> u8 {
 fn internal_error<E: Write>(error: &mut E, message: &str) -> u8 {
     let _ = writeln!(error, "error: {message}");
     EXIT_INTERNAL
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use switchboard_runtime::{RuntimeCapabilities, RuntimeClock};
+
+    #[derive(Clone, Copy, Debug)]
+    struct FakeRuntime {
+        provider_transport: bool,
+        process_start: bool,
+    }
+
+    impl RuntimeClock for FakeRuntime {
+        fn unix_millis(&self) -> i64 {
+            1_725_000_123_456
+        }
+    }
+
+    impl RuntimeAdapter for FakeRuntime {
+        fn capabilities(&self) -> RuntimeCapabilities {
+            RuntimeCapabilities {
+                filesystem: false,
+                process_start: self.process_start,
+                provider_transport: self.provider_transport,
+                secret_store: false,
+            }
+        }
+    }
+
+    fn run_harness_status(
+        runtime: &impl RuntimeAdapter,
+        surface: HarnessSurface,
+    ) -> (u8, String, String) {
+        let mut output = Vec::new();
+        let mut error = Vec::new();
+        let code = write_harness_status_with_runtime(runtime, surface, &mut output, &mut error);
+        (
+            code,
+            String::from_utf8(output).expect("stdout UTF-8"),
+            String::from_utf8(error).expect("stderr UTF-8"),
+        )
+    }
+
+    #[test]
+    fn harness_status_uses_injected_runtime_and_preserves_cli_contract() {
+        let runtime = FakeRuntime {
+            provider_transport: false,
+            process_start: false,
+        };
+
+        let (code, output, error) = run_harness_status(&runtime, HarnessSurface::Cli);
+        assert_eq!(code, EXIT_SUCCESS);
+        assert!(error.is_empty());
+        assert_eq!(
+            output,
+            concat!(
+                "{\"contractVersion\":1,\"surface\":\"cli\",",
+                "\"executionMode\":\"observe_only\",",
+                "\"providerTrafficEnabled\":false,\"processStartEnabled\":false}\n"
+            )
+        );
+    }
+
+    #[test]
+    fn harness_status_rejects_provider_or_process_enabled_capabilities() {
+        for runtime in [
+            FakeRuntime {
+                provider_transport: true,
+                process_start: false,
+            },
+            FakeRuntime {
+                provider_transport: false,
+                process_start: true,
+            },
+        ] {
+            let (code, output, error) = run_harness_status(&runtime, HarnessSurface::Cli);
+            assert_eq!(code, EXIT_INTERNAL);
+            assert!(output.is_empty());
+            assert!(error.contains("did not remain fail-closed"));
+        }
+    }
 }

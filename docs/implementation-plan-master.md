@@ -539,6 +539,11 @@ Core extraction progress:
   and control characters without echoing user data. The three standalone
   crates are pinned to the verified Rust 1.96 toolchain through
   `rust-toolchain.toml` and `rust-version` metadata.
+- The native CLI harness-status writer now accepts an injected
+  `RuntimeAdapter`; `run_cli` still supplies `PortableRuntime`, while fake
+  runtime tests prove provider transport and process-start capabilities are
+  rejected fail-closed. The complete CLI package suite passes (2 unit, 2
+  binary, 10 contract, and 2 source-purity tests) with Clippy and formatting.
 - `switchboard-core::plan_head` now owns the first provider-neutral plan-head
   receipt contract: strict serde shape, deterministic ledger-scoped identity,
   tamper-evident receipt digest, and unknown-field rejection. The Tauri plan
