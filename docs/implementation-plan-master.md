@@ -814,6 +814,12 @@ Core extraction progress:
   future, reordered, duplicate, or empty schemas fail closed; explicit null
   stage evidence remains valid but incomplete. The lifecycle gate passes 8/8
   tests and focused native validation passes 8 tests.
+- The tracked `check:switchboard-cli` gate now invokes the packed-CLI contract
+  and native-bridge suites before its source and Rust checks. A recursion-safe
+  runner preserves repository-root execution, inherited environment,
+  `shell:false`, and first-failure propagation, so existing Linux CI covers
+  package contents and bridge dispatch without publishing the untracked
+  cross-platform workflow.
 
 ### Remaining build work
 

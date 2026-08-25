@@ -3,6 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import packageJson from "../package.json" with { type: "json" };
+import { runNodeContractSuites } from "./check-switchboard-cli-suites.mjs";
 import { runSwitchboardContracts } from "./check-switchboard-contracts.mjs";
 
 function fail(message) {
@@ -22,6 +23,12 @@ function run(args) {
   }
 
   return result.stdout;
+}
+
+const suiteResult = runNodeContractSuites();
+if (!suiteResult.ok) {
+  console.error(`switchboard cli check failed: ${suiteResult.message}`);
+  process.exit(suiteResult.code);
 }
 
 if (packageJson.bin?.switchboard !== "./bin/switchboard.mjs") {
