@@ -19,7 +19,7 @@ function createCargoStub({ mode = "success", stderrMessage = "cargo stub failure
     [
       'import fs from "node:fs";',
       'const capturePath = process.env.SWITCHBOARD_CARGO_CAPTURE_PATH;',
-      'fs.appendFileSync(capturePath, `${JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() })}\\n`);',
+      'fs.appendFileSync(capturePath, `${JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), cargoNetOffline: process.env.CARGO_NET_OFFLINE ?? null })}\\n`);',
       'if (process.env.SWITCHBOARD_CARGO_MODE === "fail") {',
       '  process.stderr.write(process.env.SWITCHBOARD_CARGO_STDERR ?? "cargo stub failure\\n");',
       "  process.exit(17);",
@@ -54,17 +54,32 @@ function createCargoStub({ mode = "success", stderrMessage = "cargo stub failure
   return { cargoDir: dir, capturePath, mode, stderrMessage };
 }
 
-function runScript({ cargoDir, capturePath, mode = "success", stderrMessage, cwd }) {
+function runScript({
+  cargoDir,
+  capturePath,
+  mode = "success",
+  stderrMessage,
+  cwd,
+  cargoNetOffline,
+}) {
+  const env = {
+    ...process.env,
+    PATH: cargoDir,
+    SWITCHBOARD_CARGO_CAPTURE_PATH: capturePath,
+    SWITCHBOARD_CARGO_MODE: mode,
+    SWITCHBOARD_CARGO_STDERR: stderrMessage,
+  };
+
+  if (cargoNetOffline === null) {
+    delete env.CARGO_NET_OFFLINE;
+  } else if (cargoNetOffline !== undefined) {
+    env.CARGO_NET_OFFLINE = cargoNetOffline;
+  }
+
   return spawnSync(process.execPath, [scriptPath], {
     cwd,
     encoding: "utf8",
-    env: {
-      ...process.env,
-      PATH: cargoDir,
-      SWITCHBOARD_CARGO_CAPTURE_PATH: capturePath,
-      SWITCHBOARD_CARGO_MODE: mode,
-      SWITCHBOARD_CARGO_STDERR: stderrMessage,
-    },
+    env,
   });
 }
 
@@ -72,7 +87,7 @@ test("runs cargo test with exact repo-root manifests and argv-only invocation", 
   const outsideCwd = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-contracts-outside-"));
   const stub = createCargoStub();
   try {
-    const run = runScript({ ...stub, cwd: outsideCwd });
+    const run = runScript({ ...stub, cwd: outsideCwd, cargoNetOffline: null });
     assert.equal(run.status, 0, run.stderr);
     assert.equal(run.stderr, "");
     assert.match(run.stdout, /Switchboard contract checks passed\./);
@@ -87,16 +102,46 @@ test("runs cargo test with exact repo-root manifests and argv-only invocation", 
       {
         argv: ["test", "--locked", "--manifest-path", "crates/switchboard-core/Cargo.toml"],
         cwd: repoRoot,
+        cargoNetOffline: null,
       },
       {
         argv: ["test", "--locked", "--manifest-path", "crates/switchboard-runtime/Cargo.toml"],
         cwd: repoRoot,
+        cargoNetOffline: null,
       },
       {
         argv: ["test", "--locked", "--manifest-path", "crates/switchboard-cli/Cargo.toml"],
         cwd: repoRoot,
+        cargoNetOffline: null,
       },
     ]);
+  } finally {
+    fs.rmSync(outsideCwd, { recursive: true, force: true });
+    fs.rmSync(stub.cargoDir, { recursive: true, force: true });
+  }
+});
+
+test("preserves a caller-supplied Cargo offline setting", () => {
+  const outsideCwd = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-contracts-offline-"));
+  const stub = createCargoStub();
+  try {
+    const run = runScript({
+      ...stub,
+      cwd: outsideCwd,
+      cargoNetOffline: "false",
+    });
+    assert.equal(run.status, 0, run.stderr);
+
+    const records = fs
+      .readFileSync(stub.capturePath, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+
+    assert.deepEqual(
+      records.map((record) => record.cargoNetOffline),
+      ["false", "false", "false"],
+    );
   } finally {
     fs.rmSync(outsideCwd, { recursive: true, force: true });
     fs.rmSync(stub.cargoDir, { recursive: true, force: true });

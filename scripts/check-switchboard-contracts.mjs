@@ -13,10 +13,6 @@ function runCargoTest(manifestPath) {
     ["test", "--locked", "--manifest-path", manifestPath],
     {
       cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        CARGO_NET_OFFLINE: "true",
-      },
       shell: false,
       stdio: "inherit",
     },

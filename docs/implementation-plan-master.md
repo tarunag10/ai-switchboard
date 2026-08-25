@@ -759,6 +759,11 @@ Core extraction progress:
   `normalize`) and rejects the private sibling (`api.hidden()`) consistently
   across CLI, frontend, and native projections. Resolver scope remains bounded
   static analysis; no type inference or dynamic dispatch was added.
+- The standalone Rust contract runner is now cache-neutral: it no longer
+  forces `CARGO_NET_OFFLINE=true`, preserves a caller-supplied Cargo policy,
+  and still uses exact locked manifests, repository-root execution,
+  `shell:false`, and fail-closed diagnostics. The contract self-test passes
+  4/4 and the real core/runtime/CLI gate passes with 77 Rust tests.
 
 ### Remaining build work
 
