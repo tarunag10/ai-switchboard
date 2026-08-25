@@ -5,6 +5,14 @@
   "bin": {
     "switchboard": "./bin/switchboard.mjs"
   },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "bin/",
+    "scripts/chonkify-adapter.mjs",
+    "scripts/repo-intelligence.mjs"
+  ],
   "author": "Tarun Agarwal",
   "private": false,
   "type": "module",
@@ -84,6 +92,7 @@
     "check:repo-memory-mcp": "node scripts/check-repo-memory-mcp.mjs",
     "check:repo-intelligence-map": "node scripts/check-repo-intelligence-map-context.mjs",
     "check:repo-intelligence-parity": "node --test scripts/repo-intelligence-parity.node-test.mjs && vitest run src/lib/repoIntelligence.test.ts && cargo test --manifest-path src-tauri/Cargo.toml repo_intelligence --lib -- --test-threads=1",
+    "check:npm-pack": "node --test scripts/npm-pack-contract.node-test.mjs",
     "check:switchboard-cli": "node scripts/check-switchboard-cli.mjs",
     "benchmarks": "node scripts/run-benchmarks.mjs",
     "benchmarks:check": "node --test scripts/run-benchmarks.node-test.mjs && node scripts/run-benchmarks.mjs --check --no-write",

@@ -775,6 +775,12 @@ Core extraction progress:
   the existing Tauri bridge unchanged; injected adapters cannot synthesize
   metrics or bypass observe-only gating. Focused coverage passes 35 tests with
   TypeScript clean.
+- npm packaging now has a conservative explicit `files` allowlist containing
+  only the CLI entrypoint, its two runtime scripts, and legal metadata; a
+  dry-run pack contract rejects workspace-local, CI, secret, build, and
+  evidence paths. This is publish hygiene for the CLI payload, not a claim
+  that the packed tarball is a full source distribution. The pack contract and
+  existing Switchboard CLI gate pass.
 
 ### Remaining build work
 
