@@ -18,15 +18,73 @@ fn detected(client_id: &str, name: &str) -> ClientStatus {
 
 #[test]
 fn first_adapter_cohort_is_registered_behind_one_contract() {
-    for id in ["claude_code", "codex", "codex_cli", "gemini_cli"] {
+    for id in [
+        "claude_code",
+        "codex",
+        "codex_cli",
+        "gemini_cli",
+        "opencode",
+        "grok_cli",
+        "aider",
+        "continue",
+        "goose",
+        "qwen_code",
+        "amazon_q",
+        "windsurf",
+        "zed_ai",
+    ] {
         let adapter = coding_client_adapter(id).unwrap_or_else(|| panic!("missing {id} adapter"));
         assert!(matches!(
             adapter.id(),
-            "claude_code" | "codex" | "gemini_cli"
+            "claude_code"
+                | "codex"
+                | "gemini_cli"
+                | "opencode"
+                | "grok_cli"
+                | "aider"
+                | "continue"
+                | "goose"
+                | "qwen_code"
+                | "amazon_q"
+                | "windsurf"
+                | "zed_ai"
         ));
         assert!(!adapter.footprint().secret_values_included);
     }
     assert!(coding_client_adapter("cursor").is_none());
+}
+
+#[test]
+fn second_cohort_adapters_expose_detection_and_consent_gated_plan() {
+    for id in [
+        "opencode",
+        "grok_cli",
+        "aider",
+        "continue",
+        "goose",
+        "qwen_code",
+        "amazon_q",
+        "windsurf",
+        "zed_ai",
+    ] {
+        let adapter = coding_client_adapter(id).unwrap_or_else(|| panic!("missing {id} adapter"));
+        let detection = adapter.detect();
+        assert_eq!(detection.client_id, id);
+        assert_eq!(
+            detection.contract_version,
+            CODING_CLIENT_ADAPTER_CONTRACT_VERSION
+        );
+        let plan = adapter.plan(SwitchboardMode::Full).unwrap_or_else(|error| {
+            panic!("{id} plan failed: {error}");
+        });
+        assert_eq!(plan.client_id, id);
+        assert!(!plan.diffs.is_empty());
+        assert_eq!(
+            plan.confirmation_phrase,
+            format!("APPLY ADAPTER PLAN {}", plan.plan_id)
+        );
+        assert!(ConsentToken::issue(&plan, &plan.confirmation_phrase).is_ok());
+    }
 }
 
 #[test]

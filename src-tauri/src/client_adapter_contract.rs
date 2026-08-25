@@ -8,7 +8,10 @@ use crate::client_connectors::{
     connector_manifest, manifest_config_locations, manifest_detection_sources,
 };
 use crate::client_detection::{
-    detect_claude_code_client, detect_codex_client, detect_gemini_cli_client,
+    detect_aider_client, detect_amazon_q_client, detect_claude_code_client, detect_codex_client,
+    detect_continue_client, detect_gemini_cli_client, detect_goose_client,
+    detect_grok_cli_client, detect_opencode_client, detect_qwen_code_client,
+    detect_windsurf_client, detect_zed_ai_client,
 };
 use crate::client_footprint::get_managed_footprint;
 use crate::client_setup_apply::{apply_client_setup, disable_client_setup, verify_client_setup};
@@ -177,6 +180,15 @@ enum BuiltinAdapterKind {
     ClaudeCode,
     Codex,
     Gemini,
+    Opencode,
+    GrokCli,
+    Aider,
+    Continue,
+    Goose,
+    QwenCode,
+    AmazonQ,
+    Windsurf,
+    ZedAi,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -190,6 +202,15 @@ impl ExistingCodingClientAdapter {
             BuiltinAdapterKind::ClaudeCode => "claude_code",
             BuiltinAdapterKind::Codex => "codex",
             BuiltinAdapterKind::Gemini => "gemini_cli",
+            BuiltinAdapterKind::Opencode => "opencode",
+            BuiltinAdapterKind::GrokCli => "grok_cli",
+            BuiltinAdapterKind::Aider => "aider",
+            BuiltinAdapterKind::Continue => "continue",
+            BuiltinAdapterKind::Goose => "goose",
+            BuiltinAdapterKind::QwenCode => "qwen_code",
+            BuiltinAdapterKind::AmazonQ => "amazon_q",
+            BuiltinAdapterKind::Windsurf => "windsurf",
+            BuiltinAdapterKind::ZedAi => "zed_ai",
         }
     }
 
@@ -203,6 +224,51 @@ impl ExistingCodingClientAdapter {
             BuiltinAdapterKind::Gemini => {
                 let mut status = detect_gemini_cli_client();
                 status.configured = is_configured(&state, "gemini_cli");
+                status
+            }
+            BuiltinAdapterKind::Opencode => {
+                let mut status = detect_opencode_client();
+                status.configured = is_configured(&state, "opencode");
+                status
+            }
+            BuiltinAdapterKind::GrokCli => {
+                let mut status = detect_grok_cli_client();
+                status.configured = is_configured(&state, "grok_cli");
+                status
+            }
+            BuiltinAdapterKind::Aider => {
+                let mut status = detect_aider_client();
+                status.configured = is_configured(&state, "aider");
+                status
+            }
+            BuiltinAdapterKind::Continue => {
+                let mut status = detect_continue_client();
+                status.configured = is_configured(&state, "continue");
+                status
+            }
+            BuiltinAdapterKind::Goose => {
+                let mut status = detect_goose_client();
+                status.configured = is_configured(&state, "goose");
+                status
+            }
+            BuiltinAdapterKind::QwenCode => {
+                let mut status = detect_qwen_code_client();
+                status.configured = is_configured(&state, "qwen_code");
+                status
+            }
+            BuiltinAdapterKind::AmazonQ => {
+                let mut status = detect_amazon_q_client();
+                status.configured = is_configured(&state, "amazon_q");
+                status
+            }
+            BuiltinAdapterKind::Windsurf => {
+                let mut status = detect_windsurf_client();
+                status.configured = is_configured(&state, "windsurf");
+                status
+            }
+            BuiltinAdapterKind::ZedAi => {
+                let mut status = detect_zed_ai_client();
+                status.configured = is_configured(&state, "zed_ai");
                 status
             }
         }
@@ -225,6 +291,58 @@ impl ExistingCodingClientAdapter {
                     "Gemini routing-intent sidecar",
                 ],
                 "Switchboard-owned Gemini shell and sidecar blocks",
+            ),
+            BuiltinAdapterKind::Opencode => (
+                vec![
+                    "~/.config/opencode/opencode.json managed provider routing",
+                    "OpenCode routing-intent sidecar",
+                ],
+                "Switchboard-owned OpenCode provider routing; credentials, account state, and model selection remain manual.",
+            ),
+            BuiltinAdapterKind::GrokCli => (
+                vec![
+                    "~/.grok/config.toml [endpoints].models_base_url",
+                    "Grok / xAI routing-intent sidecar",
+                ],
+                "Switchboard manages only the documented non-secret models_base_url endpoint field; XAI_API_KEY or Grok login authentication, account state, and model selection remain manual.",
+            ),
+            BuiltinAdapterKind::Aider => (
+                vec![
+                    "~/.aider.conf.yml allowlisted openai-api-base field",
+                    "Aider routing-intent sidecar",
+                ],
+                "Switchboard sets only the allowlisted openai-api-base provider field; API keys, set-env, wrapper/env setup, and model selection remain manual.",
+            ),
+            BuiltinAdapterKind::Continue => (
+                vec![
+                    "~/.continue/config.yaml allowlisted managed model entry",
+                    "Continue routing-intent sidecar",
+                ],
+                "Switchboard owns one config.yaml model routing entry; provider credentials and unrelated model settings remain manual.",
+            ),
+            BuiltinAdapterKind::Goose => (
+                vec![
+                    "Goose config.yaml allowlisted OpenAI/Anthropic endpoint fields",
+                    "read-only Repo Memory MCP bridge descriptor",
+                    "Goose routing-intent sidecar",
+                ],
+                "Switchboard owns only the documented allowlisted endpoint fields and the read-only Repo Memory MCP bridge; Goose credentials, account state, and model selection remain manual.",
+            ),
+            BuiltinAdapterKind::QwenCode => (
+                vec!["Qwen Code routing-intent sidecar"],
+                "Switchboard owns only its routing-intent sidecar; Qwen account and model setup remains manual.",
+            ),
+            BuiltinAdapterKind::AmazonQ => (
+                vec!["Amazon Q Developer CLI routing-intent sidecar"],
+                "Switchboard owns only its routing-intent sidecar; AWS auth/provider/workspace state remains manual.",
+            ),
+            BuiltinAdapterKind::Windsurf => (
+                vec!["Windsurf User settings.json managed routing"],
+                "Switchboard-owned Windsurf editor settings routing; provider credentials, account state, and model selection remain manual.",
+            ),
+            BuiltinAdapterKind::ZedAi => (
+                vec!["Zed settings.json managed assistant routing"],
+                "Switchboard-owned Zed assistant settings routing; provider credentials, account state, and model selection remain manual.",
             ),
         };
         targets
@@ -401,6 +519,15 @@ fn footprint_item_matches(client_id: &str, item_id: &str) -> bool {
             "claude_code" => item_id.starts_with("claude-"),
             "codex" => item_id.starts_with("codex-"),
             "gemini_cli" => item_id.starts_with("gemini_cli-"),
+            "opencode" => item_id.starts_with("opencode-"),
+            "grok_cli" => item_id.starts_with("grok_cli-"),
+            "aider" => item_id.starts_with("aider-"),
+            "continue" => item_id.starts_with("continue-"),
+            "goose" => item_id.starts_with("goose-"),
+            "qwen_code" => item_id.starts_with("qwen_code-"),
+            "amazon_q" => item_id.starts_with("amazon_q-"),
+            "windsurf" => item_id.starts_with("windsurf-"),
+            "zed_ai" => item_id.starts_with("zed_ai-"),
             _ => false,
         }
 }
@@ -432,6 +559,15 @@ pub fn coding_client_adapter(client_id: &str) -> Option<Box<dyn CodingClientAdap
         "claude_code" => BuiltinAdapterKind::ClaudeCode,
         "codex" | "codex_cli" => BuiltinAdapterKind::Codex,
         "gemini_cli" => BuiltinAdapterKind::Gemini,
+        "opencode" => BuiltinAdapterKind::Opencode,
+        "grok_cli" => BuiltinAdapterKind::GrokCli,
+        "aider" => BuiltinAdapterKind::Aider,
+        "continue" => BuiltinAdapterKind::Continue,
+        "goose" => BuiltinAdapterKind::Goose,
+        "qwen_code" => BuiltinAdapterKind::QwenCode,
+        "amazon_q" => BuiltinAdapterKind::AmazonQ,
+        "windsurf" => BuiltinAdapterKind::Windsurf,
+        "zed_ai" => BuiltinAdapterKind::ZedAi,
         _ => return None,
     };
     Some(Box::new(ExistingCodingClientAdapter { kind }))
