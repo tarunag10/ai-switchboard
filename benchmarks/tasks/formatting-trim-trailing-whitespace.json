@@ -1,0 +1,23 @@
+{
+  "task_id": "formatting-trim-trailing-whitespace",
+  "task_class": "formatting",
+  "repo_fixture": {
+    "kind": "inline_synthetic",
+    "synthetic": true,
+    "files": [
+      {
+        "path": "src/example/greeting.ts",
+        "content": "export function greet(name: string): string {\n  return `Hello, ${name}!`;   \n}\n"
+      }
+    ]
+  },
+  "task": "Remove trailing whitespace from every line of the fixture file without changing any other characters.",
+  "success_command": "grep -rqE ' +$' src/example/greeting.ts && exit 1 || exit 0",
+  "allowed_files": ["src/example/greeting.ts"],
+  "quality_assertions": [
+    "changed file is exactly src/example/greeting.ts",
+    "exported greet signature is unchanged",
+    "no trailing whitespace remains on any line"
+  ],
+  "expected_risk": "low"
+}

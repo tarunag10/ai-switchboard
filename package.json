@@ -38,6 +38,7 @@
     "check:connector-behavior": "npm run check:connector-lifecycle && cargo test --manifest-path src-tauri/Cargo.toml --lib client_adapters::tests -- --test-threads=1",
     "check:compression-proof": "node scripts/check-compression-proof.mjs",
     "check:model-routing-evidence": "node --test scripts/check-model-routing-evidence.node-test.mjs && node scripts/check-model-routing-evidence.mjs && cargo test --manifest-path src-tauri/Cargo.toml model_routing --lib -- --test-threads=1 && cargo test --manifest-path src-tauri/Cargo.toml telemetry_store --lib -- --test-threads=1",
+    "check:class-c-tasks": "node --test scripts/check-class-c-tasks.node-test.mjs && node scripts/run-class-c-tasks.mjs > /dev/null && node scripts/check-class-c-tasks.mjs",
     "check:codex-probe-helper-bundle": "node --test scripts/codex-probe-helper-bundle.node-test.mjs",
     "check:native-cli-bridge": "node --test scripts/native-cli-bridge.node-test.mjs",
     "check:switchboard-contracts": "node scripts/check-switchboard-contracts.mjs",

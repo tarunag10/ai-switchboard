@@ -1,0 +1,23 @@
+{
+  "task_id": "test-generation-clamp-coverage",
+  "task_class": "test_generation",
+  "repo_fixture": {
+    "kind": "inline_synthetic",
+    "synthetic": true,
+    "files": [
+      {
+        "path": "src/example/clamp.ts",
+        "content": "export function clamp(value: number, min: number, max: number): number {\n  if (Number.isNaN(value)) return min;\n  return Math.min(Math.max(value, min), max);\n}\n"
+      }
+    ]
+  },
+  "task": "Add a unit test file covering clamp() at the boundaries, below the minimum, above the maximum, and for NaN input.",
+  "success_command": "node --test test/example/clamp.test.mjs",
+  "allowed_files": ["test/example/clamp.test.mjs"],
+  "quality_assertions": [
+    "only the new test file is changed",
+    "all four documented cases have an assertion",
+    "the production module src/example/clamp.ts is untouched"
+  ],
+  "expected_risk": "medium"
+}

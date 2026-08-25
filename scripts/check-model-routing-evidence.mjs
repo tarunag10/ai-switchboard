@@ -2,6 +2,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { validateReleaseEvidenceTimestamp } from "./release-evidence-time.mjs";
+import {
+  MODEL_ROUTING_EVIDENCE_ARM_METRICS as metrics,
+  MODEL_ROUTING_THRESHOLDS as thresholds,
+  evaluatePromotionEligibility,
+} from "./lib/model-routing-evidence.mjs";
 
 const root = process.cwd();
 const fixturePath = process.argv[2]
@@ -15,22 +20,6 @@ try {
   console.error(`model-routing evidence check failed: ${fixturePath} ${reason}`);
   process.exit(1);
 }
-const metrics = [
-  "sampleCount",
-  "successfulTaskCount",
-  "successRateBps",
-  "qualityScoreBps",
-  "p95LatencyMs",
-  "successfulTaskCostMicros",
-  "followUpReworkRateBps",
-];
-const thresholds = {
-  maximumSuccessRegressionBps: 100,
-  maximumQualityRegressionBps: 100,
-  minimumCostImprovementBps: 1_000,
-  maximumReworkRateBps: 500,
-  maximumLatencyRegressionMs: 50,
-};
 
 function validateFixture(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -143,43 +132,6 @@ function validateFixture(value) {
       throw new Error(`approved live run ${capturedAt.reason}`);
     }
   }
-}
-
-function evaluatePromotionEligibility(value) {
-  const successRegressionBps = Math.max(0, value.baseline.successRateBps - value.candidate.successRateBps);
-  const qualityRegressionBps = Math.max(0, value.baseline.qualityScoreBps - value.candidate.qualityScoreBps);
-  const latencyRegressionMs = value.candidate.p95LatencyMs - value.baseline.p95LatencyMs;
-  const baselineCost = BigInt(value.baseline.successfulTaskCostMicros);
-  const candidateCost = BigInt(value.candidate.successfulTaskCostMicros);
-  const costImprovementBps = baselineCost === 0n || candidateCost >= baselineCost
-    ? 0
-    : Number(((baselineCost - candidateCost) * 10_000n) / baselineCost);
-  const enoughSamples = value.baseline.sampleCount >= value.minimumSamples;
-  if (value.evidenceClass === "local_runtime_observation") {
-    return {
-      enoughSamples,
-      successRegressionBps,
-      qualityRegressionBps,
-      costImprovementBps,
-      latencyRegressionMs,
-      reworkRateBps: value.candidate.followUpReworkRateBps,
-      eligible: false,
-    };
-  }
-  return {
-    enoughSamples,
-    successRegressionBps,
-    qualityRegressionBps,
-    costImprovementBps,
-    latencyRegressionMs,
-    reworkRateBps: value.candidate.followUpReworkRateBps,
-    eligible: enoughSamples
-      && successRegressionBps <= thresholds.maximumSuccessRegressionBps
-      && qualityRegressionBps <= thresholds.maximumQualityRegressionBps
-      && costImprovementBps >= thresholds.minimumCostImprovementBps
-      && latencyRegressionMs <= thresholds.maximumLatencyRegressionMs
-      && value.candidate.followUpReworkRateBps <= thresholds.maximumReworkRateBps,
-  };
 }
 
 try {

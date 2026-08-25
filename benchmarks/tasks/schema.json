@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "switchboard:benchmarks/tasks/schema.json",
+  "title": "Class C coding-agent task benchmark contract",
+  "$comment": [
+    "Class C records honest, deterministic, content-free coding-agent task outcomes.",
+    "It never claims live provider runs: run-result files are operator/CI-produced,",
+    "and the runner only aggregates what was recorded. Task definitions follow the",
+    "master-plan R1 field list exactly; run-result documents carry the observed",
+    "outcome fields plus arm/result_id/task identity needed for deterministic",
+    "baseline-vs-candidate aggregation. See scripts/run-class-c-tasks.mjs and",
+    "scripts/check-class-c-tasks.mjs."
+  ],
+  "$defs": {
+    "taskDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "task_class",
+        "repo_fixture",
+        "task",
+        "success_command",
+        "allowed_files",
+        "quality_assertions",
+        "expected_risk"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,63}$"
+        },
+        "task_class": {
+          "$comment": "Aggregation key; must match provenance.taskClass values used by model-routing evidence (e.g. formatting).",
+          "type": "string",
+          "enum": ["formatting", "test_generation", "bugfix", "refactor"]
+        },
+        "repo_fixture": {
+          "$comment": "repo_path points at an existing repository file; inline_synthetic embeds a minimal fixture and MUST set synthetic=true.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "synthetic"],
+          "properties": {
+            "kind": { "type": "string", "enum": ["repo_path", "inline_synthetic"] },
+            "synthetic": { "type": "boolean" },
+            "path": { "type": "string", "minLength": 1 },
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "content"],
+                "properties": {
+                  "path": { "type": "string", "minLength": 1 },
+                  "content": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "task": { "type": "string", "minLength": 1 },
+        "success_command": { "type": "string", "minLength": 1 },
+        "allowed_files": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "quality_assertions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "expected_risk": { "type": "string", "enum": ["low", "medium", "high"] }
+      }
+    },
+    "runResult": {
+      "$comment": "One observed task execution. All counts are non-negative integers; captured_at is an operator-provided timestamp that is echoed verbatim (the runner never reads a clock).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_id",
+        "task_id",
+        "arm",
+        "test_result",
+        "input_tokens",
+        "output_tokens",
+        "files_changed",
+        "lines_changed",
+        "tool_calls",
+        "retries",
+        "elapsed_ms",
+        "selected_model",
+        "selected_endpoint",
+        "optimization_profile",
+        "provider_cache_read_tokens"
+      ],
+      "properties": {
+        "result_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$",
+          "$comment": "Stable operator-chosen identifier; drives deterministic ordering and duplicate detection."
+        },
+        "task_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+        "arm": { "type": "string", "enum": ["baseline", "candidate"] },
+        "test_result": { "type": "string", "enum": ["pass", "fail"] },
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "files_changed": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "lines_changed": { "type": "integer", "minimum": 0 },
+        "tool_calls": { "type": "integer", "minimum": 0 },
+        "retries": { "type": "integer", "minimum": 0 },
+        "elapsed_ms": { "type": "integer", "minimum": 0 },
+        "selected_model": { "type": "string", "minLength": 1 },
+        "selected_endpoint": { "type": "string", "minLength": 1 },
+        "optimization_profile": { "type": "string", "minLength": 1 },
+        "provider_cache_read_tokens": { "type": "integer", "minimum": 0 },
+        "captured_at": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "allOf": [{ "$ref": "#/$defs/taskDefinition" }]
+}

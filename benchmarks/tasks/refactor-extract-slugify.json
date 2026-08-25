@@ -1,0 +1,23 @@
+{
+  "task_id": "refactor-extract-slugify",
+  "task_class": "refactor",
+  "repo_fixture": {
+    "kind": "inline_synthetic",
+    "synthetic": true,
+    "files": [
+      {
+        "path": "src/example/labels.ts",
+        "content": "export function labelToSlug(label: string): string {\n  return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, \"-\").replace(/^-|-$/g, \"\");\n}\n\nexport function labelToFilename(label: string): string {\n  const slug = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, \"-\").replace(/^-|-$/g, \"\");\n  return `${slug}.txt`;\n}\n"
+      }
+    ]
+  },
+  "task": "Extract the duplicated slug logic in labels.ts into one shared local helper and have both exported functions use it; behavior must not change.",
+  "success_command": "node --test test/example/labels.test.mjs",
+  "allowed_files": ["src/example/labels.ts"],
+  "quality_assertions": [
+    "only src/example/labels.ts is modified",
+    "both exported functions keep their names and signatures",
+    "the slug rule exists exactly once in the file"
+  ],
+  "expected_risk": "medium"
+}

@@ -1,0 +1,27 @@
+{
+  "task_id": "bugfix-parse-quantity-units",
+  "task_class": "bugfix",
+  "repo_fixture": {
+    "kind": "inline_synthetic",
+    "synthetic": true,
+    "files": [
+      {
+        "path": "src/example/quantity.ts",
+        "content": "export function parseQuantity(text: string): number {\n  const match = /^\\s*(\\d+(?:\\.\\d+)?)\\s*([kKmM]?)\\s*$/.exec(text);\n  if (!match) return Number.NaN;\n  const value = Number.parseFloat(match[1]);\n  const unit = match[2] ?? \"\";\n  const scale = unit === \"k\" || unit === \"K\" ? 1e3 : unit === \"m\" ? 1e-3 : unit === \"M\" ? 1e6 : 1;\n  return value * scale;\n}\n"
+      },
+      {
+        "path": "test/example/quantity.test.mjs",
+        "content": "import test from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { parseQuantity } from \"../../src/example/quantity.ts\";\n\ntest(\"parses plain counts\", () => {\n  assert.equal(parseQuantity(\"42\"), 42);\n});\n"
+      }
+    ]
+  },
+  "task": "The fixture treats a bare 'm' suffix as milli while 'M' means mega; fix any incorrect scale mapping so both cases round-trip, keeping the existing public signature.",
+  "success_command": "node --test test/example/quantity.test.mjs",
+  "allowed_files": ["src/example/quantity.ts", "test/example/quantity.test.mjs"],
+  "quality_assertions": [
+    "changed files stay within allowed_files",
+    "existing plain-count behavior is preserved",
+    "a regression case for lowercase 'm' exists after the fix"
+  ],
+  "expected_risk": "high"
+}
