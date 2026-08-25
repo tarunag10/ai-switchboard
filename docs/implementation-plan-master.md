@@ -786,6 +786,10 @@ Core extraction progress:
   card remains informational and reuses existing report data; it does not
   imply signing, notarization, reboot, or public-release completion. Focused
   UI coverage and TypeScript validation pass.
+- OSS replay parity is now part of the aggregate OSS integration gate and its
+  provenance inventory: the shared JS/native replay implementation, bridge,
+  tests, and golden fixture are required, and the gate verifies six JS replay
+  tests plus five native replay tests with automatic promotion still disabled.
 
 ### Remaining build work
 
