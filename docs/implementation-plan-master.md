@@ -808,6 +808,12 @@ Core extraction progress:
   `qwen_code`). Canonical ordering, disjointness, exact union coverage, and
   unknown/missing/legacy classification failures are enforced; sidecar paths
   remain available and native provider writes remain gated.
+- Connector lifecycle fixture admission now requires schema version `1`, the
+  exact canonical seven-stage order, unique non-empty connector IDs, and
+  exact stage keys in both JavaScript and native consumers. Invalid, missing,
+  future, reordered, duplicate, or empty schemas fail closed; explicit null
+  stage evidence remains valid but incomplete. The lifecycle gate passes 8/8
+  tests and focused native validation passes 8 tests.
 
 ### Remaining build work
 

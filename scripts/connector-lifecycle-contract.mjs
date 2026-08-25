@@ -1,3 +1,4 @@
+export const CONNECTOR_LIFECYCLE_FIXTURE_VERSION = 1;
 export const canonicalLifecycleStages = ["detect", "preview", "backup", "apply", "verify", "rollback", "off"];
 export const allowedConnectorSupportStatuses = ["managed", "planned"];
 export const runtimeStageByFixtureStage = {
@@ -45,8 +46,19 @@ export function supportStatusFailures(manifest) {
 export function validateLifecycleSchema(manifest, fixtures) {
   const failures = [];
   if (!Array.isArray(manifest)) failures.push("connector manifest must be an array");
-  if (!fixtures || !Array.isArray(fixtures.connectors)) failures.push("lifecycle fixtures must contain a connectors array");
-  if (!Array.isArray(fixtures?.requiredStages) || new Set(fixtures.requiredStages).size !== fixtures.requiredStages.length) {
+  const fixtureRootIsObject =
+    fixtures !== null && typeof fixtures === "object" && !Array.isArray(fixtures);
+  if (!fixtureRootIsObject) {
+    failures.push("lifecycle fixtures must be an object");
+  } else if (fixtures.version !== CONNECTOR_LIFECYCLE_FIXTURE_VERSION) {
+    failures.push(
+      `lifecycle fixture version must be ${CONNECTOR_LIFECYCLE_FIXTURE_VERSION}`,
+    );
+  }
+  if (!fixtureRootIsObject || !Array.isArray(fixtures.connectors)) {
+    failures.push("lifecycle fixtures must contain a connectors array");
+  }
+  if (!fixtureRootIsObject || !Array.isArray(fixtures.requiredStages) || new Set(fixtures.requiredStages).size !== fixtures.requiredStages.length) {
     failures.push("requiredStages must be a unique array");
   } else if (JSON.stringify(fixtures.requiredStages) !== JSON.stringify(canonicalLifecycleStages)) {
     failures.push(`requiredStages must equal ${canonicalLifecycleStages.join(",")}`);
@@ -54,7 +66,7 @@ export function validateLifecycleSchema(manifest, fixtures) {
   if (JSON.stringify(Object.keys(runtimeStageByFixtureStage)) !== JSON.stringify(canonicalLifecycleStages)) {
     failures.push("runtime lifecycle stage mapping must cover every fixture stage exactly once");
   }
-  if (!Array.isArray(manifest) || !Array.isArray(fixtures?.connectors)) return failures;
+  if (!Array.isArray(manifest) || !fixtureRootIsObject || !Array.isArray(fixtures.connectors)) return failures;
   failures.push(...supportStatusFailures(manifest));
 
   const manifestIds = new Set();

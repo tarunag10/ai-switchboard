@@ -3,17 +3,31 @@ import path from "node:path";
 import { canonicalLifecycleStages, lifecycleIntentForTest, lifecycleIntentMarkerFailures, runtimeStageByFixtureStage, validateLifecycleSchema } from "./connector-lifecycle-contract.mjs";
 
 const root = process.cwd();
-const manifest = JSON.parse(fs.readFileSync(path.join(root, "connectors/manifest.json"), "utf8"));
-const fixtures = JSON.parse(fs.readFileSync(path.join(root, "connectors/lifecycle-fixtures.json"), "utf8"));
+function readJson(relativePath, label) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
+  } catch {
+    console.error(`${label} is not valid JSON`);
+    process.exit(1);
+  }
+}
+
+const manifest = readJson("connectors/manifest.json", "connector manifest");
+const fixtures = readJson(
+  "connectors/lifecycle-fixtures.json",
+  "connector lifecycle fixture",
+);
+const rootFailures = validateLifecycleSchema(manifest, fixtures);
+if (rootFailures.length > 0) {
+  console.error(rootFailures.join("\n"));
+  process.exit(1);
+}
 const approvedTestFile = "src-tauri/src/client_adapters_tests.rs";
 const approvedTestSource = fs.readFileSync(path.join(root, approvedTestFile), "utf8");
 const requiredStages = fixtures.requiredStages;
 const fixtureById = new Map(fixtures.connectors.map((connector) => [connector.id, connector]));
-const failures = [];
+const failures = lifecycleIntentMarkerFailures(approvedTestSource);
 const evidenceLinks = [];
-
-failures.push(...validateLifecycleSchema(manifest, fixtures));
-failures.push(...lifecycleIntentMarkerFailures(approvedTestSource));
 
 function isRustTest(name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -58,6 +72,7 @@ if (failures.length) {
   const managed = manifest.filter((connector) => connector.support_status === "managed").length;
   console.log(JSON.stringify({
     ok: true,
+    fixtureVersion: fixtures.version,
     managedConnectors: managed,
     requiredStages,
     runtimeStageByFixtureStage,

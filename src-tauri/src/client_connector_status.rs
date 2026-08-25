@@ -4,14 +4,19 @@ use crate::client_connectors::{
 use crate::client_paths::planned_sidecar_routing_path;
 use crate::models::{ClientConnectorAutomationStage, ClientConnectorConfigDryRunPreview};
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub(crate) const CONNECTOR_LIFECYCLE_FIXTURES_JSON: &str =
     include_str!("../../connectors/lifecycle-fixtures.json");
+const CONNECTOR_LIFECYCLE_FIXTURE_VERSION: u32 = 1;
+const CONNECTOR_LIFECYCLE_REQUIRED_STAGES: [&str; 7] = [
+    "detect", "preview", "backup", "apply", "verify", "rollback", "off",
+];
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ConnectorLifecycleFixtureCatalog {
+    version: u32,
     required_stages: Vec<String>,
     connectors: Vec<ConnectorLifecycleFixture>,
 }
@@ -22,10 +27,43 @@ struct ConnectorLifecycleFixture {
     stages: BTreeMap<String, Option<String>>,
 }
 
-pub(crate) fn connector_has_complete_lifecycle_fixture(client_id: &str) -> bool {
-    let Ok(catalog) =
-        serde_json::from_str::<ConnectorLifecycleFixtureCatalog>(CONNECTOR_LIFECYCLE_FIXTURES_JSON)
-    else {
+fn parse_connector_lifecycle_fixture_catalog(
+    fixture_json: &str,
+) -> Option<ConnectorLifecycleFixtureCatalog> {
+    let catalog = serde_json::from_str::<ConnectorLifecycleFixtureCatalog>(fixture_json).ok()?;
+    if catalog.version != CONNECTOR_LIFECYCLE_FIXTURE_VERSION
+        || catalog.required_stages.len() != CONNECTOR_LIFECYCLE_REQUIRED_STAGES.len()
+        || !catalog
+            .required_stages
+            .iter()
+            .zip(CONNECTOR_LIFECYCLE_REQUIRED_STAGES)
+            .all(|(actual, expected)| actual == expected)
+    {
+        return None;
+    }
+
+    let mut connector_ids = BTreeSet::new();
+    for fixture in &catalog.connectors {
+        if fixture.id.trim().is_empty()
+            || crate::client_connectors::connector_manifest(&fixture.id).is_none()
+            || !connector_ids.insert(fixture.id.as_str())
+        {
+            return None;
+        }
+        if fixture.stages.len() != CONNECTOR_LIFECYCLE_REQUIRED_STAGES.len()
+            || CONNECTOR_LIFECYCLE_REQUIRED_STAGES
+                .iter()
+                .any(|stage| !fixture.stages.contains_key(*stage))
+        {
+            return None;
+        }
+    }
+
+    Some(catalog)
+}
+
+fn connector_has_complete_lifecycle_fixture_in(fixture_json: &str, client_id: &str) -> bool {
+    let Some(catalog) = parse_connector_lifecycle_fixture_catalog(fixture_json) else {
         return false;
     };
     let normalized = if client_id == "codex_cli" {
@@ -46,6 +84,10 @@ pub(crate) fn connector_has_complete_lifecycle_fixture(client_id: &str) -> bool 
                     .is_some_and(|proof| !proof.trim().is_empty())
             })
         })
+}
+
+pub(crate) fn connector_has_complete_lifecycle_fixture(client_id: &str) -> bool {
+    connector_has_complete_lifecycle_fixture_in(CONNECTOR_LIFECYCLE_FIXTURES_JSON, client_id)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -165,6 +207,30 @@ pub(crate) fn managed_connector_config_locations(client_id: &str) -> Vec<String>
 mod tests {
     use super::*;
     use crate::client_connectors::PLANNED_CLIENT_SPECS;
+    use serde_json::{json, Value};
+
+    fn complete_test_catalog() -> Value {
+        json!({
+            "version": CONNECTOR_LIFECYCLE_FIXTURE_VERSION,
+            "requiredStages": CONNECTOR_LIFECYCLE_REQUIRED_STAGES,
+            "connectors": [{
+                "id": "claude_code",
+                "stages": {
+                    "detect": "detect_proof",
+                    "preview": "preview_proof",
+                    "backup": "backup_proof",
+                    "apply": "apply_proof",
+                    "verify": "verify_proof",
+                    "rollback": "rollback_proof",
+                    "off": "off_proof"
+                }
+            }]
+        })
+    }
+
+    fn catalog_string(catalog: &Value) -> String {
+        serde_json::to_string(catalog).expect("catalog JSON")
+    }
 
     fn preview() -> ClientConnectorConfigDryRunPreview {
         ClientConnectorConfigDryRunPreview {
@@ -195,8 +261,8 @@ mod tests {
 
     #[test]
     fn managed_connector_labels_require_complete_lifecycle_fixture_proof() {
-        let catalog: ConnectorLifecycleFixtureCatalog =
-            serde_json::from_str(CONNECTOR_LIFECYCLE_FIXTURES_JSON).expect("fixture catalog");
+        let catalog = parse_connector_lifecycle_fixture_catalog(CONNECTOR_LIFECYCLE_FIXTURES_JSON)
+            .expect("valid fixture catalog");
         let adapter_tests = include_str!("client_adapters_tests.rs");
 
         for fixture in &catalog.connectors {
@@ -221,6 +287,129 @@ mod tests {
                 spec.id
             );
         }
+    }
+
+    #[test]
+    fn lifecycle_fixture_catalog_requires_exact_supported_version() {
+        let canonical = complete_test_catalog();
+        assert!(connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&canonical),
+            "claude_code"
+        ));
+
+        let mut missing = canonical.clone();
+        missing
+            .as_object_mut()
+            .expect("catalog object")
+            .remove("version");
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&missing),
+            "claude_code"
+        ));
+
+        for version in [json!(0), json!(2), json!("1")] {
+            let mut invalid = canonical.clone();
+            invalid["version"] = version;
+            assert!(!connector_has_complete_lifecycle_fixture_in(
+                &catalog_string(&invalid),
+                "claude_code"
+            ));
+        }
+    }
+
+    #[test]
+    fn lifecycle_fixture_catalog_rejects_noncanonical_required_stages() {
+        let canonical = complete_test_catalog();
+        let invalid_stage_lists = [
+            json!([]),
+            json!(["off", "rollback", "verify", "apply", "backup", "preview", "detect"]),
+            json!(["detect", "preview", "backup", "apply", "verify", "rollback", "unknown"]),
+            json!(["detect", "detect", "backup", "apply", "verify", "rollback", "off"]),
+        ];
+
+        for required_stages in invalid_stage_lists {
+            let mut invalid = canonical.clone();
+            invalid["requiredStages"] = required_stages;
+            assert!(!connector_has_complete_lifecycle_fixture_in(
+                &catalog_string(&invalid),
+                "claude_code"
+            ));
+        }
+    }
+
+    #[test]
+    fn lifecycle_fixture_catalog_rejects_duplicate_or_invalid_connector_ids() {
+        let canonical = complete_test_catalog();
+        let original = canonical["connectors"][0].clone();
+
+        let mut duplicate = canonical.clone();
+        duplicate["connectors"] = json!([original.clone(), original.clone()]);
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&duplicate),
+            "claude_code"
+        ));
+
+        let mut empty = canonical.clone();
+        empty["connectors"][0]["id"] = json!("   ");
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&empty),
+            "claude_code"
+        ));
+
+        let mut missing = canonical.clone();
+        missing["connectors"][0]
+            .as_object_mut()
+            .expect("connector object")
+            .remove("id");
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&missing),
+            "claude_code"
+        ));
+
+        let mut unknown = canonical.clone();
+        unknown["connectors"][0]["id"] = json!("unknown");
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&unknown),
+            "claude_code"
+        ));
+    }
+
+    #[test]
+    fn lifecycle_fixture_catalog_rejects_missing_or_unknown_stage_keys() {
+        let canonical = complete_test_catalog();
+
+        let mut missing = canonical.clone();
+        missing["connectors"][0]["stages"]
+            .as_object_mut()
+            .expect("stage object")
+            .remove("off");
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&missing),
+            "claude_code"
+        ));
+
+        let mut unknown = canonical.clone();
+        unknown["connectors"][0]["stages"]
+            .as_object_mut()
+            .expect("stage object")
+            .insert("unknown".to_string(), json!("unknown_proof"));
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &catalog_string(&unknown),
+            "claude_code"
+        ));
+    }
+
+    #[test]
+    fn lifecycle_fixture_partial_null_evidence_remains_incomplete() {
+        let mut partial = complete_test_catalog();
+        partial["connectors"][0]["stages"]["off"] = Value::Null;
+
+        let partial_json = catalog_string(&partial);
+        assert!(parse_connector_lifecycle_fixture_catalog(&partial_json).is_some());
+        assert!(!connector_has_complete_lifecycle_fixture_in(
+            &partial_json,
+            "claude_code"
+        ));
     }
 
     #[test]
