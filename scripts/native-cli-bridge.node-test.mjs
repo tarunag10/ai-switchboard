@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
@@ -17,6 +17,7 @@ function nativeStub() {
     [
       "import fs from 'node:fs';",
       "const input = fs.readFileSync(0, 'utf8');",
+      "if (process.env.SWITCHBOARD_NATIVE_SENTINEL) fs.writeFileSync(process.env.SWITCHBOARD_NATIVE_SENTINEL, 'invoked');",
       "process.stdout.write(`native:${JSON.stringify({ args: process.argv.slice(2), input })}\\n`);",
       "process.stderr.write('native stderr\\n');",
       "",
@@ -132,6 +133,67 @@ test("legacy router repo path remains on the Node compatibility path", () => {
   assert.match(result.stdout, /^codex$/m);
   assert.match(result.stdout, /^gemini$/m);
   assert.equal(result.stderr, "");
+});
+
+test("native bridge rejects bare and relative executable values before invocation", () => {
+  const stub = nativeStub();
+  const sentinel = join(stub.directory, "invoked.txt");
+  const path = [stub.directory, process.env.PATH].filter(Boolean).join(delimiter);
+  const rejected = [
+    basename(stub.executable),
+    relative(repoRoot, stub.executable),
+  ];
+
+  try {
+    for (const configuredExecutable of rejected) {
+      rmSync(sentinel, { force: true });
+      const result = run(
+        ["harness", "status", "--native"],
+        {
+          PATH: path,
+          SWITCHBOARD_NATIVE_CLI: configuredExecutable,
+          SWITCHBOARD_NATIVE_SENTINEL: sentinel,
+        },
+        "private-native-input\n",
+      );
+
+      assert.equal(result.status, 1);
+      assert.equal(result.stdout, "");
+      assert.equal(
+        result.stderr,
+        "Native CLI bridge requires SWITCHBOARD_NATIVE_CLI to be an absolute executable path.\n",
+      );
+      assert.equal(existsSync(sentinel), false);
+      assert.doesNotMatch(result.stderr, /private-native-input/);
+    }
+  } finally {
+    rmSync(stub.directory, { recursive: true, force: true });
+  }
+});
+
+test("native bridge preserves configured absolute executable behavior", () => {
+  const stub = nativeStub();
+  const sentinel = join(stub.directory, "invoked.txt");
+  try {
+    const result = run(
+      ["harness", "status", "--native"],
+      {
+        SWITCHBOARD_NATIVE_CLI: stub.executable,
+        SWITCHBOARD_NATIVE_SENTINEL: sentinel,
+      },
+      "absolute-input\n",
+    );
+
+    assert.equal(result.status, 0);
+    assert.deepEqual(JSON.parse(result.stdout.slice("native:".length)), {
+      args: ["harness", "status"],
+      input: "absolute-input\n",
+    });
+    assert.equal(result.stderr, "native stderr\n");
+    assert.equal(existsSync(sentinel), true);
+  } finally {
+    rmSync(stub.directory, { recursive: true, force: true });
+  }
 });
 
 test("native bridge fails closed when unset or unusable", () => {

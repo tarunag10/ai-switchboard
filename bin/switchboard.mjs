@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import packageJson from "../package.json" with { type: "json" };
 
@@ -16,6 +16,12 @@ function runNativeCli(nativeArgs) {
   if (!nativeCli) {
     console.error(
       "Native CLI bridge is disabled. Set SWITCHBOARD_NATIVE_CLI to an executable native CLI, then retry with --native.",
+    );
+    process.exit(1);
+  }
+  if (!isAbsolute(nativeCli)) {
+    console.error(
+      "Native CLI bridge requires SWITCHBOARD_NATIVE_CLI to be an absolute executable path.",
     );
     process.exit(1);
   }

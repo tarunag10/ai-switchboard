@@ -738,6 +738,11 @@ Core extraction progress:
   supplied observation and forwards supplied payloads unchanged. Focused
   supporting-panel coverage and TypeScript validation pass while routing stays
   observe-only.
+- The native CLI bridge now enforces the documented absolute executable
+  boundary before spawning: bare and relative `SWITCHBOARD_NATIVE_CLI` values
+  fail closed and cannot resolve through PATH, while configured absolute paths
+  retain the existing behavior. Nine bridge tests cover the boundary and
+  existing command compatibility.
 
 ### Remaining build work
 
