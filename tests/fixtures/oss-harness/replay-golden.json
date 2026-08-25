@@ -1,0 +1,64 @@
+{
+  "input": {
+    "schemaVersion": 1,
+    "events": [
+      {
+        "eventId": "replay-golden-1",
+        "taskClass": "coding",
+        "route": "headroom",
+        "outcome": "success",
+        "latencyMs": 100
+      },
+      {
+        "eventId": "replay-golden-2",
+        "taskClass": "coding",
+        "route": "switchyard_observe",
+        "outcome": "upstream_http_error",
+        "latencyMs": 200
+      },
+      {
+        "eventId": "replay-golden-3",
+        "taskClass": "review",
+        "route": "cache",
+        "outcome": "timeout",
+        "latencyMs": 50
+      },
+      {
+        "eventId": "replay-golden-4",
+        "taskClass": "coding",
+        "route": "ingress",
+        "outcome": "connect_failure"
+      }
+    ]
+  },
+  "expected": {
+    "schemaVersion": 1,
+    "replayMode": "redacted_observe_only",
+    "automaticPromotion": "disabled",
+    "providerTraffic": "none",
+    "eventCount": 4,
+    "routeCounts": {
+      "cache": 1,
+      "direct_anthropic": 0,
+      "direct_openai": 0,
+      "headroom": 1,
+      "ingress": 1,
+      "switchyard_observe": 1
+    },
+    "outcomeCounts": {
+      "client_disconnect": 0,
+      "connect_failure": 1,
+      "local_rejection": 0,
+      "read_failure": 0,
+      "success": 1,
+      "timeout": 1,
+      "upstream_http_error": 1,
+      "write_failure": 0
+    },
+    "latency": {
+      "sampleCount": 3,
+      "p95Ms": 200
+    },
+    "replayDigest": "sha256:b7b346bf6c812b3e3cb01bb4a0dc0ac9370939fdfdf1744552fe4d370816c435"
+  }
+}

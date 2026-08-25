@@ -722,6 +722,11 @@ Core extraction progress:
   tests. This exposes validated, observe-only evidence persistence to the app
   without fabricating provider metrics or enabling automatic routing; native
   validation and the TS contract suite both pass.
+- JavaScript and native OSS harness replay now consume the shared bounded
+  `tests/fixtures/oss-harness/replay-golden.json` contract and assert identical
+  redacted output, observe-only flags, counters, p95 latency, and SHA-256
+  digest. This closes cross-language replay drift without adding provider
+  traffic, process execution, or promotion behavior.
 
 ### Remaining build work
 

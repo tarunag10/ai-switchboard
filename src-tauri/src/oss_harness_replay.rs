@@ -523,6 +523,24 @@ mod tests {
     }
 
     #[test]
+    fn matches_the_shared_replay_golden_output_and_digest() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/oss-harness/replay-golden.json"
+        ))
+        .expect("parse replay golden fixture");
+        let input = serde_json::to_string(&fixture["input"]).expect("encode replay input");
+        let file = replay_file(&input);
+        let actual = replay_redacted_route_events_from_path(file.path()).expect("valid replay");
+        let actual = serde_json::to_value(actual).expect("encode replay result");
+        assert_eq!(actual, fixture["expected"]);
+        assert_eq!(actual["automaticPromotion"], "disabled");
+        assert_eq!(actual["providerTraffic"], "none");
+        assert!(actual["replayDigest"].as_str().is_some_and(|digest| {
+            digest.starts_with("sha256:") && digest.len() == 71
+        }));
+    }
+
+    #[test]
     fn rejects_sensitive_duplicate_and_oversized_replays() {
         let sensitive = replay_file(
             r#"{"schemaVersion":1,"events":[{"eventId":"e-1","taskClass":"coding","route":"headroom","outcome":"success","prompt":"no"}]}"#,

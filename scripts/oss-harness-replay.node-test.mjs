@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { replayRedactedRouteEvents } from "./oss-harness-replay.mjs";
+
+const goldenFixture = JSON.parse(
+  fs.readFileSync(path.resolve("tests/fixtures/oss-harness/replay-golden.json"), "utf8"),
+);
 
 const events = [
   { eventId: "e-1", taskClass: "coding", route: "headroom", outcome: "success", latencyMs: 100 },
@@ -16,6 +22,13 @@ test("replays redacted route metadata deterministically without provider traffic
   assert.equal(first.providerTraffic, "none");
   assert.equal(first.routeCounts.switchyard_observe, 1);
   assert.equal(first.latency.p95Ms, 200);
+});
+
+test("matches the shared native replay golden output and digest", () => {
+  assert.deepEqual(
+    replayRedactedRouteEvents(goldenFixture.input),
+    goldenFixture.expected,
+  );
 });
 
 test("rejects prompt, response, and credential-shaped fields", () => {
