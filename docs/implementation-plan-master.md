@@ -727,6 +727,11 @@ Core extraction progress:
   redacted output, observe-only flags, counters, p95 latency, and SHA-256
   digest. This closes cross-language replay drift without adding provider
   traffic, process execution, or promotion behavior.
+- The local `evidence:local` operator chain now ends at `release-report`,
+  matching the app/Tauri local-only allowlist and its explicit no-public-gate
+  boundary. Public release proof remains a separate command; script-level
+  execution and summary tests verify that neither proof command is invoked by
+  the local chain.
 
 ### Remaining build work
 
