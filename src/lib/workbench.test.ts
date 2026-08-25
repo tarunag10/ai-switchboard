@@ -12,6 +12,7 @@ import {
   deriveWorkbenchProcessAdmissionEligibility,
   getAdapterCommandReadinessPolicy,
   getAdapterCommandReadinessDisclosure,
+  getWorkbenchPlanHeadCorrelationSummary,
   getWorkbenchCapabilityProjection,
   issueWorkbenchProcessStartGrant,
   isAdapterCommandReadinessAvailable,
@@ -21,6 +22,7 @@ import {
   prepareWorkbenchRunPlan,
   revokeWorkbenchProcessStartGrant,
   transitionWorkbenchSession,
+  type WorkbenchRunPlan,
 } from "./workbench";
 
 describe("workbench bridge", () => {
@@ -97,6 +99,98 @@ describe("workbench bridge", () => {
 
     await expect(getWorkbenchCapabilityProjection()).resolves.toEqual(projection);
     expect(invoke).toHaveBeenLastCalledWith("get_workbench_capability_projection");
+  });
+
+  it("loads current plan-head correlation summaries through the read-only native command", async () => {
+    const runPlan = {
+      schemaVersion: 1,
+      planId: "run-plan:test",
+      sessionId: "workbench:test",
+      adapterId: "codex",
+      workspaceDigest: `sha256:${"a".repeat(64)}`,
+      contextPackDigest: null,
+      routerDecision: {
+        decisionId: "routing-decision-1",
+        decisionStage: "observe",
+        routingMode: "observe_only",
+        evidenceDigest: `sha256:${"b".repeat(64)}`,
+      },
+      replayReference: null,
+      preset: null,
+      requestedMode: "full",
+      adapterPlanId: "adapter-plan:test",
+      adapterAction: "apply_managed_routing",
+      adapterReversible: true,
+      commandReadiness: null,
+      processContainment: null,
+      capabilityRequests: [] as WorkbenchRunPlan["capabilityRequests"],
+      executionMode: "plan_only",
+      providerTraffic: "none",
+      writesEnabled: false,
+    } as const;
+    const summary = {
+      schemaVersion: 1,
+      headId: "plan-head:test",
+      sessionId: "workbench:test",
+      planId: "run-plan:test",
+      generation: 2,
+      sessionSnapshotDigest: `sha256:${"c".repeat(64)}`,
+      planSnapshotDigest: `sha256:${"d".repeat(64)}`,
+      predecessorHeadId: "plan-head:previous",
+      predecessorRecordDigest: `sha256:${"e".repeat(64)}`,
+    } as const;
+    invoke.mockResolvedValueOnce(summary);
+
+    await expect(getWorkbenchPlanHeadCorrelationSummary({
+      sessionId: "workbench:test",
+      runPlan,
+    })).resolves.toEqual(summary);
+
+    expect(invoke).toHaveBeenLastCalledWith(
+      "get_workbench_plan_head_correlation_summary",
+      { input: { sessionId: "workbench:test", runPlan } },
+    );
+  });
+
+  it("surfaces plan-head summary failures without rewriting the request", async () => {
+    invoke.mockRejectedValueOnce(new Error("current plan head is missing"));
+
+    await expect(getWorkbenchPlanHeadCorrelationSummary({
+      sessionId: "workbench:test",
+      runPlan: {
+        schemaVersion: 1,
+        planId: "run-plan:test",
+        sessionId: "workbench:test",
+        adapterId: "codex",
+        workspaceDigest: `sha256:${"a".repeat(64)}`,
+        contextPackDigest: null,
+        routerDecision: {
+          decisionId: "routing-decision-1",
+          decisionStage: "observe",
+          routingMode: "observe_only",
+          evidenceDigest: `sha256:${"b".repeat(64)}`,
+        },
+        replayReference: null,
+        preset: null,
+        requestedMode: "full",
+        adapterPlanId: "adapter-plan:test",
+        adapterAction: "apply_managed_routing",
+        adapterReversible: true,
+        commandReadiness: null,
+        processContainment: null,
+        capabilityRequests: [],
+        executionMode: "plan_only",
+        providerTraffic: "none",
+        writesEnabled: false,
+      },
+    })).rejects.toThrow("current plan head is missing");
+
+    expect(invoke).toHaveBeenLastCalledWith(
+      "get_workbench_plan_head_correlation_summary",
+      expect.objectContaining({
+        input: expect.objectContaining({ sessionId: "workbench:test" }),
+      }),
+    );
   });
 });
 

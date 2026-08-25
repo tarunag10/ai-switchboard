@@ -228,6 +228,23 @@ export interface WorkbenchRunPlan {
   writesEnabled: false;
 }
 
+export interface WorkbenchPlanHeadCorrelationSummary {
+  schemaVersion: number;
+  headId: string;
+  sessionId: string;
+  planId: string;
+  generation: number;
+  sessionSnapshotDigest: string;
+  planSnapshotDigest: string;
+  predecessorHeadId: string | null;
+  predecessorRecordDigest: string | null;
+}
+
+export interface WorkbenchPlanHeadCorrelationSummaryInput {
+  sessionId: string;
+  runPlan: WorkbenchRunPlan;
+}
+
 export interface WorkbenchCapabilityProjection {
   schemaVersion: number;
   executionMode: "plan_only";
@@ -342,6 +359,15 @@ export function prepareWorkbenchRunPlan(
   input: WorkbenchRunSpecInput,
 ): Promise<WorkbenchRunPlan> {
   return invoke<WorkbenchRunPlan>("prepare_workbench_run_plan", { input });
+}
+
+export function getWorkbenchPlanHeadCorrelationSummary(
+  input: WorkbenchPlanHeadCorrelationSummaryInput,
+): Promise<WorkbenchPlanHeadCorrelationSummary> {
+  return invoke<WorkbenchPlanHeadCorrelationSummary>(
+    "get_workbench_plan_head_correlation_summary",
+    { input },
+  );
 }
 
 export function issueWorkbenchProcessStartGrant(

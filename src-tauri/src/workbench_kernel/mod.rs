@@ -65,6 +65,7 @@ pub use run_contract::{
 };
 use run_plan_publication::prepare_and_publish_workbench_run_plan;
 pub use session::{CreateWorkbenchSessionInput, WorkbenchSession};
+use storage::run_plan_head::WorkbenchPlanHeadCorrelationSummary;
 use storage::WorkbenchStore;
 
 static WORKBENCH_STORE_LOCK: Mutex<()> = Mutex::new(());
@@ -99,6 +100,13 @@ pub struct WorkbenchProcessAdmissionInput {
     pub expected_plan_id: String,
     pub expected_process_run_id: String,
     pub grant_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkbenchPlanHeadCorrelationSummaryInput {
+    pub session_id: String,
+    pub run_plan: WorkbenchRunPlan,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -211,6 +219,29 @@ pub fn prepare_workbench_run_plan(
             run_contract::prepare_run_plan(session, input).map_err(|error| error.to_string())
         },
     )
+}
+
+/// Reads the current durable plan-head binding for an already selected session
+/// and prepared run plan. This is inspect-only and does not change any ledger.
+#[tauri::command]
+pub fn get_workbench_plan_head_correlation_summary(
+    input: WorkbenchPlanHeadCorrelationSummaryInput,
+) -> Result<WorkbenchPlanHeadCorrelationSummary, String> {
+    let (_guard, store) = locked_store()?;
+    let session = store
+        .get(input.session_id.trim())
+        .map_err(|error| error.to_string())?;
+    let transaction = WorkbenchProcessGrantStore::in_app_storage()
+        .begin_authority_transaction()
+        .map_err(|error| error.to_string())?;
+    storage::run_plan_head::WorkbenchPlanHeadStore::in_app_storage()
+        .current_plan_head_correlation_summary_for_authority_transaction(
+            &transaction,
+            &store,
+            &session,
+            &input.run_plan,
+        )
+        .map_err(|error| error.to_string())
 }
 
 /// Stores an explicit, expiry-bound authorization receipt for one previously

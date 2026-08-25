@@ -34,6 +34,7 @@ import {
   forkWorkbenchSession,
   getAdapterCommandReadinessPolicy,
   getWorkbenchCapabilityProjection,
+  getWorkbenchPlanHeadCorrelationSummary,
   isWorkbenchDigest,
   issueWorkbenchProcessStartGrant,
   listWorkbenchProcessStartGrants,
@@ -44,6 +45,7 @@ import {
   transitionWorkbenchSession,
   type WorkbenchCapabilityProjection,
   type WorkbenchAdmissionEligibilitySnapshot,
+  type WorkbenchPlanHeadCorrelationSummary,
   type WorkbenchProcessAdmission,
   type WorkbenchProcessStartGrantView,
   type WorkbenchRunPlan,
@@ -137,6 +139,7 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
   ]);
   const [runPlan, setRunPlan] = useState<WorkbenchRunPlan | null>(null);
   const [preparedRunSpec, setPreparedRunSpec] = useState<WorkbenchRunSpecInput | null>(null);
+  const [planHeadSummary, setPlanHeadSummary] = useState<WorkbenchPlanHeadCorrelationSummary | null>(null);
   const [processGrants, setProcessGrants] = useState<WorkbenchProcessStartGrantView[]>([]);
   const [processAdmissions, setProcessAdmissions] = useState<WorkbenchProcessAdmission[]>([]);
   const [admissionEligibility, setAdmissionEligibility] = useState<WorkbenchAdmissionEligibilitySnapshot | null>(null);
@@ -172,6 +175,7 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
     planRevision.current += 1;
     setRunPlan(null);
     setPreparedRunSpec(null);
+    setPlanHeadSummary(null);
     setAdmissionEligibility(null);
     setConfirmationPhrase("");
   }, []);
@@ -284,9 +288,33 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
           setAdmissionEligibility(null);
           setError(messageFrom(reason, "Current admission eligibility could not be derived."));
         }
-      });
+    });
     return () => { cancelled = true; };
   }, [desktopRuntime, hidden, preparedRunSpec, runPlan, selectedSession?.sessionId, selectedSession?.updatedAt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPlanHeadSummary(null);
+    if (hidden || !desktopRuntime || !selectedSession || !runPlan) {
+      return () => { cancelled = true; };
+    }
+    void getWorkbenchPlanHeadCorrelationSummary({
+      sessionId: selectedSession.sessionId,
+      runPlan,
+    })
+      .then((summary) => {
+        if (!cancelled && summary.sessionId === selectedSession.sessionId && summary.planId === runPlan.planId) {
+          setPlanHeadSummary(summary);
+        }
+      })
+      .catch((reason) => {
+        if (!cancelled) {
+          setPlanHeadSummary(null);
+          setError(messageFrom(reason, "Current plan-head correlation could not be loaded."));
+        }
+      });
+    return () => { cancelled = true; };
+  }, [desktopRuntime, hidden, runPlan, selectedSession?.sessionId, selectedSession?.updatedAt]);
 
   useEffect(() => {
     if (hidden || !desktopRuntime || !selectedSession) return;
@@ -907,6 +935,27 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
                   <p><strong>Execution:</strong> {runPlan.executionMode} · <strong>Provider traffic:</strong> {runPlan.providerTraffic} · <strong>Writes:</strong> disabled</p>
                   <p className="optimize-minimal__meta workbench-long-value">Plan ID: {runPlan.planId}</p>
                 </div>
+                {planHeadSummary ? (
+                  <section className="workbench-projection" aria-labelledby="workbench-plan-head-title">
+                    <h3 id="workbench-plan-head-title">Current plan-head correlation</h3>
+                    <p className="optimize-minimal__meta workbench-long-value">
+                      Plan ID: {planHeadSummary.planId} · Head ID: {planHeadSummary.headId}
+                    </p>
+                    <p>
+                      <strong>Generation:</strong> {planHeadSummary.generation} · <strong>Session snapshot digest:</strong> {planHeadSummary.sessionSnapshotDigest}
+                    </p>
+                    <p>
+                      <strong>Plan snapshot digest:</strong> {planHeadSummary.planSnapshotDigest}
+                    </p>
+                    {planHeadSummary.predecessorHeadId || planHeadSummary.predecessorRecordDigest ? (
+                      <p className="workbench-long-value">
+                        <strong>Predecessor:</strong> {planHeadSummary.predecessorHeadId ?? "none"} · <strong>record digest:</strong> {planHeadSummary.predecessorRecordDigest ?? "none"}
+                      </p>
+                    ) : (
+                      <p className="optimize-minimal__meta">No predecessor head is bound to this current plan.</p>
+                    )}
+                  </section>
+                ) : null}
                 {runPlan.processContainment && processGrantPolicy ? (
                   <section className="workbench-projection" aria-labelledby="future-process-authorization-title">
                     <h3 id="future-process-authorization-title">Time-limited future process authorization</h3>

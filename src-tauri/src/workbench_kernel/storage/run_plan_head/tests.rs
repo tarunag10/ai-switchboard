@@ -1,8 +1,8 @@
 use std::fs;
 
 use super::{
-    plan_head_id_for, plan_head_record_digest, plan_head_tombstone_digest, WorkbenchPlanHeadStore,
-    MAX_PLAN_HEAD_LEDGER_BYTES,
+    plan_head_id_for, plan_head_record_digest, plan_head_tombstone_digest,
+    WorkbenchPlanHeadCorrelationSummary, WorkbenchPlanHeadStore, MAX_PLAN_HEAD_LEDGER_BYTES,
 };
 use crate::workbench_kernel::codex_restricted_helper_preparation_tests::fixture;
 use crate::workbench_kernel::events::WorkbenchSessionAction;
@@ -15,6 +15,24 @@ fn changed_plan(
     plan.router_decision.evidence_digest = format!("sha256:{}", "9".repeat(64));
     plan.plan_id = workbench_run_plan_identity(&plan).expect("changed plan identity");
     plan
+}
+
+fn current_plan_head_summary(
+    store: &WorkbenchPlanHeadStore,
+    transaction: &crate::workbench_kernel::capability_grant::WorkbenchAuthorityTransaction,
+    value: &crate::workbench_kernel::codex_restricted_helper_preparation_tests::Fixture,
+) -> WorkbenchPlanHeadCorrelationSummary {
+    let summary = store
+        .current_plan_head_correlation_summary_for_authority_transaction(
+            transaction,
+            &value.session_store,
+            &value.session,
+            &value.plan,
+        )
+        .expect("current plan-head summary");
+    assert_eq!(summary.session_id, value.session.session_id);
+    assert_eq!(summary.plan_id, value.plan.plan_id);
+    summary
 }
 
 #[test]
@@ -87,6 +105,23 @@ fn publish_is_idempotent_and_a_b_a_supersession_has_unique_heads() {
             )
             .expect("require third head"),
         third
+    );
+    let summary = current_plan_head_summary(&store, &transaction, &value);
+    assert_eq!(summary.schema_version, 1);
+    assert_eq!(summary.head_id, third.head_id);
+    assert_eq!(summary.generation, third.generation);
+    assert_eq!(
+        summary.session_snapshot_digest,
+        third.session_snapshot_digest
+    );
+    assert_eq!(summary.plan_snapshot_digest, third.plan_snapshot_digest);
+    assert_eq!(
+        summary.predecessor_head_id.as_deref(),
+        third.predecessor_head_id.as_deref()
+    );
+    assert_eq!(
+        summary.predecessor_record_digest.as_deref(),
+        third.predecessor_record_digest.as_deref()
     );
 }
 
@@ -259,6 +294,51 @@ fn unknown_or_corrupt_ledger_is_rejected_and_preserved() {
         fs::read(&path).expect("preserve corrupt ledger"),
         b"{not json"
     );
+}
+
+#[test]
+fn current_plan_head_summary_fails_closed_for_tampered_ledger() {
+    let value = fixture();
+    let path = value
+        .directory
+        .path()
+        .join("summary-tamper-plan-heads.json");
+    let store = WorkbenchPlanHeadStore::at(path.clone());
+    let transaction = value
+        .grant_store
+        .begin_authority_transaction()
+        .expect("plan-head transaction");
+    store
+        .publish_for_authority_transaction(
+            &transaction,
+            &value.session_store,
+            &value.session,
+            &value.plan,
+        )
+        .expect("publish head");
+    drop(transaction);
+    let mut document: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).expect("plan-head bytes"))
+            .expect("decode plan-head ledger");
+    document.as_object_mut().expect("plan-head object").insert(
+        "unexpectedField".into(),
+        serde_json::Value::String("forbidden".into()),
+    );
+    let tampered = serde_json::to_vec_pretty(&document).expect("encode tampered ledger");
+    fs::write(&path, &tampered).expect("write tampered ledger");
+    let transaction = value
+        .grant_store
+        .begin_authority_transaction()
+        .expect("summary transaction");
+    assert!(store
+        .current_plan_head_correlation_summary_for_authority_transaction(
+            &transaction,
+            &value.session_store,
+            &value.session,
+            &value.plan,
+        )
+        .is_err());
+    assert_eq!(fs::read(&path).expect("preserve tampered ledger"), tampered);
 }
 
 #[test]

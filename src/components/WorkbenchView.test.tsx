@@ -8,6 +8,7 @@ const listSessions = vi.fn();
 const projection = vi.fn();
 const createSession = vi.fn();
 const preparePlan = vi.fn();
+const getPlanHeadCorrelationSummary = vi.fn();
 const issueProcessStartGrant = vi.fn();
 const listProcessStartGrants = vi.fn();
 const revokeProcessStartGrant = vi.fn();
@@ -40,6 +41,7 @@ vi.mock("../lib/workbench", async () => {
     ...actual,
     listWorkbenchSessions: (...args: unknown[]) => listSessions(...args),
     getWorkbenchCapabilityProjection: (...args: unknown[]) => projection(...args),
+    getWorkbenchPlanHeadCorrelationSummary: (...args: unknown[]) => getPlanHeadCorrelationSummary(...args),
     createWorkbenchSession: (...args: unknown[]) => createSession(...args),
     prepareWorkbenchRunPlan: (...args: unknown[]) => preparePlan(...args),
     issueWorkbenchProcessStartGrant: (...args: unknown[]) => issueProcessStartGrant(...args),
@@ -121,6 +123,18 @@ const session = {
   }],
 };
 
+const planHeadSummary = {
+  schemaVersion: 1,
+  headId: "plan-head:test",
+  sessionId: session.sessionId,
+  planId: "run-plan:test",
+  generation: 2,
+  sessionSnapshotDigest: `sha256:${"e".repeat(64)}`,
+  planSnapshotDigest: `sha256:${"f".repeat(64)}`,
+  predecessorHeadId: "plan-head:previous",
+  predecessorRecordDigest: `sha256:${"1".repeat(64)}`,
+};
+
 const capabilityProjection = {
   schemaVersion: 1,
   executionMode: "plan_only" as const,
@@ -189,6 +203,7 @@ describe("WorkbenchView", () => {
     }));
     listProcessStartGrants.mockResolvedValue([]);
     listProcessAdmissions.mockResolvedValue([]);
+    getPlanHeadCorrelationSummary.mockResolvedValue(planHeadSummary);
     deriveAdmissionEligibility.mockResolvedValue({
       schemaVersion: 1,
       sessionId: session.sessionId,
@@ -338,10 +353,66 @@ describe("WorkbenchView", () => {
       replayReferenceId: null,
       presetId: null,
     }));
-    expect(await screen.findByText(/plan id: run-plan:test/i)).toBeInTheDocument();
+    const preparedPlan = screen.getByRole("heading", { name: "Prepared plan" }).closest("article");
+    expect(preparedPlan).not.toBeNull();
+    expect(within(preparedPlan as HTMLElement).getByText("Plan ID: run-plan:test", { exact: true })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Observe-only Router decision ID")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Router evidence SHA-256 digest")).not.toBeInTheDocument();
+  });
+
+  it("renders the current plan-head binding without exposing execution or fabricated metrics", async () => {
+    const user = userEvent.setup();
+    preparePlan.mockResolvedValue({
+      schemaVersion: 1,
+      planId: planHeadSummary.planId,
+      sessionId: session.sessionId,
+      adapterId: "codex",
+      workspaceDigest,
+      contextPackDigest: null,
+      routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
+      replayReference: null,
+      preset: null,
+      requestedMode: "full",
+      adapterPlanId: "adapter-plan:test",
+      adapterAction: "apply_managed_routing",
+      adapterReversible: true,
+      commandReadiness: null,
+      processContainment: null,
+      capabilityRequests: [],
+      executionMode: "plan_only",
+      providerTraffic: "none",
+      writesEnabled: false,
+    });
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
+    await user.click(screen.getByRole("button", { name: "Prepare plan only" }));
+
+    expect(getPlanHeadCorrelationSummary).toHaveBeenCalledWith({
+      sessionId: session.sessionId,
+      runPlan: expect.objectContaining({
+        planId: planHeadSummary.planId,
+        sessionId: session.sessionId,
+      }),
+    });
+    expect(await screen.findByRole("heading", { name: "Current plan-head correlation" })).toBeInTheDocument();
+    const correlation = screen.getByRole("heading", { name: "Current plan-head correlation" }).closest("section");
+    expect(correlation).not.toBeNull();
+    const correlationSection = within(correlation as HTMLElement);
+    expect(correlationSection.getByText(/plan id: run-plan:test.*head id: plan-head:test/i)).toBeInTheDocument();
+    const sessionDigest = correlationSection.getByText("Session snapshot digest:", { exact: true }).parentElement;
+    const planDigest = correlationSection.getByText("Plan snapshot digest:", { exact: true }).parentElement;
+    const predecessor = correlationSection.getByText("Predecessor:", { exact: true }).parentElement;
+    expect(sessionDigest).not.toBeNull();
+    expect(planDigest).not.toBeNull();
+    expect(predecessor).not.toBeNull();
+    expect(correlation as HTMLElement).toHaveTextContent(/Generation:\s*2/);
+    expect(sessionDigest as HTMLElement).toHaveTextContent(planHeadSummary.sessionSnapshotDigest);
+    expect(planDigest as HTMLElement).toHaveTextContent(planHeadSummary.planSnapshotDigest);
+    expect(predecessor as HTMLElement).toHaveTextContent(planHeadSummary.predecessorHeadId);
+    expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
   });
 
   it("discards a late prepared plan after a visible plan input changes", async () => {

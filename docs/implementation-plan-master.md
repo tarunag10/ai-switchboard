@@ -553,6 +553,15 @@ Core extraction progress:
   the existing Tauri record/ledger digests and storage behavior remain the
   compatibility boundary. The focused plan-head storage suite (10 tests) and
   full Workbench suite (211 tests) pass after this integration.
+- Workbench plan-head correlation is now exposed through an additive,
+  read-only Tauri command and Workbench UI projection. The adapter validates
+  the durable current head against the selected session and run plan, and
+  returns only content-free head identity, generation, snapshot digests, and
+  predecessor binding. Tampered-ledger and UI correlation coverage has been
+  added. Filesystem persistence, locking, snapshot decoding, ledger
+  publication, and the full provider-neutral receipt/ledger adapter remain
+  Tauri-owned; this slice does not complete plan-head extraction or enable
+  execution.
 - `switchboard-core::process_grant` now owns the first provider-neutral process
   grant contract: strict persisted schema, fixed TTL/status/revocation rules,
   plan-only flags, deterministic receipt digest, and effective-state checks.

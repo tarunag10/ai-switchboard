@@ -56,6 +56,20 @@ pub(in crate::workbench_kernel) struct WorkbenchPlanHead {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkbenchPlanHeadCorrelationSummary {
+    pub schema_version: u32,
+    pub head_id: String,
+    pub session_id: String,
+    pub plan_id: String,
+    pub generation: u64,
+    pub session_snapshot_digest: String,
+    pub plan_snapshot_digest: String,
+    pub predecessor_head_id: Option<String>,
+    pub predecessor_record_digest: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RetiredWorkbenchPlanHead {
     head: WorkbenchPlanHead,
     superseded_by_head_id: String,
@@ -448,6 +462,32 @@ impl WorkbenchPlanHeadStore {
             bail!("Workbench supplied plan is not the durable current-plan head");
         }
         Ok(head)
+    }
+
+    pub(in crate::workbench_kernel) fn current_plan_head_correlation_summary_for_authority_transaction(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+        session_store: &WorkbenchStore,
+        session: &WorkbenchSession,
+        plan: &WorkbenchRunPlan,
+    ) -> Result<WorkbenchPlanHeadCorrelationSummary> {
+        let head = self.require_current_for_authority_transaction(
+            transaction,
+            session_store,
+            session,
+            plan,
+        )?;
+        Ok(WorkbenchPlanHeadCorrelationSummary {
+            schema_version: PLAN_HEAD_SCHEMA_VERSION,
+            head_id: head.head_id,
+            session_id: head.session_id,
+            plan_id: head.plan_id,
+            generation: head.generation,
+            session_snapshot_digest: head.session_snapshot_digest,
+            plan_snapshot_digest: head.plan_snapshot_digest,
+            predecessor_head_id: head.predecessor_head_id,
+            predecessor_record_digest: head.predecessor_record_digest,
+        })
     }
 
     fn authority_directory(&self) -> Result<&Path> {

@@ -893,6 +893,7 @@ pub fn run() {
             workbench_kernel::transition_workbench_session,
             workbench_kernel::fork_workbench_session,
             workbench_kernel::prepare_workbench_run_plan,
+            workbench_kernel::get_workbench_plan_head_correlation_summary,
             workbench_kernel::issue_workbench_process_start_grant,
             workbench_kernel::list_workbench_process_start_grants,
             workbench_kernel::revoke_workbench_process_start_grant,

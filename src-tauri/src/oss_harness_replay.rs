@@ -535,9 +535,9 @@ mod tests {
         assert_eq!(actual, fixture["expected"]);
         assert_eq!(actual["automaticPromotion"], "disabled");
         assert_eq!(actual["providerTraffic"], "none");
-        assert!(actual["replayDigest"].as_str().is_some_and(|digest| {
-            digest.starts_with("sha256:") && digest.len() == 71
-        }));
+        assert!(actual["replayDigest"]
+            .as_str()
+            .is_some_and(|digest| { digest.starts_with("sha256:") && digest.len() == 71 }));
     }
 
     #[test]
