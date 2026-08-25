@@ -7,6 +7,7 @@ import {
   loadModelRoutingExperimentPolicy,
   modelRoutingEffectiveStageReceipt,
   saveModelRoutingExperimentPolicy,
+  type ModelRoutingEvidenceObservation,
   type ModelRoutingEffectiveStageReceipt,
   type ModelRoutingExperimentPolicy,
   type ModelRoutingPolicyPreset,
@@ -16,7 +17,13 @@ import { ModelRoutingEvidenceCapture } from "./ModelRoutingEvidenceCapture";
 
 const taskClasses = ["formatting", "commit_message", "rename", "diff_summary"] as const;
 
-export function ModelRoutingExperimentCard() {
+type ModelRoutingExperimentCardProps = {
+  evidenceObservation?: ModelRoutingEvidenceObservation | null;
+};
+
+export function ModelRoutingExperimentCard({
+  evidenceObservation,
+}: ModelRoutingExperimentCardProps) {
   const [policy, setPolicy] = useState<ModelRoutingExperimentPolicy>(
     defaultModelRoutingExperimentPolicy,
   );
@@ -197,7 +204,7 @@ export function ModelRoutingExperimentCard() {
         {saving ? "Saving" : "Save routing policy"}
       </button>
       {notice ? <p role="status">{notice}</p> : null}
-      <ModelRoutingEvidenceCapture />
+      <ModelRoutingEvidenceCapture observation={evidenceObservation} />
     </article>
   );
 }

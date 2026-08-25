@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ModelRoutingExperimentCard } from "./ModelRoutingExperimentCard";
+import { ModelRoutingEvidenceCapture } from "./ModelRoutingEvidenceCapture";
 import { OptimizationActionPanel, PreemptiveCompactionButton } from "./OptimizationActionControls";
 import { OptimizationStatusIcon, PromptCacheClientProofList, RoutingValidationPanel } from "./OptimizationValidationPanels";
 
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   loadRouting: vi.fn(), saveRouting: vi.fn(),
   listRoutingPresets: vi.fn(), getEffectiveRoutingStage: vi.fn(),
   exportEvidenceForHandle: vi.fn(),
+  recordEvidence: vi.fn(),
   issueCompletionHandle: vi.fn(), completeCompletion: vi.fn(),
 }));
 
@@ -24,6 +26,7 @@ vi.mock("../lib/optimization", async (importOriginal) => ({
   listModelRoutingPolicyPresets: mocks.listRoutingPresets,
   getModelRoutingEffectiveStageReceipt: mocks.getEffectiveRoutingStage,
   exportModelRoutingEvidenceForHandle: mocks.exportEvidenceForHandle,
+  recordModelRoutingEvidence: mocks.recordEvidence,
   issueModelRoutingCompletionHandle: mocks.issueCompletionHandle,
   completeModelRoutingCompletion: mocks.completeCompletion,
 }));
@@ -128,14 +131,14 @@ describe("optimization supporting panels", () => {
       disabledClients: ["codex", "claude_code"],
       automaticTaskAllowlist: ["formatting"],
     })));
-    expect(await screen.findByRole("status")).toHaveTextContent("saved locally");
+    expect(await screen.findByText("Model-routing experiment policy saved locally.")).toBeInTheDocument();
   });
 
   it("surfaces routing policy persistence errors", async () => {
     mocks.saveRouting.mockRejectedValue("storage blocked");
     render(<ModelRoutingExperimentCard />);
     fireEvent.click(await screen.findByRole("button", { name: "Save routing policy" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("storage blocked");
+    expect(await screen.findByText("storage blocked")).toBeInTheDocument();
   });
 
   it("loads a native policy preset as a draft without saving or validating routes", async () => {
@@ -143,13 +146,77 @@ describe("optimization supporting panels", () => {
     await screen.findByRole("button", { name: "Load Pause experiments" });
     fireEvent.click(screen.getByRole("button", { name: "Load Pause experiments" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/unsaved draft/i);
+    expect(await screen.findByText(/unsaved draft/i)).toBeInTheDocument();
     expect(mocks.saveRouting).not.toHaveBeenCalled();
     expect(mocks.validate).not.toHaveBeenCalled();
     expect(mocks.issueCompletionHandle).not.toHaveBeenCalled();
   });
 
-  it("wires the native completion handle lifecycle into the routing UI", async () => {
+  it("disables explicit evidence recording until an observation is supplied", async () => {
+    render(<ModelRoutingEvidenceCapture />);
+
+    const recordButton = screen.getByRole("button", { name: "Record supplied observation" });
+    expect(recordButton).toBeDisabled();
+    expect(screen.getByText("No explicit routing observation supplied yet.")).toBeInTheDocument();
+    fireEvent.click(recordButton);
+    expect(mocks.recordEvidence).not.toHaveBeenCalled();
+  });
+
+  it("forwards an explicitly supplied observation without adding defaults", async () => {
+    const observation = {
+      runId: "native-run-2",
+      capturedAt: "2026-08-24T10:00:00Z",
+      taskClass: "diff_summary",
+      arm: "candidate" as const,
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      succeeded: false,
+      successfulTaskCostMicrounits: null,
+      qualityScoreBps: 9123,
+      latencyMs: 456,
+      followUpRework: true,
+    };
+    mocks.recordEvidence.mockResolvedValueOnce(undefined);
+
+    render(<ModelRoutingEvidenceCapture observation={observation} />);
+
+    const recordButton = screen.getByRole("button", { name: "Record supplied observation" });
+    expect(recordButton).toBeEnabled();
+    expect(screen.getByText(/Supplied observation ready: native-run-2 · diff_summary · candidate/)).toBeInTheDocument();
+
+    fireEvent.click(recordButton);
+
+    await waitFor(() => expect(mocks.recordEvidence).toHaveBeenCalledWith(observation));
+    expect(screen.getByText("Supplied routing observation recorded exactly as provided.")).toBeInTheDocument();
+    expect(mocks.recordEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the parent pass an explicit observation through to the capture panel", async () => {
+    const observation = {
+      runId: "native-run-3",
+      capturedAt: "2026-08-24T10:15:00Z",
+      taskClass: "formatting",
+      arm: "baseline" as const,
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      succeeded: true,
+      successfulTaskCostMicrounits: 800,
+      qualityScoreBps: 9900,
+      latencyMs: 500,
+      followUpRework: false,
+    };
+    mocks.recordEvidence.mockResolvedValueOnce(undefined);
+
+    render(<ModelRoutingExperimentCard evidenceObservation={observation} />);
+
+    const recordButton = screen.getByRole("button", { name: "Record supplied observation" });
+    expect(recordButton).toBeEnabled();
+    fireEvent.click(recordButton);
+
+    await waitFor(() => expect(mocks.recordEvidence).toHaveBeenCalledWith(observation));
+  });
+
+  it("keeps completion disabled until the explicit success, quality, latency, and cost inputs are supplied", async () => {
     mocks.issueCompletionHandle.mockResolvedValue({
       handleId: "handle-1",
       runId: "native-run-1",
@@ -180,12 +247,65 @@ describe("optimization supporting panels", () => {
     await waitFor(() => expect(mocks.issueCompletionHandle).toHaveBeenCalledWith(expect.objectContaining({
       client: "codex", task: "formatting", requestedModel: "frontier", cheapModel: "fast/local", capableModel: "frontier",
     })));
-    fireEvent.click(await screen.findByRole("button", { name: "Complete provider outcome" }));
+    const completeButton = await screen.findByRole("button", { name: "Complete provider outcome" });
+    expect(completeButton).toBeDisabled();
+    fireEvent.click(completeButton);
+    expect(mocks.completeCompletion).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Successful task outcome"), { target: { value: "succeeded" } });
+    fireEvent.change(screen.getByLabelText("Quality score"), { target: { value: "9800" } });
+    fireEvent.change(screen.getByLabelText("Latency"), { target: { value: "700" } });
+    expect(screen.getByRole("button", { name: "Complete provider outcome" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Successful task cost"), { target: { value: "900" } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete provider outcome" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Complete provider outcome" }));
     await waitFor(() => expect(mocks.completeCompletion).toHaveBeenCalledWith("handle-1", expect.objectContaining({
-      succeeded: true, qualityScoreBps: 10000,
+      succeeded: true,
+      successfulTaskCostMicrounits: 900,
+      qualityScoreBps: 9800,
+      latencyMs: 700,
     })));
     expect(await screen.findByText(/routing-decision-1/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Export completion evidence" }));
     await waitFor(() => expect(mocks.exportEvidenceForHandle).toHaveBeenCalledWith("handle-1", "formatting"));
+  });
+
+  it("allows failed outcomes to complete without a successful-task cost once the remaining fields are explicit", async () => {
+    mocks.issueCompletionHandle.mockResolvedValue({
+      handleId: "handle-2",
+      runId: "native-run-2",
+      issuedAt: "2026-08-23T00:00:00Z",
+      expiresAt: "2026-08-23T00:10:00Z",
+      decision: { stage: "observe", selectedModel: "fast/local" },
+    });
+    mocks.completeCompletion.mockResolvedValue({
+      schemaVersion: 1,
+      decisionId: "routing-decision-2",
+      runId: "native-run-2",
+      capturedAt: "2026-08-23T00:00:00Z",
+      taskClass: "formatting",
+      decisionStage: "observe",
+      routingMode: "observe_only",
+      evidenceDigest: `sha256:${"b".repeat(64)}`,
+    });
+    render(<ModelRoutingExperimentCard />);
+    fireEvent.click(screen.getByRole("button", { name: "Issue completion handle" }));
+    await waitFor(() => expect(mocks.issueCompletionHandle).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Successful task outcome"), { target: { value: "failed" } });
+    fireEvent.change(screen.getByLabelText("Quality score"), { target: { value: "9123" } });
+    fireEvent.change(screen.getByLabelText("Latency"), { target: { value: "456" } });
+
+    const completeButton = screen.getByRole("button", { name: "Complete provider outcome" });
+    await waitFor(() => expect(completeButton).toBeEnabled());
+    fireEvent.click(completeButton);
+
+    await waitFor(() => expect(mocks.completeCompletion).toHaveBeenCalledWith("handle-2", expect.objectContaining({
+      succeeded: false,
+      successfulTaskCostMicrounits: null,
+      qualityScoreBps: 9123,
+      latencyMs: 456,
+    })));
   });
 });

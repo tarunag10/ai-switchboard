@@ -4,15 +4,17 @@ import {
   completeModelRoutingCompletion,
   exportModelRoutingEvidenceForHandle,
   issueModelRoutingCompletionHandle,
+  recordModelRoutingEvidence,
   type ModelRoutingDecisionReference,
   type ModelRoutingEvidenceArtifact,
   type ModelRoutingCompletionHandle,
+  type ModelRoutingEvidenceObservation,
 } from "../lib/optimization";
 
 type CaptureState = {
   runId: string;
   taskClass: string;
-  succeeded: boolean;
+  succeeded: boolean | null;
   costMicrounits: string;
   qualityScoreBps: string;
   latencyMs: string;
@@ -23,12 +25,16 @@ type CaptureState = {
   capableModel: string;
 };
 
+type ModelRoutingEvidenceCaptureProps = {
+  observation?: ModelRoutingEvidenceObservation | null;
+};
+
 const initialState: CaptureState = {
   runId: "",
   taskClass: "formatting",
-  succeeded: true,
+  succeeded: null,
   costMicrounits: "",
-  qualityScoreBps: "10000",
+  qualityScoreBps: "",
   latencyMs: "",
   followUpRework: false,
   client: "codex",
@@ -36,6 +42,22 @@ const initialState: CaptureState = {
   cheapModel: "",
   capableModel: "",
 };
+
+function completionBlockReason(state: CaptureState): string | null {
+  if (state.succeeded === null) {
+    return "Select whether the provider outcome succeeded before completing it.";
+  }
+  if (!state.qualityScoreBps.trim()) {
+    return "Supply a quality score before completing the provider outcome.";
+  }
+  if (!state.latencyMs.trim()) {
+    return "Supply latency before completing the provider outcome.";
+  }
+  if (state.succeeded && !state.costMicrounits.trim()) {
+    return "Supply successful-task cost before completing a successful outcome.";
+  }
+  return null;
+}
 
 function numericValue(value: string, label: string): number {
   const parsed = Number(value);
@@ -45,13 +67,16 @@ function numericValue(value: string, label: string): number {
   return parsed;
 }
 
-export function ModelRoutingEvidenceCapture() {
+export function ModelRoutingEvidenceCapture({
+  observation,
+}: ModelRoutingEvidenceCaptureProps) {
   const [state, setState] = useState<CaptureState>(initialState);
   const [working, setWorking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [artifact, setArtifact] = useState<ModelRoutingEvidenceArtifact | null>(null);
   const [completionHandle, setCompletionHandle] = useState<ModelRoutingCompletionHandle | null>(null);
   const [decisionReference, setDecisionReference] = useState<ModelRoutingDecisionReference | null>(null);
+  const completionReady = completionBlockReason(state) === null;
 
   const update = <K extends keyof CaptureState>(key: K, value: CaptureState[K]) => {
     setState((current) => ({ ...current, [key]: value }));
@@ -107,12 +132,21 @@ export function ModelRoutingEvidenceCapture() {
 
   const completeHandle = async () => {
     if (!completionHandle) return;
+    const blockReason = completionBlockReason(state);
+    if (blockReason) {
+      setNotice(blockReason);
+      return;
+    }
     setWorking(true);
     setNotice(null);
     try {
+      const succeeded = state.succeeded;
+      if (succeeded === null) {
+        throw new Error("Select whether the provider outcome succeeded before completing it.");
+      }
       const reference = await completeModelRoutingCompletion(completionHandle.handleId, {
-        succeeded: state.succeeded,
-        successfulTaskCostMicrounits: state.succeeded
+        succeeded,
+        successfulTaskCostMicrounits: succeeded
           ? numericValue(state.costMicrounits, "Successful task cost")
           : null,
         qualityScoreBps: numericValue(state.qualityScoreBps, "Quality score"),
@@ -121,6 +155,23 @@ export function ModelRoutingEvidenceCapture() {
       });
       setDecisionReference(reference);
       setNotice("Provider outcome completed. Its native observe-only Router receipt is now available in Workbench.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const recordObservation = async () => {
+    if (!observation) {
+      setNotice("Supply an explicit routing observation to record evidence.");
+      return;
+    }
+    setWorking(true);
+    setNotice(null);
+    try {
+      await recordModelRoutingEvidence(observation);
+      setNotice("Supplied routing observation recorded exactly as provided.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     } finally {
@@ -161,6 +212,14 @@ export function ModelRoutingEvidenceCapture() {
           <input aria-label="Routing capable model" value={state.capableModel} onChange={(event) => update("capableModel", event.target.value)} />
         </label>
         <label>
+          Successful task succeeded?
+          <select aria-label="Successful task outcome" value={state.succeeded === null ? "" : state.succeeded ? "succeeded" : "failed"} onChange={(event) => update("succeeded", event.target.value === "" ? null : event.target.value === "succeeded")}>
+            <option value="">Unset</option>
+            <option value="succeeded">Succeeded</option>
+            <option value="failed">Failed</option>
+          </select>
+        </label>
+        <label>
           Successful-task cost (microunits)
           <input aria-label="Successful task cost" inputMode="numeric" value={state.costMicrounits} onChange={(event) => update("costMicrounits", event.target.value)} />
         </label>
@@ -174,16 +233,21 @@ export function ModelRoutingEvidenceCapture() {
         </label>
       </div>
       <label>
-        <input type="checkbox" checked={state.succeeded} onChange={(event) => update("succeeded", event.target.checked)} /> Successful task
-      </label>
-      <label>
         <input type="checkbox" checked={state.followUpRework} onChange={(event) => update("followUpRework", event.target.checked)} /> Follow-up rework required
       </label>
       <div className="optimization-evidence-capture__actions">
+        <button className="addon-card__action" disabled={working || !observation} onClick={() => void recordObservation()} type="button">Record supplied observation</button>
         <button className="addon-card__action" disabled={working} onClick={() => void issueHandle()} type="button">Issue completion handle</button>
-        <button className="addon-card__action" disabled={working || !completionHandle} onClick={() => void completeHandle()} type="button">Complete provider outcome</button>
+        <button className="addon-card__action" disabled={working || !completionHandle || !completionReady} onClick={() => void completeHandle()} type="button">Complete provider outcome</button>
         <button className="addon-card__action" disabled={working || completionHandle === null} onClick={() => void exportRun()} type="button">Export completion evidence</button>
       </div>
+      {completionHandle && !completionReady ? <p role="status">Complete the explicit outcome fields before finishing the provider result.</p> : null}
+      {!observation ? <p role="status">No explicit routing observation supplied yet.</p> : null}
+      {observation ? (
+        <p role="status">
+          Supplied observation ready: {observation.runId} · {observation.taskClass} · {observation.arm}
+        </p>
+      ) : null}
       {completionHandle ? <p role="status">Active handle: {completionHandle.handleId} ({completionHandle.decision.stage}; {completionHandle.decision.selectedModel})</p> : null}
       {decisionReference ? <p role="status"><strong>Workbench Router receipt:</strong> {decisionReference.decisionId} · {decisionReference.routingMode} · {decisionReference.evidenceDigest}</p> : null}
       {notice ? <p role="status">{notice}</p> : null}

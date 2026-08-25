@@ -732,6 +732,12 @@ Core extraction progress:
   boundary. Public release proof remains a separate command; script-level
   execution and summary tests verify that neither proof command is invoked by
   the local chain.
+- Model-routing evidence capture no longer silently fabricates completion
+  observations: success/failure, quality, latency, and applicable cost are
+  explicit before completion; direct recording is disabled without a caller-
+  supplied observation and forwards supplied payloads unchanged. Focused
+  supporting-panel coverage and TypeScript validation pass while routing stays
+  observe-only.
 
 ### Remaining build work
 
