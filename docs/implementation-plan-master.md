@@ -781,6 +781,11 @@ Core extraction progress:
   evidence paths. This is publish hygiene for the CLI payload, not a claim
   that the packed tarball is a full source distribution. The pack contract and
   existing Switchboard CLI gate pass.
+- Release Readiness now explicitly displays the computed local-evidence state
+  (loaded or missing) and public-release-gate state (ready or blocked). The
+  card remains informational and reuses existing report data; it does not
+  imply signing, notarization, reboot, or public-release completion. Focused
+  UI coverage and TypeScript validation pass.
 
 ### Remaining build work
 

@@ -6,6 +6,7 @@ import {
   releaseReadinessGroups,
   releaseReadinessItemCount,
   releaseShareableGates,
+  type ReleaseReadinessEvidenceSummary,
   type ReleaseReadinessNextAction,
 } from "../lib/releaseReadiness";
 
@@ -64,7 +65,7 @@ interface SettingsReleaseReadinessCardProps {
   releaseReadinessCopyNotice: string | null;
   releaseReadinessCounts: ReleaseReadinessCounts;
   releaseReadinessError: string | null;
-  releaseReadinessEvidence: { copy: string };
+  releaseReadinessEvidence: ReleaseReadinessEvidenceSummary;
   releaseReadinessRefreshing: boolean;
   releaseReadinessReport: ReleaseReadinessReportPayload | null;
   releaseReadinessRows: ReleaseReadinessRow[];
@@ -167,6 +168,45 @@ export function SettingsReleaseReadinessCard({
       <p className="release-readiness-card__source">
         {releaseReadinessEvidence.copy}
       </p>
+      <div
+        className="release-readiness-card__status-grid"
+        aria-label="Release readiness evidence state"
+      >
+        <div className="release-readiness-card__status-row">
+          <div>
+            <strong>Local readiness evidence</strong>
+            <span>
+              {releaseReadinessEvidence.reportLoaded
+                ? "Report loaded from the local checkout."
+                : "No report loaded yet; local readiness proof is not available."}
+            </span>
+          </div>
+          <span
+            className={`release-readiness-card__status-badge release-readiness-card__status-badge--${
+              releaseReadinessEvidence.reportLoaded ? "ready" : "blocked"
+            }`}
+          >
+            {releaseReadinessEvidence.reportLoaded ? "Loaded" : "Missing"}
+          </span>
+        </div>
+        <div className="release-readiness-card__status-row">
+          <div>
+            <strong>Public release gate</strong>
+            <span>
+              {releaseReadinessEvidence.publicGateReady
+                ? "Public release gate is ready in the loaded report."
+                : "Public release gate is still blocked in the loaded report."}
+            </span>
+          </div>
+          <span
+            className={`release-readiness-card__status-badge release-readiness-card__status-badge--${
+              releaseReadinessEvidence.publicGateReady ? "ready" : "blocked"
+            }`}
+          >
+            {releaseReadinessEvidence.publicGateReady ? "Ready" : "Blocked"}
+          </span>
+        </div>
+      </div>
       <p
         aria-live="polite"
         className="release-readiness-card__source"

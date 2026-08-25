@@ -24,7 +24,10 @@ import type {
   ReleaseEvidenceCommandResult,
   ReleaseReadinessReportPayload,
 } from "../lib/releaseEvidenceController";
-import type { ReleaseReadinessNextAction } from "../lib/releaseReadiness";
+import type {
+  ReleaseReadinessEvidenceSummary,
+  ReleaseReadinessNextAction,
+} from "../lib/releaseReadiness";
 
 interface ReleaseReadinessRow {
   id: string;
@@ -124,7 +127,7 @@ export interface SettingsViewProps {
   releaseEvidenceResult: ReleaseEvidenceCommandResult | null;
   releaseReadinessCommand: string;
   releaseReadinessReport: ReleaseReadinessReportPayload | null;
-  releaseReadinessEvidence: { copy: string };
+  releaseReadinessEvidence: ReleaseReadinessEvidenceSummary;
   releaseReadinessAction: ReleaseReadinessNextAction | null;
   releaseReadinessError: string | null;
   releaseReadinessCounts: ReleaseReadinessCounts;

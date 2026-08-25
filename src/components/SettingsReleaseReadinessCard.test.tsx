@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -28,7 +28,15 @@ function renderCard(overrides = {}) {
     releaseReadinessCopyNotice: null,
     releaseReadinessCounts: { ready: 1, blocked: 1, "local-only": 1 },
     releaseReadinessError: null,
-    releaseReadinessEvidence: { copy: "Local evidence copy" },
+    releaseReadinessEvidence: {
+      copy: "Local evidence copy",
+      reportLoaded: false,
+      publicGateReady: false,
+      readyRows: 1,
+      blockedRows: 1,
+      localOnlyRows: 1,
+      totalRows: 3,
+    },
     releaseReadinessRefreshing: false,
     releaseReadinessReport: null,
     releaseReadinessRows: [
@@ -81,11 +89,74 @@ describe("SettingsReleaseReadinessCard", () => {
         reportPath: "dist/release-readiness-report.json",
         report: {} as never,
       },
+      releaseReadinessEvidence: {
+        copy: "Loaded report copy",
+        reportLoaded: true,
+        publicGateReady: false,
+        readyRows: 1,
+        blockedRows: 1,
+        localOnlyRows: 1,
+        totalRows: 3,
+      },
     });
 
     expect(
       screen.getByRole("button", { name: /copy report snapshot/i }),
     ).toBeInTheDocument();
+    const evidenceState = screen.getByLabelText("Release readiness evidence state");
+    expect(
+      within(evidenceState).getByText(/report loaded from the local checkout/i),
+    ).toBeInTheDocument();
+    expect(within(evidenceState).getByText("Loaded")).toBeInTheDocument();
+    expect(
+      within(evidenceState).getByText(/public release gate is still blocked/i),
+    ).toBeInTheDocument();
+    expect(within(evidenceState).getByText("Blocked")).toBeInTheDocument();
+  });
+
+  it("shows missing local evidence when no report is loaded", () => {
+    renderCard({
+      releaseReadinessReport: null,
+      releaseReadinessEvidence: {
+        copy: "No report copy",
+        reportLoaded: false,
+        publicGateReady: false,
+        readyRows: 1,
+        blockedRows: 1,
+        localOnlyRows: 1,
+        totalRows: 3,
+      },
+    });
+
+    const evidenceState = screen.getByLabelText("Release readiness evidence state");
+    expect(
+      within(evidenceState).getByText(/no report loaded yet; local readiness proof is not available/i),
+    ).toBeInTheDocument();
+    expect(within(evidenceState).getByText("Missing")).toBeInTheDocument();
+  });
+
+  it("shows a ready public gate when the loaded summary represents it", () => {
+    renderCard({
+      releaseReadinessReport: {
+        reportPath: "dist/release-readiness-report.json",
+        report: { status: "ready" } as never,
+      },
+      releaseReadinessEvidence: {
+        copy: "Ready report copy",
+        reportLoaded: true,
+        publicGateReady: true,
+        readyRows: 3,
+        blockedRows: 0,
+        localOnlyRows: 1,
+        totalRows: 4,
+      },
+    });
+
+    const evidenceState = screen.getByLabelText("Release readiness evidence state");
+    expect(
+      within(evidenceState).getByText(/public release gate is ready in the loaded report/i),
+    ).toBeInTheDocument();
+    expect(within(evidenceState).getByText("Ready")).toBeInTheDocument();
   });
 
   it("disables checkout-only evidence actions for packaged-app payloads", () => {
