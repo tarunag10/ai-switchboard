@@ -743,6 +743,11 @@ Core extraction progress:
   fail closed and cannot resolve through PATH, while configured absolute paths
   retain the existing behavior. Nine bridge tests cover the boundary and
   existing command compatibility.
+- Native CLI dispatch now uses exact raw argument shapes for the three
+  supported native commands. Misplaced, duplicated, leading, or trailing
+  `--native`, unsupported commands consuming the flag, trailing harness
+  arguments, and Workbench serialization without `--native` fail closed before
+  either Node fallback or native execution. The bridge matrix now passes 13/13.
 
 ### Remaining build work
 

@@ -10,6 +10,48 @@ const args = process.argv.slice(2);
 const nativeRequested = args.includes("--native");
 const commandArgs = args.filter((arg) => arg !== "--native");
 const command = commandArgs[0];
+const NATIVE_SHAPE_ERROR =
+  "--native is supported only as the single final argument for harness status, router endpoint plan, and Workbench session serialize.";
+const WORKBENCH_NATIVE_REQUIRED_ERROR =
+  "workbench session serialize requires --native as the final argument.";
+const HARNESS_STATUS_TRAILING_ERROR =
+  "harness status accepts no trailing arguments.";
+
+function hasExactArgs(expected) {
+  return (
+    args.length === expected.length &&
+    args.every((arg, index) => arg === expected[index])
+  );
+}
+
+const plainHarnessStatus = hasExactArgs(["harness", "status"]);
+const nativeHarnessStatus = hasExactArgs([
+  "harness",
+  "status",
+  "--native",
+]);
+const routerEndpointPlan =
+  commandArgs.length === 3 &&
+  commandArgs[0] === "router" &&
+  commandArgs[1] === "endpoint" &&
+  commandArgs[2] === "plan";
+const nativeRouterEndpointPlan = hasExactArgs([
+  "router",
+  "endpoint",
+  "plan",
+  "--native",
+]);
+const workbenchSessionSerialize =
+  commandArgs.length === 3 &&
+  commandArgs[0] === "workbench" &&
+  commandArgs[1] === "session" &&
+  commandArgs[2] === "serialize";
+const nativeWorkbenchSessionSerialize = hasExactArgs([
+  "workbench",
+  "session",
+  "serialize",
+  "--native",
+]);
 
 function runNativeCli(nativeArgs) {
   const nativeCli = process.env.SWITCHBOARD_NATIVE_CLI?.trim();
@@ -51,7 +93,7 @@ Usage:
   switchboard repo <repo-path> [options]
   switchboard harness status [--native]
   switchboard harness session <repo-path> [options]
-  switchboard workbench session serialize [--native]
+  switchboard workbench session serialize --native
   switchboard router <repo-path> [options]
   switchboard router endpoint plan --native
   switchboard optimize <repo-path> [options]
@@ -81,34 +123,15 @@ function runNodeScript(scriptPath, scriptArgs) {
   process.exit(result.status ?? 1);
 }
 
-if (!command || command === "--help" || command === "-h" || command === "help") {
-  printHelp();
-  process.exit(0);
-}
-
-if (command === "--version" || command === "-v" || command === "version") {
-  console.log(packageJson.version);
-  process.exit(0);
-}
-
-const routerEndpointPlan =
-  commandArgs.length === 3 &&
-  commandArgs[0] === "router" &&
-  commandArgs[1] === "endpoint" &&
-  commandArgs[2] === "plan";
-const nativeRouterEndpointPlan =
-  routerEndpointPlan &&
-  nativeRequested &&
-  args.length === 4 &&
-  args[0] === "router" &&
-  args[1] === "endpoint" &&
-  args[2] === "plan" &&
-  args[3] === "--native";
-
 if (routerEndpointPlan && !nativeRouterEndpointPlan) {
   console.error(
     "router endpoint plan requires --native as the final argument.",
   );
+  process.exit(2);
+}
+
+if (workbenchSessionSerialize && !nativeWorkbenchSessionSerialize) {
+  console.error(WORKBENCH_NATIVE_REQUIRED_ERROR);
   process.exit(2);
 }
 
@@ -126,6 +149,26 @@ if (nativeRequested && command === "optimize") {
   process.exit(2);
 }
 
+if (
+  nativeRequested &&
+  !nativeHarnessStatus &&
+  !nativeRouterEndpointPlan &&
+  !nativeWorkbenchSessionSerialize
+) {
+  console.error(NATIVE_SHAPE_ERROR);
+  process.exit(2);
+}
+
+if (!command || command === "--help" || command === "-h" || command === "help") {
+  printHelp();
+  process.exit(0);
+}
+
+if (command === "--version" || command === "-v" || command === "version") {
+  console.log(packageJson.version);
+  process.exit(0);
+}
+
 if (["repo-intelligence", "repo", "intelligence"].includes(command)) {
   runNodeScript("scripts/repo-intelligence.mjs", commandArgs.slice(1));
 }
@@ -137,8 +180,12 @@ if (command === "harness") {
     process.exit(0);
   }
   if (subcommand === "status") {
-    if (nativeRequested) {
+    if (nativeHarnessStatus) {
       runNativeCli(commandArgs);
+    }
+    if (!plainHarnessStatus) {
+      console.error(HARNESS_STATUS_TRAILING_ERROR);
+      process.exit(2);
     }
     console.log(JSON.stringify({
       version: packageJson.version,
@@ -165,12 +212,7 @@ if (command === "harness") {
   process.exit(2);
 }
 
-if (
-  command === "workbench" &&
-  commandArgs[1] === "session" &&
-  commandArgs[2] === "serialize" &&
-  nativeRequested
-) {
+if (nativeWorkbenchSessionSerialize) {
   runNativeCli(commandArgs);
 }
 

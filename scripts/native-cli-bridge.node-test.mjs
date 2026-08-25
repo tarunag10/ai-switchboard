@@ -8,6 +8,12 @@ import { test } from "node:test";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const switchboard = resolve(repoRoot, "bin/switchboard.mjs");
+const NATIVE_SHAPE_ERROR =
+  "--native is supported only as the single final argument for harness status, router endpoint plan, and Workbench session serialize.\n";
+const WORKBENCH_NATIVE_REQUIRED_ERROR =
+  "workbench session serialize requires --native as the final argument.\n";
+const HARNESS_STATUS_TRAILING_ERROR =
+  "harness status accepts no trailing arguments.\n";
 
 function nativeStub() {
   const directory = mkdtempSync(join(tmpdir(), "switchboard-native-bridge-"));
@@ -103,6 +109,7 @@ test("endpoint plan without a final native flag fails closed before router alias
       ["router", "endpoint", "plan"],
       ["router", "--native", "endpoint", "plan"],
       ["router", "endpoint", "--native", "plan"],
+      ["router", "endpoint", "plan", "--native", "--native"],
     ];
 
     for (const args of rejected) {
@@ -133,6 +140,114 @@ test("legacy router repo path remains on the Node compatibility path", () => {
   assert.match(result.stdout, /^codex$/m);
   assert.match(result.stdout, /^gemini$/m);
   assert.equal(result.stderr, "");
+});
+
+test("malformed harness and Workbench native shapes fail before dispatch", () => {
+  const stub = nativeStub();
+  const sentinel = join(stub.directory, "invoked.txt");
+  const privateInput = "private-shape-input-must-not-be-echoed\n";
+  const rejected = [
+    { args: ["harness", "--native", "status"], error: NATIVE_SHAPE_ERROR },
+    { args: ["--native", "harness", "status"], error: NATIVE_SHAPE_ERROR },
+    { args: ["harness", "status", "--native", "--native"], error: NATIVE_SHAPE_ERROR },
+    { args: ["harness", "status", "--native", "extra"], error: NATIVE_SHAPE_ERROR },
+    {
+      args: ["workbench", "--native", "session", "serialize"],
+      error: WORKBENCH_NATIVE_REQUIRED_ERROR,
+    },
+    {
+      args: ["--native", "workbench", "session", "serialize"],
+      error: WORKBENCH_NATIVE_REQUIRED_ERROR,
+    },
+    {
+      args: ["workbench", "session", "serialize", "--native", "--native"],
+      error: WORKBENCH_NATIVE_REQUIRED_ERROR,
+    },
+    {
+      args: ["workbench", "session", "serialize", "--native", "extra"],
+      error: NATIVE_SHAPE_ERROR,
+    },
+  ];
+
+  try {
+    for (const rejectedCase of rejected) {
+      rmSync(sentinel, { force: true });
+      const result = run(
+        rejectedCase.args,
+        {
+          SWITCHBOARD_NATIVE_CLI: stub.executable,
+          SWITCHBOARD_NATIVE_SENTINEL: sentinel,
+        },
+        privateInput,
+      );
+
+      assert.equal(result.status, 2);
+      assert.equal(result.stdout, "");
+      assert.equal(result.stderr, rejectedCase.error);
+      assert.equal(existsSync(sentinel), false);
+      assert.doesNotMatch(result.stderr, /private-shape-input/);
+    }
+  } finally {
+    rmSync(stub.directory, { recursive: true, force: true });
+  }
+});
+
+test("unsupported commands cannot consume the native flag", () => {
+  const stub = nativeStub();
+  const sentinel = join(stub.directory, "invoked.txt");
+  const rejected = [
+    ["--native"],
+    ["help", "--native"],
+    ["version", "--native"],
+    ["repo", ".", "--list-agents", "--native"],
+    ["repo-intelligence", ".", "--list-agents", "--native"],
+    ["intelligence", ".", "--list-agents", "--native"],
+    ["harness", "unknown", "--native"],
+    ["unsupported", "--native"],
+  ];
+
+  try {
+    for (const args of rejected) {
+      rmSync(sentinel, { force: true });
+      const result = run(args, {
+        SWITCHBOARD_NATIVE_CLI: stub.executable,
+        SWITCHBOARD_NATIVE_SENTINEL: sentinel,
+      });
+
+      assert.equal(result.status, 2);
+      assert.equal(result.stdout, "");
+      assert.equal(result.stderr, NATIVE_SHAPE_ERROR);
+      assert.equal(existsSync(sentinel), false);
+    }
+  } finally {
+    rmSync(stub.directory, { recursive: true, force: true });
+  }
+});
+
+test("Workbench serialization requires the native flag without reflecting input", () => {
+  const privateInput = "private-workbench-input-must-not-be-echoed\n";
+  const result = run(
+    ["workbench", "session", "serialize"],
+    {},
+    privateInput,
+  );
+
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr, WORKBENCH_NATIVE_REQUIRED_ERROR);
+  assert.doesNotMatch(result.stderr, /private-workbench-input/);
+});
+
+test("plain harness status rejects trailing arguments", () => {
+  for (const args of [
+    ["harness", "status", "extra"],
+    ["harness", "status", "extra", "more"],
+  ]) {
+    const result = run(args);
+    assert.equal(result.status, 2);
+    assert.equal(result.stdout, "");
+    assert.equal(result.stderr, HARNESS_STATUS_TRAILING_ERROR);
+  }
 });
 
 test("native bridge rejects bare and relative executable values before invocation", () => {
