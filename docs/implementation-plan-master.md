@@ -748,6 +748,12 @@ Core extraction progress:
   `--native`, unsupported commands consuming the flag, trailing harness
   arguments, and Workbench serialization without `--native` fail closed before
   either Node fallback or native execution. The bridge matrix now passes 13/13.
+- Windows CLI discovery now preserves the complete bounded PATH/PATHEXT
+  candidate order until `first_runnable` validation. Broken files, directories,
+  or earlier extensions no longer mask later runnable candidates; metadata-only
+  callers retain their compatibility lookup. Runtime executable-search tests,
+  focused Tauri discovery tests, and the existing metadata regression pass on
+  macOS; real Windows integration remains CI-gated.
 
 ### Remaining build work
 

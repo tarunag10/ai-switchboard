@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use switchboard_runtime::executable_search::{
-    plan_executable_candidates, ExecutableSearchPlatform,
+    plan_executable_candidates, ExecutableSearchError, ExecutableSearchPlatform,
 };
 
 use crate::cli_discovery;
@@ -985,9 +985,10 @@ pub(crate) fn find_on_path_entries<I>(path_entries: I, binary_names: &[&str]) ->
 where
     I: IntoIterator<Item = PathBuf>,
 {
-    let platform = ExecutableSearchPlatform::current();
-    let pathext = windows_pathext_for(platform);
-    find_on_path_entries_for_target(path_entries, binary_names, platform, pathext.as_deref())
+    planned_path_candidates(path_entries, binary_names)
+        .ok()?
+        .into_iter()
+        .find(|candidate| candidate.exists())
 }
 
 pub(crate) fn find_on_path_entries_for_target<I>(
@@ -999,11 +1000,35 @@ pub(crate) fn find_on_path_entries_for_target<I>(
 where
     I: IntoIterator<Item = PathBuf>,
 {
-    let entries = path_entries.into_iter().collect::<Vec<_>>();
-    plan_executable_candidates(platform, &entries, binary_names, windows_pathext)
+    planned_path_candidates_for_target(path_entries, binary_names, platform, windows_pathext)
         .ok()?
         .into_iter()
         .find(|candidate| candidate.exists())
+}
+
+pub(crate) fn planned_path_candidates<I>(
+    path_entries: I,
+    binary_names: &[&str],
+) -> Result<Vec<PathBuf>, ExecutableSearchError>
+where
+    I: IntoIterator<Item = PathBuf>,
+{
+    let platform = ExecutableSearchPlatform::current();
+    let pathext = windows_pathext_for(platform);
+    planned_path_candidates_for_target(path_entries, binary_names, platform, pathext.as_deref())
+}
+
+pub(crate) fn planned_path_candidates_for_target<I>(
+    path_entries: I,
+    binary_names: &[&str],
+    platform: ExecutableSearchPlatform,
+    windows_pathext: Option<&str>,
+) -> Result<Vec<PathBuf>, ExecutableSearchError>
+where
+    I: IntoIterator<Item = PathBuf>,
+{
+    let entries = path_entries.into_iter().collect::<Vec<_>>();
+    plan_executable_candidates(platform, &entries, binary_names, windows_pathext)
 }
 
 fn windows_pathext_for(platform: ExecutableSearchPlatform) -> Option<String> {

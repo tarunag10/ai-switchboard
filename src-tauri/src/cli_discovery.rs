@@ -73,9 +73,15 @@ fn known_path_candidates_for(home: PathBuf, name: &str, unix_layout: bool) -> Ve
 }
 
 fn first_runnable<I: Iterator<Item = PathBuf>>(candidates: I) -> Option<PathBuf> {
-    candidates
-        .into_iter()
-        .find(|candidate| is_runnable(candidate))
+    first_candidate_matching(candidates, is_runnable)
+}
+
+fn first_candidate_matching<I, F>(mut candidates: I, mut matches: F) -> Option<PathBuf>
+where
+    I: Iterator<Item = PathBuf>,
+    F: FnMut(&Path) -> bool,
+{
+    candidates.find(|candidate| matches(candidate.as_path()))
 }
 
 #[cfg(unix)]
@@ -86,9 +92,10 @@ fn probe_via_platform(name: &str) -> Option<PathBuf> {
 #[cfg(windows)]
 fn probe_via_platform(name: &str) -> Option<PathBuf> {
     let candidate = std::env::var_os("PATH").and_then(|path_var| {
-        crate::client_detection::find_on_path_entries(std::env::split_paths(&path_var), &[name])
+        crate::client_detection::planned_path_candidates(std::env::split_paths(&path_var), &[name])
+            .ok()
+            .and_then(|candidates| first_runnable(candidates.into_iter()))
     });
-    let candidate = first_runnable(candidate.into_iter());
     if candidate.is_none() {
         eprintln!("{WINDOWS_PATH_LOOKUP_FAILED_DIAGNOSTIC}:{name}");
     }
@@ -512,10 +519,27 @@ mod tests {
     }
 
     #[test]
-    fn injected_windows_path_lookup_expands_pathext_without_shell_or_spawn() {
+    fn injected_windows_path_planning_preserves_all_pathext_candidates_in_order() {
         let tmp = ScopedTempDir::new("windows_pathext_plan");
         let candidate = tmp.path().join("codex.cmd");
         fs::write(&candidate, "not executed").unwrap();
+
+        let planned = crate::client_detection::planned_path_candidates_for_target(
+            vec![tmp.path().to_path_buf()],
+            &["codex"],
+            switchboard_runtime::executable_search::ExecutableSearchPlatform::Windows,
+            Some("cmd;.EXE"),
+        )
+        .expect("valid Windows candidate plan");
+
+        assert_eq!(
+            planned,
+            vec![
+                tmp.path().join("codex"),
+                candidate.clone(),
+                tmp.path().join("codex.EXE"),
+            ]
+        );
 
         let detected = crate::client_detection::find_on_path_entries_for_target(
             vec![tmp.path().to_path_buf()],
@@ -525,6 +549,113 @@ mod tests {
         );
 
         assert_eq!(detected.as_deref(), Some(candidate.as_path()));
+    }
+
+    #[test]
+    fn planned_windows_candidates_walk_past_broken_files_across_path_directories() {
+        let first_dir = PathBuf::from("C:/first");
+        let second_dir = PathBuf::from("C:/second");
+        let broken_bare = first_dir.join("codex");
+        let broken_cmd = first_dir.join("codex.cmd");
+        let later_bare_directory = second_dir.join("codex");
+        let working_cmd = second_dir.join("codex.cmd");
+
+        let planned = crate::client_detection::planned_path_candidates_for_target(
+            vec![first_dir, second_dir],
+            &["codex"],
+            switchboard_runtime::executable_search::ExecutableSearchPlatform::Windows,
+            Some(".cmd"),
+        )
+        .expect("valid injected Windows plan");
+
+        assert_eq!(
+            planned,
+            vec![
+                broken_bare,
+                broken_cmd,
+                later_bare_directory,
+                working_cmd.clone(),
+            ]
+        );
+        let mut visited = Vec::new();
+        let selected = first_candidate_matching(planned.clone().into_iter(), |candidate| {
+            visited.push(candidate.to_path_buf());
+            candidate == working_cmd
+        });
+        assert_eq!(selected.as_deref(), Some(working_cmd.as_path()));
+        assert_eq!(visited, planned);
+    }
+
+    #[test]
+    fn metadata_lookup_preserves_first_existing_directory_without_losing_the_plan() {
+        let tmp = ScopedTempDir::new("metadata_directory_candidate");
+        let first_dir = tmp.path().join("first");
+        let second_dir = tmp.path().join("second");
+        fs::create_dir_all(first_dir.join("codex")).unwrap();
+        fs::create_dir_all(&second_dir).unwrap();
+        let later_file = second_dir.join("codex");
+        fs::write(&later_file, "metadata only").unwrap();
+
+        let path_entries = vec![first_dir.clone(), second_dir];
+        let planned = crate::client_detection::planned_path_candidates_for_target(
+            path_entries.clone(),
+            &["codex"],
+            switchboard_runtime::executable_search::ExecutableSearchPlatform::Unix,
+            None,
+        )
+        .expect("valid metadata plan");
+        let detected = crate::client_detection::find_on_path_entries_for_target(
+            path_entries,
+            &["codex"],
+            switchboard_runtime::executable_search::ExecutableSearchPlatform::Unix,
+            None,
+        );
+
+        assert_eq!(planned, vec![first_dir.join("codex"), later_file]);
+        assert_eq!(detected.as_deref(), Some(first_dir.join("codex").as_path()));
+    }
+
+    #[test]
+    fn planned_path_candidates_preserve_exact_planner_errors() {
+        use switchboard_runtime::executable_search::{
+            ExecutableSearchError, ExecutableSearchPlatform,
+        };
+
+        let directories = vec![PathBuf::from("/tools")];
+        assert_eq!(
+            crate::client_detection::planned_path_candidates_for_target(
+                directories.clone(),
+                &["codex"],
+                ExecutableSearchPlatform::Unsupported,
+                None,
+            ),
+            Err(ExecutableSearchError::UnsupportedPlatform)
+        );
+        assert_eq!(
+            crate::client_detection::planned_path_candidates_for_target(
+                directories.clone(),
+                &["nested/codex"],
+                ExecutableSearchPlatform::Unix,
+                None,
+            ),
+            Err(ExecutableSearchError::InvalidBinaryName)
+        );
+        assert_eq!(
+            crate::client_detection::planned_path_candidates_for_target(
+                directories.clone(),
+                &["codex"],
+                ExecutableSearchPlatform::Windows,
+                Some(".EXE;../CMD"),
+            ),
+            Err(ExecutableSearchError::InvalidWindowsPathExtension)
+        );
+        assert!(crate::client_detection::find_on_path_entries_for_target(
+            directories,
+            &["nested/codex"],
+            ExecutableSearchPlatform::Unix,
+            None,
+        )
+        .is_none());
     }
 
     #[test]
@@ -684,6 +815,7 @@ mod tests {
     #[cfg(windows)]
     fn windows_path_lookup_uses_existing_pathext_resolution() {
         let tmp = ScopedTempDir::new("windows_pathext");
+        fs::write(tmp.path().join("codex"), "not a Windows executable").unwrap();
         let candidate = tmp.path().join("codex.cmd");
         fs::write(&candidate, "@exit /b 0\r\n").unwrap();
         let _path = EnvRestore::set("PATH", &tmp.path().display().to_string());
