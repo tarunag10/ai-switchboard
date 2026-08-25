@@ -1,3 +1,5 @@
+> **Program specification:** The Phase 0–6 acceptance criteria below remain the detailed program spec. Canonical status, remaining work, and execution order live in [`docs/implementation-plan-master.md`](./docs/implementation-plan-master.md), which supersedes all status labels here.
+
 # AI Switchboard — Phased Implementation Plan
 
 **Repository:** `tarunag10/ai-switchboard`  

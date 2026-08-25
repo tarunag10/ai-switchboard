@@ -1,3 +1,5 @@
+> **Superseded:** Consolidated status and remaining work for this slice now live in [`docs/implementation-plan-master.md`](./implementation-plan-master.md). This document is retained as design history / appendix material; its status labels are no longer authoritative.
+
 # AI Switchboard implementation roadmap — 2026-08-21
 
 ## Product direction

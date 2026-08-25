@@ -1,3 +1,5 @@
+> **Superseded:** Consolidated status and remaining work for this slice now live in [`docs/implementation-plan-master.md`](./implementation-plan-master.md). This document is retained as design history / appendix material; its status labels are no longer authoritative.
+
 # Fable Security and Product Hardening Plan
 
 Canonical status: see [plan-status-ledger.md](plan-status-ledger.md) for the

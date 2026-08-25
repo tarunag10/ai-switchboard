@@ -1,3 +1,5 @@
+> **Superseded:** Consolidated status and remaining work for this slice now live in [`docs/implementation-plan-master.md`](./implementation-plan-master.md). This document is retained as design history / appendix material; its status labels are no longer authoritative.
+
 # Token Optimization Add-ons Implementation Plan
 
 Status: active implementation. Existing Headroom and RTK behavior remains the

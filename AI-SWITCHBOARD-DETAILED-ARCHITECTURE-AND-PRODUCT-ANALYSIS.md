@@ -1,3 +1,5 @@
+> **Superseded:** Consolidated status and remaining work for this slice now live in [`docs/implementation-plan-master.md`](./docs/implementation-plan-master.md). This document is retained as design history / appendix material; its status labels are no longer authoritative.
+
 # AI Switchboard — Detailed Architecture, Product, Integration, and Optimization Analysis
 
 **Repository:** `tarunag10/ai-switchboard`  

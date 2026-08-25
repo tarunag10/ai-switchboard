@@ -1,3 +1,5 @@
+> **Superseded:** Consolidated status and remaining work for this slice now live in [`docs/implementation-plan-master.md`](./implementation-plan-master.md). This document is retained as design history / appendix material; its status labels are no longer authoritative.
+
 # Mac AI Switchboard Rebrand and Trust Hardening Plan
 
 Status: superseded historical plan. Current public naming lives in `docs/ai-switchboard-platform-rebrand-implementation-plan.md`; remaining Mac AI Switchboard references below document the earlier compatibility stage.
