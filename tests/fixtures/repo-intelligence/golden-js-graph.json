@@ -15,6 +15,10 @@
       "content": "export * from './worker';\n"
     },
     {
+      "path": "src/barrel.ts",
+      "content": "export { normalize as execute } from './utils';\n"
+    },
+    {
       "path": "src/utils.ts",
       "content": "export function normalize() {}\nfunction hidden() {}\n"
     },
@@ -44,7 +48,7 @@
     },
     {
       "path": "src/consumer.ts",
-      "content": "import { execute } from './named';\nimport { runTask } from './star';\nimport * as utils from './utils';\nexport function start() {\n  execute();\n  runTask();\n  utils.normalize();\n}\n"
+      "content": "import { execute } from './named';\nimport { runTask } from './star';\nimport * as api from './barrel';\nexport function start() {\n  execute();\n  runTask();\n  api.execute();\n  api.hidden();\n}\n"
     },
     {
       "path": "src/negative.ts",
@@ -53,8 +57,8 @@
   ],
   "expected": {
     "counts": {
-      "totalFiles": 12,
-      "indexedFiles": 12,
+      "totalFiles": 13,
+      "indexedFiles": 13,
       "skippedFiles": 0
     },
     "exactCallEdges": [
@@ -79,7 +83,8 @@
     ],
     "negativeCallEdgesFrom": [
       "src/negative.ts->src/a.ts#runTask",
-      "src/negative.ts->src/b.ts#runTask"
+      "src/negative.ts->src/b.ts#runTask",
+      "src/consumer.ts->src/utils.ts#hidden"
     ],
     "symbols": [
       "src/worker.ts#runTask",

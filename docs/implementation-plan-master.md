@@ -754,6 +754,11 @@ Core extraction progress:
   callers retain their compatibility lookup. Runtime executable-search tests,
   focused Tauri discovery tests, and the existing metadata regression pass on
   macOS; real Windows integration remains CI-gated.
+- The shared Repo Intelligence golden graph now proves namespace-member calls
+  through a named-alias re-export barrel (`api.execute()` -> exported
+  `normalize`) and rejects the private sibling (`api.hidden()`) consistently
+  across CLI, frontend, and native projections. Resolver scope remains bounded
+  static analysis; no type inference or dynamic dispatch was added.
 
 ### Remaining build work
 
