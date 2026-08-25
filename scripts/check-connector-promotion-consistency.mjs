@@ -1,25 +1,29 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import {
+  extractConnectorPromotionFrontendContract,
+  validateConnectorPromotionConsistency,
+} from "./connector-promotion-contract.mjs";
 
 const root = process.cwd();
 const fixture = JSON.parse(
   fs.readFileSync(path.join(root, "fixtures/connector-promotion-evidence.json"), "utf8"),
 );
 const source = fs.readFileSync(path.join(root, "src/lib/plannedConnectors.ts"), "utf8");
-const match = source.match(
-  /export const promotedNativeConfigConnectorIds = new Set\(\[([\s\S]*?)\]\);/,
+let frontend;
+try {
+  frontend = extractConnectorPromotionFrontendContract(source);
+} catch (error) {
+  console.error(`connector promotion consistency failed: ${error.message}`);
+  process.exit(1);
+}
+
+const errors = validateConnectorPromotionConsistency(fixture, frontend);
+if (errors.length > 0) {
+  console.error(`connector promotion consistency failed: ${errors.join("\n")}`);
+  process.exit(1);
+}
+console.log(
+  `Connector promotion consistency OK (${frontend.promotedNativeConnectorIds.length} promoted, ${frontend.gatedNativeConfigConnectorIds.length} gated, ${frontend.expansionConnectorIds.length} expansion connectors).`,
 );
-if (!match) {
-  console.error("connector promotion consistency failed: planned native promotion set is missing");
-  process.exit(1);
-}
-const planned = [...match[1].matchAll(/"([a-z0-9_]+)"/g)].map((item) => item[1]).sort();
-const canonical = [...(fixture.promotedNativeConnectorIds ?? [])].sort();
-if (JSON.stringify(planned) !== JSON.stringify(canonical)) {
-  console.error(
-    `connector promotion consistency failed: UI=[${planned.join(", ")}] fixture=[${canonical.join(", ")}]`,
-  );
-  process.exit(1);
-}
-console.log(`Connector promotion consistency OK (${canonical.join(", ")}).`);

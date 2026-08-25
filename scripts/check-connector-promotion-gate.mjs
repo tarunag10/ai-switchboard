@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
-import { validateConnectorPromotionFixture } from "./connector-promotion-contract.mjs";
+import {
+  extractConnectorPromotionFrontendContract,
+  validateConnectorPromotionConsistency,
+} from "./connector-promotion-contract.mjs";
 
 const root = process.cwd();
 const fixturePath = path.join(root, "fixtures/connector-promotion-evidence.json");
@@ -42,7 +45,10 @@ if (!fs.existsSync(fixturePath)) {
 }
 
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
-for (const error of validateConnectorPromotionFixture(fixture)) fail(error);
+const frontend = extractConnectorPromotionFrontendContract(
+  fs.readFileSync(path.join(root, "src/lib/plannedConnectors.ts"), "utf8"),
+);
+for (const error of validateConnectorPromotionConsistency(fixture, frontend)) fail(error);
 
 console.log(
   JSON.stringify(
@@ -50,7 +56,8 @@ console.log(
       ok: true,
       requiredSidecarStages: fixture.requiredSidecarStages.length,
       promotedNativeConnectorIds: fixture.promotedNativeConnectorIds ?? [],
-      gatedNativeConnectorIds: fixture.gatedNativeConnectorIds ?? [],
+      gatedNativeConfigConnectorIds:
+        fixture.gatedNativeConfigConnectorIds ?? [],
     },
     null,
     2,

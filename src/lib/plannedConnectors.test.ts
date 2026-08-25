@@ -18,6 +18,7 @@ import {
   getPlannedConnectorSetupGuide,
   formatPlannedConnectorSafetyDossierMarkdown,
   managedConnectorDossiers,
+  gatedNativeConfigConnectorIds,
   pendingPlannedConnectors,
   plannedConnectorReadinessStageOrder,
   plannedConnectors,
@@ -513,20 +514,49 @@ describe("planned connectors", () => {
   it("separates promoted native writes from managed sidecars", () => {
     const cursor = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("cursor")!);
     const aider = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("aider")!);
+    const amazonQ = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("amazon_q")!);
     const goose = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("goose")!);
     const grok = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("grok_cli")!);
+    const qwen = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("qwen_code")!);
 
     expect(cursor.nativeAutomationEnabled).toBe(false);
     expect(cursor.nativeNextBlockedStage).toBe("backupImplemented");
     expect(cursor.nativeWriteEvidence).toMatch(/documented.*schema/i);
+    expect(promotedSidecarConnectorIds.has("cursor")).toBe(true);
     expect(aider.nativeAutomationEnabled).toBe(true);
     expect(aider.nativeNextBlockedStage).toBeNull();
     expect(goose.nativeAutomationEnabled).toBe(true);
     expect(grok.nativeAutomationEnabled).toBe(true);
+    for (const gated of [amazonQ, qwen]) {
+      expect(gated.nativeAutomationEnabled).toBe(false);
+      expect(gated.nativeNextBlockedStage).toBe("applyImplemented");
+      expect(gated.nativeWriteEvidence).toMatch(
+        /Switchboard-owned sidecar.*No allowlisted native/i,
+      );
+    }
     expect(getPlannedConnectorReadinessContract(getPlannedConnector("aider")!)).toMatchObject({
       nativeAutomationEnabled: true,
       nativeNextBlockedStage: null,
     });
+  });
+
+  it("classifies every expansion dossier exactly once for native config", () => {
+    const expansionIds = [
+      ...new Set(
+        [...managedConnectorDossiers, ...plannedConnectors].map(
+          (connector) => connector.id,
+        ),
+      ),
+    ].sort();
+    const promotedIds = [...promotedNativeConfigConnectorIds];
+    const gatedIds = [...gatedNativeConfigConnectorIds];
+
+    expect(promotedIds).toEqual([...promotedIds].sort());
+    expect(gatedIds).toEqual(["amazon_q", "cursor", "qwen_code"]);
+    expect(promotedIds.filter((id) => gatedNativeConfigConnectorIds.has(id))).toEqual([]);
+    expect([...new Set([...promotedIds, ...gatedIds])].sort()).toEqual(
+      expansionIds,
+    );
   });
 
   it("reports promoted managed editor config plans as enabled", () => {

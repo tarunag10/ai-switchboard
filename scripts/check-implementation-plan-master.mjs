@@ -70,7 +70,7 @@ export function checkMasterPlan(root = process.cwd(), planRelativePath = "docs/i
     }
 
     const promotion = readJson(root, "fixtures/connector-promotion-evidence.json");
-    if (!promotion.gatedNativeConnectorIds?.includes("cursor")) failures.push("Cursor native writes must remain gated");
+    if (!promotion.gatedNativeConfigConnectorIds?.includes("cursor")) failures.push("Cursor native writes must remain gated");
     if (!Array.isArray(promotion.requiredSidecarStages) || promotion.requiredSidecarStages.length < 7) {
       failures.push("connector promotion evidence must retain all required sidecar stages");
     }

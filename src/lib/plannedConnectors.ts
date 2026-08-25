@@ -889,14 +889,24 @@ export const promotedSidecarConnectorIds = new Set([
  * reversible writes. Sidecar automation does not add an id to this set.
  */
 export const promotedNativeConfigConnectorIds = new Set([
-  "gemini_cli",
-  "opencode",
   "aider",
   "continue",
+  "gemini_cli",
   "goose",
   "grok_cli",
+  "opencode",
   "windsurf",
   "zed_ai",
+]);
+
+/**
+ * Expansion connectors whose native provider/editor config remains fail-closed.
+ * A managed Switchboard-owned sidecar does not imply native write permission.
+ */
+export const gatedNativeConfigConnectorIds = new Set([
+  "amazon_q",
+  "cursor",
+  "qwen_code",
 ]);
 
 export const managedMcpBridgeConnectorIds = new Set(["goose"]);
@@ -1395,12 +1405,16 @@ export function getPlannedConnectorNativeWriteReadiness(
     };
   }
 
+  const nativeConfigExplicitlyGated =
+    gatedNativeConfigConnectorIds.has(connector.id);
   const nativeNextBlockedStage: PlannedConnectorReadinessStageId =
     connector.id === "cursor" ? "backupImplemented" : "applyImplemented";
   const nativeWriteEvidence =
     connector.id === "cursor"
       ? "Cursor has no documented on-disk provider/model/base-url schema; native writes remain disabled while settings discovery and an isolated sidecar stay available."
-      : "Provider/editor native writes remain manual or gated. A Switchboard-owned sidecar does not prove a provider schema or authorize credential/account/model mutation.";
+      : nativeConfigExplicitlyGated
+        ? "Only the Switchboard-owned sidecar lifecycle is promoted. No allowlisted native provider/editor config schema is proven, so credentials, account state, model selection, and native config remain manual."
+        : "Native config promotion classification is missing. Writes fail closed until this connector is explicitly classified as promoted or gated.";
   return {
     nativeAutomationEnabled: false,
     nativeNextBlockedStage,

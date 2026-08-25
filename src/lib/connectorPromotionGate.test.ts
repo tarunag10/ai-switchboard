@@ -75,6 +75,29 @@ describe("evaluateConnectorPromotionGate", () => {
     expect(evaluateConnectorPromotionGate(readyStages).verdict).toBe("sidecar_ready");
   });
 
+  it("keeps native-gated connectors sidecar-ready without native promotion", () => {
+    const sidecarOnly = contract({
+      connectorId: "qwen_code",
+      connectorName: "Qwen Code",
+      setupPhase: "Managed",
+      automationEnabled: true,
+      nextBlockedStage: null,
+      nativeAutomationEnabled: false,
+      nativeNextBlockedStage: "applyImplemented",
+      nativeWriteEvidence:
+        "Only the Switchboard-owned sidecar lifecycle is promoted.",
+      stages: contract().stages.map((stage) => ({
+        ...stage,
+        state: "ready" as const,
+      })),
+    });
+
+    expect(evaluateConnectorPromotionGate(sidecarOnly)).toMatchObject({
+      verdict: "sidecar_ready",
+      nextBlockedStage: null,
+    });
+  });
+
   it("keeps gated connectors blocked with the next lifecycle stage", () => {
     const evaluation = evaluateConnectorPromotionGate(contract());
     expect(evaluation.verdict).toBe("blocked");

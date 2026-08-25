@@ -118,6 +118,15 @@ function extractPromotedSidecarConnectorIds(source) {
   return uniqueSorted([...body.matchAll(/"([^"]+)"/g)].map((match) => match[1]));
 }
 
+function extractGatedNativeConfigConnectorIds(source) {
+  const body = extractArrayBody(
+    source,
+    /export const gatedNativeConfigConnectorIds = new Set\(\[([\s\S]*?)\]\);/,
+    "gatedNativeConfigConnectorIds",
+  );
+  return uniqueSorted([...body.matchAll(/"([^"]+)"/g)].map((match) => match[1]));
+}
+
 function validateConfigCreationPlanContract(source) {
   const errors = [];
   const functionBody = source.match(
@@ -676,6 +685,7 @@ const docsSource = readFile("docs/connectors.md");
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const managedFrontendConnectors = extractManagedFrontendConnectors(frontendSource);
 const promotedSidecarIds = extractPromotedSidecarConnectorIds(frontendSource);
+const gatedNativeConfigIds = extractGatedNativeConfigConnectorIds(frontendSource);
 const allFrontendConnectors = new Map([
   ...managedFrontendConnectors,
   ...frontendConnectors,
@@ -821,5 +831,5 @@ if (metadataErrors.length > 0) {
 }
 
 console.log(
-  `Connector registries match with metadata (${manifestManagedIds.length} manifest-managed, ${managedFrontendIds.length} managed connector dossiers, ${promotedSidecarIds.length} promoted sidecar dossiers, ${pendingFrontendIds.length} gated native-write dossiers, ${frontendIds.length} retained compatibility dossiers): ${pendingFrontendIds.join(", ") || "none"}`,
+  `Connector registries match with metadata (${manifestManagedIds.length} manifest-managed, ${managedFrontendIds.length} managed connector dossiers, ${promotedSidecarIds.length} promoted sidecar dossiers, ${gatedNativeConfigIds.length} gated native-config dossiers, ${pendingFrontendIds.length} pending roadmap dossiers, ${frontendIds.length} retained compatibility dossiers); native-gated: ${gatedNativeConfigIds.join(", ")}; pending: ${pendingFrontendIds.join(", ") || "none"}`,
 );

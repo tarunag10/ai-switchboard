@@ -803,6 +803,11 @@ Core extraction progress:
   routing remains visible as the available path. No secrets, paths, account
   details, or native-write capability are exposed; focused connector UI tests
   and TypeScript validation pass.
+- Connector promotion consistency now classifies every expansion dossier
+  exactly once: 8 native-promoted and 3 native-gated (`amazon_q`, `cursor`,
+  `qwen_code`). Canonical ordering, disjointness, exact union coverage, and
+  unknown/missing/legacy classification failures are enforced; sidecar paths
+  remain available and native provider writes remain gated.
 
 ### Remaining build work
 
