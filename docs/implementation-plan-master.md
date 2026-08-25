@@ -764,6 +764,11 @@ Core extraction progress:
   and still uses exact locked manifests, repository-root execution,
   `shell:false`, and fail-closed diagnostics. The contract self-test passes
   4/4 and the real core/runtime/CLI gate passes with 77 Rust tests.
+- Amazon Q Developer CLI readiness is now labeled as a managed sidecar with
+  manual AWS credentials/SSO/profile setup rather than `Unsupported
+  account/model`. The shared sidecar mapping also makes Qwen Code truthful,
+  while genuinely unsupported Grok account/model states remain unchanged;
+  focused connector-copy tests and TypeScript validation pass.
 
 ### Remaining build work
 

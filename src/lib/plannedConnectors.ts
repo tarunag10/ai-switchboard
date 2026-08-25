@@ -1556,7 +1556,17 @@ export function getPlannedConnectorReadinessBadges(
     });
   }
 
-  if (hasAccountOrModelCaveat) {
+  if (
+    hasAccountOrModelCaveat &&
+    (connector.statusLabel === "Managed sidecar" || connector.id === "amazon_q")
+  ) {
+    badges.push({
+      kind: "manual-only",
+      label: "Managed sidecar",
+      detail:
+        "A managed sidecar is available today; AWS credentials, profiles, and model choices stay manual.",
+    });
+  } else if (hasAccountOrModelCaveat) {
     badges.push({
       kind: "unsupported-account-model",
       label: "Unsupported account/model",

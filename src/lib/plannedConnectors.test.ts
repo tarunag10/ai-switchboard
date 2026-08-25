@@ -391,11 +391,18 @@ describe("planned connectors", () => {
         (badge) => badge.label,
       ),
     ).toContain("Manual only");
-    expect(
-      getPlannedConnectorReadinessBadges(getPlannedConnector("amazon_q")!).map(
-        (badge) => badge.label,
-      ),
-    ).toContain("Unsupported account/model");
+    const amazonQBadges = getPlannedConnectorReadinessBadges(
+      getPlannedConnector("amazon_q")!,
+    ).map((badge) => badge.label);
+    expect(amazonQBadges).toContain("Managed sidecar");
+    expect(amazonQBadges).not.toContain("Unsupported account/model");
+
+    const qwenBadges = getPlannedConnectorReadinessBadges(
+      getPlannedConnector("qwen_code")!,
+    ).map((badge) => badge.label);
+    expect(qwenBadges).toContain("Managed sidecar");
+    expect(qwenBadges).not.toContain("Unsupported account/model");
+
     expect(
       getPlannedConnectorReadinessBadges(getPlannedConnector("grok_cli")!).map(
         (badge) => badge.label,

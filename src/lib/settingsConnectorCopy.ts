@@ -33,7 +33,7 @@ export const connectorSetupDetails: Record<string, string> = {
   qwen_code:
     "Qwen Code has a Switchboard-owned sidecar path for handoff/routing evidence. Account and model setup stay manual.",
   amazon_q:
-    "Amazon Q Developer CLI is detected when installed. Verification packs are safe today; AWS credentials, SSO, and profiles stay manual.",
+    "Amazon Q Developer CLI uses a managed sidecar today. Verification packs are safe today; AWS credentials, SSO, and profiles stay manual.",
   windsurf:
     "Windsurf is a managed editor connector. Switchboard manages editor settings routing with backups, verification, rollback, and Off cleanup.",
   zed_ai:
@@ -62,7 +62,7 @@ export const connectorUnavailableReasons: Record<string, string> = {
   qwen_code:
     "Qwen Code account and model setup are manual. Switchboard only manages its own sidecar evidence.",
   amazon_q:
-    "Amazon Q automatic setup is off for now. Keep AWS credentials, SSO, and profiles manual.",
+    "Amazon Q managed sidecar setup is manual today. Keep AWS credentials, SSO, and profiles manual.",
   windsurf:
     "Windsurf was not detected. Install Windsurf, then reopen AI Switchboard for Mac.",
   zed_ai: "Zed was not detected. Install Zed, then reopen AI Switchboard for Mac.",

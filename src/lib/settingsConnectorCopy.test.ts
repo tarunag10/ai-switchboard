@@ -29,6 +29,11 @@ const connector = (
 describe("settings connector copy", () => {
   it("summarizes unavailable and disabled connector states", () => {
     const missingCursor = connector({ installed: false });
+    const missingAmazonQ = connector({
+      clientId: "amazon_q",
+      name: "Amazon Q Developer CLI",
+      installed: false,
+    });
 
     expect(getConnectorDetectionWarning(missingCursor)).toContain(
       "Cursor automatic setup is off",
@@ -36,6 +41,10 @@ describe("settings connector copy", () => {
     expect(getConnectorUnavailableReason(missingCursor)).toContain(
       "not detected",
     );
+    expect(getConnectorDetectionWarning(missingAmazonQ)).toContain(
+      "managed sidecar",
+    );
+    expect(getConnectorDetectionWarning(missingAmazonQ)).toContain("manual");
   });
 
   it("uses shared planned connector next-step copy", () => {
