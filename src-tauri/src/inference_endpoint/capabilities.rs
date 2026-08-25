@@ -271,11 +271,19 @@ mod tests {
         let capabilities = NormalizedRuntimeCapabilities::sglang(&endpoint);
 
         assert_eq!(capabilities.prefix_cache.state, CapabilityState::Supported);
+        assert_eq!(capabilities.parallelism.state, CapabilityState::Supported);
+        assert_eq!(capabilities.tool_calling.state, CapabilityState::Supported);
         assert_eq!(capabilities.max_context.state, CapabilityState::Configured);
         assert_eq!(capabilities.max_context.numeric_value, Some(65_536));
         assert_ne!(
             capabilities.speculative_decoding.state,
             CapabilityState::Observed
+        );
+        let vllm = NormalizedRuntimeCapabilities::vllm(&endpoint);
+        assert_eq!(vllm.parallelism.state, CapabilityState::Supported);
+        assert_eq!(
+            vllm.tool_calling.state,
+            capabilities.tool_calling.state
         );
     }
 
@@ -295,6 +303,7 @@ mod tests {
         let capabilities = NormalizedRuntimeCapabilities::llama_cpp(&endpoint, Some("Q4_K_M"));
 
         assert_eq!(capabilities.quantization.state, CapabilityState::Configured);
+        assert_eq!(capabilities.parallelism.state, CapabilityState::Supported);
         assert_eq!(
             capabilities.disaggregated_prefill_decode.state,
             CapabilityState::Unknown
@@ -309,6 +318,8 @@ mod tests {
 
         assert_eq!(capabilities.prefix_cache.state, CapabilityState::Unknown);
         assert_eq!(capabilities.quantization.state, CapabilityState::Unknown);
+        assert_eq!(capabilities.parallelism.state, CapabilityState::Unknown);
+        assert_eq!(capabilities.tool_calling.state, CapabilityState::Unknown);
         assert_eq!(capabilities.max_context.state, CapabilityState::Configured);
     }
 
@@ -334,7 +345,10 @@ mod tests {
             CapabilityState::Supported
         );
         assert_eq!(dynamo.speculative_decoding.state, CapabilityState::Unknown);
+        assert_eq!(dynamo.parallelism.state, CapabilityState::Supported);
+        assert_eq!(dynamo.tool_calling.state, CapabilityState::Supported);
         assert_eq!(trt.quantization.state, CapabilityState::Configured);
+        assert_eq!(trt.parallelism.state, CapabilityState::Supported);
         assert_eq!(trt.continuous_batching.state, CapabilityState::Supported);
     }
 }

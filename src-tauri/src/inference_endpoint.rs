@@ -9,9 +9,11 @@ use std::net::IpAddr;
 use url::Url;
 
 mod capabilities;
+mod provenance;
 mod registry;
 
 pub(crate) use capabilities::{CapabilityState, NormalizedRuntimeCapabilities};
+pub(crate) use provenance::EndpointKind;
 
 pub(crate) use registry::{
     DynamoEndpoint, EndpointAllowlist, EndpointDiagnostic, EndpointProbe, EndpointRegistry,
@@ -94,6 +96,13 @@ pub(super) struct EndpointProfile {
     pub(super) credential_strategy: CredentialStrategy,
     pub(super) security_classification: SecurityClassification,
     pub(super) enabled: bool,
+    /// Recommendation metadata for third-party model configs that could
+    /// request remote code execution on the serving runtime. Switchboard
+    /// never loads model code itself and records `false` unless a future
+    /// explicit user control says otherwise. Absent persisted fields
+    /// deserialize to `false` (fail-safe).
+    #[serde(default)]
+    pub(super) trust_remote_code: bool,
 }
 
 /// Object-safe, read-only endpoint boundary shared by policy and benchmarks.
@@ -141,6 +150,7 @@ impl CurrentRemoteProviderEndpoint {
             credential_strategy,
             security_classification: SecurityClassification::RemoteProvider,
             enabled,
+            trust_remote_code: false,
         };
         validate_profile(&profile)?;
         Ok(Self { profile })
@@ -181,6 +191,7 @@ impl OpenAiCompatibleEndpoint {
             credential_strategy,
             security_classification,
             enabled,
+            trust_remote_code: false,
         };
         validate_profile(&profile)?;
         Ok(Self { profile })
@@ -297,6 +308,33 @@ fn validate_base_url(raw: &str, allow_private_http: bool) -> Result<String, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absent_trust_remote_code_deserializes_to_false() {
+        let raw = r#"{
+            "id": "legacy",
+            "label": "Legacy profile",
+            "baseUrl": "http://127.0.0.1:8080/v1",
+            "protocol": "open_ai_compatible",
+            "healthPolicy": "passive",
+            "modelId": "model",
+            "capabilities": {
+                "protocol": "open_ai_compatible",
+                "streaming": true,
+                "tools": false,
+                "structuredOutput": false,
+                "maxContext": null,
+                "prefixCacheEvidence": "unknown",
+                "healthEndpoint": null,
+                "modelDiscovery": { "kind": "static" }
+            },
+            "credentialStrategy": { "kind": "none" },
+            "securityClassification": "local_loopback",
+            "enabled": false
+        }"#;
+        let profile: EndpointProfile = serde_json::from_str(raw).unwrap();
+        assert!(!profile.trust_remote_code);
+    }
 
     fn capabilities(protocol: InferenceProtocol) -> EndpointCapabilities {
         EndpointCapabilities {

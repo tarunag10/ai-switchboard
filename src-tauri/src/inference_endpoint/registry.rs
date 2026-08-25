@@ -18,9 +18,10 @@
 //! externally owned; Switchboard only enrolls and verifies their endpoints.
 
 use super::{
-    validate_profile, CredentialStrategy, EndpointCapabilities, EndpointProfile, HealthPolicy,
-    InferenceEndpoint, InferenceProtocol, ModelDiscovery, NormalizedRuntimeCapabilities,
-    OpenAiCompatibleEndpoint, PrefixCacheEvidence, SecurityClassification,
+    validate_profile, CredentialStrategy, EndpointCapabilities, EndpointKind, EndpointProfile,
+    HealthPolicy, InferenceEndpoint, InferenceProtocol, ModelDiscovery,
+    NormalizedRuntimeCapabilities, OpenAiCompatibleEndpoint, PrefixCacheEvidence,
+    SecurityClassification,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -126,8 +127,7 @@ impl VllmEndpoint {
         Ok(Self {
             profile: endpoint.profile,
             benchmark_profile_id,
-            compatibility_source: "vllm-project/vllm@fe1c317157d4478fdc0e02096447e61305b871e9"
-                .to_string(),
+            compatibility_source: EndpointKind::Vllm.pinned_source(),
         })
     }
 }
@@ -203,8 +203,7 @@ impl SglangEndpoint {
         )?;
         Ok(Self {
             profile: endpoint.profile,
-            compatibility_source: "sgl-project/sglang@d3589a7251e4df6710e14ac55071585e80ae62c7"
-                .to_string(),
+            compatibility_source: EndpointKind::Sglang.pinned_source(),
         })
     }
 }
@@ -287,8 +286,7 @@ impl LlamaCppEndpoint {
         Ok(Self {
             profile: endpoint.profile,
             quantization,
-            compatibility_source: "ggml-org/llama.cpp@4df29be4f4c3673f428170fda944a5b19f743bb8"
-                .to_string(),
+            compatibility_source: EndpointKind::LlamaCpp.pinned_source(),
         })
     }
 
@@ -358,8 +356,7 @@ impl LiteLlmEndpoint {
             profile: endpoint.profile,
             remote_connectivity_opt_in: requires_remote_opt_in && remote_connectivity_opt_in,
             externally_owned: true,
-            compatibility_source: "BerriAI/litellm@bc6e7df05b018eefe6c7293790ca3f4de38709ac"
-                .to_string(),
+            compatibility_source: EndpointKind::LiteLlm.pinned_source(),
         })
     }
 
@@ -434,8 +431,7 @@ impl EnterpriseGatewayEndpoint {
             remote_connectivity_opt_in,
             externally_owned: true,
             gateway_implementation: "envoy_ai_gateway".to_string(),
-            compatibility_source: "envoyproxy/ai-gateway@06381c5195178b349fa5b77648179775f0b1d839"
-                .to_string(),
+            compatibility_source: EndpointKind::EnvoyAiGateway.pinned_source(),
         })
     }
 
@@ -501,8 +497,7 @@ impl DynamoEndpoint {
             profile: endpoint.profile,
             remote_connectivity_opt_in,
             externally_owned: true,
-            compatibility_source: "ai-dynamo/dynamo@4ae1af02db404c6268c4560df1071c0225f88b36"
-                .to_string(),
+            compatibility_source: EndpointKind::Dynamo.pinned_source(),
         })
     }
 
@@ -566,8 +561,7 @@ impl TensorRtLlmEndpoint {
             profile: endpoint.profile,
             quantization: validate_quantization(quantization)?,
             externally_owned: true,
-            compatibility_source: "NVIDIA/TensorRT-LLM@210397bedcbec4305722942b49ddcb17c1cce3c1"
-                .to_string(),
+            compatibility_source: EndpointKind::TensorRtLlm.pinned_source(),
         })
     }
 
@@ -818,16 +812,33 @@ impl ManagedEndpoint {
         }
     }
 
-    fn runtime_kind(&self) -> &'static str {
+    fn kind(&self) -> EndpointKind {
         match self {
-            Self::OpenAi(_) => "open_ai_compatible",
-            Self::Vllm(_) => "vllm",
-            Self::Sglang(_) => "sglang",
-            Self::LlamaCpp(_) => "llama_cpp",
-            Self::LiteLlm(_) => "litellm",
-            Self::EnterpriseGateway(_) => "envoy_ai_gateway",
-            Self::Dynamo(_) => "dynamo",
-            Self::TensorRtLlm(_) => "tensorrt_llm",
+            Self::OpenAi(_) => EndpointKind::OpenAiCompatible,
+            Self::Vllm(_) => EndpointKind::Vllm,
+            Self::Sglang(_) => EndpointKind::Sglang,
+            Self::LlamaCpp(_) => EndpointKind::LlamaCpp,
+            Self::LiteLlm(_) => EndpointKind::LiteLlm,
+            Self::EnterpriseGateway(_) => EndpointKind::EnvoyAiGateway,
+            Self::Dynamo(_) => EndpointKind::Dynamo,
+            Self::TensorRtLlm(_) => EndpointKind::TensorRtLlm,
+        }
+    }
+
+    fn runtime_kind(&self) -> &'static str {
+        self.kind().runtime_kind()
+    }
+
+    fn trust_remote_code(&self) -> bool {
+        match self {
+            Self::OpenAi(value) => value.profile.trust_remote_code,
+            Self::Vllm(value) => value.profile.trust_remote_code,
+            Self::Sglang(value) => value.profile.trust_remote_code,
+            Self::LlamaCpp(value) => value.profile.trust_remote_code,
+            Self::LiteLlm(value) => value.profile.trust_remote_code,
+            Self::EnterpriseGateway(value) => value.profile.trust_remote_code,
+            Self::Dynamo(value) => value.profile.trust_remote_code,
+            Self::TensorRtLlm(value) => value.profile.trust_remote_code,
         }
     }
 }
@@ -878,6 +889,9 @@ pub(crate) struct EndpointDiagnostic {
     pub max_context: Option<u64>,
     pub endpoint_kind: String,
     pub runtime_kind: String,
+    /// Advisory metadata: whether this profile permits remote-code-executing
+    /// third-party model configs. Defaults to `false`.
+    pub trust_remote_code: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -998,6 +1012,7 @@ impl EndpointRegistry {
                     max_context: endpoint.capabilities().max_context,
                     endpoint_kind: "external_inference".to_string(),
                     runtime_kind: record.endpoint.runtime_kind().to_string(),
+                    trust_remote_code: record.endpoint.trust_remote_code(),
                 }
             })
             .collect()
@@ -1849,6 +1864,9 @@ mod tests {
         assert_eq!(diagnostic.runtime_kind, "llama_cpp");
         assert!(diagnostic.externally_owned);
         assert!(!diagnostic.remote_connectivity_opt_in);
+        assert!(!diagnostic.trust_remote_code);
+        let serialized = serde_json::to_string(diagnostic).unwrap();
+        assert!(serialized.contains(r#""trustRemoteCode":false"#));
         let _ = fs::remove_dir_all(dir);
     }
 
