@@ -95,10 +95,23 @@ impl WorkbenchStore {
     where
         C: RuntimeClock + ?Sized,
     {
+        self.create_with_clock_and_identity(clock, random_session_id, input)
+    }
+
+    fn create_with_clock_and_identity<C, NewSessionId>(
+        &self,
+        clock: &C,
+        new_session_id: NewSessionId,
+        input: CreateWorkbenchSessionInput,
+    ) -> Result<WorkbenchSession>
+    where
+        C: RuntimeClock + ?Sized,
+        NewSessionId: Fn() -> String,
+    {
         let transaction = self.begin_authority_transaction()?;
         transaction.require_authority_directory(self.authority_directory()?)?;
         let unix_millis = clock.try_unix_millis()?;
-        let session_id = format!("workbench:{}", Uuid::new_v4());
+        let session_id = new_session_id();
         let session = WorkbenchSession::create_with_session_id_at_unix_millis(
             input,
             &session_id,
@@ -289,6 +302,10 @@ impl WorkbenchStore {
     }
 }
 
+fn random_session_id() -> String {
+    format!("workbench:{}", Uuid::new_v4())
+}
+
 fn trim_terminal_sessions(sessions: &mut BTreeMap<String, WorkbenchSession>) {
     if sessions.len() < MAX_SESSIONS {
         return;
@@ -401,6 +418,30 @@ mod tests {
                 .events
                 .len(),
             event_count
+        );
+    }
+
+    #[test]
+    fn identity_provider_supplies_deterministic_session_ids() {
+        let directory = tempfile::tempdir().expect("create temporary directory");
+        let store = WorkbenchStore::at(directory.path().join("workbench-sessions.json"));
+        let created = store
+            .create_with_clock_and_identity(
+                &FixedClock::new(1_700_000_000_123),
+                || "workbench:00000000-0000-4000-8000-000000000001".into(),
+                input(),
+            )
+            .expect("create session with injected identity");
+        assert_eq!(
+            created.session_id,
+            "workbench:00000000-0000-4000-8000-000000000001"
+        );
+        assert_eq!(
+            store
+                .get(&created.session_id)
+                .expect("reload session")
+                .session_id,
+            created.session_id
         );
     }
 

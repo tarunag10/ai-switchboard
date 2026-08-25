@@ -9,6 +9,8 @@ pub mod executable_search;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{anyhow, bail, Result};
+use chrono::{DateTime, Utc};
 use switchboard_core::{ExecutionMode, HarnessStatus, HarnessSurface};
 
 pub const RUNTIME_CONTRACT_VERSION: u32 = 1;
@@ -56,6 +58,19 @@ impl fmt::Display for RuntimeClockError {
 }
 
 impl std::error::Error for RuntimeClockError {}
+
+/// Converts runtime-clock milliseconds into UTC wall-clock time.
+pub fn utc_from_runtime_clock<C>(clock: &C) -> Result<DateTime<Utc>>
+where
+    C: RuntimeClock + ?Sized,
+{
+    let unix_millis = clock.try_unix_millis()?;
+    if unix_millis < 0 {
+        bail!("Workbench runtime clock must not precede the Unix epoch");
+    }
+    DateTime::<Utc>::from_timestamp_millis(unix_millis)
+        .ok_or_else(|| anyhow!("Workbench runtime clock is outside the supported range"))
+}
 
 /// Deterministic runtime clock for tests and contract checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -172,6 +187,22 @@ mod tests {
             checked_unix_millis(instant),
             Err(RuntimeClockError::PreEpoch)
         );
+    }
+
+    #[test]
+    fn utc_from_runtime_clock_maps_fixed_and_rejects_pre_epoch() {
+        let clock = FixedClock::new(1_700_000_000_123);
+        let expected = DateTime::<Utc>::from_timestamp_millis(1_700_000_000_123).unwrap();
+        assert_eq!(utc_from_runtime_clock(&clock).unwrap(), expected);
+
+        struct PreEpochClock;
+        impl RuntimeClock for PreEpochClock {
+            fn unix_millis(&self) -> i64 {
+                -1
+            }
+        }
+        let error = utc_from_runtime_clock(&PreEpochClock).unwrap_err();
+        assert!(error.to_string().contains("must not precede"));
     }
 
     #[test]

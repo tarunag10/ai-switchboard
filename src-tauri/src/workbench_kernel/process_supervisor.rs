@@ -26,23 +26,7 @@ const AUTHORIZED_NOT_STARTED: &str = "authorized_not_started";
 
 static WORKBENCH_PROCESS_ADMISSION_LOCK: Mutex<()> = Mutex::new(());
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WorkbenchProcessAdmission {
-    pub schema_version: u32,
-    pub admission_id: String,
-    pub session_id: String,
-    pub plan_id: String,
-    pub process_run_id: String,
-    pub grant_id: String,
-    pub adapter_id: String,
-    pub admitted_at: String,
-    pub state: String,
-    pub execution_enabled: bool,
-    pub provider_traffic: String,
-    pub writes_enabled: bool,
-    pub receipt_digest: String,
-}
+pub use switchboard_core::process_admission::WorkbenchProcessAdmission;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -122,35 +106,7 @@ pub(crate) fn admit_process(
     Ok(admission)
 }
 
-impl WorkbenchProcessAdmission {
-    pub(crate) fn validate(&self) -> Result<()> {
-        core_admission(self).validate()
-    }
-}
-
-fn admission_digest(admission: &WorkbenchProcessAdmission) -> Result<String> {
-    switchboard_core::process_admission::process_admission_digest(&core_admission(admission))
-}
-
-fn core_admission(
-    admission: &WorkbenchProcessAdmission,
-) -> switchboard_core::process_admission::WorkbenchProcessAdmission {
-    switchboard_core::process_admission::WorkbenchProcessAdmission {
-        schema_version: admission.schema_version,
-        admission_id: admission.admission_id.clone(),
-        session_id: admission.session_id.clone(),
-        plan_id: admission.plan_id.clone(),
-        process_run_id: admission.process_run_id.clone(),
-        grant_id: admission.grant_id.clone(),
-        adapter_id: admission.adapter_id.clone(),
-        admitted_at: admission.admitted_at.clone(),
-        state: admission.state.clone(),
-        execution_enabled: admission.execution_enabled,
-        provider_traffic: admission.provider_traffic.clone(),
-        writes_enabled: admission.writes_enabled,
-        receipt_digest: admission.receipt_digest.clone(),
-    }
-}
+pub(crate) use switchboard_core::process_admission::process_admission_digest as admission_digest;
 
 impl WorkbenchProcessAdmissionStore {
     pub(crate) fn in_app_storage() -> Self {

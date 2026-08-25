@@ -32,24 +32,8 @@ const GRANTED: &str = "granted";
 const EXPIRED: &str = "expired";
 const REVOKED: &str = "revoked";
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WorkbenchProcessStartGrant {
-    pub schema_version: u32,
-    pub grant_id: String,
-    pub session_id: String,
-    pub plan_id: String,
-    pub process_run_id: String,
-    pub capability_id: String,
-    pub issued_at: String,
-    pub expires_at: String,
-    pub status: String,
-    pub revoked_at: Option<String>,
-    pub execution_enabled: bool,
-    pub provider_traffic: String,
-    pub writes_enabled: bool,
-    pub receipt_digest: String,
-}
+pub use switchboard_core::process_grant::WorkbenchProcessStartGrant;
+pub(crate) use switchboard_core::process_grant::process_start_grant_digest;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -158,6 +142,25 @@ pub(crate) fn issue_process_start_grant(
     confirmation_phrase: &str,
     now: DateTime<Utc>,
 ) -> Result<WorkbenchProcessStartGrant> {
+    issue_process_start_grant_with_identity(
+        session,
+        plan,
+        confirmation_phrase,
+        now,
+        random_grant_id,
+    )
+}
+
+pub(crate) fn issue_process_start_grant_with_identity<NewGrantId>(
+    session: &WorkbenchSession,
+    plan: &WorkbenchRunPlan,
+    confirmation_phrase: &str,
+    now: DateTime<Utc>,
+    new_grant_id: NewGrantId,
+) -> Result<WorkbenchProcessStartGrant>
+where
+    NewGrantId: Fn() -> String,
+{
     if session.status != WorkbenchSessionStatus::Active {
         bail!("Workbench process authorization requires an active session");
     }
@@ -196,7 +199,7 @@ pub(crate) fn issue_process_start_grant(
     let expires_at = now + Duration::seconds(PROCESS_START_GRANT_TTL_SECONDS);
     let mut grant = WorkbenchProcessStartGrant {
         schema_version: GRANT_SCHEMA_VERSION,
-        grant_id: format!("process-grant:{}", Uuid::new_v4()),
+        grant_id: new_grant_id(),
         session_id: session.session_id.clone(),
         plan_id: plan.plan_id.clone(),
         process_run_id: process.run_id.clone(),
@@ -230,14 +233,16 @@ where
     store.issue(grant, now)
 }
 
-pub(crate) fn process_start_grant_digest(grant: &WorkbenchProcessStartGrant) -> Result<String> {
-    switchboard_core::process_grant::process_start_grant_digest(&core_grant(grant))
+fn random_grant_id() -> String {
+    format!("process-grant:{}", Uuid::new_v4())
 }
 
-fn core_grant(
+fn grant_view_at(
     grant: &WorkbenchProcessStartGrant,
-) -> switchboard_core::process_grant::WorkbenchProcessStartGrant {
-    switchboard_core::process_grant::WorkbenchProcessStartGrant {
+    now: DateTime<Utc>,
+) -> WorkbenchProcessStartGrantView {
+    let effective_state = grant.effective_state_at(now).unwrap_or(EXPIRED);
+    WorkbenchProcessStartGrantView {
         schema_version: grant.schema_version,
         grant_id: grant.grant_id.clone(),
         session_id: grant.session_id.clone(),
@@ -246,106 +251,11 @@ fn core_grant(
         capability_id: grant.capability_id.clone(),
         issued_at: grant.issued_at.clone(),
         expires_at: grant.expires_at.clone(),
-        status: grant.status.clone(),
-        revoked_at: grant.revoked_at.clone(),
-        execution_enabled: grant.execution_enabled,
-        provider_traffic: grant.provider_traffic.clone(),
-        writes_enabled: grant.writes_enabled,
+        effective_state: effective_state.into(),
+        execution_enabled: false,
+        provider_traffic: "none".into(),
+        writes_enabled: false,
         receipt_digest: grant.receipt_digest.clone(),
-    }
-}
-
-impl WorkbenchProcessStartGrant {
-    pub(crate) fn validate(&self) -> Result<()> {
-        if self.schema_version != GRANT_SCHEMA_VERSION {
-            bail!("Workbench process grant schema is unsupported");
-        }
-        for (value, label) in [
-            (&self.grant_id, "process grant ID"),
-            (&self.session_id, "session ID"),
-            (&self.plan_id, "plan ID"),
-            (&self.process_run_id, "process run ID"),
-        ] {
-            validate_identifier(value, label)?;
-        }
-        if self.capability_id != PROCESS_START_CAPABILITY_ID
-            || !matches!(self.status.as_str(), GRANTED | EXPIRED | REVOKED)
-            || self.execution_enabled
-            || self.provider_traffic != "none"
-            || self.writes_enabled
-        {
-            bail!("Workbench process grant violates the non-executing boundary");
-        }
-        let issued_at = DateTime::parse_from_rfc3339(&self.issued_at)
-            .map_err(|_| anyhow!("Workbench process grant issue time is invalid"))?
-            .with_timezone(&Utc);
-        let expires_at = DateTime::parse_from_rfc3339(&self.expires_at)
-            .map_err(|_| anyhow!("Workbench process grant expiry time is invalid"))?
-            .with_timezone(&Utc);
-        if expires_at.signed_duration_since(issued_at)
-            != Duration::seconds(PROCESS_START_GRANT_TTL_SECONDS)
-        {
-            bail!("Workbench process grant expiry must use the native fixed policy");
-        }
-        match (&self.status[..], self.revoked_at.as_deref()) {
-            (GRANTED | EXPIRED, None) => {}
-            (REVOKED, Some(revoked_at)) => {
-                let revoked_at = DateTime::parse_from_rfc3339(revoked_at)
-                    .map_err(|_| anyhow!("Workbench process grant revoke time is invalid"))?
-                    .with_timezone(&Utc);
-                if revoked_at < issued_at || revoked_at > expires_at {
-                    bail!("Workbench process grant revoke time is outside its validity window");
-                }
-            }
-            _ => bail!("Workbench process grant revoke state is invalid"),
-        }
-        if self.receipt_digest != process_start_grant_digest(self)? {
-            bail!("Workbench process grant receipt digest does not match its content");
-        }
-        Ok(())
-    }
-
-    fn effective_state_at(&self, now: DateTime<Utc>) -> Result<&'static str> {
-        let issued_at = DateTime::parse_from_rfc3339(&self.issued_at)
-            .map_err(|_| anyhow!("Workbench process grant issue time is invalid"))?
-            .with_timezone(&Utc);
-        let expires_at = DateTime::parse_from_rfc3339(&self.expires_at)
-            .map_err(|_| anyhow!("Workbench process grant expiry time is invalid"))?
-            .with_timezone(&Utc);
-        Ok(if self.status == REVOKED {
-            REVOKED
-        } else if self.status == EXPIRED || now < issued_at || now >= expires_at {
-            EXPIRED
-        } else {
-            "active"
-        })
-    }
-
-    pub(crate) fn require_active_at(&self, now: DateTime<Utc>) -> Result<()> {
-        self.validate()?;
-        if self.effective_state_at(now)? != "active" {
-            bail!("Workbench process grant is not active");
-        }
-        Ok(())
-    }
-
-    fn view_at(&self, now: DateTime<Utc>) -> WorkbenchProcessStartGrantView {
-        let effective_state = self.effective_state_at(now).unwrap_or(EXPIRED);
-        WorkbenchProcessStartGrantView {
-            schema_version: self.schema_version,
-            grant_id: self.grant_id.clone(),
-            session_id: self.session_id.clone(),
-            plan_id: self.plan_id.clone(),
-            process_run_id: self.process_run_id.clone(),
-            capability_id: self.capability_id.clone(),
-            issued_at: self.issued_at.clone(),
-            expires_at: self.expires_at.clone(),
-            effective_state: effective_state.into(),
-            execution_enabled: false,
-            provider_traffic: "none".into(),
-            writes_enabled: false,
-            receipt_digest: self.receipt_digest.clone(),
-        }
     }
 }
 
@@ -468,7 +378,7 @@ impl WorkbenchProcessGrantStore {
             .grants
             .into_values()
             .filter(|grant| grant.session_id == session_id)
-            .map(|grant| grant.view_at(now))
+            .map(|grant| grant_view_at(&grant, now))
             .collect::<Vec<_>>();
         grants.sort_by(|left, right| right.issued_at.cmp(&left.issued_at));
         Ok(grants)
@@ -482,7 +392,7 @@ impl WorkbenchProcessGrantStore {
             .load()?
             .grants
             .into_values()
-            .map(|grant| grant.view_at(now))
+            .map(|grant| grant_view_at(&grant, now))
             .collect::<Vec<_>>();
         grants.sort_by(|left, right| right.issued_at.cmp(&left.issued_at));
         Ok(grants)
@@ -512,7 +422,7 @@ impl WorkbenchProcessGrantStore {
             if changed {
                 self.save(&ledger)?;
             }
-            return Ok(existing.view_at(now));
+            return Ok(grant_view_at(&existing, now));
         }
         trim_inactive_grants(&mut ledger.grants, now);
         if ledger.grants.len() >= MAX_GRANTS {
@@ -520,7 +430,7 @@ impl WorkbenchProcessGrantStore {
                 "Workbench process grant ledger is full; expire or revoke an existing grant first"
             );
         }
-        let view = grant.view_at(now);
+        let view = grant_view_at(&grant, now);
         ledger.grants.insert(grant.grant_id.clone(), grant);
         self.save(&ledger)?;
         Ok(view)
@@ -551,11 +461,11 @@ impl WorkbenchProcessGrantStore {
             grant.revoked_at = Some(revoked_at.to_rfc3339());
             grant.receipt_digest = process_start_grant_digest(grant)?;
             grant.validate()?;
-            let view = grant.view_at(now);
+            let view = grant_view_at(grant, now);
             self.save(&ledger)?;
             return Ok(view);
         }
-        let view = grant.view_at(now);
+        let view = grant_view_at(grant, now);
         if changed {
             self.save(&ledger)?;
         }
@@ -775,7 +685,7 @@ fn trim_inactive_grants(
     }
     let mut inactive = grants
         .iter()
-        .filter(|(_, grant)| grant.view_at(now).effective_state != "active")
+        .filter(|(_, grant)| grant_view_at(grant, now).effective_state != "active")
         .map(|(grant_id, grant)| (grant.issued_at.clone(), grant_id.clone()))
         .collect::<Vec<_>>();
     inactive.sort();
@@ -810,8 +720,8 @@ fn expire_stale_grants(
 mod tests {
     use super::{
         issue_process_start_grant, issue_process_start_grant_with_clock,
-        process_start_confirmation_phrase, WorkbenchProcessGrantLedger, WorkbenchProcessGrantStore,
-        WorkbenchProcessStartGrant,
+        issue_process_start_grant_with_identity, process_start_confirmation_phrase,
+        WorkbenchProcessGrantLedger, WorkbenchProcessGrantStore, WorkbenchProcessStartGrant,
     };
     use crate::models::SwitchboardMode;
     use crate::workbench_kernel::events::WorkbenchSessionStatus;
@@ -930,6 +840,26 @@ mod tests {
             provider_traffic: "none".into(),
             writes_enabled: false,
         }
+    }
+
+    #[test]
+    fn identity_provider_supplies_deterministic_grant_ids() {
+        let session = session();
+        let plan = plan(&session);
+        let now = Utc.with_ymd_and_hms(2026, 8, 23, 0, 0, 0).unwrap();
+        let grant = issue_process_start_grant_with_identity(
+            &session,
+            &plan,
+            &process_start_confirmation_phrase(&plan),
+            now,
+            || "process-grant:00000000-0000-4000-8000-000000000001".into(),
+        )
+        .expect("issue grant with injected identity");
+        assert_eq!(
+            grant.grant_id,
+            "process-grant:00000000-0000-4000-8000-000000000001"
+        );
+        grant.validate().expect("injected id must stay valid");
     }
 
     #[test]

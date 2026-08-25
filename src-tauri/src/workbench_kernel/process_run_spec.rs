@@ -4,6 +4,10 @@
 //! resolved executable, arguments, shell, environment, working directory,
 //! prompt, credential, PID, and process-group ID. A later executor must honor
 //! this contract before it can create and register an app-owned process group.
+//!
+//! The serialized schema, identity, and provider-neutral validation live in
+//! `switchboard-core`. This module wraps the core contract and layers the
+//! Tauri-only adapter allowlist and exact adapter contract-version pin on top.
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
@@ -14,44 +18,35 @@ use super::adapter_readiness::validate_adapter_command_readiness_adapter_id;
 use super::events::validate_identifier;
 use super::session::validate_digest;
 
-const PROCESS_RUN_SPEC_SCHEMA_VERSION: u32 = 1;
-const WORKBENCH_NATIVE_OWNER: &str = "workbench_native";
-const NOT_STARTED: &str = "not_started";
-const START_NOT_GRANTED: &str = "not_granted";
-const NATIVE_ADAPTER_ONLY: &str = "native_adapter_only";
-const PROCESS_GROUP_REQUIRED_ON_UNIX: &str = "required_on_unix";
-const NULL_STDIN: &str = "null";
-const BOUNDED_REDACTED_OUTPUT: &str = "piped_bounded_redacted";
-const FIXED_TIMEOUT_POLICY: &str = "native_fixed_policy_required";
-const GROUP_TERMINATE_THEN_KILL: &str = "group_sigterm_then_sigkill";
-
+/// Wire-compatible wrapper around the shared core contract.
+///
+/// Serde stays transparent so nested and persisted JSON remains identical to
+/// the previous local struct, and `Deref`/`DerefMut` keep every field access
+/// working unchanged.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ProcessRunSpec {
-    pub schema_version: u32,
-    pub run_id: String,
-    pub session_id: String,
-    /// Existing adapter dry-run plan only. This is not an executable command.
-    pub adapter_plan_id: String,
-    pub adapter_id: String,
-    pub adapter_contract_version: u32,
-    pub workspace_digest: String,
-    pub owner: String,
-    pub state: String,
-    pub start_authorization: String,
-    pub launch_mode: String,
-    pub process_group: String,
-    pub stdin: String,
-    pub output: String,
-    pub timeout_policy: String,
-    pub cancellation: String,
-    pub provider_traffic: String,
-    pub writes_enabled: bool,
+#[serde(transparent)]
+pub struct ProcessRunSpec(switchboard_core::process_run_spec::ProcessRunSpec);
+
+impl std::ops::Deref for ProcessRunSpec {
+    type Target = switchboard_core::process_run_spec::ProcessRunSpec;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ProcessRunSpec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 impl ProcessRunSpec {
+    /// Provider-neutral validation plus the Tauri-owned adapter policy:
+    /// the adapter must appear on the fixed allowlist with exactly the
+    /// supported adapter contract version.
     pub(crate) fn validate(&self) -> Result<()> {
-        core_process_run_spec(self).validate()?;
+        self.0.validate()?;
         validate_adapter_command_readiness_adapter_id(&self.adapter_id)?;
         if self.adapter_contract_version != CODING_CLIENT_ADAPTER_CONTRACT_VERSION {
             bail!("Workbench process run spec violates the non-executing containment boundary");
@@ -62,7 +57,7 @@ impl ProcessRunSpec {
 
 pub(crate) fn process_run_spec_digest(spec: &ProcessRunSpec) -> Result<String> {
     spec.validate()?;
-    switchboard_core::process_run_spec::process_run_spec_digest(&core_process_run_spec(spec))
+    switchboard_core::process_run_spec::process_run_spec_digest(&spec.0)
 }
 
 pub(crate) fn process_run_spec_for(
@@ -75,65 +70,20 @@ pub(crate) fn process_run_spec_for(
     validate_identifier(adapter_plan_id, "adapter plan ID")?;
     validate_adapter_command_readiness_adapter_id(adapter_id)?;
     validate_digest(workspace_digest, "workspace digest")?;
-    let run_id = switchboard_core::process_run_spec::process_run_id_for(
+    let spec = ProcessRunSpec(switchboard_core::process_run_spec::process_run_spec_for(
         session_id,
         adapter_plan_id,
         adapter_id,
         CODING_CLIENT_ADAPTER_CONTRACT_VERSION,
         workspace_digest,
-    )?;
-    let spec = ProcessRunSpec {
-        schema_version: PROCESS_RUN_SPEC_SCHEMA_VERSION,
-        run_id,
-        session_id: session_id.to_string(),
-        adapter_plan_id: adapter_plan_id.to_string(),
-        adapter_id: adapter_id.to_string(),
-        adapter_contract_version: CODING_CLIENT_ADAPTER_CONTRACT_VERSION,
-        workspace_digest: workspace_digest.to_string(),
-        owner: WORKBENCH_NATIVE_OWNER.into(),
-        state: NOT_STARTED.into(),
-        start_authorization: START_NOT_GRANTED.into(),
-        launch_mode: NATIVE_ADAPTER_ONLY.into(),
-        process_group: PROCESS_GROUP_REQUIRED_ON_UNIX.into(),
-        stdin: NULL_STDIN.into(),
-        output: BOUNDED_REDACTED_OUTPUT.into(),
-        timeout_policy: FIXED_TIMEOUT_POLICY.into(),
-        cancellation: GROUP_TERMINATE_THEN_KILL.into(),
-        provider_traffic: "none".into(),
-        writes_enabled: false,
-    };
+    )?);
     spec.validate()?;
     Ok(spec)
 }
 
-fn core_process_run_spec(
-    spec: &ProcessRunSpec,
-) -> switchboard_core::process_run_spec::ProcessRunSpec {
-    switchboard_core::process_run_spec::ProcessRunSpec {
-        schema_version: spec.schema_version,
-        run_id: spec.run_id.clone(),
-        session_id: spec.session_id.clone(),
-        adapter_plan_id: spec.adapter_plan_id.clone(),
-        adapter_id: spec.adapter_id.clone(),
-        adapter_contract_version: spec.adapter_contract_version,
-        workspace_digest: spec.workspace_digest.clone(),
-        owner: spec.owner.clone(),
-        state: spec.state.clone(),
-        start_authorization: spec.start_authorization.clone(),
-        launch_mode: spec.launch_mode.clone(),
-        process_group: spec.process_group.clone(),
-        stdin: spec.stdin.clone(),
-        output: spec.output.clone(),
-        timeout_policy: spec.timeout_policy.clone(),
-        cancellation: spec.cancellation.clone(),
-        provider_traffic: spec.provider_traffic.clone(),
-        writes_enabled: spec.writes_enabled,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{core_process_run_spec, process_run_spec_digest, process_run_spec_for};
+    use super::{process_run_spec_digest, process_run_spec_for};
 
     fn digest(character: char) -> String {
         format!("sha256:{}", character.to_string().repeat(64))
@@ -156,8 +106,10 @@ mod tests {
         )
         .expect("create process run spec");
         assert_eq!(first, second);
-        let core = core_process_run_spec(&first);
-        core.validate().expect("validate shared core spec");
+        first
+            .0
+            .validate()
+            .expect("validate shared core spec");
         assert_eq!(
             first.run_id,
             switchboard_core::process_run_spec::process_run_id_for(
@@ -171,7 +123,7 @@ mod tests {
         );
         assert_eq!(
             process_run_spec_digest(&first).expect("digest Tauri spec"),
-            switchboard_core::process_run_spec::process_run_spec_digest(&core)
+            switchboard_core::process_run_spec::process_run_spec_digest(&first.0)
                 .expect("digest shared core spec")
         );
         assert_eq!(

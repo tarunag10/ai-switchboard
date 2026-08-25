@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod oss_registry;
 pub mod plan_head;
 pub mod presets;
 pub mod process_admission;

@@ -54,6 +54,7 @@ pub use capability_grant::{WorkbenchProcessStartGrantPolicy, WorkbenchProcessSta
 pub use events::WorkbenchSessionAction;
 use presets::{all_workbench_plan_presets, WorkbenchPlanPreset};
 use process_eligibility::derive_admission_eligibility;
+use self::runtime_time::utc_from_runtime_clock;
 pub use process_eligibility::{
     WorkbenchAdmissionEligibilityInput, WorkbenchAdmissionEligibilitySnapshot,
 };
@@ -167,8 +168,9 @@ pub fn transition_workbench_session(
 ) -> Result<WorkbenchSession, String> {
     let (_guard, store) = locked_store()?;
     transition_workbench_session_with_cleanup(&store, input, |session_id| {
+        let now = utc_from_runtime_clock(&PortableRuntime).map_err(|error| error.to_string())?;
         WorkbenchProcessGrantStore::in_app_storage()
-            .revoke_for_terminal_session(session_id, chrono::Utc::now())
+            .revoke_for_terminal_session(session_id, now)
             .map_err(|error| error.to_string())
     })
 }
@@ -286,8 +288,9 @@ pub fn list_workbench_process_start_grants(
     session_id: String,
 ) -> Result<Vec<WorkbenchProcessStartGrantView>, String> {
     let (_guard, _) = locked_store()?;
+    let now = utc_from_runtime_clock(&PortableRuntime).map_err(|error| error.to_string())?;
     WorkbenchProcessGrantStore::in_app_storage()
-        .list_for_session(session_id.trim(), chrono::Utc::now())
+        .list_for_session(session_id.trim(), now)
         .map_err(|error| error.to_string())
 }
 
@@ -296,8 +299,9 @@ pub fn revoke_workbench_process_start_grant(
     grant_id: String,
 ) -> Result<WorkbenchProcessStartGrantView, String> {
     let (_guard, _) = locked_store()?;
+    let now = utc_from_runtime_clock(&PortableRuntime).map_err(|error| error.to_string())?;
     WorkbenchProcessGrantStore::in_app_storage()
-        .revoke(grant_id.trim(), chrono::Utc::now())
+        .revoke(grant_id.trim(), now)
         .map_err(|error| error.to_string())
 }
 
@@ -363,7 +367,7 @@ pub fn derive_workbench_process_admission_eligibility(
     let session = store
         .get(input.run_spec.session_id.trim())
         .map_err(|error| error.to_string())?;
-    let now = chrono::Utc::now();
+    let now = utc_from_runtime_clock(&PortableRuntime).map_err(|error| error.to_string())?;
     let admissions = WorkbenchProcessAdmissionStore::in_app_storage()
         .list_for_session(&session.session_id)
         .map_err(|error| error.to_string())?;

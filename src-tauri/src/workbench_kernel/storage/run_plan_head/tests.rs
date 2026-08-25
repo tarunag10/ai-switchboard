@@ -126,6 +126,34 @@ fn publish_is_idempotent_and_a_b_a_supersession_has_unique_heads() {
 }
 
 #[test]
+fn identity_provider_supplies_a_deterministic_ledger_id() {
+    let value = fixture();
+    let store = WorkbenchPlanHeadStore::at(value.directory.path().join("test-plan-heads.json"));
+    let transaction = value
+        .grant_store
+        .begin_authority_transaction()
+        .expect("plan-head transaction");
+    let head = store
+        .publish_for_authority_transaction_with_identity(
+            &transaction,
+            &value.session_store,
+            &value.session,
+            &value.plan,
+            || "workbench-plan-head-ledger:00000000-0000-4000-8000-000000000001".into(),
+        )
+        .expect("publish head with injected ledger identity");
+    let (ledger, _) = store
+        .load()
+        .expect("reload plan-head ledger after publication");
+    assert_eq!(
+        ledger.ledger_id,
+        "workbench-plan-head-ledger:00000000-0000-4000-8000-000000000001"
+    );
+    ledger.validate().expect("injected ledger id must stay valid");
+    assert_eq!(head.head_id, ledger.current_heads[&head.session_id].head_id);
+}
+
+#[test]
 fn missing_head_fails_closed_without_creating_storage() {
     let value = fixture();
     let path = value.directory.path().join("missing-plan-heads.json");

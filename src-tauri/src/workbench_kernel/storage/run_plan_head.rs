@@ -228,9 +228,16 @@ impl RetiredWorkbenchPlanHead {
 
 impl WorkbenchPlanHeadLedger {
     fn empty() -> Result<Self> {
+        Self::empty_with_identity(random_ledger_id)
+    }
+
+    fn empty_with_identity<NewLedgerId>(new_ledger_id: NewLedgerId) -> Result<Self>
+    where
+        NewLedgerId: Fn() -> String,
+    {
         let mut ledger = Self {
             schema_version: PLAN_HEAD_LEDGER_SCHEMA_VERSION,
-            ledger_id: format!("workbench-plan-head-ledger:{}", Uuid::new_v4()),
+            ledger_id: new_ledger_id(),
             generation: 0,
             current_heads: BTreeMap::new(),
             retired_heads: BTreeMap::new(),
@@ -353,6 +360,28 @@ impl WorkbenchPlanHeadStore {
         session: &WorkbenchSession,
         plan: &WorkbenchRunPlan,
     ) -> Result<WorkbenchPlanHead> {
+        self.publish_for_authority_transaction_with_identity(
+            transaction,
+            session_store,
+            session,
+            plan,
+            random_ledger_id,
+        )
+    }
+
+    pub(in crate::workbench_kernel) fn publish_for_authority_transaction_with_identity<
+        NewLedgerId,
+    >(
+        &self,
+        transaction: &WorkbenchAuthorityTransaction,
+        session_store: &WorkbenchStore,
+        session: &WorkbenchSession,
+        plan: &WorkbenchRunPlan,
+        new_ledger_id: NewLedgerId,
+    ) -> Result<WorkbenchPlanHead>
+    where
+        NewLedgerId: Fn() -> String,
+    {
         transaction.require_authority_directory(self.authority_directory()?)?;
         let durable_session =
             session_store.get_for_authority_transaction(transaction, &session.session_id)?;
@@ -372,7 +401,7 @@ impl WorkbenchPlanHeadStore {
         }
         let plan_snapshot_digest = workbench_run_plan_snapshot_digest(plan)?;
         let session_snapshot_digest = workbench_session_snapshot_digest(&durable_session)?;
-        let (mut ledger, expected_bytes) = self.load()?;
+        let (mut ledger, expected_bytes) = self.load_with_identity(new_ledger_id)?;
         if let Some(current) = ledger.current_heads.get(&durable_session.session_id) {
             if current.session_snapshot_digest == session_snapshot_digest
                 && current.plan_snapshot_digest == plan_snapshot_digest
@@ -497,8 +526,18 @@ impl WorkbenchPlanHeadStore {
     }
 
     fn load(&self) -> Result<(WorkbenchPlanHeadLedger, Option<Vec<u8>>)> {
+        self.load_with_identity(random_ledger_id)
+    }
+
+    fn load_with_identity<NewLedgerId>(
+        &self,
+        new_ledger_id: NewLedgerId,
+    ) -> Result<(WorkbenchPlanHeadLedger, Option<Vec<u8>>)>
+    where
+        NewLedgerId: Fn() -> String,
+    {
         let Some(bytes) = read_regular_file(&self.path)? else {
-            return Ok((WorkbenchPlanHeadLedger::empty()?, None));
+            return Ok((WorkbenchPlanHeadLedger::empty_with_identity(new_ledger_id)?, None));
         };
         if bytes.len() > MAX_PLAN_HEAD_LEDGER_BYTES {
             bail!("Workbench current-plan ledger exceeds its byte cap");
@@ -535,6 +574,10 @@ impl WorkbenchPlanHeadStore {
             )
         })
     }
+}
+
+fn random_ledger_id() -> String {
+    format!("workbench-plan-head-ledger:{}", Uuid::new_v4())
 }
 
 fn read_regular_file(path: &Path) -> Result<Option<Vec<u8>>> {
