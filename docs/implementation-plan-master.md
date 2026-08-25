@@ -769,6 +769,12 @@ Core extraction progress:
   account/model`. The shared sidecar mapping also makes Qwen Code truthful,
   while genuinely unsupported Grok account/model states remain unchanged;
   focused connector-copy tests and TypeScript validation pass.
+- The model-routing completion flow now has an injectable, provider-neutral
+  pass-through port covering handle issue, explicit completion, evidence
+  export, and explicit observation recording. The default adapter delegates to
+  the existing Tauri bridge unchanged; injected adapters cannot synthesize
+  metrics or bypass observe-only gating. Focused coverage passes 35 tests with
+  TypeScript clean.
 
 ### Remaining build work
 

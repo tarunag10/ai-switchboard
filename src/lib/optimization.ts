@@ -576,6 +576,28 @@ export function recordModelRoutingEvidence(
   return invoke<void>("record_model_routing_evidence", { observation });
 }
 
+export interface ModelRoutingCompletionPort {
+  issueModelRoutingCompletionHandle(
+    input: ModelRoutingInput,
+  ): Promise<ModelRoutingCompletionHandle>;
+  completeModelRoutingCompletion(
+    handleId: string,
+    metrics: ModelRoutingCompletionMetrics,
+  ): Promise<ModelRoutingDecisionReference>;
+  exportModelRoutingEvidenceForHandle(
+    handleId: string,
+    taskClass: string,
+  ): Promise<ModelRoutingEvidenceArtifact>;
+  recordModelRoutingEvidence(observation: ModelRoutingEvidenceObservation): Promise<void>;
+}
+
+export const modelRoutingCompletionPort: ModelRoutingCompletionPort = {
+  issueModelRoutingCompletionHandle,
+  completeModelRoutingCompletion,
+  exportModelRoutingEvidenceForHandle,
+  recordModelRoutingEvidence,
+};
+
 export function listModelRoutingDecisionReferences(): Promise<ModelRoutingDecisionReference[]> {
   return invoke<ModelRoutingDecisionReference[]>("list_model_routing_decision_references");
 }

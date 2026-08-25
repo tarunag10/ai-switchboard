@@ -7,6 +7,7 @@ import {
   loadModelRoutingExperimentPolicy,
   modelRoutingEffectiveStageReceipt,
   saveModelRoutingExperimentPolicy,
+  type ModelRoutingCompletionPort,
   type ModelRoutingEvidenceObservation,
   type ModelRoutingEffectiveStageReceipt,
   type ModelRoutingExperimentPolicy,
@@ -19,10 +20,12 @@ const taskClasses = ["formatting", "commit_message", "rename", "diff_summary"] a
 
 type ModelRoutingExperimentCardProps = {
   evidenceObservation?: ModelRoutingEvidenceObservation | null;
+  completionPort?: ModelRoutingCompletionPort | null;
 };
 
 export function ModelRoutingExperimentCard({
   evidenceObservation,
+  completionPort,
 }: ModelRoutingExperimentCardProps) {
   const [policy, setPolicy] = useState<ModelRoutingExperimentPolicy>(
     defaultModelRoutingExperimentPolicy,
@@ -204,7 +207,10 @@ export function ModelRoutingExperimentCard({
         {saving ? "Saving" : "Save routing policy"}
       </button>
       {notice ? <p role="status">{notice}</p> : null}
-      <ModelRoutingEvidenceCapture observation={evidenceObservation} />
+      <ModelRoutingEvidenceCapture
+        completionPort={completionPort}
+        observation={evidenceObservation}
+      />
     </article>
   );
 }

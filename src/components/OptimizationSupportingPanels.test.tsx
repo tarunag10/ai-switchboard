@@ -29,6 +29,12 @@ vi.mock("../lib/optimization", async (importOriginal) => ({
   recordModelRoutingEvidence: mocks.recordEvidence,
   issueModelRoutingCompletionHandle: mocks.issueCompletionHandle,
   completeModelRoutingCompletion: mocks.completeCompletion,
+  modelRoutingCompletionPort: {
+    issueModelRoutingCompletionHandle: mocks.issueCompletionHandle,
+    completeModelRoutingCompletion: mocks.completeCompletion,
+    exportModelRoutingEvidenceForHandle: mocks.exportEvidenceForHandle,
+    recordModelRoutingEvidence: mocks.recordEvidence,
+  },
 }));
 
 const actionPolicy = {
@@ -216,6 +222,34 @@ describe("optimization supporting panels", () => {
     await waitFor(() => expect(mocks.recordEvidence).toHaveBeenCalledWith(observation));
   });
 
+  it("threads an injected completion port through the parent card", async () => {
+    const observation = {
+      runId: "native-run-4",
+      capturedAt: "2026-08-24T10:30:00Z",
+      taskClass: "formatting",
+      arm: "candidate" as const,
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      succeeded: true,
+      successfulTaskCostMicrounits: 750,
+      qualityScoreBps: 9700,
+      latencyMs: 480,
+      followUpRework: false,
+    };
+    const completionPort = {
+      issueModelRoutingCompletionHandle: vi.fn(),
+      completeModelRoutingCompletion: vi.fn(),
+      exportModelRoutingEvidenceForHandle: vi.fn(),
+      recordModelRoutingEvidence: vi.fn().mockResolvedValue(undefined),
+    };
+
+    render(<ModelRoutingExperimentCard completionPort={completionPort} evidenceObservation={observation} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Record supplied observation" }));
+
+    await waitFor(() => expect(completionPort.recordModelRoutingEvidence).toHaveBeenCalledWith(observation));
+  });
+
   it("keeps completion disabled until the explicit success, quality, latency, and cost inputs are supplied", async () => {
     mocks.issueCompletionHandle.mockResolvedValue({
       handleId: "handle-1",
@@ -269,6 +303,116 @@ describe("optimization supporting panels", () => {
     expect(await screen.findByText(/routing-decision-1/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Export completion evidence" }));
     await waitFor(() => expect(mocks.exportEvidenceForHandle).toHaveBeenCalledWith("handle-1", "formatting"));
+  });
+
+  it("forwards every completion-port call exactly through the capture panel", async () => {
+    const observation = {
+      runId: "native-run-5",
+      capturedAt: "2026-08-24T10:45:00Z",
+      taskClass: "diff_summary",
+      arm: "candidate" as const,
+      baselineModel: "frontier",
+      candidateModel: "fast/local",
+      succeeded: false,
+      successfulTaskCostMicrounits: null,
+      qualityScoreBps: 9150,
+      latencyMs: 615,
+      followUpRework: true,
+    };
+    const handle = {
+      handleId: "handle-5",
+      runId: "native-run-5",
+      issuedAt: "2026-08-23T00:00:00Z",
+      expiresAt: "2026-08-23T00:10:00Z",
+      decision: { stage: "observe", selectedModel: "fast/local" },
+    };
+    const reference = {
+      schemaVersion: 1,
+      decisionId: "routing-decision-5",
+      runId: "native-run-5",
+      capturedAt: "2026-08-23T00:00:00Z",
+      taskClass: "diff_summary",
+      decisionStage: "observe",
+      routingMode: "observe_only",
+      evidenceDigest: `sha256:${"c".repeat(64)}`,
+    };
+    const artifact = {
+      evidenceClass: "local_runtime_observation",
+      promotionEligible: false,
+      provenance: { runId: "native-run-5" },
+    };
+    const completionPort = {
+      issueModelRoutingCompletionHandle: vi.fn().mockResolvedValue(handle),
+      completeModelRoutingCompletion: vi.fn().mockResolvedValue(reference),
+      exportModelRoutingEvidenceForHandle: vi.fn().mockResolvedValue(artifact),
+      recordModelRoutingEvidence: vi.fn().mockResolvedValue(undefined),
+    };
+
+    render(<ModelRoutingEvidenceCapture observation={observation} completionPort={completionPort} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Record supplied observation" }));
+    await waitFor(() => expect(completionPort.recordModelRoutingEvidence).toHaveBeenCalledWith(observation));
+
+    fireEvent.change(screen.getByLabelText("Routing requested model"), { target: { value: "frontier" } });
+    fireEvent.change(screen.getByLabelText("Routing cheap model"), { target: { value: "fast/local" } });
+    fireEvent.change(screen.getByLabelText("Routing capable model"), { target: { value: "frontier" } });
+    fireEvent.click(screen.getByRole("button", { name: "Issue completion handle" }));
+    await waitFor(() => expect(completionPort.issueModelRoutingCompletionHandle).toHaveBeenCalledWith({
+      client: "codex",
+      task: "formatting",
+      requestedModel: "frontier",
+      cheapModel: "fast/local",
+      capableModel: "frontier",
+      enabled: true,
+    }));
+
+    fireEvent.change(screen.getByLabelText("Successful task outcome"), { target: { value: "failed" } });
+    fireEvent.change(screen.getByLabelText("Quality score"), { target: { value: "9150" } });
+    fireEvent.change(screen.getByLabelText("Latency"), { target: { value: "615" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Follow-up rework required/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete provider outcome" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Complete provider outcome" }));
+    await waitFor(() => expect(completionPort.completeModelRoutingCompletion).toHaveBeenCalledWith("handle-5", {
+      succeeded: false,
+      successfulTaskCostMicrounits: null,
+      qualityScoreBps: 9150,
+      latencyMs: 615,
+      followUpRework: true,
+    }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Export completion evidence" }));
+    await waitFor(() => expect(completionPort.exportModelRoutingEvidenceForHandle).toHaveBeenCalledWith("handle-5", "formatting"));
+  });
+
+  it("surfaces completion-port failures without inventing fallback evidence", async () => {
+    const handle = {
+      handleId: "handle-6",
+      runId: "native-run-6",
+      issuedAt: "2026-08-23T00:00:00Z",
+      expiresAt: "2026-08-23T00:10:00Z",
+      decision: { stage: "observe", selectedModel: "fast/local" },
+    };
+    const completionPort = {
+      issueModelRoutingCompletionHandle: vi.fn().mockResolvedValue(handle),
+      completeModelRoutingCompletion: vi.fn().mockRejectedValue(new Error("completion port unavailable")),
+      exportModelRoutingEvidenceForHandle: vi.fn(),
+      recordModelRoutingEvidence: vi.fn(),
+    };
+
+    render(<ModelRoutingEvidenceCapture completionPort={completionPort} />);
+    fireEvent.click(screen.getByRole("button", { name: "Issue completion handle" }));
+    await waitFor(() => expect(completionPort.issueModelRoutingCompletionHandle).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Successful task outcome"), { target: { value: "succeeded" } });
+    fireEvent.change(screen.getByLabelText("Quality score"), { target: { value: "9800" } });
+    fireEvent.change(screen.getByLabelText("Latency"), { target: { value: "700" } });
+    fireEvent.change(screen.getByLabelText("Successful task cost"), { target: { value: "900" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Complete provider outcome" })).toBeEnabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Complete provider outcome" }));
+
+    expect(await screen.findByText("completion port unavailable")).toBeInTheDocument();
+    expect(completionPort.completeModelRoutingCompletion).toHaveBeenCalledTimes(1);
   });
 
   it("allows failed outcomes to complete without a successful-task cost once the remaining fields are explicit", async () => {

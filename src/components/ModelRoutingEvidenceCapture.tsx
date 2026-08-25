@@ -1,13 +1,11 @@
 import { useState } from "react";
 
 import {
-  completeModelRoutingCompletion,
-  exportModelRoutingEvidenceForHandle,
-  issueModelRoutingCompletionHandle,
-  recordModelRoutingEvidence,
+  modelRoutingCompletionPort,
   type ModelRoutingDecisionReference,
   type ModelRoutingEvidenceArtifact,
   type ModelRoutingCompletionHandle,
+  type ModelRoutingCompletionPort,
   type ModelRoutingEvidenceObservation,
 } from "../lib/optimization";
 
@@ -27,6 +25,7 @@ type CaptureState = {
 
 type ModelRoutingEvidenceCaptureProps = {
   observation?: ModelRoutingEvidenceObservation | null;
+  completionPort?: ModelRoutingCompletionPort | null;
 };
 
 const initialState: CaptureState = {
@@ -69,7 +68,9 @@ function numericValue(value: string, label: string): number {
 
 export function ModelRoutingEvidenceCapture({
   observation,
+  completionPort,
 }: ModelRoutingEvidenceCaptureProps) {
+  const port = completionPort ?? modelRoutingCompletionPort;
   const [state, setState] = useState<CaptureState>(initialState);
   const [working, setWorking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,7 +93,7 @@ export function ModelRoutingEvidenceCapture({
     setWorking(true);
     setNotice(null);
     try {
-      const next = await exportModelRoutingEvidenceForHandle(
+      const next = await port.exportModelRoutingEvidenceForHandle(
         completionHandle.handleId,
         state.taskClass.trim(),
       );
@@ -112,7 +113,7 @@ export function ModelRoutingEvidenceCapture({
     setArtifact(null);
     setDecisionReference(null);
     try {
-      const issued = await issueModelRoutingCompletionHandle({
+      const issued = await port.issueModelRoutingCompletionHandle({
         client: state.client.trim(),
         task: state.taskClass.trim(),
         requestedModel: state.requestedModel.trim(),
@@ -144,7 +145,7 @@ export function ModelRoutingEvidenceCapture({
       if (succeeded === null) {
         throw new Error("Select whether the provider outcome succeeded before completing it.");
       }
-      const reference = await completeModelRoutingCompletion(completionHandle.handleId, {
+      const reference = await port.completeModelRoutingCompletion(completionHandle.handleId, {
         succeeded,
         successfulTaskCostMicrounits: succeeded
           ? numericValue(state.costMicrounits, "Successful task cost")
@@ -170,7 +171,7 @@ export function ModelRoutingEvidenceCapture({
     setWorking(true);
     setNotice(null);
     try {
-      await recordModelRoutingEvidence(observation);
+      await port.recordModelRoutingEvidence(observation);
       setNotice("Supplied routing observation recorded exactly as provided.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
