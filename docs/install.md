@@ -132,8 +132,15 @@ If Codex reports `The '' model is not supported when using Codex with a ChatGPT 
 
 ## CLI Preview
 
-The package-level `switchboard` command is a Node-based, repo-local preview
-for cross-platform Repo Intelligence and provider-neutral planning workflows:
+The generated npm tarball contains a runnable, provider-neutral Node CLI for
+cross-platform Repo Intelligence and local planning workflows. Its packed
+entrypoint and two runtime scripts can run directly after extraction without a
+dependency install. The package is not a full source distribution, desktop app
+bundle, or native executable package. Because the shared app manifest still
+declares frontend dependencies, it is also not an offline self-contained npm
+installation: a normal package install may need registry access.
+
+From a source checkout, use:
 
 ```bash
 npm run switchboard -- repo-intelligence <repo-path> --manifest
@@ -157,8 +164,9 @@ cargo run --manifest-path crates/switchboard-cli/Cargo.toml -- router endpoint p
 cargo run --manifest-path crates/switchboard-cli/Cargo.toml -- workbench session serialize < session.json
 ```
 
-The package-level Node command can delegate only these native-capable commands
-when `SWITCHBOARD_NATIVE_CLI` is set to an explicit executable path:
+The packed Node CLI does not include this native executable. It can delegate
+only these native-capable commands when `SWITCHBOARD_NATIVE_CLI` is set to an
+external absolute executable path:
 
 ```bash
 SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
@@ -168,6 +176,11 @@ SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
 SWITCHBOARD_NATIVE_CLI=/absolute/path/to/switchboard \
   switchboard workbench session serialize --native < session.json
 ```
+
+`switchboard harness status` reports the provider-neutral Workbench contract
+separately from executable availability: the contract exists, no native
+executable is bundled, and native Workbench execution requires the external
+absolute `SWITCHBOARD_NATIVE_CLI` path.
 
 The bridge does not guess installation paths or invoke a shell. Legacy
 `router <repo-path> --native` forms and all `optimize --native` forms are

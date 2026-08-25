@@ -103,8 +103,10 @@ Compatibility:
   npm run repo:intelligence -- <repo-path> [options]
 
 Notes:
-  Harness and router commands are local, provider-neutral planning surfaces.
-  They prepare Repo Intelligence/session evidence and do not send provider traffic.
+  Node harness, router, and Repo Intelligence commands are local, provider-neutral planning surfaces.
+  The Node package does not bundle a native executable.
+  Native status, endpoint planning, and Workbench serialization require --native and an external
+  native CLI named by an absolute SWITCHBOARD_NATIVE_CLI path.
   The macOS app is AI Switchboard for Mac.
   Legacy Mac AI Switchboard paths and package names remain compatible.`);
 }
@@ -194,7 +196,16 @@ if (command === "harness") {
       mode: "local-preview",
       cli: { available: true, binary: "switchboard" },
       router: { available: true, execution: "observe-only", providerTraffic: false },
-      workbench: { available: true, execution: "plan-and-session-evidence" },
+      workbench: {
+        contractAvailable: true,
+        bundledNativeExecutable: false,
+        execution: "external-native-cli-required",
+        externalNativeCli: {
+          required: true,
+          environmentVariable: "SWITCHBOARD_NATIVE_CLI",
+          pathRequirement: "absolute",
+        },
+      },
       repoIntelligence: { available: true, entrypoint: "scripts/repo-intelligence.mjs" },
       desktopRuntime: { requiredForLiveProcessStart: true },
     }, null, 2));

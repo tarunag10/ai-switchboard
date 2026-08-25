@@ -790,6 +790,13 @@ Core extraction progress:
   provenance inventory: the shared JS/native replay implementation, bridge,
   tests, and golden fixture are required, and the gate verifies six JS replay
   tests plus five native replay tests with automatic promotion still disabled.
+- The packed CLI now has runtime smoke coverage: the extracted tarball runs
+  version/help, harness status, Repo Intelligence, native-unset fail-closed,
+  and absolute-stub delegation checks. Workbench status distinguishes its
+  provider-neutral contract from the absence of a bundled native executable;
+  install/platform docs explicitly classify it as a runnable Node CLI, not a
+  desktop/native bundle, full source distribution, or offline self-contained
+  install.
 
 ### Remaining build work
 
