@@ -46,9 +46,9 @@ describe("notificationActionView", () => {
     expect(notificationActionView("billing")).toBe("upgradeAuth");
   });
 
-  it("routes runtime/connectors actions to settings", () => {
+  it("routes connector actions to Agents & Connectors and runtime to settings", () => {
+    expect(notificationActionView("connectors")).toBe("connectors");
     expect(notificationActionView("runtime")).toBe("settings");
-    expect(notificationActionView("connectors")).toBe("settings");
   });
 
   it("routes release evidence to settings and Doctor actions to Doctor", () => {
@@ -115,6 +115,7 @@ describe("safeNotificationActionView", () => {
   });
 
   it("keeps local notification actions in local-only mode", () => {
+    expect(safeNotificationActionView("connectors", true)).toBe("connectors");
     expect(safeNotificationActionView("runtime", true)).toBe("settings");
     expect(safeNotificationActionView("release-readiness", true)).toBe("settings");
     expect(safeNotificationActionView("rollback-center", true)).toBe("doctor");

@@ -127,6 +127,23 @@ export function validateRepoMapMount({ shellSource, sidebarSource }) {
   return failures;
 }
 
+export function validateConnectorsMount({ trayAppSource, sidebarSource }) {
+  const failures = [];
+  if (!/import\s*\{\s*SettingsConnectorPanel\s*\}\s*from\s*["']\.\.\/components\/SettingsConnectorPanel["']/.test(trayAppSource)) {
+    failures.push("missing SettingsConnectorPanel import in TrayApp");
+  }
+  if (!/hidden\s*=\s*\{\s*activeView\s*!==\s*["']connectors["']\s*\}/.test(trayAppSource)) {
+    failures.push("missing Agents & Connectors content pane");
+  }
+  if (!/<SettingsConnectorPanel\b/.test(trayAppSource)) {
+    failures.push("missing SettingsConnectorPanel render in TrayApp");
+  }
+  if (!extractSidebarRouteIds(sidebarSource).has("connectors")) {
+    failures.push("missing Agents & Connectors nav item");
+  }
+  return failures;
+}
+
 export function listFrontendSourceFiles(root) {
   const files = [];
   const visit = (directory) => {

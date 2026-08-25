@@ -249,6 +249,7 @@ import { RepoMapView } from "../components/RepoMapView";
 import { TraySidebar } from "../components/TraySidebar";
 import type { SavingsChartMode } from "../components/SavingsChartTooltip";
 import { SettingsView } from "../components/SettingsView";
+import { SettingsConnectorPanel } from "../components/SettingsConnectorPanel";
 import { TrayAppShell } from "../components/TrayAppShell";
 import { TermsGate } from "../components/TermsGate";
 import { UpgradeView } from "../components/UpgradeView";
@@ -3381,9 +3382,26 @@ export default function TrayApp() {
     />
   );
 
+  const connectorsView = (
+    <SettingsConnectorPanel
+      hidden={activeView !== "connectors"}
+      connectors={connectors}
+      connectorsBusy={connectorsBusy}
+      connectorsError={connectorsError}
+      verifyConnectors={verifyConnectors}
+      copyPlannedConnectorCommand={copyPlannedConnectorCommand}
+      openConnectorHelpId={openConnectorHelpId}
+      plannedConnectorCopyNotice={plannedConnectorCopyNotice}
+      plannedConnectorReadiness={plannedConnectorReadiness}
+      setOpenConnectorHelpId={setOpenConnectorHelpId}
+      toggleConnector={toggleConnector}
+    />
+  );
+
   return (
     <TrayAppShell
       upgradeOverlay={upgradeOverlay}
+      connectorsView={connectorsView}
       settingsView={
         <SettingsView
           hidden={activeView !== "settings"}

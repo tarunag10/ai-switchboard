@@ -41,6 +41,7 @@ type TrayShellHomeProps = Omit<HomeViewProps, "hidden">;
 interface TrayShellModalProps {
   upgradeOverlay: ReactNode;
   settingsView: ReactNode;
+  connectorsView: ReactNode;
   pricingAuthCard: ReactElement;
   activityFeedError: string | null;
   activityFeedLoaded: boolean;
@@ -87,6 +88,7 @@ export interface TrayAppShellProps
 export function TrayAppShell({
   upgradeOverlay,
   settingsView,
+  connectorsView,
   activeView,
   setActiveView,
   localOnlyMode,
@@ -571,6 +573,8 @@ export function TrayAppShell({
         </div>
 
         {settingsView}
+
+        {connectorsView}
 
         {showSavingsInfo && (
           <SavingsInfoDialog

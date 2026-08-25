@@ -23,6 +23,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: "home", label: "Overview", icon: House },
+  { id: "connectors", label: "Agents & Connectors", icon: PuzzlePiece },
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
   { id: "routingModels", label: "Routing", icon: Graph },

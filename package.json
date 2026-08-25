@@ -148,6 +148,7 @@
     "release:proof:contract:selftest": "node --test scripts/public-release-proof-contract.node-test.mjs",
     "release:proof:check": "node --test scripts/public-release-proof-gate.node-test.mjs scripts/reboot-proof-contract.node-test.mjs scripts/public-release-proof-contract.node-test.mjs scripts/public-release-proof-corrupt.node-test.mjs && node scripts/check-public-release-proof-summary.mjs",
     "check:repo-map-mounted": "node scripts/check-repo-map-mounted.mjs",
+    "check:connectors-mounted": "node scripts/check-connectors-mounted.mjs",
     "check:ui-wiring": "node --test scripts/ui-wiring-checks.node-test.mjs && node scripts/check-ui-wiring.mjs",
     "check:tray-layout": "node scripts/check-tray-layout-styles.mjs",
     "nightly:proof:check": "node scripts/check-nightly-golden-path-proof.mjs"

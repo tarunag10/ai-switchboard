@@ -9,6 +9,7 @@ import type {
 /// component tree.
 export type TrayView =
   | "home"
+  | "connectors"
   | "usage"
   | "xray"
   | "briefing"
@@ -35,10 +36,11 @@ export function notificationActionView(action: string | null): TrayView | null {
     case "signup":
       return "upgradeAuth";
     case "runtime":
-    case "connectors":
     case "release":
     case "release-readiness":
       return "settings";
+    case "connectors":
+      return "connectors";
     case "run-doctor":
     case "rollback":
     case "rollback-center":

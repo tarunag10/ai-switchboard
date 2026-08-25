@@ -44,6 +44,7 @@ export interface PlannedConnectorReadinessSummary {
 }
 
 export interface SettingsConnectorPanelProps {
+  hidden?: boolean;
   connectors: ClientConnectorStatus[];
   plannedConnectorReadiness: PlannedConnectorReadinessSummary;
   plannedConnectorCopyNotice: string | null;
@@ -67,6 +68,7 @@ function renderConnectorLogo(clientId: string) {
 }
 
 export function SettingsConnectorPanel({
+  hidden = false,
   connectors,
   plannedConnectorReadiness,
   plannedConnectorCopyNotice,
@@ -115,7 +117,7 @@ export function SettingsConnectorPanel({
   }, [cursorConnectorVisible]);
 
   return (
-    <article className="soft-card panel-card">
+    <article className="soft-card panel-card" hidden={hidden}>
       <div className="panel-card__header">
         <div />
       </div>

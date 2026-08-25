@@ -17,8 +17,9 @@ describe("TraySidebar", () => {
       node.textContent?.trim(),
     );
 
-    expect(labels.slice(0, 6)).toEqual([
+    expect(labels.slice(0, 7)).toEqual([
       "Overview",
+      "Agents & Connectors",
       "Optimize",
       "Repo Intelligence",
       "Routing",
@@ -32,7 +33,7 @@ describe("TraySidebar", () => {
     const onSelectView = vi.fn();
     render(<TraySidebar activeView="repoIntelligence" localOnlyMode={false} onSelectView={onSelectView} />);
     const destinations = [
-      ["Overview", "home"], ["Optimize", "optimization"], ["Repo Intelligence", "repoIntelligence"],
+      ["Overview", "home"], ["Agents & Connectors", "connectors"], ["Optimize", "optimization"], ["Repo Intelligence", "repoIntelligence"],
       ["Routing", "routingModels"], ["Workbench", "workbench"], ["Savings", "usage"], ["Doctor", "doctor"], ["Token X-Ray", "xray"],
       ["Daily Briefing", "briefing"], ["Agent Memory", "agentMemory"], ["Event Log", "notifications"],
       ["Repo Map", "repoMap"], ["Addons", "addons"], ["Upgrade", "upgrade"], ["Settings", "settings"],

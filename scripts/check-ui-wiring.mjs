@@ -10,6 +10,7 @@ import {
   extractSidebarRouteIds,
   findUnmountedSidebarRoutes,
   findUnregisteredInvokes,
+  validateConnectorsMount,
   validateRepoMapMount,
 } from "./lib/ui-wiring-checks.mjs";
 
@@ -24,13 +25,17 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 
 const shellSource = read("src/components/TrayAppShell.tsx");
 const sidebarSource = read("src/components/TraySidebar.tsx");
+const trayAppSource = read("src/app/TrayApp.tsx");
 const repoMapFailures = validateRepoMapMount({ shellSource, sidebarSource });
 if (repoMapFailures.length > 0) fail(repoMapFailures.join("; "));
+
+const connectorsFailures = validateConnectorsMount({ trayAppSource, sidebarSource });
+if (connectorsFailures.length > 0) fail(connectorsFailures.join("; "));
 
 const sidebarRoutes = extractSidebarRouteIds(sidebarSource);
 const mountedRoutes = extractMountedRouteIds([
   shellSource,
-  read("src/app/TrayApp.tsx"),
+  trayAppSource,
   read("src/components/AddonsView.tsx"),
   read("src/components/OptimizationView.tsx"),
 ]);

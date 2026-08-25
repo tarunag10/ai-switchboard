@@ -23,7 +23,7 @@ vi.mock("./UsageSavingsView", () => ({ UsageSavingsView: () => null }));
 
 function shellProps(overrides: Record<string, unknown> = {}) {
   return {
-    upgradeOverlay: null, settingsView: null, pricingAuthCard: <div>Auth</div>, activeView: "home", setActiveView: vi.fn(), localOnlyMode: true,
+    upgradeOverlay: null, settingsView: null, connectorsView: null, pricingAuthCard: <div>Auth</div>, activeView: "home", setActiveView: vi.fn(), localOnlyMode: true,
     tierMismatch: null, upgradeActionError: null, upgradeActionBusy: null, handleUpgradeAction: vi.fn(), calloutBanner: { tone: "healthy", title: "Healthy" },
     calloutTitle: "Healthy", platformPreviewNotice: null, showRuntimeRestartAction: false, handleResumeRuntime: vi.fn(), resuming: false, resumeError: null,
     connectorPhase: "healthy", beginProxyVerificationStep: vi.fn(), connectors: [], pricingStatus: null, codexNudgeDismissed: false, connectorsBusy: false,

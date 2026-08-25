@@ -8,6 +8,7 @@ import {
   findDeadButtonsInSource,
   findUnmountedSidebarRoutes,
   findUnregisteredInvokes,
+  validateConnectorsMount,
   validateRepoMapMount,
 } from "./lib/ui-wiring-checks.mjs";
 
@@ -33,6 +34,28 @@ test("Repo Map validation reports a missing shell render", () => {
     sidebarSource: `const navItems = [{ id: "repoMap", label: "Repo Map" }];`,
   });
   assert.deepEqual(failures, ["missing RepoMapView render"]);
+});
+
+test("Agents & Connectors validation follows the current TrayApp mount", () => {
+  const trayAppSource = `
+    import { SettingsConnectorPanel } from "../components/SettingsConnectorPanel";
+    const connectorsView = (
+      <SettingsConnectorPanel hidden={activeView !== "connectors"} connectors={connectors} />
+    );
+  `;
+  const sidebarSource = `const navItems = [{ id: "connectors", label: "Agents & Connectors", icon: PuzzlePiece }];`;
+  assert.deepEqual(validateConnectorsMount({ trayAppSource, sidebarSource }), []);
+});
+
+test("Agents & Connectors validation reports a missing mount", () => {
+  const failures = validateConnectorsMount({
+    trayAppSource: `
+      import { SettingsConnectorPanel } from "../components/SettingsConnectorPanel";
+      const panel = <SettingsConnectorPanel connectors={connectors} />;
+    `,
+    sidebarSource: `const navItems = [{ id: "connectors", label: "Agents & Connectors" }];`,
+  });
+  assert.deepEqual(failures, ["missing Agents & Connectors content pane"]);
 });
 
 test("visible sidebar routes must have matching mounted views", () => {
