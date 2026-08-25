@@ -140,6 +140,7 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
   const [runPlan, setRunPlan] = useState<WorkbenchRunPlan | null>(null);
   const [preparedRunSpec, setPreparedRunSpec] = useState<WorkbenchRunSpecInput | null>(null);
   const [planHeadSummary, setPlanHeadSummary] = useState<WorkbenchPlanHeadCorrelationSummary | null>(null);
+  const [planHeadError, setPlanHeadError] = useState<string | null>(null);
   const [processGrants, setProcessGrants] = useState<WorkbenchProcessStartGrantView[]>([]);
   const [processAdmissions, setProcessAdmissions] = useState<WorkbenchProcessAdmission[]>([]);
   const [admissionEligibility, setAdmissionEligibility] = useState<WorkbenchAdmissionEligibilitySnapshot | null>(null);
@@ -176,6 +177,7 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
     setRunPlan(null);
     setPreparedRunSpec(null);
     setPlanHeadSummary(null);
+    setPlanHeadError(null);
     setAdmissionEligibility(null);
     setConfirmationPhrase("");
   }, []);
@@ -295,6 +297,7 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
   useEffect(() => {
     let cancelled = false;
     setPlanHeadSummary(null);
+    setPlanHeadError(null);
     if (hidden || !desktopRuntime || !selectedSession || !runPlan) {
       return () => { cancelled = true; };
     }
@@ -303,14 +306,18 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
       runPlan,
     })
       .then((summary) => {
-        if (!cancelled && summary.sessionId === selectedSession.sessionId && summary.planId === runPlan.planId) {
-          setPlanHeadSummary(summary);
+        if (cancelled) return;
+        if (summary.sessionId !== selectedSession.sessionId || summary.planId !== runPlan.planId) {
+          setPlanHeadSummary(null);
+          setPlanHeadError("The returned plan-head binding is stale or does not match the selected session and plan.");
+          return;
         }
+        setPlanHeadSummary(summary);
       })
       .catch((reason) => {
         if (!cancelled) {
           setPlanHeadSummary(null);
-          setError(messageFrom(reason, "Current plan-head correlation could not be loaded."));
+          setPlanHeadError(messageFrom(reason, "Current plan-head correlation could not be loaded."));
         }
       });
     return () => { cancelled = true; };
@@ -954,6 +961,12 @@ export function WorkbenchView({ hidden, onOpenHarnessReplay }: WorkbenchViewProp
                     ) : (
                       <p className="optimize-minimal__meta">No predecessor head is bound to this current plan.</p>
                     )}
+                  </section>
+                ) : planHeadError ? (
+                  <section className="workbench-projection" aria-labelledby="workbench-plan-head-unavailable-title" role="status">
+                    <h3 id="workbench-plan-head-unavailable-title">Current plan-head correlation unavailable</h3>
+                    <p>{planHeadError}</p>
+                    <p className="optimize-minimal__meta">No current head binding is displayed; the prepared plan remains inspect-only until a matching correlation is available.</p>
                   </section>
                 ) : null}
                 {runPlan.processContainment && processGrantPolicy ? (

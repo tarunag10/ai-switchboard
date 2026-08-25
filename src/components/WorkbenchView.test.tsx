@@ -415,6 +415,46 @@ describe("WorkbenchView", () => {
     expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
   });
 
+  it("renders plan-head correlation as unavailable when the native response is stale", async () => {
+    const user = userEvent.setup();
+    preparePlan.mockResolvedValue({
+      schemaVersion: 1,
+      planId: planHeadSummary.planId,
+      sessionId: session.sessionId,
+      adapterId: "codex",
+      workspaceDigest,
+      contextPackDigest: null,
+      routerDecision: { decisionId: "routing-decision-1", decisionStage: "observe", routingMode: "observe_only", evidenceDigest: routerDigest },
+      replayReference: null,
+      preset: null,
+      requestedMode: "full",
+      adapterPlanId: "adapter-plan:test",
+      adapterAction: "apply_managed_routing",
+      adapterReversible: true,
+      commandReadiness: null,
+      processContainment: null,
+      capabilityRequests: [],
+      executionMode: "plan_only",
+      providerTraffic: "none",
+      writesEnabled: false,
+    });
+    getPlanHeadCorrelationSummary.mockResolvedValueOnce({
+      ...planHeadSummary,
+      sessionId: "workbench:stale",
+    });
+    render(<WorkbenchView hidden={false} />);
+    await screen.findAllByText("workbench:test");
+
+    await user.selectOptions(screen.getByLabelText("Observe-only Router decision"), "routing-decision-1");
+    await user.click(screen.getByRole("button", { name: "Prepare plan only" }));
+
+    const unavailable = await screen.findByRole("heading", { name: "Current plan-head correlation unavailable" });
+    expect(unavailable).toBeInTheDocument();
+    expect(unavailable.closest("section")).toHaveTextContent(/stale or does not match the selected session and plan/i);
+    expect(screen.queryByRole("heading", { name: "Current plan-head correlation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /execute/i })).not.toBeInTheDocument();
+  });
+
   it("discards a late prepared plan after a visible plan input changes", async () => {
     const user = userEvent.setup();
     let resolvePlan!: (value: Record<string, unknown>) => void;

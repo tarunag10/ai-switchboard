@@ -36,6 +36,86 @@ the current checkout.
   and Workbench product boundary, OSS reuse policy, kernel contracts, and
   phased execution gates.
 
+## Consolidated handoff and document authority
+
+`docs/implementation-plan-master.md` is the single consolidated handoff
+document for AI Switchboard. Agents taking over implementation should use its
+status vocabulary and evidence rules as the current source of truth. Other
+documents remain useful, but they are supporting references rather than
+competing roadmaps; their status labels must not override this file.
+
+| Document or plan group | Authority treatment |
+|---|---|
+| Master/status documents: `implementation-plan-master.md`, `plan-status-ledger.md`, and `implementation-plan-reconciliation.md` | This master owns current status. The ledger is an evidence-oriented appendix/generated view and may lag until regenerated. The reconciliation is historical context. |
+| Original product and architecture plans: root phased plans, `mac-ai-switchboard-implementation-plan.md`, `product-roadmap-plan.md`, and detailed architecture analyses | Preserve as design history; carry forward only constraints and work that are verified or explicitly listed as remaining here. |
+| Router/Workbench plans: `architecture/router-workbench-implementation-plan.md`, platform-readiness plans, and architecture phase plans | Technical appendices. This master owns their merged implementation status and gate decisions. |
+| Feature plans: Agent Control Center, Agent Memory, Repo Intelligence, Token X-Ray, progressive disclosure, and token-savings plans | Feature appendices. Mark a capability done here only when current code plus tests/gates and safety boundaries verify it; leave depth work in Remaining build work. |
+| OSS integration plans: DeepSeek Harness, NVIDIA NeMo Switchyard, jcode, vLLM, SGLang, TensorRT-LLM, LiteLLM, Dynamo, and enterprise endpoint evaluations | Source-specific research/evidence appendices. Only locally integrated and gated capabilities are current product commitments; optional external interoperability remains gated. |
+| Rebrand, release, trust, security, privacy, threat-model, terminology, and design-system documents | Policy and release appendices. Current release truth is owned by this master; signed-install, reboot, notarization, and public-release claims require their stated external evidence. |
+| Operational documents: install, platform support, recovery, beta smoke, macOS release, and Repo Memory MCP runbooks | Runbooks, not implementation plans. They describe how to operate or validate the implementation recorded here. |
+
+### Verified completed status
+
+The current checkout verifies the local-first product shell and rebrand;
+provider-neutral Router/Workbench planning, sessions, receipts, grants,
+replay, capability projection, and plan-head correlation; the native CLI and
+Node bridge contracts; initial cross-platform core/runtime/CLI crates; harness
+replay and route strategies; Repo Intelligence v1 and read-only MCP context;
+Agent Memory, Token X-Ray, Daily Briefing, Doctor/rollback foundations;
+managed connector lifecycle coverage; selective five-tool activation; and
+local release/readiness evidence with strict fail-closed gates. These are
+marked done below only to the extent that implementation, focused tests or
+deterministic gates, and safety boundaries are present. They do not imply live
+provider execution, installed-app proof, or public release.
+
+### Pending or externally gated status
+
+The full extraction of Workbench persistence, grants, receipts, the OSS
+registry, and runtime adapters remains a build slice. Real Linux/Windows
+runtime adapters, desktop packaging, and publication of cross-platform CI
+remain pending. A central production provider/client completion hook and
+approved provider-billed benchmark evidence remain pending, so automatic
+routing stays observe-only. Deeper bounded Repo Intelligence semantics,
+native writes for Cursor/Qwen Code/Amazon Q, provider-billed metrics, signed
+installed-app/reboot/public-release proof, optional external OSS
+interoperability, and user-controlled gateway integrations remain pending or
+gated. Local code must not convert any of these states into a success claim.
+
+### Pending feature stream: VS Code/Codex session-history import
+
+This is a separate, pending feature stream for recovering the relevant
+history when a user moves between a ChatGPT Codex session and VS Code. It must
+be additive and provenance-preserving; it must not silently merge unrelated
+VS Code history or claim that an unavailable source was imported.
+
+1. **Read-only discovery:** identify supported VS Code/Codex history stores,
+   workspace/repository association, platform paths, permissions, symlinks,
+   and source availability without mutating the source.
+2. **Versioned source adapters:** define one adapter contract per supported
+   store, with explicit schema versions, fixture-backed validation, future or
+   malformed schema rejection, and content-free diagnostics.
+3. **Preview before import:** show source identity, session count, date and
+   repository filters, duplicate candidates, estimated size, unsupported or
+   partial records, and redaction findings before any import is accepted.
+4. **Safety and bounded input:** fail closed for corrupt data, symlinks,
+   permission failures, oversized inputs, unsupported schemas, interrupted
+   reads, and records containing secrets; keep browser previews and UI
+   projections content-safe and bounded.
+5. **Immutable Switchboard records:** copy only approved records into
+   Switchboard-owned immutable history with source digest, adapter/schema
+   version, import timestamp, filter metadata, and a provenance receipt.
+6. **Product integration:** expose imported history through Workbench, Agent
+   Memory, and Start Agent Session with explicit source labels, duplicate
+   handling, and no false continuity between distinct providers or apps.
+7. **CLI parity:** provide read-only `preview`, controlled `import`, and
+   provenance-preserving `export` paths with the same validation and redaction
+   contract as the desktop UI.
+8. **Edge-case verification:** cover duplicate and repeated imports,
+   interrupted imports and restart/resume, corrupt and future-version data,
+   partial records, deleted or changed source files, repository/date filters,
+   permission errors, symlink escapes, oversized inputs, secret findings,
+   digest mismatch, and browser-preview restrictions.
+
 ## Status vocabulary
 
 - **Done** — shipped and locally verified in this checkout.
@@ -561,7 +641,10 @@ Core extraction progress:
   added. Filesystem persistence, locking, snapshot decoding, ledger
   publication, and the full provider-neutral receipt/ledger adapter remain
   Tauri-owned; this slice does not complete plan-head extraction or enable
-  execution.
+  execution. The command is non-executing, but its first access may initialize
+  app-local storage directories and the authority lock file, and existing
+  storage migration may have state effects; callers must not describe it as
+  mutation-free filesystem access.
 - `switchboard-core::process_grant` now owns the first provider-neutral process
   grant contract: strict persisted schema, fixed TTL/status/revocation rules,
   plan-only flags, deterministic receipt digest, and effective-state checks.

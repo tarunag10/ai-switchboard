@@ -222,7 +222,10 @@ pub fn prepare_workbench_run_plan(
 }
 
 /// Reads the current durable plan-head binding for an already selected session
-/// and prepared run plan. This is inspect-only and does not change any ledger.
+/// and prepared run plan. This is non-executing and does not intentionally
+/// publish a plan or change any ledger, but opening app-local storage may
+/// create storage directories and the authority lock file; existing storage
+/// migration can also have its documented state effects.
 #[tauri::command]
 pub fn get_workbench_plan_head_correlation_summary(
     input: WorkbenchPlanHeadCorrelationSummaryInput,
