@@ -797,6 +797,12 @@ Core extraction progress:
   install/platform docs explicitly classify it as a runnable Node CLI, not a
   desktop/native bundle, full source distribution, or offline self-contained
   install.
+- Cursor’s read-only native-schema assessment is now visible directly in the
+  connector card: allowlisted schemas are labeled as such, missing or
+  unsupported schemas explicitly keep native writes blocked, and sidecar
+  routing remains visible as the available path. No secrets, paths, account
+  details, or native-write capability are exposed; focused connector UI tests
+  and TypeScript validation pass.
 
 ### Remaining build work
 

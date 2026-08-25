@@ -1,6 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const invokeMock = vi.fn();
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...args: unknown[]) => invokeMock(...args),
+}));
 
 import type { PlannedConnectorReadinessSummary } from "../lib/dashboardHelpers";
 import type { ClientConnectorStatus } from "../lib/types";
@@ -31,8 +36,39 @@ const codexConnector: ClientConnectorStatus = {
   lastConfiguredAt: null,
 };
 
+const cursorConnector: ClientConnectorStatus = {
+  clientId: "cursor",
+  name: "Cursor",
+  supportStatus: "planned",
+  setupPhase: "managed",
+  installed: true,
+  enabled: false,
+  verified: false,
+  setupVerification: null,
+  lastConfiguredAt: null,
+};
+
+const blockedCursorAssessment = {
+  schemaId: "cursor-native-provider-schema",
+  supported: false,
+  reason:
+    "Cursor documents provider API keys in Settings > Models, but does not document a stable on-disk provider/model/base-url schema for safe third-party writes.",
+  docsUrl: "https://cursor.com/help/models-and-usage/api-keys",
+  surfacesDetected: 2,
+  evidence: ["Cursor native schema not allowlisted."],
+};
+
+const allowlistedCursorAssessment = {
+  schemaId: "cursor-native-provider-schema",
+  supported: true,
+  reason: "Cursor native schema is allowlisted.",
+  docsUrl: "https://cursor.com/help/models-and-usage/api-keys",
+  surfacesDetected: 2,
+  evidence: ["Cursor native schema allowlisted."],
+};
+
 function renderPanel(
-  overrides: Partial<ClientConnectorStatus> = {},
+  connectors: ClientConnectorStatus[] = [{ ...codexConnector }],
   openConnectorHelpId: string | null = null,
 ) {
   const toggleConnector = vi.fn().mockResolvedValue(undefined);
@@ -41,7 +77,7 @@ function renderPanel(
 
   const { container, unmount } = render(
     <SettingsConnectorPanel
-      connectors={[{ ...codexConnector, ...overrides }]}
+      connectors={connectors}
       connectorsBusy={false}
       connectorsError={null}
       verifyConnectors={vi.fn()}
@@ -64,6 +100,72 @@ function renderPanel(
 }
 
 describe("SettingsConnectorPanel", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  it("renders cursor native-schema status on the closed card and keeps sidecar availability visible", async () => {
+    invokeMock.mockResolvedValue(blockedCursorAssessment);
+
+    const { container } = renderPanel([{ ...codexConnector }, { ...cursorConnector }]);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Cursor native provider writes remain blocked until a documented on-disk schema and full lifecycle proof exist\./,
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText(/Sidecar routing and Repo Intelligence packs remain available\./),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sidecar available · native gated")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enable sidecar" })).toBeEnabled();
+
+    const item = screen.getByText("Cursor", { selector: "h3" }).closest("article");
+    expect(item).toBeTruthy();
+    const card = within(item!);
+    expect(card.getByText(/Native schema:/)).toBeInTheDocument();
+    expect(card.getByText(/Sidecar routing and Repo Intelligence packs remain available\./)).toBeInTheDocument();
+    expect(card.queryByText(/settings\.json|globalStorage|credentials|account/i)).not.toBeInTheDocument();
+
+    expect(container.querySelector(".connector-item__native-schema")).not.toBeNull();
+  });
+
+  it("shows allowlisted Cursor schema status when the public assessment allows native writes", async () => {
+    invokeMock.mockResolvedValue(allowlistedCursorAssessment);
+
+    renderPanel([{ ...cursorConnector }]);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Cursor native schema is allowlisted."),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Sidecar available · native gated")).toBeInTheDocument();
+  });
+
+  it("falls back to the blocked Cursor schema status when the public assessment is missing", async () => {
+    invokeMock.mockResolvedValue(null);
+
+    renderPanel([{ ...cursorConnector }]);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Cursor native provider writes remain blocked until a documented on-disk schema and full lifecycle proof exist\./,
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText(/Sidecar routing remains available\./),
+    ).toBeInTheDocument();
+  });
+
   it("renders readiness metrics and connector controls", async () => {
     const user = userEvent.setup();
     const {
@@ -72,7 +174,7 @@ describe("SettingsConnectorPanel", () => {
       setOpenConnectorHelpId,
       toggleConnector,
     } =
-      renderPanel();
+      renderPanel([{ ...codexConnector }]);
 
     expect(screen.getByText("Connector readiness")).toBeInTheDocument();
     expect(screen.getByText("1 connector ready")).toBeInTheDocument();
@@ -113,7 +215,7 @@ describe("SettingsConnectorPanel", () => {
     ).not.toBeInTheDocument();
 
     unmount();
-    renderPanel({}, "codex");
+    renderPanel([{ ...codexConnector }], "codex");
 
     expect(
       screen.getByRole("button", {
@@ -132,12 +234,15 @@ describe("SettingsConnectorPanel", () => {
       installed: false,
       supportStatus: "planned" as const,
     };
-    const { unmount } = renderPanel(gatedGrok);
+    const { unmount } = renderPanel([
+      { ...codexConnector },
+      gatedGrok as ClientConnectorStatus,
+    ]);
 
     expect(screen.queryByText(/~\/\.grok\/config\.toml/i)).not.toBeInTheDocument();
 
     unmount();
-    renderPanel(gatedGrok, "grok_cli");
+    renderPanel([{ ...codexConnector }, gatedGrok as ClientConnectorStatus], "grok_cli");
 
     expect(screen.getAllByText(/~\/\.grok\/config\.toml/i).length).toBeGreaterThan(0);
   });

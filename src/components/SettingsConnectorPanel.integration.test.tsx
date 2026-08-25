@@ -34,23 +34,47 @@ describe("SettingsConnectorPanel alternate connector branches", () => {
     expect(screen.getByText(/Restart Codex to start routing/)).toBeInTheDocument();
   });
 
-  it("loads Cursor native schema evidence and copies its setup/config plans", async () => {
-    const user = userEvent.setup();
-    invokeMock.mockResolvedValue({ schemaVersion: "1", schemaSupported: false, protectedFieldsPreserved: true, backupRoundTripPassed: true, offCleanupPassed: true, reasons: ["schema not promoted"] });
-    const { p } = renderPanel({ connectors: [cursor], openConnectorHelpId: "cursor" });
+  it("shows Cursor native schema status on the closed card from the public assessment payload", async () => {
+    invokeMock.mockResolvedValue({
+      schemaId: "cursor-native-provider-schema",
+      supported: false,
+      reason:
+        "Cursor documents provider API keys in Settings > Models, but does not document a stable on-disk provider/model/base-url schema for safe third-party writes.",
+      docsUrl: "https://cursor.com/help/models-and-usage/api-keys",
+      surfacesDetected: 2,
+      evidence: ["Cursor native settings surface: none detected yet."],
+    });
+    renderPanel({ connectors: [cursor] });
+
     expect(invokeMock).toHaveBeenCalledWith("get_cursor_native_schema_assessment");
-    await waitFor(() => expect(screen.getByText(/Schema assessment:/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          /Cursor native provider writes remain blocked until a documented on-disk schema and full lifecycle proof exist\./,
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText(/Sidecar routing and Repo Intelligence packs remain available\./),
+    ).toBeInTheDocument();
     const item = screen.getByText("Cursor", { selector: "h3" }).closest("article");
     if (!item) throw new Error("Cursor item missing");
     const card = within(item);
-    await user.click(card.getByRole("button", { name: "Copy Cursor setup check command" }));
-    await user.click(card.getByRole("button", { name: "Copy Cursor config creation plan" }));
-    expect(p.copyPlannedConnectorCommand).toHaveBeenCalledWith(expect.any(String), "Cursor");
-    expect(p.copyPlannedConnectorCommand).toHaveBeenCalledWith(expect.any(String), "Cursor config plan");
+    expect(card.getByText("Sidecar available · native gated")).toBeInTheDocument();
+    expect(card.getByRole("button", { name: "Enable sidecar" })).toBeEnabled();
   });
 
   it("exposes Cursor's safe sidecar toggle while keeping native routing gated", async () => {
     const user = userEvent.setup();
+    invokeMock.mockResolvedValue({
+      schemaId: "cursor-native-provider-schema",
+      supported: false,
+      reason:
+        "Cursor documents provider API keys in Settings > Models, but does not document a stable on-disk provider/model/base-url schema for safe third-party writes.",
+      docsUrl: "https://cursor.com/help/models-and-usage/api-keys",
+      surfacesDetected: 2,
+      evidence: ["Cursor native settings surface: none detected yet."],
+    });
     const { p } = renderPanel({ connectors: [cursor] });
     const item = screen.getByText("Cursor", { selector: "h3" }).closest("article");
     if (!item) throw new Error("Cursor item missing");

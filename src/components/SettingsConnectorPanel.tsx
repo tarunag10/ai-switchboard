@@ -27,7 +27,7 @@ import {
   getPlannedConnectorNextStep,
 } from "../lib/settingsConnectorCopy";
 import {
-  evaluateCursorNativePromotionGate,
+  describeCursorNativeGate,
   type CursorNativeSchemaAssessment,
 } from "../lib/cursorNativeGate";
 import { evaluateConnectorPromotionGate } from "../lib/connectorPromotionGate";
@@ -80,18 +80,39 @@ export function SettingsConnectorPanel({
 }: SettingsConnectorPanelProps) {
   const [cursorNativeAssessment, setCursorNativeAssessment] =
     useState<CursorNativeSchemaAssessment | null>(null);
+  const cursorConnectorVisible = connectors.some(
+    (connector) => connector.clientId === "cursor",
+  );
+  const cursorNativeGate = describeCursorNativeGate(cursorNativeAssessment);
+  const cursorNativeStatus = !cursorNativeAssessment
+    ? `${cursorNativeGate.summary} Sidecar routing remains available.`
+    : cursorNativeGate.nativeWritesAllowed
+      ? "Cursor native schema is allowlisted."
+      : cursorNativeGate.summary;
 
   useEffect(() => {
-    if (openConnectorHelpId !== "cursor") {
+    if (!cursorConnectorVisible) {
       setCursorNativeAssessment(null);
       return;
     }
+    let cancelled = false;
     void invoke<CursorNativeSchemaAssessment>(
       "get_cursor_native_schema_assessment",
     )
-      .then(setCursorNativeAssessment)
-      .catch(() => setCursorNativeAssessment(null));
-  }, [openConnectorHelpId]);
+      .then((assessment) => {
+        if (!cancelled) {
+          setCursorNativeAssessment(assessment);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCursorNativeAssessment(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cursorConnectorVisible]);
 
   return (
     <article className="soft-card panel-card">
@@ -258,6 +279,11 @@ export function SettingsConnectorPanel({
                         ? "Automatic setup is available."
                         : "Detected or supported as manual setup."}
                   </p>
+                  {connector.clientId === "cursor" ? (
+                    <p className="connector-item__native-schema">
+                      <strong>Native schema:</strong> {cursorNativeStatus}
+                    </p>
+                  ) : null}
                   {openConnectorHelpId === connector.clientId &&
                   plannedConnector ? (
                     <div className="connector-plan">
@@ -289,15 +315,10 @@ export function SettingsConnectorPanel({
                               ? "Promoted for this documented connector surface. Credentials, account state, and model selection remain manual."
                               : `${plannedReadiness.nativeWriteEvidence} Native gate: ${plannedReadiness.stages.find((stage) => stage.id === plannedReadiness.nativeNextBlockedStage)?.label ?? "manual"}.`}
                           </p>
-                          {connector.clientId === "cursor" &&
-                          cursorNativeAssessment ? (
+                          {connector.clientId === "cursor" ? (
                             <p className="connector-plan__native-boundary">
                               <strong>Schema assessment:</strong>{" "}
-                              {
-                                evaluateCursorNativePromotionGate(
-                                  cursorNativeAssessment,
-                                ).summary
-                              }
+                              {cursorNativeStatus}
                             </p>
                           ) : null}
                           <p className="connector-plan__native-boundary">
